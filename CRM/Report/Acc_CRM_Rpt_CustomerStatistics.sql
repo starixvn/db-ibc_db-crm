@@ -8,7 +8,7 @@ AS
 /*
 	Created: 20110826@Lukas	
 	Task :  daily summary on customer feedback
-	DB: DB052.bodb_CRM
+	DB: DBCRM/bodb_CRM
 	Original:
 
 	Revisions:
@@ -21,13 +21,13 @@ AS
 		- 20120425@Sophia: remove converting @FromDate, @Todate
 		- 20120710@Sophia: Exclude ProductID = 8013 for Mini Game
 		- 20120730@Sophia: Exclude ProductID = 8017 for Poker
+		- 20130607@Elodie: Add CommunicationID (1005->1010)
 		
 	Param's Explanation:
 		@SiteType: 	0: All
 					1: IBC
 					2: Licensee
-							
-	
+								
 */
 BEGIN
 	SET NOCOUNT ON
@@ -42,9 +42,7 @@ BEGIN
 		INNER JOIN crmSetting s WITH(NOLOCK) ON r.SettingID = s.SettingID
 	WHERE s.SettingName = 'Subcategory'
 		AND 
-		m.SettingName = 'Maincategory'
-	
-
+		m.SettingName = 'Maincategory'	
 	
 	;WITH rs AS
 	(
@@ -56,7 +54,13 @@ BEGIN
 				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
 				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
 				SUM(CASE WHEN CommunicationID = 1003 THEN 1 ELSE 0 END) Skype,
-				SUM(CASE WHEN CommunicationID = 1004 THEN 1 ELSE 0 END) LiveChat
+				SUM(CASE WHEN CommunicationID = 1004 THEN 1 ELSE 0 END) LiveChat,
+				SUM(CASE WHEN CommunicationID = 1005 THEN 1 ELSE 0 END) NA,
+				SUM(CASE WHEN CommunicationID = 1006 THEN 1 ELSE 0 END) Yahoo,	
+				SUM(CASE WHEN CommunicationID = 1007 THEN 1 ELSE 0 END) WeChat,
+				SUM(CASE WHEN CommunicationID = 1008 THEN 1 ELSE 0 END) Line,
+				SUM(CASE WHEN CommunicationID = 1009 THEN 1 ELSE 0 END) WhatsApp,
+				SUM(CASE WHEN CommunicationID = 1010 THEN 1 ELSE 0 END) QQ
 				
 		FROM crmFeedback fb WITH(NOLOCK) 
 				LEFT JOIN crmSetting m WITH(NOLOCK) ON fb.MainCategoryID = m.SettingID
@@ -76,11 +80,17 @@ BEGIN
 			ISNULL(Email,0)		AS Email,
 			ISNULL(MSN,0)		AS MSN,
 			ISNULL(Skype,0)		AS Skype,
-			ISNULL(LiveChat,0)	AS LiveChat
+			ISNULL(LiveChat,0)	AS LiveChat,
+			ISNULL(NA,0)		AS NA,
+			ISNULL(Yahoo,0)		AS Yahoo,
+			ISNULL(WeChat,0)	AS WeChat,
+			ISNULL(Line,0)		AS Line,
+			ISNULL(WhatsApp,0)	AS WhatsApp,
+			ISNULL(QQ,0)		AS QQ
+			
 	FROM @category c LEFT JOIN rs ON c.MaincategoryID = rs.MaincategoryID AND c.SubcategoryID = rs.SubcategoryID
 	ORDER BY MaincategoryId, SubcategoryID
 END
-
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_CustomerStatistics] TO [bodbAdminNet]

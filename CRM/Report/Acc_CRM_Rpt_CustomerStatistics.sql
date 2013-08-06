@@ -22,6 +22,7 @@ AS
 		- 20120710@Sophia: Exclude ProductID = 8013 for Mini Game
 		- 20120730@Sophia: Exclude ProductID = 8017 for Poker
 		- 20130607@Elodie: Add CommunicationID (1005->1010)
+		- 20130805@Kathy:  Exclude ProductID = 8005 for Bingo
 		
 	Param's Explanation:
 		@SiteType: 	0: All
@@ -67,7 +68,7 @@ BEGIN
 				LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 				LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.SiteID = st.SettingID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND fb.ProductID NOT IN (8003, 8011, 8013, 8014, 8017)
+				AND fb.ProductID NOT IN (8003, 8005, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND  1 = CASE WHEN @SiteType = 0 AND (((st.SettingID BETWEEN 6000 AND 6199 OR fb.SiteID = 0) AND fb.ProductID <> 8008) OR (st.SettingID BETWEEN 6200 AND 6999)) THEN 1
 							  WHEN @SiteType = 1 AND (st.SettingID BETWEEN 6000 AND 6199 OR fb.SiteID = 0) AND fb.ProductID <> 8008 THEN 1

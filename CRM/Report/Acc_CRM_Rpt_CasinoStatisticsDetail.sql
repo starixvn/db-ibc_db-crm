@@ -17,7 +17,7 @@ AS
 		- 20120425@Sophia: remove converting @FromDate, @Todate
 		- 20120710@Sophia: Add ProductID = 8013 for Mini Game
 		- 20120730@Sophia: Add ProductID = 8017 for Poker
-		
+		- 20130805@Kathy:  Add ProductID = 8005 for Bingo
 	Param's Explanation:
 		@Type:	- 1	Daily
 				- 2	Weekly					
@@ -65,7 +65,7 @@ BEGIN
 	FROM crmFeedback fb WITH(NOLOCK)
 		INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.CustID = c.CustID		
 		LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON fb.CreatorID = ci.custID
-	WHERE ProductID IN (8003,8008,8011,8013,8014,8017) 
+	WHERE ProductID IN (8003,8005,8008,8011,8013,8014,8017) 
 			AND fb.feedbackdate BETWEEN @fromdate AND @todate
 			AND fb.StatusID <> 11004	
 	ORDER BY fb.feedbackdate DESC

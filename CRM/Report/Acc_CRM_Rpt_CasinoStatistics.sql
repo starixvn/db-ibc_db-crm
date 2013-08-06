@@ -19,6 +19,7 @@ AS
 		- 20120710@Sophia: Add ProductID = 8013 for Mini Game
 		- 20120730@Sophia: Add ProductID = 8017 for Poker
 		- 20130607@Elodie: Add CommunicationID (1005->1010) for every ProductID
+		- 20130805@Kathy:  Add ProductID = 8005 for Bingo
 	Param's Explanation:
 		@Type:	- 1	Daily
 				- 2	Weekly	
@@ -43,6 +44,18 @@ BEGIN
 			IBCBetCasino_WhatsApp	INT,
 			IBCBetCasino_QQ			INT,			
 
+			Bingo_Call				INT,
+			Bingo_Email				INT,
+			Bingo_MSN				INT,
+			Bingo_Skype				INT,
+			Bingo_LiveChat			INT,
+			Bingo_NA				INT,
+			Bingo_Yahoo				INT,
+			Bingo_WeChat			INT,
+			Bingo_Line				INT,
+			Bingo_WhatsApp			INT,
+			Bingo_QQ				INT,
+			
 			NumberGame_Call			INT,
 			NumberGame_Email		INT,
 			NumberGame_MSN			INT,
@@ -127,6 +140,18 @@ BEGIN
 			SUM(CASE WHEN ProductID = 8003 AND CommunicationID = 1008 THEN 1 ELSE 0 END) IBCBetCasino_Line,
 			SUM(CASE WHEN ProductID = 8003 AND CommunicationID = 1009 THEN 1 ELSE 0 END) IBCBetCasino_WhatsApp,
 			SUM(CASE WHEN ProductID = 8003 AND CommunicationID = 1010 THEN 1 ELSE 0 END) IBCBetCasino_QQ,
+			
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1000 THEN 1 ELSE 0 END) Bingo_Call,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1001 THEN 1 ELSE 0 END) Bingo_Email,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1002 THEN 1 ELSE 0 END) Bingo_MSN,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1003 THEN 1 ELSE 0 END) Bingo_Skype,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1004 THEN 1 ELSE 0 END) Bingo_LiveChat,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1005 THEN 1 ELSE 0 END) Bingo_NA,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1006 THEN 1 ELSE 0 END) Bingo_Yahoo,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1007 THEN 1 ELSE 0 END) Bingo_WeChat,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1008 THEN 1 ELSE 0 END) Bingo_Line,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1009 THEN 1 ELSE 0 END) Bingo_WhatsApp,
+			SUM(CASE WHEN ProductID = 8005 AND CommunicationID = 1010 THEN 1 ELSE 0 END) Bingo_QQ,
 
 			SUM(CASE WHEN ProductID = 8008 AND CommunicationID = 1000 THEN 1 ELSE 0 END) NumberGame_Call,
 			SUM(CASE WHEN ProductID = 8008 AND CommunicationID = 1001 THEN 1 ELSE 0 END) NumberGame_Email,
@@ -189,7 +214,7 @@ BEGIN
 			SUM(CASE WHEN ProductID = 8017 AND CommunicationID = 1010 THEN 1 ELSE 0 END) Poker_QQ
 	FROM crmFeedback fb WITH(NOLOCK) 
 			LEFT JOIN crmSetting m WITH(NOLOCK) ON fb.MainCategoryID = m.SettingID
-	WHERE ProductID IN (8003,8008,8011,8013,8014,8017) 
+	WHERE ProductID IN (8003, 8005, 8008,8011,8013,8014,8017) 
 			AND fb.feedbackdate BETWEEN @fromdate AND @todate
 			AND fb.StatusID NOT IN ( 11004, 11001)
 	GROUP BY m.SettingID,m.SettingValue

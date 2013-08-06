@@ -228,6 +228,7 @@ BEGIN
 			c.MainCategory, 						
 			ISNULL(Bet2_Call + Bet2_Email + Bet2_MSN + Bet2_Skype + Bet2_LiveChat + Bet2_NA + Bet2_Yahoo + Bet2_WeChat + Bet2_Line + Bet2_WhatsApp + Bet2_QQ,0) AS Bet2,
 			ISNULL(IBCBetCasino_Call + IBCBetCasino_Email + IBCBetCasino_MSN + IBCBetCasino_Skype + IBCBetCasino_LiveChat + IBCBetCasino_NA + IBCBetCasino_Yahoo + IBCBetCasino_WeChat + IBCBetCasino_Line + IBCBetCasino_WhatsApp + IBCBetCasino_QQ,0) AS IBCBetCasino,	
+			ISNULL(Bingo_Call + Bingo_Email + Bingo_MSN + Bingo_Skype + Bingo_LiveChat + Bingo_NA + Bingo_Yahoo + Bingo_WeChat + Bingo_Line + Bingo_WhatsApp + Bingo_QQ,0) AS Bingo,
 			ISNULL(NumberGame_Call + NumberGame_Email + NumberGame_MSN + NumberGame_Skype + NumberGame_LiveChat + NumberGame_NA + NumberGame_Yahoo + NumberGame_WeChat + NumberGame_Line + NumberGame_WhatsApp + NumberGame_QQ,0) AS NumberGame,
 			ISNULL(LiveCS_Call + LiveCS_Email + LiveCS_MSN + LiveCS_Skype + LiveCS_LiveChat + LiveCS_NA + LiveCS_Yahoo + LiveCS_WeChat + LiveCS_Line + LiveCS_WhatsApp + LiveCS_QQ,0) AS LiveCS,
 			ISNULL(MiniGame_Call + MiniGame_Email + MiniGame_MSN + MiniGame_Skype + MiniGame_LiveChat + MiniGame_NA + MiniGame_Yahoo + MiniGame_WeChat + MiniGame_Line + MiniGame_WhatsApp + MiniGame_QQ,0) AS MiniGame,
@@ -250,6 +251,18 @@ BEGIN
 				ISNULL(t.IBCBetCasino_Line,0) IBCBetCasino_Line,
 				ISNULL(t.IBCBetCasino_WhatsApp,0) IBCBetCasino_WhatsApp,
 				ISNULL(t.IBCBetCasino_QQ,0) IBCBetCasino_QQ,
+				
+				ISNULL(t.Bingo_Call,0) Bingo_Call,
+				ISNULL(t.Bingo_Email,0) Bingo_Email,
+				ISNULL(t.Bingo_MSN,0) Bingo_MSN,
+				ISNULL(t.Bingo_Skype,0) Bingo_Skype,
+				ISNULL(t.Bingo_LiveChat,0) Bingo_LiveChat,
+				ISNULL(t.Bingo_NA,0) Bingo_NA,
+				ISNULL(t.Bingo_Yahoo,0) Bingo_Yahoo,
+				ISNULL(t.Bingo_WeChat,0) Bingo_WeChat,
+				ISNULL(t.Bingo_Line,0) Bingo_Line,
+				ISNULL(t.Bingo_WhatsApp,0) Bingo_WhatsApp,
+				ISNULL(t.Bingo_QQ,0) Bingo_QQ,
 
 				ISNULL(t.NumberGame_Call,0) NumberGame_Call,
 				ISNULL(t.NumberGame_Email,0) NumberGame_Email,
@@ -314,6 +327,7 @@ BEGIN
 			LEFT JOIN @tmp t ON c.MaincategoryId = t.MaincategoryID
 		ORDER BY MaincategoryID
 END
+
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_CasinoStatistics] TO [bodbAdminNet]

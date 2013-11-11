@@ -56,6 +56,7 @@ AS
 		- 20120327@Elodie: change data type of @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 		- 20120418@Elodie: change default value of @RelatedCustID param to NULL value
 		- 20120529@Elodie: encode some parameters to write log in XML format, such as Pic1, Pic2, Pic3
+		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
 	Param's Explanation:
 	
 */
@@ -74,6 +75,20 @@ BEGIN
 				@ErrMsg = 'Customer does not exist.'
 		RETURN
 	END	
+
+	IF ISNULL(@CommunicationID,0) = 0 
+		or ISNULL(@MainCategoryID,0) = 0 
+		or ISNULL(@SubCategoryID,0) = 0 
+		or ISNULL(@StatusID,0) = 0 
+		or ISNULL(@LanguageID,0) = 0
+		or ISNULL(@RoleID,0) = 0
+		or ISNULL(@ResponseID,0) = 0
+		or ISNULL(@StationID,0) = 0
+	BEGIN
+		SELECT @ErrCode = 100
+		SELECT @ErrMsg = 'Incorrect Data.'
+		RETURN
+	END
 
 	-- get solve date
 	SELECT @SolveDate = CASE WHEN @IsReviewed = 0 THEN NULL ELSE GETDATE() END
@@ -221,12 +236,12 @@ BEGIN
 						'<Title>'			+ ISNULL(CONVERT(VARCHAR(5),@TitleID),'')			+ '</Title>' +
 						'<FirstName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')	+ '</FirstName>' +
 						'<LastName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')	+ '</LastName>' +
-						'<Phone>'			+ ISNULL(@Phone,'')									+ '</Phone>' +
-						'<MobilePhone>'		+ ISNULL(@MobilePhone,'')							+ '</MobilePhone>' +
-						'<Fax>'				+ ISNULL(@Fax,'')									+ '</Fax>' +						
+						'<Phone>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone),'')									+ '</Phone>' +
+						'<MobilePhone>'		+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhone),'')							+ '</MobilePhone>' +
+						'<Fax>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Fax),'')									+ '</Fax>' +						
 						'<Email>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')		+ '</Email>' +
-						'<Skype>'			+ ISNULL(@Skype,'')									+ '</Skype>' +
-						'<MSN>'				+ ISNULL(@MSN,'')									+ '</MSN>' +	
+						'<Skype>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Skype),'')									+ '</Skype>' +
+						'<MSN>'				+ ISNULL([dbo].[f_EncodeXMLValue](@MSN),'')									+ '</MSN>' +	
 						'<LanguageID>'		+ ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')		+ '</LanguageID>' +
 						'<CountryID>'		+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')		+ '</CountryID>' +
 						'<Subject>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Subject),'')		+ '</Subject>' +
@@ -264,6 +279,9 @@ BEGIN
 					@Review =  @Review,
 					@Doing = @LogElement
 END
+
+
+
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackIns] TO [bodbAdminNet]

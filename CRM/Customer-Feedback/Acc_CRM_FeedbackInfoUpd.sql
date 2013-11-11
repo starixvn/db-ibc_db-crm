@@ -60,6 +60,7 @@ AS
 		- 20120418@Elodie: remove condition to check if @RelatedCustID <> '' then update related customer.
 						   change default value of @RelatedCustID param to NULL value
 		- 20130121@Johnson: change linked server DB03 to DBPOLICY
+		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
 	Param's Explanation:
 		• @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -87,6 +88,20 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 100
 		SELECT @ErrMsg = 'Feedback does not exist.'
+		RETURN
+	END
+
+	IF ISNULL(@CommunicationID,0) = 0 
+		or ISNULL(@MainCategoryID,0) = 0 
+		or ISNULL(@SubCategoryID,0) = 0 
+		or ISNULL(@StatusID,0) = 0 
+		or ISNULL(@LanguageID,0) = 0
+		or ISNULL(@RoleID,0) = 0
+		or ISNULL(@ResponseID,0) = 0
+		or ISNULL(@StationID,0) = 0
+	BEGIN
+		SELECT @ErrCode = 100
+		SELECT @ErrMsg = 'Incorrect Data.'
 		RETURN
 	END
 
@@ -204,6 +219,8 @@ BEGIN
 	END
 	
 END
+
+
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackInfoUpd] TO [bodbAdminNet]

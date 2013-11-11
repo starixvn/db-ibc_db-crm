@@ -60,6 +60,7 @@ AS
 		- 20120405@Elodie: add @IsOverWrite param to comfirm that if the information of new feedback overwrite to current CRMInfo
 		- 20120418@Elodie: change default value of @RelatedCustID param to NULL value
 		- 20130121@Johnson: Change link server DB03 to DBPOLICY
+		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
 	Param's Explanation:
 		• @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -80,6 +81,20 @@ BEGIN
 
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''	
+
+	IF ISNULL(@CommunicationID,0) = 0 
+		or ISNULL(@MainCategoryID,0) = 0 
+		or ISNULL(@SubCategoryID,0) = 0 
+		or ISNULL(@StatusID,0) = 0 
+		or ISNULL(@LanguageID,0) = 0
+		or ISNULL(@RoleID,0) = 0
+		or ISNULL(@ResponseID,0) = 0
+		or ISNULL(@StationID,0) = 0
+	BEGIN
+		SELECT @ErrCode = 100
+		SELECT @ErrMsg = 'Incorrect Data.'
+		RETURN
+	END
 
 	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
@@ -214,6 +229,8 @@ BEGIN
 		RETURN
 	END
 END
+
+
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerFeedbackIns] TO [bodbAdminNet]

@@ -1,5 +1,12 @@
-﻿
-ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmLogFeedback]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.WriteLog_UserLog_crmLogFeedback    Script Date: 3/26/2014 6:06:10 PM ******/
+
+CREATE PROCEDURE [dbo].[WriteLog_UserLog_crmLogFeedback]
 (
 	@UserID			INT, 
 	@FeedbackID		INT,
@@ -9,7 +16,8 @@ ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmLogFeedback]
 	@Description	NVARCHAR(MAX),
 	@Solution		NVARCHAR(MAX),
 	@Review			NVARCHAR(4000),
-	@Doing			XML
+	@NewValues		xml,
+	@OldValues		xml = NULL
 )
 AS
 /*
@@ -20,7 +28,7 @@ DB: DB06.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20140303@Dom: Modify for new structure
 Param's Explanation:
 	- @UserID: UserId perform this action
 	- @CustID: 
@@ -41,7 +49,8 @@ BEGIN
 					Description, 
 					Solution, 
 					Review, 
-					Doing
+					Doing,
+					OldValues
 				)
 			VALUES
 				(
@@ -54,12 +63,23 @@ BEGIN
 					@Description, 
 					@Solution, 
 					@Review,
-					@Doing
+					@NewValues,
+					@OldValues
 				)
 END
 
 
+
 GO
-GRANT EXECUTE ON [dbo].[WriteLog_UserLog_crmLogFeedback] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[WriteLog_UserLog_crmLogFeedback] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[WriteLog_UserLog_crmLogFeedback] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[WriteLog_UserLog_crmLogFeedback] TO [vnteam]
+GO 

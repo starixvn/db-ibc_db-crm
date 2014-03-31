@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_CustomerStatistics]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_Rpt_CustomerStatistics    Script Date: 3/26/2014 6:06:08 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_Rpt_CustomerStatistics]
 (
 	@fromdate	DATETIME,
 	@todate		DATETIME,
@@ -23,7 +30,7 @@ AS
 		- 20120730@Sophia: Exclude ProductID = 8017 for Poker
 		- 20130607@Elodie: Add CommunicationID (1005->1010)
 		- 20130805@Kathy:  Exclude ProductID = 8005 for Bingo
-		
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 		@SiteType: 	0: All
 					1: IBC
@@ -93,7 +100,17 @@ BEGIN
 	ORDER BY MaincategoryId, SubcategoryID
 END
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_CustomerStatistics] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_CustomerStatistics] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_CustomerStatistics] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_CustomerStatistics] TO [vnteam]
+GO 

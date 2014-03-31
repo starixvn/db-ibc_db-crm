@@ -1,7 +1,14 @@
-﻿
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerUpdUsername    Script Date: 3/26/2014 6:06:06 PM ******/
 
 
-alter PROCEDURE [dbo].[Acc_CRM_CustomerUpdUsername]
+
+CREATE PROCEDURE [dbo].[Acc_CRM_CustomerUpdUsername]
 (
 	@NewUsername VARCHAR(30),
 	@CustID		INT,	
@@ -19,7 +26,7 @@ AS
 	Original:
 
 	Revisions:
-		
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 	
 */
@@ -35,6 +42,11 @@ BEGIN
 		SELECT @ErrMsg = 'Username already existed.'
 		RETURN
 	END
+
+	 DECLARE @Username_Old VARCHAR(30)
+	 SELECT @Username_Old = UserName
+	 FROM crmCustomer WITH(NOLOCK) 
+	 WHERE CustID = @CustID
 
 	UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
 	SET username = @NewUsername
@@ -57,20 +69,36 @@ BEGIN
 	END
 
 	-- write log
-	DECLARE @LogElement XML
-	SELECT @LogElement =
+	DECLARE @OldValues XML,@NewValues XML
+
+	SELECT @OldValues =
+					'<Acc_CRM_CustomerUpdUsername>' + --SP Name
+						'<NewUsername>'		+ ISNULL(@Username_Old,'')			+ '</NewUsername>' +											
+					'</Acc_CRM_CustomerUpdUsername>'
+	SELECT @NewValues =
 					'<Acc_CRM_CustomerUpdUsername>' + --SP Name
 						'<NewUsername>'		+ ISNULL(@NewUsername,'')			+ '</NewUsername>' +											
 					'</Acc_CRM_CustomerUpdUsername>'
+
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
 					@CustID = @CustID, 
 					@UserID = @UserID, 
 					@ActionID = 104, 
 					@IP = @IP, 
-					@Doing = @LogElement
+					@NewValues = @NewValues,
+					@OldValues = @OldValues
 END
-GO
-GRANT VIEW DEFINITION ON Acc_CRM_CustomerUpdUsername TO vnteam
-GO
-GRANT EXECUTE ON Acc_CRM_CustomerUpdUsername TO bodbAdminNet
 
+GO
+
+SET QUOTED_IDENTIFIER OFF 
+GO
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpdUsername] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpdUsername] TO [vnteam]
+GO 

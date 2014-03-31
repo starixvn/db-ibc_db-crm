@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_GuestUpdUserName]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_GuestUpdUserName    Script Date: 3/26/2014 6:06:07 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_GuestUpdUserName]
 (
 	@UserID		INT,
 	@CustID		INT,
@@ -18,6 +25,7 @@ AS
 	Revisions:
 		- 20110701@Lukas: support update username for guest
 		- 20120503@Elodie: check if user exists in CRM system before updating
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 	
 */
@@ -32,6 +40,12 @@ BEGIN
 		SELECT @ErrMsg = 'Username already existed.'
 		RETURN
 	END
+
+	DECLARE @Username_Old NVARCHAR(50)
+	SELECT @Username_Old = Username
+	FROM crmCustomer WITH(NOLOCK)
+	WHERE CustID = @CustID
+
 	-- update guets's username
 	UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
 	SET Username = @Username
@@ -45,11 +59,16 @@ BEGIN
 	END
 
 	-- write log
-	DECLARE @LogElement XML
+	DECLARE @NewValues XML,@OldValues XML
 
-	SELECT @LogElement =
+	SELECT @NewValues =
 					'<Acc_CRM_GuestUpdUserName>' + --SP Name
 						'<UserName>'		+ ISNULL(@UserName,'')	+ '</UserName>' +						
+					'</Acc_CRM_GuestUpdUserName>'
+
+	SELECT @OldValues =
+					'<Acc_CRM_GuestUpdUserName>' + --SP Name
+						'<UserName>'		+ ISNULL(@Username_Old,'')	+ '</UserName>' +						
 					'</Acc_CRM_GuestUpdUserName>'
 				
 
@@ -58,11 +77,22 @@ BEGIN
 					@UserID = @UserID, 
 					@ActionID = 103, 
 					@IP = @IP, 
-					@Doing = @LogElement
+					@NewValues = @NewValues,
+					@OldValues = @OldValues
 	
 END
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_GuestUpdUserName] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_GuestUpdUserName] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_GuestUpdUserName] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_GuestUpdUserName] TO [vnteam]
+GO 

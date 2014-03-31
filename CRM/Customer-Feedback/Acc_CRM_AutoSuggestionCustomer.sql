@@ -12,6 +12,7 @@ Original:
 
 Revisions:	
 	- 20130121@Johnson: Change link server DB06 to DBACC
+	- 20140303@Dom: Modify for new structure
 Param's Explanation:	
 	
 */

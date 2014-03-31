@@ -1,6 +1,13 @@
-﻿
 
-ALTER PROCEDURE [dbo].[Acc_CRM_SettingRelationIns]
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_SettingRelationIns    Script Date: 3/26/2014 6:06:09 PM ******/
+
+
+CREATE PROCEDURE [dbo].[Acc_CRM_SettingRelationIns]
 (
 	@UserID			INT,
 	@SettingID		INT,
@@ -19,7 +26,7 @@ DB: DB06.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20140221@Dom: Update Log writing
 Param's Explanation:
 	
 */
@@ -90,10 +97,20 @@ BEGIN
 					@UserID = @UserID, 
 					@ActionID = 302, 
 					@IP = @IP, 
-					@Doing = @LogElement
+					@NewValues = @LogElement
 END
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationIns] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationIns] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationIns] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationIns] TO [vnteam]
+GO 

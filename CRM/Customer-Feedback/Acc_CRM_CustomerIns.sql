@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerIns    Script Date: 3/26/2014 6:06:05 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_CustomerIns]
 (
 	@UserID				INT,
 	@CustID				INT,
@@ -51,6 +58,7 @@ Revisions:
 					   change DB06 to DB052
 	- 20120404@Elodie: change data type of @Skype, @MSN, @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 	- 20120529@Elodie: encode some parameters to write log in XML format, such as Question, Answer, Pic1, ...
+	- 20140303@Dom: Modify for new structure
 Param's Explanation:
 	
 */
@@ -198,10 +206,20 @@ BEGIN
 					@UserID = @UserID, 
 					@ActionID = 100, 
 					@IP = @IP, 
-					@Doing = @LogElement
+					@NewValues = @LogElement
 END
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerIns] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerIns] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerIns] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerIns] TO [vnteam]
+GO 

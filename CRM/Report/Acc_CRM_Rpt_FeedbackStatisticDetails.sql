@@ -1,5 +1,11 @@
-﻿
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_Rpt_FeedbackStatisticDetails    Script Date: 3/26/2014 6:06:09 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails]
 (
 	@Type			INT,
 	@MainCategoryID	INT,
@@ -22,7 +28,7 @@ Revisions:
 	- 20110622@Kevin: add new filter: Status, Response, Product, Category
 	- 20111011@Lukas: Add filter duration
 	- 20120425@Sophia: remove converting @FromDate, @Todate
-	
+	- 20140303@Dom: Modify for new structure
 Param's Explanation:
 	@Type:	- 1		Creator
 			- 2		Country
@@ -77,8 +83,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode, 
 					fb.Email, 
 					fb.Skype,
 					fb.msn,
@@ -121,7 +139,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.CreatorID = @ValueID
+					(@ValueID=0 OR fb.CreatorID = @ValueID)
 					AND		
 					fbc.IsRelated = 0	
 					AND 
@@ -145,8 +163,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode, 
 					fb.Email, 
 					fb.Skype,
 					fb.msn,
@@ -189,7 +219,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.CountryID = @ValueID 
+					(@ValueID=0 OR fb.CountryID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -213,8 +243,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode, 
 					fb.Email,
 					fb.Skype,
 					fb.msn, 
@@ -258,7 +300,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.RoleID = @ValueID
+					(@ValueID=0 OR fb.RoleID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -282,8 +324,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode, 
 					fb.Email, 
 					fb.Skype,
 					fb.msn,
@@ -326,7 +380,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.SiteID = @ValueID
+					(@ValueID=0 OR fb.SiteID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -350,8 +404,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode, 
 					fb.Email, 
 					fb.Skype,
 					fb.msn,
@@ -394,7 +460,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.StatusID = @ValueID
+					(@ValueID=0 OR fb.StatusID = @ValueID)
 					AND		
 					fbc.IsRelated = 0	
 					AND 
@@ -418,8 +484,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode,  
 					fb.Email, 
 					fb.Skype,
 					fb.msn,
@@ -486,8 +564,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode,  
 					fb.Email,
 					fb.Skype,
 					fb.msn, 
@@ -531,7 +621,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.ProductID = @ValueID
+					(@ValueID=0 OR fb.ProductID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -555,8 +645,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode,  
 					fb.Email,
 					fb.Skype,
 					fb.msn, 
@@ -598,7 +700,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END
 					AND
-					fb.MainCategoryID = @ValueID
+					(@ValueID=0 OR fb.MainCategoryID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -622,8 +724,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode,  
 					fb.Email,
 					fb.Skype,
 					fb.msn, 
@@ -666,7 +780,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.siteID = @ValueID
+					(@ValueID=0 OR fb.siteID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -691,8 +805,20 @@ BEGIN
 					fb.FirstName, 
 					fb.LastName, 
 					fb.Phone, 
+					fb.PhoneAreaCode,
+					fb.PhoneCountryCode,
+					fb.Phone2, 
+					fb.Phone2AreaCode,
+					fb.Phone2CountryCode,
+					fb.Phone3, 
+					fb.Phone3AreaCode,
+					fb.Phone3CountryCode,
 					fb.MobilePhone, 
+					fb.MobilePhoneAreaCode, 
+					fb.MobilePhoneCountryCode, 
 					fb.Fax, 
+					fb.FaxAreaCode, 
+					fb.FaxCountryCode,  
 					fb.Email,
 					fb.Skype,
 					fb.msn, 
@@ -735,7 +861,7 @@ BEGIN
 					AND 
 					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					fb.CommunicationID = @ValueID
+					(@ValueID=0 OR fb.CommunicationID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -752,7 +878,17 @@ END
 
 
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] TO [vnteam]
+GO 

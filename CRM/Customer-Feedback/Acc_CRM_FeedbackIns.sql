@@ -1,44 +1,70 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackIns    Script Date: 3/26/2014 6:06:06 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackIns]
 (
-	@UserID				INT,
-	@CustID				INT,
-	@TitleID			INT,
-	@FirstName			NVARCHAR(50),
-	@LastName			NVARCHAR(50),
-	@Phone				NVARCHAR(50),
-	@MobilePhone		NVARCHAR(50),
-	@Fax				NVARCHAR(50),
-	@Email				NVARCHAR(254),
-	@Skype				NVARCHAR(100),
-	@MSN				NVARCHAR(100),	
-	@LanguageID			INT,
-	@CountryID			INT,	
-	@CreatorID			INT,
-	@Subject			NVARCHAR(200)	= NULL,
-	@FeedbackDate		DATETIME,	
-	@ResolutionDate		DATETIME,
-	@CommunicationID	INT,
-	@StationID			INT,
-	@MainCategoryID		INT,
-	@SubCategoryID		INT,
-	@SiteID				INT,
-	@RoleID				INT,
-	@ProductID			INT,
-	@BettypeID			INT,
-	@ResponseID			INT,
-	@StatusID			INT,
-	@RelatedCustID		VARCHAR(500)	= NULL,
-	@Description		NVARCHAR(MAX)	= NULL,
-	@Solution			NVARCHAR(MAX)	= NULL,
-	@IsReviewed			BIT				= 0,
-	@Review				NVARCHAR(4000)	= NULL,
-	@ReviewerID			INT				= NULL,
-	@IP					VARCHAR(15),
-	@Pic1				NVARCHAR(100)	= NULL,
-	@Pic2				NVARCHAR(100)	= NULL,
-	@Pic3				NVARCHAR(100)	= NULL,
-	@ErrCode			INT				= 0 OUTPUT,
-	@ErrMsg				NVARCHAR(4000)	= '' OUTPUT	
+	@UserID						INT,
+	@CustID						INT,
+	@UserName					NVARCHAR(50),
+	@TitleID					INT				= NULL,
+	@Birthday					DATETIME		= NULL,
+	@FirstName					NVARCHAR(50)	= NULL,
+	@LastName					NVARCHAR(50)	= NULL,
+	@Phone						NVARCHAR(100)	= NULL,
+	@PhoneCountryCode			NVARCHAR(40)	= NULL,
+	@PhoneAreaCode				NVARCHAR(40)	= NULL,
+	@Phone2						NVARCHAR(100)	= NULL,
+	@Phone2CountryCode			NVARCHAR(40)	= NULL,
+	@Phone2AreaCode				NVARCHAR(40)	= NULL,
+	@Phone3						NVARCHAR(100)	= NULL,
+	@Phone3CountryCode			NVARCHAR(40)	= NULL,
+	@Phone3AreaCode				NVARCHAR(40)	= NULL,
+	@MobilePhone				NVARCHAR(100)	= NULL,
+	@MobilePhoneCountryCode		NVARCHAR(40)	= NULL,
+	@MobilePhoneAreaCode		NVARCHAR(40)	= NULL,
+	@Fax						NVARCHAR(50)	= NULL,
+	@FaxCountryCode				NVARCHAR(40)	= NULL,
+	@FaxAreaCode				NVARCHAR(40)	= NULL,
+	@Email						NVARCHAR(254)	= NULL,
+	@Skype						NVARCHAR(100)	= NULL,
+	@MSN						NVARCHAR(100)	= NULL,
+	@LanguageID					INT				= NULL,
+	@CountryID					INT				= NULL,	
+	@Pic1						NVARCHAR(100)	= NULL,
+	@Pic2						NVARCHAR(100)	= NULL,
+	@Pic3						NVARCHAR(100)	= NULL,
+	@Pic4						NVARCHAR(200)	= NULL,
+	@Passport					NVARCHAR(100)	= NULL,
+	@BettingCode				NVARCHAR(100)	= NULL,			
+	@RefCode2					NVARCHAR(100)	= NULL,
+	@IsVip						BIT				= 0,
+	@SiteID						INT				= NULL,
+	@CreatorID					INT,
+	@Subject					NVARCHAR(200)	= NULL,
+	@FeedbackDate				DATETIME,	
+	@ResolutionDate				DATETIME,
+	@CommunicationID			INT,
+	@StationID					INT,
+	@MainCategoryID				INT,
+	@SubCategoryID				INT,
+	@RoleID						INT,
+	@ProductID					INT,
+	@BettypeID					INT,
+	@ResponseID					INT,
+	@StatusID					INT,
+	@RelatedCustID				VARCHAR(500)	= NULL,
+	@Description				NVARCHAR(MAX)	= NULL,
+	@Solution					NVARCHAR(MAX)	= NULL,
+	@IsReviewed					BIT				= 0,
+	@Review						NVARCHAR(4000)	= NULL,
+	@ReviewerID					INT				= NULL,
+	@IP							VARCHAR(15),
+	@ErrCode					INT				= 0 OUTPUT,
+	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
 )
 AS
 /*
@@ -57,6 +83,7 @@ AS
 		- 20120418@Elodie: change default value of @RelatedCustID param to NULL value
 		- 20120529@Elodie: encode some parameters to write log in XML format, such as Pic1, Pic2, Pic3
 		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 	
 */
@@ -80,7 +107,6 @@ BEGIN
 		or ISNULL(@MainCategoryID,0) = 0 
 		or ISNULL(@SubCategoryID,0) = 0 
 		or ISNULL(@StatusID,0) = 0 
-		or ISNULL(@LanguageID,0) = 0
 		or ISNULL(@RoleID,0) = 0
 		or ISNULL(@ResponseID,0) = 0
 		or ISNULL(@StationID,0) = 0
@@ -97,81 +123,115 @@ BEGIN
 	-- insert feedback
 	INSERT INTO crmFeedback
 				(
-					CustID, 
-					TitleID, 
-					FirstName, 
-					LastName, 
-					Phone, 
-					MobilePhone, 
-					Fax, 
+					CustID,
+					TitleID,
+					Birthday,
+					FirstName,
+					LastName,
+					Phone,
+					PhoneCountryCode,
+					PhoneAreaCode,
+					Phone2,
+					Phone2CountryCode,
+					Phone2AreaCode,
+					Phone3,
+					Phone3CountryCode,
+					Phone3AreaCode,
+					MobilePhone,
+					MobilePhoneCountryCode,
+					MobilePhoneAreaCode,
+					Fax,
+					FaxCountryCode,
+					FaxAreaCode,
 					Email,
 					Skype,
 					MSN,
-					LanguageID, 
-					CountryID, 
-					CreateDate, 
-					CreatorID, 
-					FeedbackDate, 
-					SolveDate,
-					CommunicationID, 
-					StationID, 
-					MainCategoryID, 
-					SubCategoryID, 
-					SiteID, 
-					RoleID, 
-					ProductID,
-					BetTypeID, 
-					ResponseID, 
-					StatusID, 
-					Description, 
-					Solution, 
-					IsReviewed, 
-					Review, 
-					ReviewerID,
-					Subject,
-					ResolutionDate,
+					LanguageID,
+					CountryID,	
 					Pic1,
 					Pic2,
-					Pic3
+					Pic3,
+					Pic4,
+					Passport,
+					RefCode1,
+					RefCode2,
+					IsVip,
+					CreatorID,
+					CreateDate,
+					Subject,
+					FeedbackDate,	
+					ResolutionDate,
+					CommunicationID,
+					StationID,
+					MainCategoryID,
+					SubCategoryID,
+					RoleID,
+					ProductID,
+					BettypeID,
+					ResponseID,
+					StatusID,
+					Description,
+					Solution,
+					IsReviewed,
+					Review,
+					ReviewerID,
+					SiteID
 				)
 			VALUES
 				(
-					@CustID, 
-					@TitleID, 
-					@FirstName, 
-					@LastName, 
-					@Phone, 
-					@MobilePhone, 
-					@Fax, 
+					@CustID,
+					@TitleID,
+					@Birthday,
+					@FirstName,
+					@LastName,
+					@Phone,
+					@PhoneCountryCode,
+					@PhoneAreaCode,
+					@Phone2,
+					@Phone2CountryCode,
+					@Phone2AreaCode,
+					@Phone3,
+					@Phone3CountryCode,
+					@Phone3AreaCode,
+					@MobilePhone,
+					@MobilePhoneCountryCode,
+					@MobilePhoneAreaCode,
+					@Fax,
+					@FaxCountryCode,
+					@FaxAreaCode,
 					@Email,
 					@Skype,
 					@MSN,
-					@LanguageID, 
-					@CountryID, 
-					GETDATE(), 
-					@CreatorID, 
-					@FeedbackDate, 
-					@SolveDate,
-					@CommunicationID, 
-					@StationID, 
-					@MainCategoryID, 
-					@SubCategoryID, 
-					@SiteID, 
-					@RoleID, 
-					@ProductID,
-					@BetTypeID, 
-					@ResponseID, 
-					@StatusID, 
-					@Description, 
-					@Solution, 
-					@IsReviewed, 
-					@Review, 
-					@ReviewerID,
-					@Subject,
-					@ResolutionDate,
+					@LanguageID,
+					@CountryID,	
 					@Pic1,
 					@Pic2,
-					@Pic3
+					@Pic3,
+					@Pic4,
+					@Passport,
+					@BettingCode,
+					@RefCode2,
+					@IsVip,
+					@CreatorID,
+					GETDATE(),
+					@Subject,
+					@FeedbackDate,	
+					@ResolutionDate,
+					@CommunicationID,
+					@StationID,
+					@MainCategoryID,
+					@SubCategoryID,
+					@RoleID,
+					@ProductID,
+					@BettypeID,
+					@ResponseID,
+					@StatusID,
+					@Description,
+					@Solution,
+					@IsReviewed,
+					@Review,
+					@ReviewerID,
+					@SiteID
 				)
 	IF @@ERROR <> 0
 	BEGIN
@@ -233,38 +293,57 @@ BEGIN
 
 	SELECT @LogElement = 				
 					'<Acc_CRM_FeedbackIns>' + --SP Name
-						'<Title>'			+ ISNULL(CONVERT(VARCHAR(5),@TitleID),'')			+ '</Title>' +
-						'<FirstName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')	+ '</FirstName>' +
-						'<LastName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')	+ '</LastName>' +
-						'<Phone>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone),'')									+ '</Phone>' +
-						'<MobilePhone>'		+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhone),'')							+ '</MobilePhone>' +
-						'<Fax>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Fax),'')									+ '</Fax>' +						
-						'<Email>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')		+ '</Email>' +
-						'<Skype>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Skype),'')									+ '</Skype>' +
-						'<MSN>'				+ ISNULL([dbo].[f_EncodeXMLValue](@MSN),'')									+ '</MSN>' +	
-						'<LanguageID>'		+ ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')		+ '</LanguageID>' +
-						'<CountryID>'		+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')		+ '</CountryID>' +
-						'<Subject>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Subject),'')		+ '</Subject>' +
-						'<Creator>'			+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')		+ '</Creator>' +
-						'<FeedbackDate>'	+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')		+ '</FeedbackDate>' +
-						'<ResolutionDate>'	+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')	+ '</ResolutionDate>' +
-						'<SolveDate>'		+ ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')		+ '</SolveDate>' +
-						'<CommunicationID>' + ISNULL(CONVERT(VARCHAR(10),@CommunicationID),'')	+ '</CommunicationID>' +
-						'<StationID>'		+ ISNULL(CONVERT(VARCHAR(10),@StationID),'')		+ '</StationID>' +
-						'<MainCategoryID>'	+ ISNULL(CONVERT(VARCHAR(10),@MainCategoryID),'')	+ '</MainCategoryID>' +
-						'<SubCategoryID>'	+ ISNULL(CONVERT(VARCHAR(10),@SubCategoryID),'')	+ '</SubCategoryID>' +
-						'<SiteID>'			+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')			+ '</SiteID>' +
-						'<RoleID>'			+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')			+ '</RoleID>' +
-						'<ProductID>'		+ ISNULL(CONVERT(VARCHAR(10),@ProductID),'')		+ '</ProductID>' +
-						'<BettypeID>'		+ ISNULL(CONVERT(VARCHAR(10),@BettypeID),'')		+ '</BettypeID>' +
-						'<ResponseID>'		+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')		+ '</ResponseID>' +
-						'<StatusID>'		+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')			+ '</StatusID>' +
-						'<RelatedCustID>'	+ ISNULL(@RelatedCustID,'')							+ '</RelatedCustID>' +
-						'<IsReviewed>'		+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')		+ '</IsReviewed>' +
-						'<Reviewer>'		+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')		+ '</Reviewer>' +						
-						'<Pic1>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')		+ '</Pic1>' +
-						'<Pic2>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')		+ '</Pic2>' +
-						'<Pic3>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')		+ '</Pic3>' +
+						'<TitleID>'						+ ISNULL(CONVERT(VARCHAR(5),@TitleID),'')						+ '</TitleID>' +
+						'<FirstName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')				+ '</FirstName>' +
+						'<LastName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')				+ '</LastName>' +
+						'<Birthday>'				+ ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')						+ '</Birthday>' +
+						'<Phone>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone),'')					+ '</Phone>' +
+						'<PhoneCountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneCountryCode),'')		+ '</PhoneCountryCode>' +
+						'<PhoneAreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneAreaCode),'')			+ '</PhoneAreaCode>' +
+						'<Phone2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2),'')					+ '</Phone2>' +
+						'<Phone2CountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2CountryCode),'')		+ '</Phone2CountryCode>' +
+						'<Phone2AreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2AreaCode),'')			+ '</Phone2AreaCode>' +
+						'<Phone3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3),'')					+ '</Phone3>' +
+						'<Phone3CountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3CountryCode),'')		+ '</Phone3CountryCode>' +
+						'<Phone3AreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3AreaCode),'')			+ '</Phone3AreaCode>' +
+						'<MobilePhone>'					+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhone),'')				+ '</MobilePhone>' +
+						'<MobilePhoneCountryCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneCountryCode),'')	+ '</MobilePhoneCountryCode>' +
+						'<MobilePhoneAreaCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneAreaCode),'')		+ '</MobilePhoneAreaCode>' +
+						'<Fax>'							+ ISNULL([dbo].[f_EncodeXMLValue](@Fax),'')						+ '</Fax>' +
+						'<FaxCountryCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FaxCountryCode),'')			+ '</FaxCountryCode>' +
+						'<FaxAreaCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FaxAreaCode),'')				+ '</FaxAreaCode>' +						
+						'<Email>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')					+ '</Email>' +
+						'<Skype>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Skype),'')					+ '</Skype>' +
+						'<MSN>'							+ ISNULL([dbo].[f_EncodeXMLValue](@MSN),'')						+ '</MSN>' +	
+						'<BettingCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BettingCode),'')				+ '</BettingCode>' +	
+						'<RefCode2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@RefCode2),'')				+ '</RefCode2>' +	
+						'<IsVip>'						+ ISNULL(CONVERT(VARCHAR(10),@IsVip),'')						+ '</IsVip>' +
+						'<LanguageID>'					+ ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')					+ '</LanguageID>' +
+						'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')					+ '</CountryID>' +
+						'<Subject>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Subject),'')					+ '</Subject>' +
+						'<Creator>'						+ ISNULL(CONVERT(VARCHAR(10),@UserID),'')						+ '</Creator>' +
+						'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
+						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
+						'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID),'')				+ '</CommunicationID>' +
+						'<StationID>'					+ ISNULL(CONVERT(VARCHAR(10),@StationID),'')					+ '</StationID>' +
+						'<MainCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@MainCategoryID),'')				+ '</MainCategoryID>' +
+						'<SubCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubCategoryID),'')				+ '</SubCategoryID>' +
+						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
+						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +
+						'<ProductID>'					+ ISNULL(CONVERT(VARCHAR(10),@ProductID),'')					+ '</ProductID>' +
+						'<BettypeID>'					+ ISNULL(CONVERT(VARCHAR(10),@BettypeID),'')					+ '</BettypeID>' +
+						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
+						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
+						'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
+						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
+						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +						
+						'<Pic1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')					+ '</Pic1>' +
+						'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')					+ '</Pic2>' +
+						'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')					+ '</Pic3>' +
+						'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')					+ '</Pic4>' +
+						'<Passport>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Passport),'')				+ '</Passport>' +
+						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description),'')				+ '</Remark>' +
+						'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution),'')				+ '</Solution>' +
 					'</Acc_CRM_FeedbackIns>'
 
 
@@ -277,13 +356,23 @@ BEGIN
 					@Description = @Description, 
 					@Solution = @Solution,
 					@Review =  @Review,
-					@Doing = @LogElement
+					@NewValues = @LogElement
 END
 
 
 
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackIns] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackIns] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackIns] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackIns] TO [vnteam]
+GO 

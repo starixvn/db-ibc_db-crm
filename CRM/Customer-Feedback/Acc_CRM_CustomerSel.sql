@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerSel    Script Date: 3/26/2014 6:06:05 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_CustomerSel]
 (
 	@CustID	INT
 )
@@ -15,6 +22,7 @@ Revisions:
 	- 20110825@Kevin: add nickname column
 	- 20120329@Elodie: change DB06 to DB052				   
 	- 20121120@Lukas: correct join condition (wrong alias)
+	- 20140303@Dom: Modify for new structure
 Param's Explanation:	
 */
 BEGIN	
@@ -145,7 +153,17 @@ BEGIN
 	END
 END
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSel] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSel] TO [vnteam]GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSel] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSel] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSel] TO [vnteam]
+GO 

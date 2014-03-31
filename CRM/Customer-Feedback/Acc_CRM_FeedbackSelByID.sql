@@ -1,6 +1,12 @@
-﻿
 
-ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID]
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackSelByID    Script Date: 3/26/2014 6:06:06 PM ******/
+
+CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID]
 (
 	@FeedbackID INT
 )
@@ -16,6 +22,7 @@ AS
 		- 20110629@Lukas: support get multipe related customer
 		- 20120307@Elodie: get more 3 values Pic1, Pic2, Pic3
 		- 20120319@Elodie: change DB06 to DB052
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 		
 */
@@ -34,9 +41,26 @@ BEGIN
 		ISNULL(fb.TitleID,0) TitleID, 
 		fb.FirstName, 
 		fb.LastName, 
+		fb.Birthday,
 		fb.Phone, 
-		fb.MobilePhone, 
+		fb.PhoneAreaCode, 
+		fb.PhoneCountryCode, 
+		fb.Phone2, 
+		fb.Phone2AreaCode, 
+		fb.Phone2CountryCode, 
+		fb.Phone3, 
+		fb.Phone3AreaCode, 
+		fb.Phone3CountryCode, 
+		fb.MobilePhone,
+		fb.MobilePhoneAreaCode,
+		fb.MobilePhoneCountryCode,
 		fb.Fax, 
+		fb.FaxAreaCode, 
+		fb.FaxCountryCode, 
+		fb.Passport,
+		fb.RefCode1,
+		fb.RefCode2,
+		ISNULL(fb.IsVip,0) IsVip,
 		fb.Email, 
 		fb.Skype,
 		fb.msn,
@@ -48,6 +72,7 @@ BEGIN
 		fb.ResolutionDate,
 		fb.CreateDate,
 		fb.SolveDate,
+		fb.LanguageID,
 		ISNULL(fb.CommunicationID,0) CommunicationID, 
 		ISNULL(fb.StationID,0) StationID, 
 		ISNULL(fb.MainCategoryID,0) MainCategoryID,
@@ -68,7 +93,8 @@ BEGIN
 		l.list relatedCustomer,
 		ISNULL(fb.Pic1,'') Pic1,
 		ISNULL(fb.Pic2,'') Pic2,
-		ISNULL(fb.Pic3,'') Pic3
+		ISNULL(fb.Pic3,'') Pic3,
+		ISNULL(fb.Pic4,'') Pic4
 	FROM 
 		crmFeedback fb WITH(NOLOCK) 
 			CROSS APPLY dbo.f_GetRelatedCustomer(fb.FeedbackID) l
@@ -79,8 +105,16 @@ BEGIN
 	WHERE 
 		fb.FeedbackID = @FeedbackID	
 END
+GO
 
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackSelByID] TO [bodbAdminNet]
+SET ANSI_NULLS ON 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackSelByID] TO [vnteam]
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackSelByID] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackSelByID] TO [vnteam]
+GO 

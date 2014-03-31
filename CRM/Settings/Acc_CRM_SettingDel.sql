@@ -1,5 +1,12 @@
-﻿
-ALTER PROCEDURE [dbo].[Acc_CRM_SettingDel]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_SettingDel    Script Date: 3/26/2014 6:06:09 PM ******/
+
+CREATE PROCEDURE [dbo].[Acc_CRM_SettingDel]
 (
 	@UserID			INT,
 	@SettingID		INT,
@@ -17,17 +24,12 @@ Original:
 
 Revisions:
 	- 20130121@Johnson: change linked server DB03 to DBPOLICY
+	- 20140221@Dom: Update Log writing
 Param's Explanation:
 	
 */
 BEGIN
 	SET NOCOUNT ON
-	
-	--Check permission
-	EXEC DBPOLICY.bodb02.dbo.Acc_Con_CheckPermission @custid=@UserID,@funcname='[SettingManagement]',@ErrCode=@ErrCode OUTPUT,@ErrMsg=@ErrMsg OUTPUT
-	IF @ErrCode <> 0
-		RETURN
-		
 		
 	IF	NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingID = @SettingID) 		
 	BEGIN
@@ -49,10 +51,15 @@ BEGIN
 	END
 
 	-- write log
-	DECLARE @LogElement XML
+	DECLARE @NewValues XML,@OldValues XML
 
-	SELECT @LogElement = 				
+	SELECT @NewValues = 				
 					'<Acc_CRM_SettingDel>'	+ --SP Name						
+					'<IsActive>0</IsActive>'+
+					'</Acc_CRM_SettingDel>' 
+	SELECT @OldValues = 				
+					'<Acc_CRM_SettingDel>'	+ --SP Name						
+					'<IsActive>1</IsActive>'+
 					'</Acc_CRM_SettingDel>' 
 				
 
@@ -62,11 +69,22 @@ BEGIN
 					@UserID = @UserID, 
 					@ActionID = 304, 
 					@IP = @IP, 
-					@Doing = @LogElement
+					@NewValues = @NewValues,
+					@OldValues = @OldValues
 END
 
 
+
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_SettingDel] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingDel] TO [vnteam] 
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_SettingDel] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingDel] TO [vnteam]
+GO 

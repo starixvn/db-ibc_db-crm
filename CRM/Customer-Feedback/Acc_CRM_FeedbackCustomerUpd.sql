@@ -1,4 +1,11 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackCustomerUpd]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackCustomerUpd    Script Date: 3/26/2014 6:06:06 PM ******/
+CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackCustomerUpd]
 (
 	@UserID				INT,
 	@FeedbackID			INT,
@@ -22,7 +29,7 @@ AS
 						   check duplicate related customer.
 		- 20120418@Elodie: remove all related customers of feedback if @RelatedCustID parameter is empty.				   
 						   change default value of @RelatedCustID param to NULL value
-							
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 	
 */
@@ -102,10 +109,20 @@ BEGIN
 					@Description = '', 
 					@Solution = '',
 					@Review =  '',
-					@Doing = @LogElement
+					@NewValues = @LogElement
 END
 
+
 GO
-GRANT EXECUTE ON [dbo].Acc_CRM_FeedbackCustomerUpd TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].Acc_CRM_FeedbackCustomerUpd TO [vnteam] 
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackCustomerUpd] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackCustomerUpd] TO [vnteam]
+GO 

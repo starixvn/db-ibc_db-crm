@@ -1,5 +1,12 @@
-﻿
-ALTER PROCEDURE [dbo].[Acc_CRM_SettingRelationUpd]
+
+SET QUOTED_IDENTIFIER ON 
+GO
+SET ANSI_NULLS ON 
+GO
+
+/****** Object:  Stored Procedure dbo.Acc_CRM_SettingRelationUpd    Script Date: 3/26/2014 6:06:09 PM ******/
+
+CREATE PROCEDURE [dbo].[Acc_CRM_SettingRelationUpd]
 (
 	@UserID			INT,
 	@SettingID		VARCHAR(4000)	= '',
@@ -20,16 +27,12 @@ AS
 	Revisions:
 		- 20120329@Lukas: fix bug - wrong SP name & ActionID when write log
 		- 20130121@Johnson: change linked server DB03 to DBPOLICY
+		- 20140303@Dom: Modify for new structure
 	Param's Explanation:
 		
 */
 BEGIN
 	SET NOCOUNT ON
-
-	--Check permission
-	EXEC DBPOLICY.bodb02.dbo.Acc_Con_CheckPermission @custid=@UserID,@funcname='[SettingRelationManagement]',@ErrCode=@ErrCode OUTPUT,@ErrMsg=@ErrMsg OUTPUT
-	IF @ErrCode <> 0
-		RETURN
 	
 	DECLARE @SubSetting TABLE(ID INT PRIMARY KEY IDENTITY, SettingID INT, DisplayOrder INT)
 
@@ -106,14 +109,20 @@ BEGIN
 					@UserID = @UserID, 
 					@ActionID = 303, 
 					@IP = @IP, 
-					@Doing = @LogElement
+					@NewValues = @LogElement
 
 END
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationUpd] TO [vnteam]
-
 
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationUpd] TO [bodbAdminNet]
+
+SET QUOTED_IDENTIFIER OFF 
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationUpd] TO [vnteam]
+SET ANSI_NULLS ON 
+GO
+
+
+GO 
+ GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationUpd] TO [bodbAdminNet]
+GO 
+ GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationUpd] TO [vnteam]
+GO 

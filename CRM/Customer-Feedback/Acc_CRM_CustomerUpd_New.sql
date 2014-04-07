@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerUpd_New    Script Date: 3/26/2014 6:06:06 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 (
 	@UserID						INT,
 	@CustID						INT,
@@ -92,13 +85,14 @@ BEGIN
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''
 
-	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
+	IF NOT EXISTS (SELECT CustID FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
+		print 'insert new'
 		DECLARE @UserName varchar(30)
 		SELECT @UserName = UserName FROM bodb02.dbo.Customer(NOLOCK) WHERE custid = @CustID
 		EXEC Acc_CRM_CustomerIns_New
 			@UserID							= @UserID,				
-			@CustID							= @CustID,						
+			@CustID							= @CustID OUTPUT,						
 			@UserName						= @UserName,
 			@FirstName						= @FirstName,
 			@LastName						= @LastName,
@@ -182,7 +176,7 @@ BEGIN
 
 		RETURN -- Completed insert
 	END
-	
+	PRINT 'update new'
 	----Store Old Value
 	DECLARE @CustID_Old						INT,
 			@FirstName_Old					NVARCHAR(50),
@@ -294,6 +288,7 @@ BEGIN
 	SELECT @LanguageID_Old = ''
 	SELECT @LanguageID_Old = @LanguageID_Old + CAST(c.LanguageID AS VARCHAR(100))+','
 	FROM crmCustomerLanguage(NOLOCK) c WHERE CustID = @CustID
+
 	IF ISNULL(@LanguageID_Old,'')<> ''
 	SELECT @LanguageID_Old = LEFT(@LanguageID_Old,LEN(@LanguageID_Old)-1)
 
@@ -422,9 +417,9 @@ BEGIN
 							'<BankCountryID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCountryID_Old),'')		+ '</BankCountryID>' +
 							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')				+ '</CountryID>' +			
 							'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID_Old),'')					+ '</SiteID>' +
-							'<Wire_BankName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName_Old),'')		+ '</Wire_BankName>' +
-							'<Wire_AccountNo>'				+ ISNULL(@Wire_AccountNo_Old,'')								+ '</Wire_AccountNo>' +
-							'<Wire_SwiftCode>'				+ ISNULL(@Wire_SwiftCode_Old,'')								+ '</Wire_SwiftCode>' +
+							'<BankName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName_Old),'')		+ '</BankName>' +
+							'<AccountNo>'					+ ISNULL(@Wire_AccountNo_Old,'')								+ '</AccountNo>' +
+							'<SwiftCode>'					+ ISNULL(@Wire_SwiftCode_Old,'')								+ '</SwiftCode>' +
 							'<AccountHolderName>'			+ ISNULL(@AccountHolderName_Old,'')								+ '</AccountHolderName>' +	
 				'</Acc_CRM_CustomerUpd_New>'
 
@@ -476,10 +471,10 @@ BEGIN
 						'<BankCountryID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCountryID),'')		+ '</BankCountryID>' +
 						'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')				+ '</CountryID>' +			
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')					+ '</SiteID>' +
-						'<Wire_BankName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')		+ '</Wire_BankName>' +
-						'<Wire_AccountNo>'				+ ISNULL(@Wire_AccountNo,'')								+ '</Wire_AccountNo>' +
-						'<Wire_SwiftCode>'				+ ISNULL(@Wire_SwiftCode,'')								+ '</Wire_SwiftCode>' +
-						'<AccountHolderName>'	+ ISNULL(@AccountHolderName,'')							+ '</AccountHolderName>' +	
+						'<BankName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')		+ '</BankName>' +
+						'<AccountNo>'					+ ISNULL(@Wire_AccountNo,'')								+ '</AccountNo>' +
+						'<SwiftCode>'					+ ISNULL(@Wire_SwiftCode,'')								+ '</SwiftCode>' +
+						'<AccountHolderName>'			+ ISNULL(@AccountHolderName,'')							+ '</AccountHolderName>' +	
 			'</Acc_CRM_CustomerUpd_New>'
 				
 

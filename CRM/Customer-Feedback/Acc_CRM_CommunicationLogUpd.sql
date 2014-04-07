@@ -1,11 +1,5 @@
 
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CommunicationLogUpd    Script Date: 3/26/2014 6:06:04 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
+ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 	@FeedbackID			INT,
 	@CustID				INT,
 	@RelatedCustID		VARCHAR(500) = NULL,
@@ -23,6 +17,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
     @BetTypeID			INT,
     @ResponseID			INT,
     @StatusID			INT,
+	@UpdateReviewedMode		TINYINT = 0,
     @Description		NVARCHAR(MAX),
     @Solution			NVARCHAR(MAX),
     @IsReviewed			BIT,
@@ -80,7 +75,8 @@ DECLARE @CustID_Old				INT,
 		@IsReviewed_Old				BIT,
 		@Review_Old					NVARCHAR(4000),
 		@ReviewerID_Old				INT,
-		@Subject_Old				NVARCHAR(200)
+		@Subject_Old				NVARCHAR(200),
+		@SolveDate_Old			DATETIME
 
 SELECT	@CustID_Old				=CustID,							
 		@CountryID_Old			=CountryID,			
@@ -102,7 +98,8 @@ SELECT	@CustID_Old				=CustID,
 		@IsReviewed_Old			=IsReviewed,			
 		@Review_Old				=Review,				
 		@ReviewerID_Old			=ReviewerID,			
-		@Subject_Old			=Subject			
+		@Subject_Old			=Subject,
+		@SolveDate_Old			= SolveDate
 FROM crmFeedback WITH(NOLOCK)
 WHERE FeedbackID = @FeedbackID
 
@@ -113,8 +110,38 @@ WHERE fbc.FeedbackID = @FeedbackID AND fbc.IsRelated=1
 IF ISNULL(@RelatedCustID_Old,'')<>''
 SELECT @RelatedCustID_Old = LEFT(@RelatedCustID_Old,LEN(@RelatedCustID_Old)-1)
 
+DECLARE @SolveDate	DATETIME
+
 IF @IsReviewed_Old = 0 AND @IsReviewed = 1
 	SET @ReviewerID = @UserID
+
+SELECT 
+		@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate 
+							WHEN @UpdateReviewedMode = 1 THEN GETDATE() 
+							WHEN @UpdateReviewedMode = 2 THEN NULL 
+							ELSE SolveDate
+					  END,
+		@Review		= CASE	WHEN @UpdateReviewedMode = 0 THEN Review 
+							WHEN @UpdateReviewedMode = 1 THEN @Review 
+							WHEN @UpdateReviewedMode = 2 THEN NULL
+							ELSE Review 
+					  END,
+		@IsReviewed = CASE	WHEN @UpdateReviewedMode = 0 THEN IsReviewed 
+							WHEN @UpdateReviewedMode = 1 THEN 1
+							WHEN @UpdateReviewedMode = 2 THEN 0
+							ELSE IsReviewed 
+					  END,
+		@ReviewerID = CASE	WHEN @UpdateReviewedMode = 0 THEN ReviewerID 
+							WHEN @UpdateReviewedMode = 1 THEN @ReviewerID
+							WHEN @UpdateReviewedMode = 2 THEN NULL
+							ELSE ReviewerID 
+					  END
+	FROM 
+		crmFeedback WITH(NOLOCK)
+	WHERE 
+		FeedbackID = @FeedbackID
+
+print @SolveDate
 
 UPDATE crmFeedback WITH(ROWLOCK,UPDLOCK)
 SET LanguageID			= @LanguageID,
@@ -136,7 +163,8 @@ SET LanguageID			= @LanguageID,
 	IsReviewed			= @IsReviewed,
 	Review				= @Review,
 	ReviewerID			= @ReviewerID,
-	Subject				= @Subject
+	Subject				= @Subject,
+	SolveDate			= @SolveDate
 WHERE FeedbackID = @FeedbackID
 
 IF @@ERROR <> 0
@@ -176,13 +204,12 @@ IF @@ERROR <> 0
 	
 	SELECT @OldValues = 				
 					'<Acc_CRM_CommunicationLogUpd>' + 
-							'<CustID>'						+ ISNULL(CONVERT(VARCHAR(5),@CustID_Old),'')						+'</CustID>' +
 							'<LanguageID>'					+ ISNULL(CONVERT(VARCHAR(10),@LanguageID_Old),'')					+ '</LanguageID>' +
 							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')					+ '</CountryID>' +
 							'<Subject>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Subject_Old),'')					+ '</Subject>' +
-							'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description_Old),'')										+ '</Remark>' +
-							'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution_Old),'')											+ '</Solution>' +
-							'<Review>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Review_Old),'')											+ '</Review>' +
+							'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description_Old),'')				+ '</Remark>' +
+							'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution_Old),'')				+ '</Solution>' +
+							'<Review>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Review_Old),'')					+ '</Review>' +
 							'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')				+ '</ResolutionDate>' +
 							'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate_Old),'')					+ '</FeedbackDate>' +
 							'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID_Old),'')				+ '</CommunicationID>' +
@@ -197,18 +224,18 @@ IF @@ERROR <> 0
 							'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')						+ '</StatusID>' +
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID_Old,'')										+ '</RelatedCustID>' +
 							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')					+ '</IsReviewed>' +
-							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')					+ '</Reviewer>' +					
+							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')					+ '</Reviewer>' +	
+							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')					+ '</SolveDate>' +				
 					'</Acc_CRM_CommunicationLogUpd>'
-	 
 	 
 	SELECT @NewValues=
 					'<Acc_CRM_CommunicationLogUpd>' + 
 							'<LanguageID>'					+ ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')					+ '</LanguageID>' +
 							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')					+ '</CountryID>' +
 							'<Subject>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Subject),'')					+ '</Subject>' +
-							'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description),'')										+ '</Remark>' +
-							'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution),'')											+ '</Solution>' +
-							'<Review>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Review),'')											+ '</Review>' +
+							'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description),'')				+ '</Remark>' +
+							'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution),'')				+ '</Solution>' +
+							'<Review>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Review),'')					+ '</Review>' +
 							'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
 							'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
 							'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID),'')				+ '</CommunicationID>' +
@@ -223,7 +250,8 @@ IF @@ERROR <> 0
 							'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
 							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
-							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +					
+							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +			
+							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')					+ '</SolveDate>' +			
 					'</Acc_CRM_CommunicationLogUpd>'
 			
 	EXEC [dbo].[WriteLog_UserLog_crmLogFeedback]

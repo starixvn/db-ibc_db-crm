@@ -4,7 +4,7 @@ SET ANSI_NULLS ON
 GO
 
 /****** Object:  Stored Procedure dbo.Acc_CRM_CommunicationLogIns    Script Date: 3/26/2014 6:06:04 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CommunicationLogIns]
+ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogIns]
 	@CustID				INT,
 	@RelatedCustID		VARCHAR(500) = NULL,
 	@LanguageID			INT,
@@ -23,8 +23,8 @@ CREATE PROCEDURE [dbo].[Acc_CRM_CommunicationLogIns]
     @StatusID			INT,
     @Description		NVARCHAR(MAX),
     @Solution			NVARCHAR(MAX),
-    @IsReviewed			BIT,
-    @Review				NVARCHAR(4000),
+    --@IsReviewed			BIT,
+    --@Review				NVARCHAR(4000),
     @Subject			NVARCHAR(200),
 	@UserID				INT,
 	@IP					VARCHAR(15),
@@ -42,11 +42,11 @@ Revisions:
 Param's Explanation:
 */
 
-DECLARE @ReviewerID INT
-IF @IsReviewed = 1 
-	SELECT @ReviewerID = @UserID
-ELSE
-	SELECT @ReviewerID = NULL
+--DECLARE @ReviewerID INT
+--IF @IsReviewed = 1 
+--	SELECT @ReviewerID = @UserID
+--ELSE
+--	SELECT @ReviewerID = NULL
 
 IF ISNULL(@CommunicationID,0) = 0 
 		or ISNULL(@MainCategoryID,0) = 0 
@@ -193,9 +193,9 @@ IF ISNULL(@CommunicationID,0) = 0
            ,[StatusID]--
            ,[Description]--
            ,[Solution]--
-           ,[IsReviewed]--
-           ,[Review]--
-           ,[ReviewerID]--
+           --,[IsReviewed]--
+           --,[Review]--
+           --,[ReviewerID]--
            ,[Subject]--
            ,[Skype]
            ,[MSN]
@@ -259,9 +259,9 @@ IF ISNULL(@CommunicationID,0) = 0
         @StatusID,--
         @Description,--
         @Solution,--
-        @IsReviewed,--
-        @Review,--
-        @ReviewerID,--
+        --@IsReviewed,--
+        --@Review,--
+        --@ReviewerID,--
         @Subject,--
         @Skype,
         @MSN,
@@ -391,8 +391,8 @@ IF ISNULL(@CommunicationID,0) = 0
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
-						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
-						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +						
+						--'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
+						--'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +						
 						'<Pic1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')					+ '</Pic1>' +
 						'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')					+ '</Pic2>' +
 						'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')					+ '</Pic3>' +
@@ -422,7 +422,7 @@ IF ISNULL(@CommunicationID,0) = 0
 					@IP = @IP, 
 					@Description = @Description, 
 					@Solution = @Solution,
-					@Review =  @Review,
+					@Review =  NULL,
 					@NewValues = @LogElement
 
 

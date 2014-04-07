@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns    Script Date: 3/26/2014 6:06:07 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns]
+ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns]
 (
 	@UserID						INT,
 	@UserName					NVARCHAR(50),
@@ -56,7 +49,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns]
 	@Answer						NVARCHAR(300)	= NULL,
 	@CountryID					INT,
 	@IsVip						BIT				= NULL,
-	@SiteID						INT				= NULL,
+	@SiteID						INT				= 0,
 	@Wire_BankName				NVARCHAR(100)	= NULL,
 	@Wire_BankAddress			NVARCHAR(200)	= NULL,
 	@Wire_AccountName			NVARCHAR(100)	= NULL,
@@ -237,6 +230,7 @@ BEGIN
 					@BettingCode			= @BettingCode,
 					@RefCode2				= @RefCode2,
 					@IsVip					= @IsVip,
+					@SiteID					= @SiteID,
 					@LanguageID				= @LanguageID,
 					@CreatorID				= @CreatorID,
 					@Subject				= @Subject,

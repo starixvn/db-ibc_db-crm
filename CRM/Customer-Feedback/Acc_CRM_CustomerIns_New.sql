@@ -1,14 +1,7 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerIns_New    Script Date: 3/26/2014 6:06:05 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 (
 	@UserID						INT,
-	@CustID						INT,
+	@CustID						INT OUTPUT,
 	@UserName					NVARCHAR(50),
 	@FirstName					NVARCHAR(50)	= NULL,
 	@LastName					NVARCHAR(50)	= NULL,
@@ -163,7 +156,6 @@ BEGIN
 					City,
 					Postcode,
 					State,
-					LanguageID, 
 					Question, 
 					Answer, 
 					CountryID, 
@@ -230,7 +222,6 @@ BEGIN
 					@City,
 					@Postcode,
 					@State,
-					@LanguageID, 
 					@Question, 
 					@Answer, 
 					@CountryID, 
@@ -339,12 +330,12 @@ BEGIN
 						'<CountryID>'				+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')				+ '</CountryID>' +
 						'<IsVIP>'					+ ISNULL(CONVERT(VARCHAR(1),@IsVIP),'')						+ '</IsVIP>' +					
 						'<SiteID>'					+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')					+ '</SiteID>' +
-						'<Wire_BankName>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')		+ '</Wire_BankName>' +
-						'<Wire_BankAddress>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankAddress),'')	+ '</Wire_BankAddress>' +
-						'<Wire_AccountName>'		+ ISNULL(@Wire_AccountName,'')								+ '</Wire_AccountName>' +
-						'<Wire_AccountNo>'			+ ISNULL(@Wire_AccountNo,'')								+ '</Wire_AccountNo>' +
-						'<Wire_SwiftCode>'			+ ISNULL(@Wire_SwiftCode,'')								+ '</Wire_SwiftCode>' +
-						'<AccountHolderName>		'	+ ISNULL(@AccountHolderName,'')							+ '</AccountHolderName>' +	
+						'<BankName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')		+ '</BankName>' +
+						'<BankAddress>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankAddress),'')	+ '</BankAddress>' +
+						'<AccountName>'				+ ISNULL(@Wire_AccountName,'')								+ '</AccountName>' +
+						'<AccountNo>'				+ ISNULL(@Wire_AccountNo,'')								+ '</AccountNo>' +
+						'<SwiftCode>'				+ ISNULL(@Wire_SwiftCode,'')								+ '</SwiftCode>' +
+						'<AccountHolderName>'		+ ISNULL(@AccountHolderName,'')								+ '</AccountHolderName>' +	
 						--CAST(@SpecialRemark AS VARCHAR(1000)) +
 						--CAST(@Remark AS VARCHAR(1000)) +
 						'<CreatorID>'				+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')				+ '</CreatorID>' +

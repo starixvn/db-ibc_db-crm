@@ -1,18 +1,11 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_Crm_Rpt_CustomerReport    Script Date: 3/26/2014 6:06:08 PM ******/
-CREATE PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
+ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@FirstName 		NVARCHAR(100) = NULL,
 	@LastName 		NVARCHAR(100) = NULL,
 	@CountryID 		VARCHAR(1000) = NULL,	
 	@LanguageID		VARCHAR(1000) = NULL,	
 	@SiteID			VARCHAR(1000) = NULL,	
-	@FromBirthday	DATETIME=0,
-	@ToBirthday		DATETIME=0,
+	@FromBirthday	DATETIME=NULL,
+	@ToBirthday		DATETIME=NULL,
 	@TitleID		INT = NULL,	
 	@VIP			SMALLINT = -1,	
 	@CustomerType	TINYINT = 0
@@ -32,8 +25,10 @@ Param's Explanation:
 					2 = Guest
 */
 
-if(isnull(@ToBirthday,0)=0)
-select @ToBirthday = getdate()
+if(@ToBirthday IS NULL and @FromBirthday IS NOT NULL)
+	select @ToBirthday = getdate()
+else if(@ToBirthday IS NOT NULL and @FromBirthday IS NULL)
+	select @FromBirthday = '19000101'
 
 SELECT DISTINCT CustID= c.CustID, 
 		VIP			= c.IsVIP,
@@ -89,7 +84,7 @@ WHERE (ISNULL(@FirstName,'')='' OR c.FirstName LIKE '%'+@FirstName+'%')
 			OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
 		)
 	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
-	AND ((ISNULL(@FromBirthday,0)=0 AND ISNULL(@ToBirthday,0)=0) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
+	AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
 	AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
 	AND (ISNULL(@Vip,-1)=-1 OR c.IsVIP = @Vip)
 	AND (@CustomerType=0 OR (@CustomerType=1 and c.CustID>0) OR (@CustomerType=2 and c.CustID<0))

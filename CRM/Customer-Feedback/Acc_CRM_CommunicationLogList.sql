@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CommunicationLogList    Script Date: 3/26/2014 6:06:04 PM ******/
-CREATE PROC Acc_CRM_CommunicationLogList
+ALTER PROC Acc_CRM_CommunicationLogList
 	@CustID INT,
 	@FromDate	DATETIME,
 	@ToDate		DATETIME,

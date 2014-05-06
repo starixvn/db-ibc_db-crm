@@ -33,7 +33,7 @@ BEGIN
 			COUNT(f.FeedbackID) NoOfIssues FROM crmFeedback f WITH(NOLOCK) 
 	INNER JOIN crmMainCategory m WITH(NOLOCK)  ON m.MainCategoryID = f.MainCategoryID
 	INNER JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and f.SubCategoryID = s.SubCategoryID
-	WHERE f.StationID <> 11004
+	WHERE f.StatusID <> 11004
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 	GROUP BY MONTH(f.FeedbackDate),
 			LEFT(DATENAME(mm,f.FeedbackDate),3),
@@ -41,9 +41,9 @@ BEGIN
 			m.Name,
 			s.SubCategoryID,
 			s.Name
-	ORDER BY Month(f.FeedbackDate),
-				m.MainCategoryID,
-				s.SubCategoryID
+	ORDER BY	m.Name,
+				s.SubCategoryID,
+				Month(f.FeedbackDate)
 END
 
 GO

@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackGetLatest    Script Date: 3/26/2014 6:06:06 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackGetLatest]
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackGetLatest]
 (
 	@UserName			NVARCHAR(50)= NULL,
 	@IsGuest			BIT			= NULL,
@@ -46,7 +39,77 @@ BEGIN
 			@GuestID	INT,
 			@TotalPages INT
 
-	
+	IF(ISNULL(@FeedbackID,0)<>0)
+	BEGIN
+		SELECT t.*, l.list AS relatedCustomer
+			FROM (
+					SELECT 			
+						fb.FeedbackID, 
+						fb.CustID, 
+						ctm.UserName,
+						fb.TitleID, 
+						fb.FirstName, 
+						fb.LastName, 
+						fb.Phone, 
+						fb.PhoneAreaCode,
+						fb.PhoneCountryCode, 
+						fb.Phone2, 
+						fb.Phone2AreaCode,
+						fb.Phone2CountryCode, 
+						fb.Phone3, 
+						fb.Phone3AreaCode,
+						fb.Phone3CountryCode, 
+						fb.MobilePhone, 
+						fb.MobilePhoneAreaCode, 
+						fb.MobilePhoneCountryCode, 
+						fb.Fax,
+						fb.FaxAreaCode,
+						fb.FaxCountryCode, 
+						fb.Email, 
+						fb.Skype,
+						fb.msn,
+						fb.LanguageID, 
+						fb.CountryID,
+						fb.CreatorID, 
+						c.username AS CreatorName,
+						fb.FeedbackDate,
+						fb.ResolutionDate,
+						fb.CreateDate,
+						fb.SolveDate,
+						fb.CommunicationID, 
+						fb.StationID, 
+						fb.MainCategoryID,
+						fb.SubCategoryID, 
+						fb.SiteID, 
+						fb.RoleID, 
+						fb.ProductID, 
+						fb.BetTypeID, 
+						fb.ResponseID, 
+						fb.StatusID, 
+						fb.Description, 
+						fb.Solution, 
+						fb.IsReviewed, 
+						fb.Review, 
+						fb.ReviewerID,
+						rv.username AS ReviewerName,
+						fbc.IsRelated,
+						fb.Subject,
+						fb.RefCode1,
+						fb.RefCode2						
+					FROM
+						crmFeedbackCustomer fbc WITH(NOLOCK)
+							INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
+							INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+							INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+							LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
+					WHERE fb.FeedbackID = @FeedbackID
+					) t
+					CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
+			ORDER BY FeedbackDate DESC
+
+			RETURN;
+		END
+		
 	--- get feedback for specific customer
 	IF @UserName IS NOT NULL AND @UserName <> ''
 	BEGIN

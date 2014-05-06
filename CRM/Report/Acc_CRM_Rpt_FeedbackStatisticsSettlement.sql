@@ -31,8 +31,8 @@ BEGIN
 	--LEFT JOIN crmMainCategory m WITH(NOLOCK)  ON m.MainCategoryID = f.MainCategoryID
 	--LEFT JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and f.SubCategoryID = s.SubCategoryID
 	LEFT JOIN crmCountry c WITH(NOLOCK) ON c.CountryID = f.CountryID
-	WHERE f.StationID <> 11004
-		AND f.MainCategoryID = 3012
+	WHERE f.StatusID <> 11004
+		AND f.MainCategoryID = 3025
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 	GROUP BY Month(f.FeedbackDate),
 			f.CountryID,
@@ -44,4 +44,8 @@ GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement] TO [bodbAdminN
 GO
 GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement] TO [vnteam] 
 GO
---[Acc_CRM_Rpt_FeedbackStatisticsSettlement] 2012
+--[Acc_CRM_Rpt_FeedbackStatisticsSettlement] 2014
+
+select * from crmFeedback where maincategoryid= 3025 and FeedbackDate > '20140101'
+
+select * from crmMainCategory

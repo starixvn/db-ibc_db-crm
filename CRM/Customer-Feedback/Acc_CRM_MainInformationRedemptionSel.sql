@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_MainInformationRedemptionSel    Script Date: 3/26/2014 6:06:08 PM ******/
-CREATE PROC Acc_CRM_MainInformationRedemptionSel
+ALTER PROC Acc_CRM_MainInformationRedemptionSel
 	@CustID INT
 AS
 
@@ -25,6 +18,7 @@ SELECT TOP 5 r.ID RedemptionID,r.Subject,r.ClaimTime,st.Name Status
 FROM crmRedemption(NOLOCK) r
 INNER JOIN crmStatus(NOLOCK) st ON st.StatusID = r.StatusID
 WHERE r.CustID = @CustID
+AND r.StatusID <> 11004
 ORDER BY r.ID DESC
 
 GO

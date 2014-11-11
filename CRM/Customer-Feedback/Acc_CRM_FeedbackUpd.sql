@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackUpd    Script Date: 3/26/2014 6:06:07 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackUpd]
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd]
 (
 	@UserID						INT,
 	@FeedbackID					INT,
@@ -51,7 +44,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackUpd]
 	@Solution					NVARCHAR(MAX),
 	@UpdateReviewedMode			TINYINT = 0,
 	@IsReviewed					BIT				= 0,
-	@Review						NVARCHAR(4000)	= NULL,
+	@Review						NVARCHAR(MAX)	= NULL,
 	@ReviewerID					INT				= NULL,	
 	@BettingCode				NVARCHAR(100)	= NULL,
 	@RefCode2					NVARCHAR(100)	= NULL,
@@ -62,7 +55,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackUpd]
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
-	@RelatedCustID				NVARCHAR(500)	= NULL,
+	@RelatedCustID				NVARCHAR(MAX)	= NULL,
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
 )
@@ -184,7 +177,7 @@ DECLARE @TitleID_Old					INT,
 	@Solution_Old					NVARCHAR(MAX),
 	@UpdateReviewedMode_Old			TINYINT = 0,
 	@IsReviewed_Old					BIT				= 0,
-	@Review_Old						NVARCHAR(4000)	= NULL,
+	@Review_Old						NVARCHAR(MAX)	= NULL,
 	@ReviewerID_Old					INT				= NULL,	
 	@BettingCode_Old				NVARCHAR(100)	= NULL,
 	@RefCode2_Old					NVARCHAR(100)	= NULL,

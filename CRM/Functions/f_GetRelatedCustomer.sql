@@ -5,7 +5,7 @@ ALTER FUNCTION [dbo].[f_GetRelatedCustomer]
 (
 	@FeedbackID INT
 )
-RETURNS @res TABLE ( list VARCHAR(1000))
+RETURNS @res TABLE ( list VARCHAR(MAX))
 /*
 	Created: 20110629@Lukas
 	Task: get Feedback's related customers
@@ -18,7 +18,7 @@ RETURNS @res TABLE ( list VARCHAR(1000))
 */
 AS
 BEGIN
-	DECLARE @list VARCHAR(1000)
+	DECLARE @list VARCHAR(MAX)
 
 	SELECT @list = COALESCE(@list + ', ' + c.Username, c.Username)
 	FROM crmFeedbackCustomer fc WITH(NOLOCK) 

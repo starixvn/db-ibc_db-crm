@@ -81,7 +81,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns]
 	@Description				NVARCHAR(MAX),
 	@Solution					NVARCHAR(MAX)	= '',
 	@IsReviewed					BIT,
-	@Review						NVARCHAR(4000)	= '',
+	@Review						NVARCHAR(MAX)	= '',
 	@ReviewerID					INT				= NULL,
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
@@ -192,6 +192,27 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 100
 		RETURN
+	END
+	
+	--------Update language for Old System------
+	IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12000))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
+	END
+
+	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12001))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12001 WHERE CustID = @CustID
+	END
+
+	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12002))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12002 WHERE CustID = @CustID
+	END
+
+	ELSE
+	BEGIN 
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@LanguageID,',')) WHERE CustID = @CustID
 	END
 		
 	--- insert feedback of guest

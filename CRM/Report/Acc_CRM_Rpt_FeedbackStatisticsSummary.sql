@@ -1,6 +1,7 @@
 ﻿ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSummary]
 (
-	@Year INT
+	@Year INT,
+	@SiteType TINYINT = 0
 )
 AS
 /*
@@ -11,10 +12,12 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-		
+		2014-08-12@Dom: Feature [#18860] Change requests on 10 Jul 2014
 		
 Param's Explanation:
-	
+	@SiteType:	0-All,
+				1-IBC,
+				2-Licensee
 */
 BEGIN
 	SET NOCOUNT ON
@@ -33,8 +36,10 @@ BEGIN
 			COUNT(f.FeedbackID) NoOfIssues FROM crmFeedback f WITH(NOLOCK) 
 	INNER JOIN crmMainCategory m WITH(NOLOCK)  ON m.MainCategoryID = f.MainCategoryID
 	INNER JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and f.SubCategoryID = s.SubCategoryID
+	LEFT JOIN crmSite [site] WITH (NOLOCK) ON [site].SiteID = f.SiteID
 	WHERE f.StatusID <> 11004
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
+		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1))
 	GROUP BY MONTH(f.FeedbackDate),
 			LEFT(DATENAME(mm,f.FeedbackDate),3),
 			m.MainCategoryID,

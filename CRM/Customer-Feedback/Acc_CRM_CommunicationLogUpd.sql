@@ -1,8 +1,7 @@
-
 ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 	@FeedbackID			INT,
 	@CustID				INT,
-	@RelatedCustID		VARCHAR(500) = NULL,
+	@RelatedCustID		VARCHAR(MAX) = NULL,
 	@LanguageID			INT,
     @CountryID			INT,
     @FeedbackDate		DATETIME,
@@ -21,7 +20,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
     @Description		NVARCHAR(MAX),
     @Solution			NVARCHAR(MAX),
     @IsReviewed			BIT,
-    @Review				NVARCHAR(4000) = NULL,
+    @Review				NVARCHAR(MAX) = NULL,
     @ReviewerID			INT,
     @Subject			NVARCHAR(200),
 	@UserID				INT,
@@ -55,7 +54,7 @@ IF ISNULL(@CommunicationID,0) = 0
 	END
 
 DECLARE @CustID_Old				INT,
-		@RelatedCustID_Old			VARCHAR(500),
+		@RelatedCustID_Old			VARCHAR(MAX),
 		@LanguageID_Old				INT,
 		@CountryID_Old				INT,
 		@ResolutionDate_Old			DATETIME,

@@ -1,12 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackSelByID    Script Date: 3/26/2014 6:06:06 PM ******/
-
-CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID]
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID]
 (
 	@FeedbackID INT
 )
@@ -30,7 +22,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @RelatedCustID	INT, 
-			@RelatedUserName NVARCHAR(30)
+			@RelatedUserName NVARCHAR(MAX)
 
 		
 	--- get feedback info

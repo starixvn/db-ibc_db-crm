@@ -1,13 +1,7 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerSel_New    Script Date: 3/26/2014 6:06:05 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
 (
-	@CustID	INT
+	@CustID	INT,
+	@DefaultLanguage INT = 0 OUTPUT
 )
 AS
 /*
@@ -23,6 +17,7 @@ Revisions:
 	- 20120329@Elodie: change DB06 to DB052				   
 	- 20121120@Lukas: correct join condition (wrong alias)
 	- 20140120@Dom: add more information of customer
+	- 20140508@Dom: Add group headline
 Param's Explanation:	
 */
 BEGIN	
@@ -30,7 +25,10 @@ BEGIN
 
 	DECLARE @SiteID INT,
 			@CountryName varchar(100),
-			@CountryID int
+			@CountryID int,
+			@IsGroupHeadLine BIT
+
+	SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
 
 	IF (@CustID < 0 OR EXISTS(SELECT 1 FROM crmCustomer(NOLOCK) WHERE CustID = @CustID))
 	BEGIN
@@ -95,16 +93,48 @@ BEGIN
 			c.CreateDate, 
 			c.CreatorID, 
 			ci.username as CreatorName,
-			0 as RoleID
+			CASE cust.roleid	
+					WHEN 1 THEN 7000
+					WHEN 2 THEN 7001
+					WHEN 3 THEN 7002
+					WHEN 4 THEN 7003
+					ELSE 7004 END as RoleID,
+			@IsGroupHeadLine IsGroupHeadLine
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
-					LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
+			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
+			LEFT JOIN bodb02.dbo.customer cust WITH(NOLOCK) ON c.CustID = cust.custID
 		WHERE 
 			c.CustID = @CustID
 
 		-- Return Customer Language
-		SELECT * FROM crmCustomerLanguage(NOLOCK) 
+		SELECT * 
+		INTO #CustomerLanguage1
+		FROM crmCustomerLanguage(NOLOCK) 
 		WHERE CustID = @CustID
+
+		select * from #CustomerLanguage1
+
+		IF(EXISTS(SELECT TOP 1 1 FROM #CustomerLanguage1 WHERE  LanguageID = 12000))
+		BEGIN
+			SELECT @DefaultLanguage = 12000 
+		END
+
+		ELSE IF(EXISTS(SELECT TOP 1 1 FROM #CustomerLanguage1 WHERE LanguageID = 12001))
+		BEGIN
+			SELECT @DefaultLanguage = 12001
+		END
+
+		ELSE IF(EXISTS(SELECT TOP 1 1 FROM #CustomerLanguage1 WHERE LanguageID = 12002))
+		BEGIN
+			SELECT @DefaultLanguage = 12002
+		END
+
+		ELSE
+		BEGIN 
+			SELECT @DefaultLanguage = (SELECT TOP 1 LanguageID FROM #CustomerLanguage1)
+		END
+
 
 	END
 	ELSE
@@ -207,7 +237,8 @@ BEGIN
 							WHEN 3 THEN 7002
 							WHEN 4 THEN 7003
 							ELSE 7004 
-			END AS RoleID
+			END AS RoleID,
+			@IsGroupHeadLine IsGroupHeadLine
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
@@ -216,10 +247,32 @@ BEGIN
 			ci.custid = @CustID
 
 		-- Return Customer Language
-		SELECT * FROM crmCustomerLanguage(NOLOCK) 
+		SELECT * 
+		INTO #CustomerLanguage
+		FROM crmCustomerLanguage(NOLOCK) 
 		WHERE CustID = @CustID
 
+		select * from #CustomerLanguage
 
+		IF(EXISTS(SELECT TOP 1 1 FROM #CustomerLanguage WHERE  LanguageID = 12000))
+		BEGIN
+			SELECT @DefaultLanguage = 12000 
+		END
+
+		ELSE IF(EXISTS(SELECT TOP 1 1 FROM #CustomerLanguage WHERE LanguageID = 12001))
+		BEGIN
+			SELECT @DefaultLanguage = 12001
+		END
+
+		ELSE IF(EXISTS(SELECT TOP 1 1 FROM #CustomerLanguage WHERE LanguageID = 12002))
+		BEGIN
+			SELECT @DefaultLanguage = 12002
+		END
+
+		ELSE
+		BEGIN 
+			SELECT @DefaultLanguage = (SELECT TOP 1 LanguageID FROM #CustomerLanguage)
+		END
 
 	END
 END

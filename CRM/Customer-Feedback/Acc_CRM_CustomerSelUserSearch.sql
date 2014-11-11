@@ -1,4 +1,4 @@
-﻿ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch]
+﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch]
 	@userid int,
 	@username nvarchar(50),
 	@IsGuest	BIT = 0
@@ -12,6 +12,7 @@ Original:
 Revisions:
 	- 20120423@Elodie: not search by guest
 	- 20130121@Johnson: change link server DB06 to DBACC
+	- 20140807@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
 Param's Explanation:
 	• @userid: User who are logging in.
 	• @username: the search term.
@@ -19,18 +20,25 @@ Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON	
-	DECLARE @UserNameTable TABLE (UserName varchar(50), SearchCount int)		
+	DECLARE @UserNameTable TABLE (UserName varchar(50), SearchCount int)
 	Declare @Rows int
 
 	IF @IsGuest = 0
 	BEGIN		
 		INSERT INTO @UserNameTable (UserName, SearchCount)
 					SELECT TOP 10 Username, SearchCount 
-					FROM crmCustSearch WITH (NOLOCK) 
-					WHERE UserID = @userid and CustID > 0 and UserName LIKE '%' + @Username + '%'
+					FROM crmCustomerSearch WITH (NOLOCK) 
+					WHERE CustID > 0 
+							and (
+									UserName LIKE @Username + '%'
+									 OR PhoneNumber1 = @Username
+									 OR PhoneNumber2 = @Username
+									 OR PhoneNumber3 = @Username
+									 OR MobilePhone = @Username
+								)
 					ORDER BY SearchCount DESC
 
-		select @Rows = 10 - count(1) from @UserNameTable 
+		SELECT @Rows = 10 - count(1) FROM @UserNameTable 
 		IF @Rows > 0
 			INSERT INTO @UserNameTable (UserName, SearchCount)
 						SELECT TOP (@Rows) Username, -1 as SearchCount
@@ -38,29 +46,27 @@ BEGIN
 						WHERE username LIKE @Username +'%' 
 							  and username not in (SELECT UserName from @UserNameTable)
 						ORDER BY Username
+			
+		SELECT UserName FROM @UserNameTable ORDER BY SearchCount DESC, UserName
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @UserNameTable (UserName, SearchCount)
+		SELECT TOP 10 Username, SearchCount 
+		FROM crmCustomerSearch WITH (NOLOCK) 
+		WHERE CustID < 0
+			AND 
+			(
+				UserName LIKE @Username + '%'
+				OR PhoneNumber1 = @Username
+				OR PhoneNumber2 = @Username
+				OR PhoneNumber3 = @Username
+				OR MobilePhone = @Username
+			)
+		ORDER BY SearchCount DESC
 
 		SELECT UserName from @UserNameTable ORDER BY SearchCount DESC, UserName
 	END
---	ELSE --@IsGuest = 1
---	BEGIN		
---		INSERT INTO @UserNameTable (UserName, SearchCount)
---					SELECT TOP 10 Username, SearchCount 
---					FROM crmCustSearch WITH (NOLOCK) 
---					WHERE UserID = @userid and CustID < 0 and UserName LIKE '%' + @Username + '%'
---					ORDER BY SearchCount DESC
---		
---		select @Rows = 10 - count(1) from @UserNameTable 
---		IF @Rows > 0
---			INSERT INTO @UserNameTable (UserName, SearchCount)
---						SELECT TOP (@Rows) Username, -1 as SearchCount
---						FROM crmCustomer WITH (NOLOCK) 
---						WHERE username LIKE @Username +'%' 
---							  AND custID < 0
---							  AND username not in (SELECT UserName from @UserNameTable)
---						ORDER BY Username	
---
---		SELECT UserName from @UserNameTable ORDER BY SearchCount DESC, UserName	
---	END	
 END
 
 GO
@@ -68,5 +74,4 @@ GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSelUserSearch] TO [bodbAdminNet]
 GO
 GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSelUserSearch] TO [vnteam]
 
-
-
+GO

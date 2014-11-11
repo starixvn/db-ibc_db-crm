@@ -276,6 +276,35 @@ BEGIN
 		RETURN
 	END
 
+	-- Update CustSearch
+	UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
+	SET PhoneNumber1 = ISNULL(@PhoneCountryCode,'') + ISNULL(@PhoneAreaCode,'') + ISNULL(@Phone,'')
+		,PhoneNumber2 = ISNULL(@Phone2CountryCode,'') + ISNULL(@Phone2AreaCode,'') + ISNULL(@Phone2,'')
+		,PhoneNumber3 = ISNULL(@Phone3CountryCode,'') + ISNULL(@Phone3AreaCode,'') + ISNULL(@Phone3,'')
+		,MobilePhone = ISNULL(@MobilePhoneCountryCode,'') + ISNULL(@MobilePhoneAreaCode,'') + ISNULL(@MobilePhone,'')
+	WHERE CustID = @CustID
+	AND (
+			ISNULL(@PhoneCountryCode,'') <> ISNULL(@PhoneCountryCode_Old,'')
+		OR ISNULL(@PhoneAreaCode,'') <> ISNULL(@PhoneAreaCode_Old,'')
+		OR ISNULL(@Phone,'') <> ISNULL(@Phone_Old,'')
+		OR ISNULL(@Phone2CountryCode,'') <> ISNULL(@Phone2CountryCode_Old ,'')
+		OR ISNULL(@Phone2AreaCode,'') <> ISNULL(@Phone2AreaCode ,'')
+		OR ISNULL(@Phone2 ,'')<> ISNULL(@Phone2_Old,'')
+		OR ISNULL(@Phone3CountryCode,'') <> ISNULL(@Phone3CountryCode_Old ,'')
+		OR ISNULL(@Phone3AreaCode,'') <> ISNULL(@Phone3AreaCode ,'')
+		OR ISNULL(@Phone3,'') <> ISNULL(@Phone3_Old,'')
+		OR ISNULL(@MobilePhoneCountryCode,'') <> ISNULL(@MobilePhoneCountryCode_Old ,'')
+		OR ISNULL(@MobilePhoneAreaCode,'') <> ISNULL(@MobilePhoneAreaCode ,'')
+		OR ISNULL(@MobilePhone,'') <> ISNULL(@MobilePhone_Old,'')
+	)
+
+	IF @@error <> 0
+	BEGIN
+		SELECT @ErrCode = 101
+		SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
+		RETURN
+	END
+
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML
 

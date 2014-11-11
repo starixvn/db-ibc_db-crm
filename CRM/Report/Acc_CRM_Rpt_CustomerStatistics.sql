@@ -23,6 +23,7 @@ AS
 		- 20120730@Sophia: Exclude ProductID = 8017 for Poker
 		- 20130607@Elodie: Add CommunicationID (1005->1010)
 		- 20130805@Kathy:  Exclude ProductID = 8005 for Bingo
+		- 20140523@Dom: modify site condition
 		
 	Param's Explanation:
 		@SiteType: 	0: All
@@ -55,9 +56,9 @@ BEGIN
 		FROM crmFeedback fb WITH(NOLOCK) 
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND fb.ProductID NOT IN (8003, 8005, 8011, 8013, 8014, 8017)
+				AND fb.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
-				AND ((([site].SiteID BETWEEN 6000 AND 6199 OR fb.SiteID = 0) AND fb.ProductID <> 8008) OR ([site].SiteID BETWEEN 6200 AND 6999))
+				AND ((([site].IsLicensee=0 OR fb.SiteID = 0)) OR ([site].IsLicensee=1))
 		
 		GROUP BY ISNULL(fb.MainCategoryID, 0),
 				ISNULL(fb.SubcategoryID,0)
@@ -104,9 +105,9 @@ BEGIN
 		FROM crmFeedback fb WITH(NOLOCK) 
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND fb.ProductID NOT IN (8003, 8005, 8011, 8013, 8014, 8017)
+				AND fb.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
-				AND (([site].SiteID BETWEEN 6000 AND 6199 OR fb.SiteID = 0) AND fb.ProductID <> 8008)
+				AND (([site].IsLicensee=0 OR fb.SiteID = 0))
 		
 		GROUP BY ISNULL(fb.MainCategoryID, 0),
 				ISNULL(fb.SubcategoryID,0)
@@ -153,9 +154,9 @@ BEGIN
 		FROM crmFeedback fb WITH(NOLOCK) 
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND fb.ProductID NOT IN (8003, 8005, 8011, 8013, 8014, 8017)
+				AND fb.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
-				AND ([site].SiteID BETWEEN 6200 AND 6999)
+				AND ([site].IsLicensee=1)
 		
 		GROUP BY ISNULL(fb.MainCategoryID, 0),
 				ISNULL(fb.SubcategoryID,0)

@@ -108,7 +108,7 @@ BEGIN
 	INNER JOIN crmCustomer c WITH(NOLOCK) ON d.CustID = c.CustID
 	LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID
 	LEFT JOIN (
-		SELECT SettingID ProductID, SettingName Product FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Product'
+		SELECT SettingID ProductID, SettingValue Product FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Product'
 	) Product ON Product.ProductID = d.ProductID
 	LEFT JOIN crmBettype bt WITH(NOLOCK) ON bt.BettypeID = d.BettypeID AND d.ProductID = bt.ProductID
 	LEFT JOIN (
@@ -118,16 +118,16 @@ BEGIN
 	LEFT JOIN crmCountry country WITH(NOLOCK) ON country.CountryID = d.CountryID
 	LEFT JOIN crmCommunicationTool cto WITH(NOLOCK) ON cto.CommunicationID = d.CommunicationID
 	LEFT JOIN (
-		SELECT SettingID StationID, SettingName Station FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Station'
+		SELECT SettingID StationID, SettingValue Station FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Station'
 	) Station ON Station.StationID = d.StationID
 	LEFT JOIN crmMainCategory mc WITH(NOLOCK) ON mc.MainCategoryID = d.MainCategoryID
 	LEFT JOIN crmSubCategory sc WITH(NOLOCK) ON sc.SubCategoryID = d.SubCategoryID and sc.MainCategoryID = d.MainCategoryID
 	LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = d.SiteID
 	LEFT JOIN (
-		SELECT SettingID RoleID, SettingName Role FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Role'
+		SELECT SettingID RoleID, SettingValue Role FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Role'
 	) Role ON Role.RoleID = d.RoleID
 	LEFT JOIN (
-		SELECT SettingID ResponseID, SettingName Response FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Response'
+		SELECT SettingID ResponseID, SettingValue Response FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Response'
 	) Response ON Response.ResponseID = d.ResponseID
 	LEFT JOIN crmStatus st WITH(NOLOCK) ON st.StatusID = d.StatusID
 

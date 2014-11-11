@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerUpdateBasicInfo    Script Date: 3/26/2014 6:06:06 PM ******/
-CREATE PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
+ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@Site					INT,
 	@FirstName				NVARCHAR(100),
 	@LastName				NVARCHAR(100),
@@ -44,6 +37,7 @@ DB: DB052.bodb_CRM
 Original:
 
 Revisions:
+	20140827@Dom: [Redmine #18632] Update phone number in custsearch
 */
 	SET NOCOUNT ON
 
@@ -247,7 +241,57 @@ WHERE custid = @CustID
 			SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
 			RETURN
 		END
-	
+
+		-- Update CustSearch
+		UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
+		SET PhoneNumber1 = @PhoneCountryCode+@PhoneAreaCode+@Phone
+			,PhoneNumber2 = @Phone2CountryCode+@Phone2AreaCode+@Phone2
+			,PhoneNumber3 = @Phone3CountryCode+@Phone3AreaCode+@Phone3
+			,MobilePhone = @MobilePhoneCountryCode+@MobilePhoneAreaCode+@MobilePhone
+		WHERE CustID = @CustID
+		AND (
+				@PhoneCountryCode <> @PhoneCountryCode_Old 
+			OR @PhoneAreaCode <> @PhoneAreaCode_Old
+			OR @Phone <> @Phone_Old
+			OR @Phone2CountryCode <> @Phone2CountryCode_Old 
+			OR @Phone2AreaCode <> @Phone2AreaCode 
+			OR @Phone2 <> @Phone2_Old
+			OR @Phone3CountryCode <> @Phone3CountryCode_Old 
+			OR @Phone3AreaCode <> @Phone3AreaCode 
+			OR @Phone3 <> @Phone3_Old
+			OR @MobilePhoneCountryCode <> @MobilePhoneCountryCode_Old 
+			OR @MobilePhoneAreaCode <> @MobilePhoneAreaCode 
+			OR @MobilePhone <> @MobilePhone_Old
+		)
+		
+		IF @@error <> 0
+		BEGIN
+			SELECT @ErrCode = 101
+			SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
+			RETURN
+		END
+
+	--------Update language for Old System------
+	IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@Language,',') WHERE SettingID = 12000))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
+	END
+
+	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@Language,',') WHERE SettingID = 12001))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12001 WHERE CustID = @CustID
+	END
+
+	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@Language,',') WHERE SettingID = 12002))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12002 WHERE CustID = @CustID
+	END
+
+	ELSE
+	BEGIN 
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@Language,',')) WHERE CustID = @CustID
+	END
+
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML
 	SELECT @OldValues =

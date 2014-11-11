@@ -1,6 +1,4 @@
-﻿ 
-
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackSelByLincensee]
+﻿ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackSelByLincensee]
 (
 	@FromDate datetime,
 	@ToDate datetime
@@ -14,6 +12,7 @@ AS
 	Original:
 	Revisions:
 		- 20111126@Sophia: Not to show Status is Pending (StatusID = 11001)		
+		- 20140523@Dom: modify site condition
 	Param's Explanation:
 	
 */
@@ -59,12 +58,13 @@ BEGIN
 					INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
 					INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 					INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+					INNER JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 					LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 			WHERE
 				
 				fbc.IsRelated = 0
 				AND fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
-				AND fb.SiteID >= 6200
+				AND s.IsLicensee=1
 				AND fb.StatusID NOT IN (11004, 11001)
 		) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
 END

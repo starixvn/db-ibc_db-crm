@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_GuestUpdUserName    Script Date: 3/26/2014 6:06:07 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_GuestUpdUserName]
+ALTER PROCEDURE [dbo].[Acc_CRM_GuestUpdUserName]
 (
 	@UserID		INT,
 	@CustID		INT,
@@ -48,6 +41,17 @@ BEGIN
 
 	-- update guets's username
 	UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
+	SET Username = @Username
+	WHERE CustID = @CustID
+
+	IF @@ERROR <> 0
+	BEGIN
+		SELECT	@ErrCode = 100,
+				@ErrMsg = 'Update username unsuccessfully.'
+		RETURN
+	END
+
+	UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
 	SET Username = @Username
 	WHERE CustID = @CustID
 

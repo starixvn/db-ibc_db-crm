@@ -1,11 +1,4 @@
-﻿
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_FeedbackInfoUpd    Script Date: 3/26/2014 6:06:06 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackInfoUpd]
+﻿ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackInfoUpd]
 (
 	@UserID						INT,
 	@FeedbackID					INT,
@@ -14,18 +7,18 @@ CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackInfoUpd]
 	@Birthday					DATETIME = NULL,
 	@FirstName					NVARCHAR(50)=NULL,
 	@LastName					NVARCHAR(50)=NULL,
-	@Phone						NVARCHAR(100)=NULL,
-	@PhoneCountryCode			NVARCHAR(40)=NULL,
-	@PhoneAreaCode				NVARCHAR(40)=NULL,
-	@Phone2						NVARCHAR(100)=NULL,
-	@Phone2CountryCode			NVARCHAR(40)=NULL,
-	@Phone2AreaCode				NVARCHAR(40)=NULL,
-	@Phone3						NVARCHAR(100)=NULL,
-	@Phone3CountryCode			NVARCHAR(40)=NULL,
-	@Phone3AreaCode				NVARCHAR(40)=NULL,
-	@MobilePhone				NVARCHAR(100)=NULL,
-	@MobilePhoneCountryCode		NVARCHAR(40)=NULL,
-	@MobilePhoneAreaCode		NVARCHAR(40)=NULL,
+	@Phone						NVARCHAR(100)='',
+	@PhoneCountryCode			NVARCHAR(40)='',
+	@PhoneAreaCode				NVARCHAR(40)='',
+	@Phone2						NVARCHAR(100)='',
+	@Phone2CountryCode			NVARCHAR(40)='',
+	@Phone2AreaCode				NVARCHAR(40)='',
+	@Phone3						NVARCHAR(100)='',
+	@Phone3CountryCode			NVARCHAR(40)='',
+	@Phone3AreaCode				NVARCHAR(40)='',
+	@MobilePhone				NVARCHAR(100)='',
+	@MobilePhoneCountryCode		NVARCHAR(40)='',
+	@MobilePhoneAreaCode		NVARCHAR(40)='',
 	@Fax						NVARCHAR(50)=NULL,
 	@FaxCountryCode				NVARCHAR(40)=NULL,
 	@FaxAreaCode				NVARCHAR(40)=NULL,
@@ -35,7 +28,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackInfoUpd]
 	@LanguageID					VARCHAR(1000),
 	@CountryID					INT,
 	@Subject					NVARCHAR(200)	= NULL,
-	@RelatedCustID				NVARCHAR(500)	= NULL,
+	@RelatedCustID				NVARCHAR(MAX)	= NULL,
 	@FeedbackDate				DATETIME,	
 	@ResolutionDate				DATETIME,
 	@CommunicationID			INT,
@@ -52,7 +45,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackInfoUpd]
 	@Solution					NVARCHAR(MAX),
 	@UpdateReviewedMode			TINYINT = 0,
 	@IsReviewed					BIT				= 0,
-	@Review						NVARCHAR(4000),
+	@Review						NVARCHAR(MAX),
 	@ReviewerID					INT				= NULL,
 	@IP							VARCHAR(15),
 	@Pic1						NVARCHAR(100)	= NULL,

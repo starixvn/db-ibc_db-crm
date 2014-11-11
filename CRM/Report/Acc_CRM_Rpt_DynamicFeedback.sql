@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_Rpt_DynamicFeedback    Script Date: 3/26/2014 6:06:09 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_Rpt_DynamicFeedback]
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DynamicFeedback]
 	@FromDate DATETIME,
 	@ToDate DATETIME,
 	@ProductID INT = NULL,
@@ -67,13 +60,15 @@ SELECT f.FeedbackID,
 		f.Subject,
 		st.Name Status,
 		c.username HandledBy,
-		rv.username ReviewedBy
+		rv.username ReviewedBy,
+		cust.UserName
 FROM crmFeedback(NOLOCK) f
 LEFT JOIN crmMainCategory(NOLOCK) mc ON mc.MainCategoryID = f.MainCategoryID
 LEFT JOIN crmSubCategory(NOLOCK) sc ON sc.MainCategoryID= mc.MainCategoryID and sc.SubCategoryID = f.SubCategoryID
 LEFT JOIN crmStatus(NOLOCK) st ON st.StatusID = f.StatusID
 INNER JOIN bodb02.dbo.Customer(NOLOCK) c ON c.custid = f.CreatorID
 LEFT JOIN bodb02.dbo.Customer(NOLOCK) rv ON rv.custid = f.ReviewerID
+INNER JOIN crmCustomer cust WITH(NOLOCK) ON cust.CustID = f.CustID
 WHERE f.FeedbackID IN(SELECT feedbackid from #Feedback)
 ORDER BY f.FeedbackDate DESC, f.FeedbackID DESC
 DROP TABLE #Feedback

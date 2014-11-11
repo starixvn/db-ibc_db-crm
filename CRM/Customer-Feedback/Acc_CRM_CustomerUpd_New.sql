@@ -7,19 +7,19 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@TitleID					INT				= NULL,
 	@BirthDay					SMALLDATETIME	= NULL,
 	@LanguageID					VARCHAR(1000)	= NULL,
-	@Phone						NVARCHAR(50)	= NULL,	
-	@PhoneCountryCode			NVARCHAR(20)	= NULL,	
-	@PhoneAreaCode				NVARCHAR(20)	= NULL,	
-	@Phone2						NVARCHAR(50)	= NULL,	
-	@Phone2CountryCode			NVARCHAR(20)	= NULL,	
-	@Phone2AreaCode				NVARCHAR(20)	= NULL,	
-	@Phone3						NVARCHAR(50)	= NULL,	
-	@Phone3CountryCode			NVARCHAR(20)	= NULL,	
-	@Phone3AreaCode				NVARCHAR(20)	= NULL,	
+	@Phone						NVARCHAR(50)	= '',	
+	@PhoneCountryCode			NVARCHAR(20)	= '',	
+	@PhoneAreaCode				NVARCHAR(20)	= '',	
+	@Phone2						NVARCHAR(50)	= '',	
+	@Phone2CountryCode			NVARCHAR(20)	= '',	
+	@Phone2AreaCode				NVARCHAR(20)	= '',	
+	@Phone3						NVARCHAR(50)	= '',	
+	@Phone3CountryCode			NVARCHAR(20)	= '',	
+	@Phone3AreaCode				NVARCHAR(20)	= '',	
 	@Passport					NVARCHAR(50)	= NULL,	
-	@MobilePhone				NVARCHAR(50)	= NULL,
-	@MobilePhoneCountryCode		NVARCHAR(20)	= NULL,
-	@MobilePhoneAreaCode		NVARCHAR(20)	= NULL,
+	@MobilePhone				NVARCHAR(50)	= '',
+	@MobilePhoneCountryCode		NVARCHAR(20)	= '',
+	@MobilePhoneAreaCode		NVARCHAR(20)	= '',
 	@Fax						NVARCHAR(50)	= NULL,
 	@FaxCountryCode				NVARCHAR(20)	= NULL,
 	@FaxAreaCode				NVARCHAR(20)	= NULL,
@@ -75,7 +75,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	20140827@Dom: [Redmine #18632] Update phone number in custsearch
 Param's Explanation:
 	
 */
@@ -172,6 +172,27 @@ BEGIN
 			SELECT @ErrCode = 101
 			SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
 			RETURN
+		END
+
+		--------Update language for Old System------
+		IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12000))
+		BEGIN
+			UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
+		END
+
+		ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12001))
+		BEGIN
+			UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12001 WHERE CustID = @CustID
+		END
+
+		ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12002))
+		BEGIN
+			UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12002 WHERE CustID = @CustID
+		END
+
+		ELSE
+		BEGIN 
+			UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@LanguageID,',')) WHERE CustID = @CustID
 		END
 
 		RETURN -- Completed insert
@@ -365,116 +386,160 @@ BEGIN
 		SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
 		RETURN
 	END
+	
+	-- Update CustSearch
+	UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
+	SET PhoneNumber1 = ISNULL(@PhoneCountryCode,'') + ISNULL(@PhoneAreaCode,'') + ISNULL(@Phone,'')
+		,PhoneNumber2 = ISNULL(@Phone2CountryCode,'') + ISNULL(@Phone2AreaCode,'') + ISNULL(@Phone2,'')
+		,PhoneNumber3 = ISNULL(@Phone3CountryCode,'') + ISNULL(@Phone3AreaCode,'') + ISNULL(@Phone3,'')
+		,MobilePhone = ISNULL(@MobilePhoneCountryCode,'') + ISNULL(@MobilePhoneAreaCode,'') + ISNULL(@MobilePhone,'')
+	WHERE CustID = @CustID
+	AND (
+			ISNULL(@PhoneCountryCode,'') <> ISNULL(@PhoneCountryCode_Old,'')
+		OR ISNULL(@PhoneAreaCode,'') <> ISNULL(@PhoneAreaCode_Old,'')
+		OR ISNULL(@Phone,'') <> ISNULL(@Phone_Old,'')
+		OR ISNULL(@Phone2CountryCode,'') <> ISNULL(@Phone2CountryCode_Old ,'')
+		OR ISNULL(@Phone2AreaCode,'') <> ISNULL(@Phone2AreaCode ,'')
+		OR ISNULL(@Phone2 ,'')<> ISNULL(@Phone2_Old,'')
+		OR ISNULL(@Phone3CountryCode,'') <> ISNULL(@Phone3CountryCode_Old ,'')
+		OR ISNULL(@Phone3AreaCode,'') <> ISNULL(@Phone3AreaCode ,'')
+		OR ISNULL(@Phone3,'') <> ISNULL(@Phone3_Old,'')
+		OR ISNULL(@MobilePhoneCountryCode,'') <> ISNULL(@MobilePhoneCountryCode_Old ,'')
+		OR ISNULL(@MobilePhoneAreaCode,'') <> ISNULL(@MobilePhoneAreaCode ,'')
+		OR ISNULL(@MobilePhone,'') <> ISNULL(@MobilePhone_Old,'')
+	)
+	
+	--------Update language for Old System------
+	IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12000))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
+	END
+
+	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12001))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12001 WHERE CustID = @CustID
+	END
+
+	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12002))
+	BEGIN
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12002 WHERE CustID = @CustID
+	END
+
+	ELSE
+	BEGIN 
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@LanguageID,',')) WHERE CustID = @CustID
+	END
+
 
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML
 
 	SELECT @OldValues =
 					'<Acc_CRM_CustomerUpd_New>'				+ --SP Name
-							'<FirstName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName_Old),'')			+ '</FirstName>' +
-							'<LastName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LastName_Old),'')			+ '</LastName>' +
-							'<TitleID>'						+ ISNULL(CONVERT(VARCHAR(10),@TitleID_Old),'')					+ '</TitleID>' +
-							'<Birthday>'					+ ISNULL(CONVERT(VARCHAR(20),@Birthday_Old,107),'')					+ '</Birthday>' +
-							'<IsVIP>'						+ ISNULL(CONVERT(VARCHAR(10),@IsVIP_Old),'')					+ '</IsVIP>' +
-							'<BettingCode>'					+ ISNULL(@BettingCode_Old,'')									+ '</BettingCode>' +
-							'<RefCode2>'					+ ISNULL(@RefCode2_Old,'')										+ '</RefCode2>' +
-							'<LanguageID>'					+ ISNULL(@LanguageID_Old,'')									+ '</LanguageID>' +
-							'<Phone>'						+ ISNULL(@Phone_Old,'')											+ '</Phone>' +
-							'<PhoneCountryCode>'			+ ISNULL(@PhoneCountryCode_Old,'')								+ '</PhoneCountryCode>' +
-							'<PhoneAreaCode>'				+ ISNULL(@PhoneAreaCode_Old,'')									+ '</PhoneAreaCode>' +
-							'<Phone2>'						+ ISNULL(@Phone2_Old,'')										+ '</Phone2>' +
-							'<Phone2CountryCode>'			+ ISNULL(@Phone2CountryCode_Old,'')								+ '</Phone2CountryCode>' +
-							'<Phone2AreaCode>'				+ ISNULL(@Phone2AreaCode_Old,'')								+ '</Phone2AreaCode>' +
-							'<Phone3>'						+ ISNULL(@Phone3_Old,'')										+ '</Phone3>' +
-							'<Phone3CountryCode>'			+ ISNULL(@Phone3CountryCode_Old,'')								+ '</Phone3CountryCode>' +
-							'<Phone3AreaCode>'				+ ISNULL(@Phone3AreaCode_Old,'')								+ '</Phone3AreaCode>' +
-							'<Passport>'					+ ISNULL(@Passport_Old,'')										+ '</Passport>' +
-							'<MobilePhone>'					+ ISNULL(@MobilePhone_Old,'')									+ '</MobilePhone>' +
-							'<MobilePhoneCountryCode>'		+ ISNULL(@MobilePhoneCountryCode_Old,'')						+ '</MobilePhoneCountryCode>' +
-							'<MobilePhoneAreaCode>'			+ ISNULL(@MobilePhoneAreaCode_Old,'')							+ '</MobilePhoneAreaCode>' +
-							'<Fax>'							+ ISNULL(@Fax_Old,'')											+ '</Fax>' +
-							'<FaxCountryCode>'				+ ISNULL(@FaxCountryCode_Old,'')								+ '</FaxCountryCode>' +
-							'<FaxAreaCode>'					+ ISNULL(@FaxAreaCode_Old,'')									+ '</FaxAreaCode>' +
-							'<Email>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Email_Old),'')				+ '</Email>' +
-							'<Skype>'						+ ISNULL(@Skype_Old,'')											+ '</Skype>' +
-							'<MSN>'							+ ISNULL(@MSN_Old,'')											+ '</MSN>' +
-							'<Pic1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1_Old),'')				+ '</Pic1>' +
-							'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2_Old),'')				+ '</Pic2>' +
-							'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3_Old),'')				+ '</Pic3>' +
-							'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4_Old),'')				+ '</Pic4>' +
-							'<Line1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line1_Old),'')				+ '</Line1>' +
-							'<Line2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line2_Old),'')				+ '</Line2>' +
-							'<Line3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line3_Old),'')				+ '</Line3>' +
-							'<City>'						+ ISNULL([dbo].[f_EncodeXMLValue](@City_Old),'')				+ '</City>' +
-							'<Postcode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Postcode_Old),'')			+ '</Postcode>' +
-							'<State>'						+ ISNULL([dbo].[f_EncodeXMLValue](@State_Old),'')				+ '</State>' +
-							'<BankLine1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine1_Old),'')			+ '</BankLine1>' +
-							'<BankLine2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine2_Old),'')			+ '</BankLine2>' +
-							'<BankLine3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine3_Old),'')			+ '</BankLine3>' +
-							'<BankCity>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCity_Old),'')			+ '</BankCity>' +
-							'<BankCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode_Old),'')			+ '</BankCode>' +
-							'<BankState>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankState_Old),'')			+ '</BankState>' +
-							'<BankCountryID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCountryID_Old),'')		+ '</BankCountryID>' +
-							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')				+ '</CountryID>' +			
-							'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID_Old),'')					+ '</SiteID>' +
-							'<BankName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName_Old),'')		+ '</BankName>' +
-							'<AccountNo>'					+ ISNULL(@Wire_AccountNo_Old,'')								+ '</AccountNo>' +
-							'<SwiftCode>'					+ ISNULL(@Wire_SwiftCode_Old,'')								+ '</SwiftCode>' +
-							'<AccountHolderName>'			+ ISNULL(@AccountHolderName_Old,'')								+ '</AccountHolderName>' +	
+							'<FirstName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName_Old),'')							+ '</FirstName>' +
+							'<LastName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LastName_Old),'')							+ '</LastName>' +
+							'<TitleID>'						+ ISNULL(CONVERT(VARCHAR(10),@TitleID_Old),'')									+ '</TitleID>' +
+							'<Birthday>'					+ ISNULL(CONVERT(VARCHAR(20),@Birthday_Old,107),'')								+ '</Birthday>' +
+							'<IsVIP>'						+ ISNULL(CONVERT(VARCHAR(10),@IsVIP_Old),'')									+ '</IsVIP>' +
+							'<BettingCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BettingCode_Old),'')							+ '</BettingCode>' +
+							'<RefCode2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@RefCode2_Old),'')							+ '</RefCode2>' +
+							'<LanguageID>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LanguageID_Old),'')							+ '</LanguageID>' +
+							'<Phone>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone_Old),'')								+ '</Phone>' +
+							'<PhoneCountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneCountryCode_Old),'')					+ '</PhoneCountryCode>' +
+							'<PhoneAreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneAreaCode_Old),'')						+ '</PhoneAreaCode>' +
+							'<Phone2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2_Old),'')								+ '</Phone2>' +
+							'<Phone2CountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2CountryCode_Old),'')					+ '</Phone2CountryCode>' +
+							'<Phone2AreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2AreaCode_Old),'')						+ '</Phone2AreaCode>' +
+							'<Phone3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3_Old),'')								+ '</Phone3>' +
+							'<Phone3CountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3CountryCode_Old),'')					+ '</Phone3CountryCode>' +
+							'<Phone3AreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3AreaCode_Old),'')						+ '</Phone3AreaCode>' +
+							'<Passport>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Passport_Old),'')							+ '</Passport>' +
+							'<MobilePhone>'					+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhone_Old),'')							+ '</MobilePhone>' +
+							'<MobilePhoneCountryCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneCountryCode_Old),'')				+ '</MobilePhoneCountryCode>' +
+							'<MobilePhoneAreaCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneAreaCode_Old),'')					+ '</MobilePhoneAreaCode>' +
+							'<Fax>'							+ ISNULL([dbo].[f_EncodeXMLValue](@Fax_Old),'')									+ '</Fax>' +
+							'<FaxCountryCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FaxCountryCode_Old),'')						+ '</FaxCountryCode>' +
+							'<FaxAreaCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FaxAreaCode_Old),'')							+ '</FaxAreaCode>' +
+							'<Email>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Email_Old),'')								+ '</Email>' +
+							'<Skype>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Skype_Old),'')								+ '</Skype>' +
+							'<MSN>'							+ ISNULL([dbo].[f_EncodeXMLValue](@MSN_Old),'')									+ '</MSN>' +
+							'<Pic1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1_Old),'')								+ '</Pic1>' +
+							'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2_Old),'')								+ '</Pic2>' +
+							'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3_Old),'')								+ '</Pic3>' +
+							'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4_Old),'')								+ '</Pic4>' +
+							'<Line1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line1_Old),'')								+ '</Line1>' +
+							'<Line2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line2_Old),'')								+ '</Line2>' +
+							'<Line3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line3_Old),'')								+ '</Line3>' +
+							'<City>'						+ ISNULL([dbo].[f_EncodeXMLValue](@City_Old),'')								+ '</City>' +
+							'<Postcode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Postcode_Old),'')							+ '</Postcode>' +
+							'<State>'						+ ISNULL([dbo].[f_EncodeXMLValue](@State_Old),'')								+ '</State>' +
+							'<BankLine1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine1_Old),'')							+ '</BankLine1>' +
+							'<BankLine2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine2_Old),'')							+ '</BankLine2>' +
+							'<BankLine3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine3_Old),'')							+ '</BankLine3>' +
+							'<BankCity>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCity_Old),'')							+ '</BankCity>' +
+							'<BankCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode_Old),'')							+ '</BankCode>' +
+							'<BankState>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankState_Old),'')							+ '</BankState>' +
+							'<BankCountryID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCountryID_Old),'')						+ '</BankCountryID>' +
+							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')								+ '</CountryID>' +			
+							'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID_Old),'')									+ '</SiteID>' +
+							'<BankName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName_Old),'')						+ '</BankName>' +
+							'<AccountNo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_AccountNo_Old),'')						+ '</AccountNo>' +
+							'<SwiftCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_SwiftCode_Old),'')						+ '</SwiftCode>' +
+							'<AccountHolderName>'			+ ISNULL([dbo].[f_EncodeXMLValue](@AccountHolderName_Old),'')					+ '</AccountHolderName>' +	
 				'</Acc_CRM_CustomerUpd_New>'
 
 	SELECT @NewValues =
 				'<Acc_CRM_CustomerUpd_New>'				+ --SP Name
-						'<FirstName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')			+ '</FirstName>' +
-						'<LastName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')			+ '</LastName>' +
-						'<TitleID>'						+ ISNULL(CONVERT(VARCHAR(10),@TitleID),'')					+ '</TitleID>' +
-						'<Birthday>'					+ ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')					+ '</Birthday>' +
-						'<IsVIP>'						+ ISNULL(CONVERT(VARCHAR(10),@IsVIP),'')					+ '</IsVIP>' +
-						'<BettingCode>'					+ ISNULL(@BettingCode,'')									+ '</BettingCode>' +
-						'<RefCode2>'					+ ISNULL(@RefCode2,'')										+ '</RefCode2>' +
-						'<LanguageID>'					+ ISNULL(@LanguageID,'')									+ '</LanguageID>' +
-						'<Phone>'						+ ISNULL(@Phone,'')											+ '</Phone>' +
-						'<PhoneCountryCode>'			+ ISNULL(@PhoneCountryCode,'')								+ '</PhoneCountryCode>' +
-						'<PhoneAreaCode>'				+ ISNULL(@PhoneAreaCode,'')									+ '</PhoneAreaCode>' +
-						'<Phone2>'						+ ISNULL(@Phone2,'')										+ '</Phone2>' +
-						'<Phone2CountryCode>'			+ ISNULL(@Phone2CountryCode,'')								+ '</Phone2CountryCode>' +
-						'<Phone2AreaCode>'				+ ISNULL(@Phone2AreaCode,'')								+ '</Phone2AreaCode>' +
-						'<Phone3>'						+ ISNULL(@Phone3,'')										+ '</Phone3>' +
-						'<Phone3CountryCode>'			+ ISNULL(@Phone3CountryCode,'')								+ '</Phone3CountryCode>' +
-						'<Phone3AreaCode>'				+ ISNULL(@Phone3AreaCode,'')								+ '</Phone3AreaCode>' +
-						'<Passport>'					+ ISNULL(@Passport,'')										+ '</Passport>' +
-						'<MobilePhone>'					+ ISNULL(@MobilePhone,'')									+ '</MobilePhone>' +
-						'<MobilePhoneCountryCode>'		+ ISNULL(@MobilePhoneCountryCode,'')						+ '</MobilePhoneCountryCode>' +
-						'<MobilePhoneAreaCode>'			+ ISNULL(@MobilePhoneAreaCode,'')							+ '</MobilePhoneAreaCode>' +
-						'<Fax>'							+ ISNULL(@Fax,'')											+ '</Fax>' +
-						'<FaxCountryCode>'				+ ISNULL(@FaxCountryCode,'')								+ '</FaxCountryCode>' +
-						'<FaxAreaCode>'					+ ISNULL(@FaxAreaCode,'')									+ '</FaxAreaCode>' +
-						'<Email>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')				+ '</Email>' +
-						'<Skype>'						+ ISNULL(@Skype,'')											+ '</Skype>' +
-						'<MSN>'							+ ISNULL(@MSN,'')											+ '</MSN>' +
-						'<Pic1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')				+ '</Pic1>' +
-						'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')				+ '</Pic2>' +
-						'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')				+ '</Pic3>' +
-						'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')				+ '</Pic4>' +
-						'<Line1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line1),'')				+ '</Line1>' +
-						'<Line2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line2),'')				+ '</Line2>' +
-						'<Line3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line3),'')				+ '</Line3>' +
-						'<City>'						+ ISNULL([dbo].[f_EncodeXMLValue](@City),'')				+ '</City>' +
-						'<Postcode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Postcode),'')			+ '</Postcode>' +
-						'<State>'						+ ISNULL([dbo].[f_EncodeXMLValue](@State),'')				+ '</State>' +
-						'<BankLine1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine1),'')			+ '</BankLine1>' +
-						'<BankLine2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine2),'')			+ '</BankLine2>' +
-						'<BankLine3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine3),'')			+ '</BankLine3>' +
-						'<BankCity>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCity),'')			+ '</BankCity>' +
-						'<BankCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode),'')			+ '</BankCode>' +
-						'<BankState>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankState),'')			+ '</BankState>' +
-						'<BankCountryID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCountryID),'')		+ '</BankCountryID>' +
-						'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')				+ '</CountryID>' +			
-						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')					+ '</SiteID>' +
-						'<BankName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')		+ '</BankName>' +
-						'<AccountNo>'					+ ISNULL(@Wire_AccountNo,'')								+ '</AccountNo>' +
-						'<SwiftCode>'					+ ISNULL(@Wire_SwiftCode,'')								+ '</SwiftCode>' +
-						'<AccountHolderName>'			+ ISNULL(@AccountHolderName,'')							+ '</AccountHolderName>' +	
+						'<FirstName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')									+ '</FirstName>' +
+						'<LastName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')									+ '</LastName>' +
+						'<TitleID>'						+ ISNULL(CONVERT(VARCHAR(10),@TitleID),'')											+ '</TitleID>' +
+						'<Birthday>'					+ ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')										+ '</Birthday>' +
+						'<IsVIP>'						+ ISNULL(CONVERT(VARCHAR(10),@IsVIP),'')											+ '</IsVIP>' +
+						'<BettingCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BettingCode),'')									+ '</BettingCode>' +
+						'<RefCode2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@RefCode2),'')									+ '</RefCode2>' +
+						'<LanguageID>'					+ ISNULL([dbo].[f_EncodeXMLValue](@LanguageID),'')									+ '</LanguageID>' +
+						'<Phone>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone),'')										+ '</Phone>' +
+						'<PhoneCountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneCountryCode),'')							+ '</PhoneCountryCode>' +
+						'<PhoneAreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneAreaCode),'')								+ '</PhoneAreaCode>' +
+						'<Phone2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2),'')										+ '</Phone2>' +
+						'<Phone2CountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2CountryCode),'')							+ '</Phone2CountryCode>' +
+						'<Phone2AreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2AreaCode),'')								+ '</Phone2AreaCode>' +
+						'<Phone3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3),'')										+ '</Phone3>' +
+						'<Phone3CountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3CountryCode),'')							+ '</Phone3CountryCode>' +
+						'<Phone3AreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3AreaCode),'')								+ '</Phone3AreaCode>' +
+						'<Passport>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Passport),'')									+ '</Passport>' +
+						'<MobilePhone>'					+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhone),'')									+ '</MobilePhone>' +
+						'<MobilePhoneCountryCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneCountryCode),'')						+ '</MobilePhoneCountryCode>' +
+						'<MobilePhoneAreaCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneAreaCode),'')							+ '</MobilePhoneAreaCode>' +
+						'<Fax>'							+ ISNULL([dbo].[f_EncodeXMLValue](@Fax),'')											+ '</Fax>' +
+						'<FaxCountryCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FaxCountryCode),'')								+ '</FaxCountryCode>' +
+						'<FaxAreaCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@FaxAreaCode),'')									+ '</FaxAreaCode>' +
+						'<Email>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')										+ '</Email>' +
+						'<Skype>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Skype),'')										+ '</Skype>' +
+						'<MSN>'							+ ISNULL([dbo].[f_EncodeXMLValue](@MSN),'')											+ '</MSN>' +
+						'<Pic1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')										+ '</Pic1>' +
+						'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')										+ '</Pic2>' +
+						'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')										+ '</Pic3>' +
+						'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')										+ '</Pic4>' +
+						'<Line1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line1),'')										+ '</Line1>' +
+						'<Line2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line2),'')										+ '</Line2>' +
+						'<Line3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line3),'')										+ '</Line3>' +
+						'<City>'						+ ISNULL([dbo].[f_EncodeXMLValue](@City),'')										+ '</City>' +
+						'<Postcode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Postcode),'')									+ '</Postcode>' +
+						'<State>'						+ ISNULL([dbo].[f_EncodeXMLValue](@State),'')										+ '</State>' +
+						'<BankLine1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine1),'')									+ '</BankLine1>' +
+						'<BankLine2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine2),'')									+ '</BankLine2>' +
+						'<BankLine3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine3),'')									+ '</BankLine3>' +
+						'<BankCity>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCity),'')									+ '</BankCity>' +
+						'<BankCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode),'')									+ '</BankCode>' +
+						'<BankState>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankState),'')									+ '</BankState>' +
+						'<BankCountryID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCountryID),'')								+ '</BankCountryID>' +
+						'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')										+ '</CountryID>' +			
+						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')											+ '</SiteID>' +
+						'<BankName>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')								+ '</BankName>' +
+						'<AccountNo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_AccountNo),'')								+ '</AccountNo>' +
+						'<SwiftCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_SwiftCode),'')								+ '</SwiftCode>' +
+						'<AccountHolderName>'			+ ISNULL([dbo].[f_EncodeXMLValue](@AccountHolderName),'')							+ '</AccountHolderName>' +	
 			'</Acc_CRM_CustomerUpd_New>'
 				
 

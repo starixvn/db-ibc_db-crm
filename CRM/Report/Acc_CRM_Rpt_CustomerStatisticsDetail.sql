@@ -23,6 +23,7 @@ AS
 		- 20120730@Sophia: Exclude ProductID = 8017 for Poker
 		- 20130805@Kathy:  Exclude ProductID = 8005 for Bingo
 		- 20140303@Dom: Modify for new structure
+		- 20140523@Dom: modify site condition
 	Param's Explanation:
 		@SiteType: 	0: All
 					1: IBC
@@ -74,12 +75,10 @@ BEGIN
 		--LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON fb.CreatorID = ci.custID
 		LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate		
-		AND fb.ProductID NOT IN (8003, 8005, 8011, 8013, 8014, 8017)
+		AND fb.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 		AND fb.StatusID <> 11004
-		AND 1 = CASE  WHEN @SiteType = 0 AND (((st.SiteID BETWEEN 6000 AND 6199 OR fb.SiteID = 0) AND fb.ProductID <> 8008) OR (st.SiteID BETWEEN 6200 AND 6999)) THEN 1
-					  WHEN @SiteType = 1 AND (st.SiteID BETWEEN 6000 AND 6199 OR fb.SiteID = 0) AND fb.ProductID <> 8008 THEN 1
-					  WHEN @SiteType = 2 AND st.SiteID BETWEEN 6200 AND 6999 THEN 1
-					  ELSE 0 END 	
+		AND ( (@SiteType=0) OR (@SiteType=1 AND (st.IsLicensee=0 OR ISNULL(fb.SiteID,0)=0)) OR (@SiteType=2 AND st.IsLicensee=1))
+
 	ORDER BY fb.feedbackdate DESC
 
 
@@ -123,23 +122,23 @@ BEGIN
 	INNER JOIN crmCustomer c WITH(NOLOCK) ON d.CustID = c.CustID		
 	LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID
 	LEFT JOIN (
-		SELECT SettingID ProductID, SettingName Product FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Product'
+		SELECT SettingID ProductID, SettingValue Product FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Product'
 	) Product ON Product.ProductID = d.ProductID
 	LEFT JOIN crmBettype bt WITH(NOLOCK) ON bt.BettypeID = d.BettypeID AND d.ProductID = bt.ProductID
 	LEFT JOIN crmLanguage l WITH(NOLOCK) ON l.LanguageID = d.languageid
 	LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = d.CountryID
 	LEFT JOIN crmCommunicationTool cto WITH(NOLOCK) ON cto.CommunicationID = d.CommunicationID
 	LEFT JOIN (
-		SELECT SettingID StationID, SettingName Station FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Station'
+		SELECT SettingID StationID, SettingValue Station FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Station'
 	) Station ON Station.StationID = d.StationID
 	LEFT JOIN crmMainCategory mc WITH(NOLOCK) ON mc.MainCategoryID = d.MainCategoryID
 	LEFT JOIN crmSubCategory sc WITH(NOLOCK) ON sc.SubCategoryID = d.SubCategoryID and sc.MainCategoryID = d.MainCategoryID
 	LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = d.SiteID
 	LEFT JOIN (
-		SELECT SettingID RoleID, SettingName Role FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Role'
+		SELECT SettingID RoleID, SettingValue Role FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Role'
 	) Role ON Role.RoleID = d.RoleID
 	LEFT JOIN (
-		SELECT SettingID ResponseID, SettingName Response FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Response'
+		SELECT SettingID ResponseID, SettingValue Response FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Response'
 	) Response ON Response.ResponseID = d.ResponseID
 	LEFT JOIN crmStatus st WITH(NOLOCK) ON st.StatusID = d.StatusID
 	
@@ -161,3 +160,4 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_CustomerStatisticsDetail] TO [vnteam]
 GO 
+

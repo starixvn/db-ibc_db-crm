@@ -1,6 +1,4 @@
-﻿  
-
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_LicenseeStatisticsDetail] 
+﻿ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_LicenseeStatisticsDetail] 
 (
 	@fromdate	DATETIME,
 	@todate		DATETIME
@@ -13,7 +11,7 @@ AS
 	Original:
 
 	Revisions:
-			
+			- 20140523@Dom: modify site condition
 	Param's Explanation:
 			
 */
@@ -39,7 +37,7 @@ BEGIN
 			fb.CountryID, 
 			fb.CreateDate, 		
 			fb.CreatorID, 
-			ci.UserName as CreatorName, 
+			ci.UserName AS CreatorName, 
 			fb.FeedbackDate, 
 			fb.ResolutionDate,
 			fb.SolveDate, 
@@ -53,17 +51,18 @@ BEGIN
 			fb.BetTypeID, 
 			fb.ResponseID, 
 			fb.StatusID, 		
-			fb.Description, 
+			fb.[Description], 
 			fb.Solution, 
 			fb.IsReviewed, 
 			fb.Review, 
 			fb.ReviewerID, 
-			fb.Subject
+			fb.[Subject]
 	FROM crmFeedback fb WITH(NOLOCK)
 		INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.CustID = c.CustID		
 		LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON fb.CreatorID = ci.custID
+		INNER JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate	
-		AND fb.SiteID >= 6200
+		AND s.IsLicensee=1
 		AND fb.StatusID <> 11004
 	ORDER BY fb.feedbackdate DESC
 END
@@ -74,3 +73,4 @@ GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_LicenseeStatisticsDetail] TO [bodbAdminNet]
 GO
 GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_LicenseeStatisticsDetail] TO [vnteam]
+

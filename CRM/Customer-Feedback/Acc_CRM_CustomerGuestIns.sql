@@ -253,6 +253,22 @@ BEGIN
 		RETURN
 	END
 
+	INSERT INTO crmCustomerSearch(CustID,UserName,SearchCount,PhoneNumber1,PhoneNumber2,PhoneNumber3,MobilePhone)
+	SELECT @CustID, @UserName,0
+		,PhoneNumber1 = ISNULL(@PhoneCountryCode,'') + ISNULL(@PhoneAreaCode,'') + ISNULL(@Phone,'')
+		,PhoneNumber2 = ISNULL(@Phone2CountryCode,'') + ISNULL(@Phone2AreaCode,'') + ISNULL(@Phone2,'')
+		,PhoneNumber3 = ISNULL(@Phone3CountryCode,'') + ISNULL(@Phone3AreaCode,'') + ISNULL(@Phone3,'')
+		,MobilePhone = ISNULL(@MobilePhoneCountryCode,'') + ISNULL(@MobilePhoneAreaCode,'') + ISNULL(@MobilePhone,'')
+
+	IF @@error <> 0
+	BEGIN
+		DELETE crmCustomer WHERE CustID = @CustID
+		DELETE crmCustomerLanguage WITH(ROWLOCK,UPDLOCK) WHERE CustID = @CustID
+		SELECT @ErrCode = 102
+		SELECT @ErrMsg = 'create guest unsuccessfuly.'
+		RETURN
+	END
+
 	-- write log
 	DECLARE @LogElement XML
 

@@ -1,6 +1,6 @@
 ﻿ALTER PROC [dbo].[Acc_CRM_RelatedCustomerVerify]
 (
-	@UserName	NVARCHAR(1000) = ''	
+	@UserName	NVARCHAR(MAX) = ''	
 )
 AS
 /*

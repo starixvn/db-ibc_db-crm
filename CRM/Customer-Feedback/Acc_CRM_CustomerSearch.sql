@@ -1,12 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerSearch    Script Date: 3/26/2014 6:06:05 PM ******/
-
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
 	@Username	VARCHAR(50) = '',
 	@IsGuest	BIT = 0
@@ -36,11 +28,13 @@ BEGIN
 			@SiteID INT,
 			@RoleID TINYINT,
 			@CountryName varchar(100),
-			@CountryID int
-
+			@CountryID int,
+			@IsGroupHeadLine BIT
+	
 	IF @IsGuest = 0
 	BEGIN
-		EXEC DBACC.bodb02.dbo.Acc_UserInfoSel 
+		PRINT 'search by username';
+		EXEC DBACC.bodb02.dbo.Acc_UserInfoSel --- search by username
 			@Username = @Username,	
 			@IsNickName = 0,	
 			@UserID = @custID OUTPUT,
@@ -48,6 +42,7 @@ BEGIN
 		
 		IF @custID IS NULL    --- search by nickname
 		BEGIN
+			PRINT 'search by nickname';
 			EXEC DBACC.bodb02.dbo.Acc_UserInfoSel 
 			@Username = @Username,	
 			@IsNickName = 1,	
@@ -56,18 +51,37 @@ BEGIN
 		END
 		
 		IF @custID IS NULL    --- search by phone in IBC
-		BEGIN	
+		BEGIN
+			PRINT 'search by phone in IBC';	
 			SELECT @custID = c.custID ,
 			@RoleID = RoleID 
 			FROM bodb02.dbo.Customer(NOLOCK) c
-			LEFT JOIN crmCustomer(NOLOCK) cr ON c.custid = cr.CustID
-			WHERE c.phone LIKE '%'+@UserName
-					OR cr.PhoneCountryCode+cr.PhoneAreaCode+cr.Phone LIKE '%'+@username
-					OR cr.Phone2CountryCode+cr.Phone2AreaCode+cr.Phone2 LIKE '%'+@username
-					OR cr.Phone3CountryCode+cr.Phone3AreaCode+cr.Phone3 LIKE '%'+@username
-					OR cr.MobilePhoneCountryCode+cr.MobilePhoneAreaCode+cr.MobilePhone LIKE '%'+@username
-					OR c.mobilephone LIKE '%'+@username		
+			WHERE c.phone = @UserName OR c.mobilephone = @username		
 		END					
+		
+		IF @custID IS NULL    --- search by phone in CRM
+		BEGIN
+			PRINT 'search by phone in CRM';	
+			SELECT	@custID = custID 
+			FROM crmCustomer WITH (NOLOCK) 
+			WHERE (
+					UserName = @UserName
+					OR PhoneCountryCode+PhoneAreaCode+Phone = @username
+						OR Phone2CountryCode+Phone2AreaCode+Phone2 = @username
+						OR Phone3CountryCode+Phone3AreaCode+Phone3 = @username
+						OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
+				) 
+				AND CustID > 0
+		END
+
+		IF @custID IS NULL    --search all system but cannot find Customer -> Quit Execution
+		BEGIN
+			PRINT 'No Customer' ;
+			RETURN;
+		END
+--=====================END SEARCH CROSS SYSTEM===================================================
+
+--=====================RETURN RESULT=============================================================
 
 		IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 		BEGIN
@@ -93,13 +107,17 @@ BEGIN
 									 WHERE c.custid = @CustID)
 					AND SettingName = 'Site'
 			END
-	-----return customer
+			-----return customer
 			SELECT @CountryName = Country,
 					@CountryID = c.CountryID
 			FROM bodb02.dbo.Customer cm WITH(NOLOCK)
 			INNER JOIN crmCountry c ON cm.country = c.CountryName
 			WHERE cm.custid = @custID
+			
 			print 'search in IBC'
+
+			SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
+
 			SELECT	
 			c.CustID, 
 			c.UserName, 
@@ -157,7 +175,8 @@ BEGIN
 			c.danger3,
 			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
 			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
-			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended
+			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended,
+			@IsGroupHeadLine IsGroupHeadLine
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
 					LEFT JOIN crmCustomer crm WITH(NOLOCK) ON c.custID = crm.custID
@@ -169,10 +188,14 @@ BEGIN
 
 		--2nd Record Set
 		SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
+
 		END
 		ELSE -- there is a customer in crm
 		BEGIN
 			print 'search in crm'
+
+			SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
+
 			SELECT	
 			crm.CustID, 
 			crm.UserName, 
@@ -225,17 +248,19 @@ BEGIN
 							WHEN 4 THEN 7003
 							ELSE 7004 
 			END AS RoleID,
-			danger = NULL,
-			danger2 = NULL,
-			danger3 = NULL,
-			Active = NULL,
-			Closed = NULL,
-			Suspended = NULL
+			c.danger,
+			c.danger2,
+			c.danger3,
+			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
+			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
+			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended,
+			@IsGroupHeadLine IsGroupHeadLine
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 						LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
-						LEFT JOIN bodb02.dbo.customer cm WITH(NOLOCK) ON cm.custid = crm.custID						
+						LEFT JOIN bodb02.dbo.customer cm WITH(NOLOCK) ON cm.custid = crm.custID			
+						LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = crm.CustID		
 														
 		WHERE 
 			crm.custID = @custID
@@ -251,13 +276,15 @@ BEGIN
 		FROM crmCustomer WITH (NOLOCK) 
 		WHERE (
 				UserName = @UserName
-				OR PhoneCountryCode+PhoneAreaCode+Phone LIKE '%'+@username
-					OR Phone2CountryCode+Phone2AreaCode+Phone2 LIKE '%'+@username
-					OR Phone3CountryCode+Phone3AreaCode+Phone3 LIKE '%'+@username
-					OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone LIKE '%'+@username
+				OR PhoneCountryCode+PhoneAreaCode+Phone = @username
+					OR Phone2CountryCode+Phone2AreaCode+Phone2 = @username
+					OR Phone3CountryCode+Phone3AreaCode+Phone3 = @username
+					OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 			) 
 			AND custID < 0
-		
+
+		IF(@custID IS NULL) RETURN;
+
 		SELECT	
 			crm.CustID, 
 			crm.UserName, 
@@ -309,10 +336,11 @@ BEGIN
 			danger3 = NULL,
 			Active = NULL,
 			Closed = NULL,
-			Suspended = NULL
+			Suspended = NULL,
+			CAST(0 as BIT) IsGroupHeadLine
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
-						INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
+						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 						LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID						
 														
 		WHERE 

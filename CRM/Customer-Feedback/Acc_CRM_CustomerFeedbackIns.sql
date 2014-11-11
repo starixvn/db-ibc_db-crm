@@ -1,11 +1,4 @@
-﻿
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerFeedbackIns    Script Date: 3/26/2014 6:06:04 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerFeedbackIns]
+﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerFeedbackIns]
 (
 	@UserID						INT,
 	@CustID						INT,
@@ -56,7 +49,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_CustomerFeedbackIns]
 	@Description				NVARCHAR(MAX)	= NULL,
 	@Solution					NVARCHAR(MAX)	= NULL,
 	@IsReviewed					BIT				= 0,
-	@Review						NVARCHAR(4000)	= NULL,
+	@Review						NVARCHAR(MAX)	= NULL,
 	@ReviewerID					INT				= NULL,
 	@IP							VARCHAR(15),
 	@Pic1						NVARCHAR(100)	= NULL,

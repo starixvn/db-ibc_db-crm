@@ -12,33 +12,53 @@ Original:
 Revisions:
 	- 20120423@Elodie: not update crmCustSearch table if @CustID < 0
 	- 20130121@Johnson: change linked server DB06 to DBACC
+	- 20140811@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
 Param's Explanation:
 	• @UserID: User who are logging in.	
 */
+
 BEGIN
 	SET NOCOUNT ON
-	IF @CustID > 0
+	--IF @CustID > 0
+	--BEGIN
+
+	IF(NOT EXISTS (SELECT TOP 1 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID))
+		RETURN;
+
+	DECLARE @PhoneNumber1 NVARCHAR(200) = '',
+			@PhoneNumber2 NVARCHAR(200) = '',
+			@PhoneNumber3 NVARCHAR(200) = '',
+			@MobilePhone NVARCHAR(200) = '',
+			@IsGuest BIT
+
+	SELECT @PhoneNumber1 = ISNULL(PhoneCountryCode,'') + ISNULL(PhoneAreaCode,'') + ISNULL(Phone,'')
+			,@PhoneNumber2 = ISNULL(Phone2CountryCode,'') + ISNULL(Phone2AreaCode,'') + ISNULL(Phone2,'')
+			,@PhoneNumber3 = ISNULL(Phone3CountryCode,'') + ISNULL(Phone3AreaCode,'') + ISNULL(Phone3,'')
+			,@MobilePhone = ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'') + ISNULL(MobilePhone,'')
+	FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID
+
+	SELECT @UserID  = CASE WHEN @CustID > 0 THEN @UserID ELSE -1 END
+	IF EXISTS (SELECT 1 FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE Username2 = @UserName)
+		RETURN
+	ELSE
 	BEGIN
-		IF EXISTS (SELECT 1 FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE Username2 = @UserName)
-			RETURN
+		IF NOT EXISTS (SELECT 1 from crmCustomerSearch with (NOLOCK) WHERE CustID = @CustID)
+		BEGIN
+			INSERT INTO crmCustomerSearch(CustID, UserName, SearchCount,PhoneNumber1,PhoneNumber2,PhoneNumber3,MobilePhone)
+			VALUES (@CustID, @UserName,0,@PhoneNumber1,@PhoneNumber2,@PhoneNumber3,@MobilePhone)	
+		END
 		ELSE
 		BEGIN
-			IF not exists (SELECT 1 from crmCustSearch with (NOLOCK) WHERE UserID = @UserID AND CustID = @CustID)
-			BEGIN
-				IF EXISTS (SELECT 1 FROM DBACC.bodb02.dbo.Custinfo with (NOLOCK) WHERE custid = @UserID)		
-					INSERT INTO crmCustSearch(UserID, CustID, UserName, SearchCount)
-					VALUES (@UserID, @CustID, @UserName, 0)	
-			END
-			ELSE
-			BEGIN
-				UPDATE crmCustSearch WITH (ROWLOCK)
-				SET SearchCount = SearchCount + 1
-				WHERE UserID = @UserID AND CustID = @CustID
-			END
+			print 'update search'
+			UPDATE crmCustomerSearch WITH (ROWLOCK)
+			SET SearchCount = SearchCount + 1,
+				PhoneNumber1 = 	@PhoneNumber1,
+				PhoneNumber2 = 	@PhoneNumber2,
+				PhoneNumber3 = 	@PhoneNumber3,
+				MobilePhone = @MobilePhone
+			WHERE CustID = @CustID 
 		END
 	END
+	--END
 END
-
-
-
 

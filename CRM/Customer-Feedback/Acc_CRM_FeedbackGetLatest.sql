@@ -28,6 +28,7 @@ Revisions:
 					+ return create date column
 	- 20110629@Lukas: support get multipe related customer
 	- 20120425@Sophia: remove converting @FromDate, @Todate
+	- 20140528@Dom: Fix bug duplicated data
 	
 Param's Explanation:
 	
@@ -41,7 +42,10 @@ BEGIN
 
 	IF(ISNULL(@FeedbackID,0)<>0)
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
+		DECLARE @IsRelated INT = 0
+		SELECT TOP 1 @IsRelated=@IsRelated FROM crmFeedbackCustomer WITH(NOLOCK) WHERE FeedbackID=@FeedbackID AND @IsRelated=1
+
+		SELECT DISTINCT t.*, l.list AS relatedCustomer
 			FROM (
 					SELECT 			
 						fb.FeedbackID, 
@@ -92,13 +96,12 @@ BEGIN
 						fb.Review, 
 						fb.ReviewerID,
 						rv.username AS ReviewerName,
-						fbc.IsRelated,
+						IsRelated = @IsRelated,
 						fb.Subject,
 						fb.RefCode1,
 						fb.RefCode2						
 					FROM
-						crmFeedbackCustomer fbc WITH(NOLOCK)
-							INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
+						crmFeedback fb WITH(NOLOCK)
 							INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 							INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 							LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
@@ -135,7 +138,7 @@ BEGIN
 			FROM	crmCustomer WITH(NOLOCK)
 			WHERE UserName = @UserName AND CustID < 0
 		END			
-		
+
 		SELECT t.*, l.list AS relatedCustomer
 		FROM (
 				SELECT 			
@@ -226,7 +229,8 @@ BEGIN
 	ELSE  
 	BEGIN		
 		IF @IsGuest IS NULL    ------ get feedback for all customer
-		BEGIN		
+		BEGIN
+			
 			SELECT t.*, l.list AS relatedCustomer
 			FROM (
 					SELECT
@@ -314,7 +318,8 @@ BEGIN
 			ORDER BY FeedbackDate DESC
 		END		
 		ELSE IF @IsGuest = 0 -- get feedback for only customer
-		BEGIN		
+		BEGIN	
+				
 			SELECT t.*, l.list AS relatedCustomer
 			FROM (	
 					SELECT 				
@@ -398,13 +403,14 @@ BEGIN
 						AND 
 						ResponseID = ISNULL(@ResponseID, ResponseID)
 						AND
-						fb.FeedbackID = ISNULL(@FeedbackID,fb.FeedbackID)					
+						fb.FeedbackID = ISNULL(@FeedbackID,fb.FeedbackID)
 				) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
 			ORDER BY FeedbackDate DESC
 
 		END   --- end: get feedback for customer
 		ELSE		
 		BEGIN  -- get feedback for guest
+				
 			SELECT t.*, l.list relatedCustomer
 			FROM (
 					SELECT 				
@@ -456,7 +462,7 @@ BEGIN
 						fb.Review, 
 						fb.ReviewerID,
 						rv.username AS ReviewerName,				
-						fbc.IsRelated,
+						IsRelated = CAST(0 AS BIT),
 						fb.Subject,
 						fb.RefCode1,
 						fb.RefCode2	
@@ -468,39 +474,21 @@ BEGIN
 							LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 					WHERE 	
 						fbc.CustID < 0
-						AND 
-						FeedbackDate BETWEEN @FromDate AND @ToDate 
-						AND 
-						CommunicationID = ISNULL(@CommunicationID, CommunicationID) 
-						AND 
-						MainCategoryID = ISNULL(@MainCategoryID, MainCategoryID) 
-						AND 
-						SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
-						AND 
-						StatusID = ISNULL(@StatusID, StatusID) 
-						AND 
-						StatusID <> CASE WHEN ISNULL(@statusID,0) <> 11004 THEN 11004 ELSE -1 END
-						AND 
-						IsReviewed = ISNULL(@IsReviewed, IsReviewed)
-						AND
-						fbc.IsRelated = 0
-						AND 
-						ResponseID = ISNULL(@ResponseID, ResponseID) 				
-						AND
-						fb.FeedbackID = ISNULL(@FeedbackID,fb.FeedbackID)	
+						AND FeedbackDate BETWEEN @FromDate AND @ToDate 
+						AND CommunicationID = ISNULL(@CommunicationID, CommunicationID) 
+						AND MainCategoryID = ISNULL(@MainCategoryID, MainCategoryID) 
+						AND SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
+						AND StatusID = ISNULL(@StatusID, StatusID) 
+						AND StatusID <> CASE WHEN ISNULL(@statusID,0) <> 11004 THEN 11004 ELSE -1 END
+						AND IsReviewed = ISNULL(@IsReviewed, IsReviewed)
+						AND fbc.IsRelated = 0
+						AND ResponseID = ISNULL(@ResponseID, ResponseID) 				
+						AND fb.FeedbackID = ISNULL(@FeedbackID,fb.FeedbackID)
 				) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
 			ORDER BY FeedbackDate DESC
 		END -- end: get feedback for guest
 	END
 END
-
-
-
-
-
-
-
-
 
 GO
 

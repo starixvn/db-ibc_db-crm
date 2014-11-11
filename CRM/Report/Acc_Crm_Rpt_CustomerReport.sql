@@ -1,14 +1,11 @@
 ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
-	@FirstName 		NVARCHAR(100) = NULL,
-	@LastName 		NVARCHAR(100) = NULL,
-	@CountryID 		VARCHAR(1000) = NULL,	
-	@LanguageID		VARCHAR(1000) = NULL,	
-	@SiteID			VARCHAR(1000) = NULL,	
-	@FromBirthday	DATETIME=NULL,
-	@ToBirthday		DATETIME=NULL,
-	@TitleID		INT = NULL,	
-	@VIP			SMALLINT = -1,	
-	@CustomerType	TINYINT = 0
+	@UserName 				NVARCHAR(100) = '',
+	@LanguageID				VARCHAR(1000) = NULL,	
+	@SiteID					VARCHAR(1000) = NULL,	
+	@FromBirthday			DATETIME=NULL,
+	@ToBirthday				DATETIME=NULL,
+	@TitleID				INT = NULL,	
+	@VIP					SMALLINT = -1
 AS
 /*
 Created: Dom
@@ -18,7 +15,7 @@ DB: DBCRM/bodb_CRM
 Original:
 
 Revisions:
-	
+	2014-08-12@Dom: Feature [#18860] Change requests on 10 Jul 2014
 Param's Explanation:
 	@CustomerType: 0 = All
 					1 = Customer
@@ -31,42 +28,21 @@ else if(@ToBirthday IS NOT NULL and @FromBirthday IS NULL)
 	select @FromBirthday = '19000101'
 
 SELECT DISTINCT CustID= c.CustID, 
-		VIP			= c.IsVIP,
+		
 		Title		= setting.SettingValue,
-		FirstName	= c.FirstName,
-		LastName	= c.LastName,
+		UserName	= c.UserName,
+		VIP			= c.IsVIP,
 		Birthday	= c.Birthday,
-		Country		= country.CountryName,
+		Pic1		= c.Pic1,
+		Pic2		= c.Pic2,
+		Pic3		= c.Pic3,
+		Pic4		= c.Pic4,
 		Language	= a.language_name,
 		Site		= site.SiteName,
-		CustomerType = CASE WHEN c.CustID < 0 THEN 'Guest' ELSE 'Customer' END,
-		MobilePhone = c.MobilePhone,
-		MobilePhoneAreaCode = c.MobilePhoneAreaCode,
-		MobilePhoneCountryCode = c.MobilePhoneCountryCode,
-		Fax			= c.Fax,
-		FaxAreaCode	= c.FaxAreaCode,
-		FaxCountryCode = c.FaxCountryCode,
 		c.Skype,
-		c.Email,
-		c.Birthday,
-		c.Line1,
-		c.Line2,
-		c.Line3,
-		c.Phone,
-		c.PhoneAreaCode,
-		c.PhoneCountryCode,
-		c.Phone2,
-		c.Phone2AreaCode,
-		c.Phone2CountryCode,
-		c.Phone3,
-		c.Phone3AreaCode,
-		c.Phone3CountryCode,
-		c.City,
-		c.State,
-		c.PostCode
+		c.Email
 FROM crmCustomer(NOLOCK) c 
 LEFT JOIN crmSetting(NOLOCK) setting ON setting.SettingID = c.TitleID AND setting.SettingName='title'
-LEFT JOIN crmCountry(NOLOCK) country ON c.CountryID = country.CountryID
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
 OUTER APPLY(
@@ -76,9 +52,7 @@ OUTER APPLY(
 				 WHERE clang.CustID = c.CustID
                  FOR XML PATH('')), 1, 1, '')
 )A (language_name)
-WHERE (ISNULL(@FirstName,'')='' OR c.FirstName LIKE '%'+@FirstName+'%')
-	AND (ISNULL(@LastName,'')='' OR c.LastName LIKE '%'+@LastName+'%')
-	AND ((ISNULL(@CountryID,'')='' AND ISNULL(c.CountryID,0)=0) OR c.CountryID IN(SELECT val FROM dbo.f_split(@CountryID,',')))
+WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND (
 			(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
 			OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
@@ -87,7 +61,6 @@ WHERE (ISNULL(@FirstName,'')='' OR c.FirstName LIKE '%'+@FirstName+'%')
 	AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
 	AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
 	AND (ISNULL(@Vip,-1)=-1 OR c.IsVIP = @Vip)
-	AND (@CustomerType=0 OR (@CustomerType=1 and c.CustID>0) OR (@CustomerType=2 and c.CustID<0))
 
 ORDER BY c.IsVIP DESC
 

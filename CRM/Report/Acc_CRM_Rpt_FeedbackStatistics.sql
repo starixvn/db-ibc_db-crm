@@ -1,5 +1,4 @@
-﻿
-ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
+﻿ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
 (
 	@Type			INT,
 	@FromDate		DATETIME,
@@ -21,7 +20,43 @@ Revisions:
 		- 20110628@Lukas: add filter Licensee & remove licensees from 'site' filter
 		- 20111011@Lukas: Add filter duration
 		- 20120425@Sophia: remove converting @FromDate, @Todate
-		
+		- 20140523@Dom: modify site condition
+
+Param's Explanation:
+	@Type:	- 1		By Creator
+			- 2		By Country
+			- 3		By Role
+			- 4		By Site
+			- 5		By Status
+			- 6		By Customer Response
+			- 7		By Product
+			- 8		By Category
+			- 9		Licensees
+			- 10	Communication
+*/
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
+(
+	@Type			INT,
+	@FromDate		DATETIME,
+	@ToDate			DATETIME,
+	@FromDuration	VARCHAR(100),
+	@ToDuration		VARCHAR(100)
+)
+AS
+/*
+Created: Lukas
+Date: 20101116
+Task : feedback statistics report
+DB: DB052.bodb_CRM
+Original:
+
+Revisions:
+		- 20110818@Kevin: add new filter: Communication
+		- 20110622@Kevin: add new filter: Status, Response, Product, Category
+		- 20110628@Lukas: add filter Licensee & remove licensees from 'site' filter
+		- 20111011@Lukas: Add filter duration
+		- 20120425@Sophia: remove converting @FromDate, @Todate
+		- 20120103@Lukas: exclude Pending feedback (statusID = 11001)
 Param's Explanation:
 	@Type:	- 1		By Creator
 			- 2		By Country
@@ -78,7 +113,7 @@ BEGIN
 			SELECT c.custid FROM crmfeedback fb WITH(NOLOCK) 
 						INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.creatorID = c.custid
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY 
@@ -102,7 +137,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.CreatorID = c.CustID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -128,7 +163,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					LEFT JOIN crmCountry ct WITH(NOLOCK) ON fb.CountryID = ct.CountryID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY ct.CountryName, ct.CountryID
@@ -160,7 +195,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmCountry ct WITH(NOLOCK) ON fb.CountryId = ct.CountryID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -186,7 +221,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.RoleID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY r.SettingValue, r.SettingID
@@ -210,7 +245,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmSetting r WITH(NOLOCK) ON fb.RoleID = r.SettingID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -232,16 +267,16 @@ BEGIN
 	BEGIN
 
 		INSERT INTO @Items(Item)
-			SELECT ISNULL(r.SettingID,0)
+			SELECT ISNULL(r.SiteID,0)
 			FROM crmfeedback fb WITH(NOLOCK) 
-					LEFT JOIN crmSetting r WITH(NOLOCK) ON fb.SiteID = r.SettingID					
+					LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.SiteID < 6200
-					AND fb.StatusID <> 11004
+					AND r.IsLicensee=0 --fb.SiteID < 6200
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			GROUP BY r.SettingValue, r.SettingID
-			ORDER BY r.SettingValue ASC
+			GROUP BY r.SiteName, r.SiteID
+			ORDER BY r.SiteName ASC
 					 
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
@@ -262,14 +297,14 @@ BEGIN
 										ISNULL(m.SettingValue,''N/A'') AS MainCategory, 
 										ISNULL(s.SettingID, 0) as ''SubCategoryID'',
 										ISNULL(s.SettingValue,''N/A'') AS SubCategory ,
-										ISNULL(site.SettingValue,''N/A'') As Site
+										ISNULL(site.SiteName,''N/A'') As Site
 								FROM crmFeedback fb WITH(NOLOCK) 
 										LEFT JOIN crmSetting m WITH(NOLOCK) ON fb.MainCategoryID = m.SettingID
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
-										LEFT JOIN crmSetting site WITH(NOLOCK) ON fb.SiteID = site.SettingID
+										LEFT JOIN crmSite site WITH(NOLOCK) ON fb.SiteID = site.SiteID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.siteID < 6200
-										AND fb.StatusID <> 11004
+										AND site.IsLicensee = 0
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -281,7 +316,7 @@ BEGIN
 						ORDER BY MainCategory, SubCategory
 						'
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
+		
 		SELECT	Item 
 		FROM	@Items i
 		
@@ -296,7 +331,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.StatusID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY r.SettingValue, r.SettingID
@@ -319,7 +354,7 @@ BEGIN
 										INNER JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										INNER JOIN crmSetting st WITH(NOLOCK) ON fb.StatusID = st.SettingID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -345,7 +380,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.ResponseID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY r.SettingValue, r.SettingID
@@ -369,7 +404,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.ResponseID = st.SettingID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -395,7 +430,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					LEFT JOIN crmSetting r WITH(NOLOCK) ON fb.ProductID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY r.SettingValue, r.SettingID
@@ -428,7 +463,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.ProductID = st.SettingID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -454,7 +489,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.MainCategoryID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY r.SettingValue, r.SettingID					
@@ -478,7 +513,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.MainCategoryID = st.SettingID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -500,16 +535,16 @@ BEGIN
 	BEGIN
 
 		INSERT INTO @Items(Item)
-			SELECT r.SettingID 
+			SELECT r.SiteID 
 			FROM crmfeedback fb WITH(NOLOCK) 
-					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.SiteID = r.SettingID					
+					INNER JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND r.SettingID >= 6200				
-					AND fb.StatusID <> 11004
+					AND r.IsLicensee=1--r.SettingID >= 6200				
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			GROUP BY r.SettingValue, r.SettingID
-			ORDER BY r.SettingValue ASC
+			GROUP BY r.SiteName, r.SiteID
+			ORDER BY r.SiteName ASC
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
@@ -524,14 +559,14 @@ BEGIN
 										ISNULL(m.SettingValue,''N/A'') AS MainCategory, 
 										ISNULL(s.SettingID, 0) as ''SubCategoryID'',
 										ISNULL(s.SettingValue,''N/A'') AS SubCategory ,
-										st.SettingValue As Site
+										st.SiteName As Site
 								FROM crmFeedback fb WITH(NOLOCK) 
 										LEFT JOIN crmSetting m WITH(NOLOCK) ON fb.MainCategoryID = m.SettingID
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
-										LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.SiteID = st.SettingID
+										LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND st.SettingID >= 6200
-										AND fb.StatusID <> 11004
+										AND st.IsLicensee = 1
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p
@@ -557,7 +592,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.CommunicationID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11001,11004)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			GROUP BY r.SettingValue, r.SettingID
@@ -581,7 +616,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.CommunicationID = st.SettingID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND fb.StatusID <> 11004
+										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 							 ) p

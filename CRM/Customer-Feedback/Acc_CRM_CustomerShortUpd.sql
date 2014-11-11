@@ -4,8 +4,7 @@ GO
 SET ANSI_NULLS ON 
 GO
 
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerShortUpd    Script Date: 3/26/2014 6:06:06 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerShortUpd]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerShortUpd]
 (
 	@UserID						INT,
 	@CustID						INT,
@@ -48,7 +47,7 @@ AS
 /*
 Created: Lukas
 Date: 20101023
-Task : update feedback info
+Task : Short Info Customer
 DB: DB052.bodb_CRM
 Original:
 
@@ -65,6 +64,72 @@ Param's Explanation:
 BEGIN
 
 	SET NOCOUNT ON
+	DECLARE @FirstName_Old					NVARCHAR(50),
+		@LastName_Old					NVARCHAR(50),
+		@TitleID_Old					INT,
+		@Birthday_Old					DATETIME,
+		@Phone_Old						NVARCHAR(100),
+		@PhoneCountryCode_Old			NVARCHAR(40),
+		@PhoneAreaCode_Old				NVARCHAR(40),
+		@Phone2_Old						NVARCHAR(100),
+		@Phone2CountryCode_Old			NVARCHAR(40),
+		@Phone2AreaCode_Old				NVARCHAR(40),
+		@Phone3_Old						NVARCHAR(100),
+		@Phone3CountryCode_Old			NVARCHAR(40),
+		@Phone3AreaCode_Old				NVARCHAR(40),
+		@MobilePhone_Old				NVARCHAR(100),
+		@MobilePhoneCountryCode_Old		NVARCHAR(40),
+		@MobilePhoneAreaCode_Old		NVARCHAR(40),
+		@Fax_Old						NVARCHAR(50),
+		@FaxCountryCode_Old				NVARCHAR(40),
+		@FaxAreaCode_Old				NVARCHAR(40),
+		@Email_Old						NVARCHAR(254),	
+		@Skype_Old						NVARCHAR(100),
+		@MSN_Old						NVARCHAR(100),
+		@IP_Old							VARCHAR(15),
+		@Pic1_Old						NVARCHAR(100)	= NULL,
+		@Pic2_Old						NVARCHAR(100)	= NULL,
+		@Pic3_Old						NVARCHAR(100)	= NULL,
+		@Pic4_Old						NVARCHAR(100)	= NULL,
+		@BettingCode_Old				NVARCHAR(100)	= NULL,
+		@RefCode2_Old					NVARCHAR(100)	= NULL,
+		@Passport_Old					NVARCHAR(100),
+		@IsVip_Old						BIT,
+		@SiteID_Old						INT
+	
+	SELECT	@FirstName_Old				= FirstName,
+		@LastName_Old					= LastName,
+		@TitleID_Old					= TitleID,
+		@Birthday_Old					= Birthday,
+		@Phone_Old						= Phone,
+		@PhoneAreaCode_Old				= PhoneAreaCode,
+		@PhoneCountryCode_Old			= PhoneCountryCode,
+		@Phone2_Old						= Phone2,
+		@Phone2AreaCode_Old				= Phone2AreaCode,
+		@Phone2CountryCode_Old			= Phone2CountryCode,
+		@Phone3_Old						= Phone3,
+		@Phone3AreaCode_Old				= Phone3AreaCode,
+		@Phone3CountryCode_Old			= Phone3CountryCode,
+		@MobilePhone_Old				= MobilePhone,
+		@MobilePhoneAreaCode_Old		= MobilePhoneAreaCode,
+		@MobilePhoneCountryCode_Old		= MobilePhoneCountryCode,
+		@Fax_Old						= Fax,
+		@FaxAreaCode_Old				= FaxAreaCode,
+		@FaxCountryCode_Old				= FaxCountryCode,
+		@Email_Old						= Email,
+		@Skype_Old						= Skype,
+		@MSN_Old						= MSN,
+		@Pic1_Old						= Pic1,
+		@Pic2_Old						= Pic2,
+		@Pic3_Old						= Pic3,
+		@Pic4_Old						= Pic4,
+		@BettingCode_Old				= RefCode1,
+		@RefCode2_Old					= RefCode2,
+		@Passport_Old					= Passport,
+		@IsVip_Old						= IsVip,
+		@SiteID_Old						= SiteID
+	FROM crmCustomer WITH(NOLOCK)
+	WHERE CustID = @CustID
 
 	UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
 	SET	FirstName				= @FirstName,
@@ -99,6 +164,42 @@ BEGIN
 		IsVip					= @IsVip,
 		SiteID					= @SiteID
 	WHERE CustID = @CustID
+
+	IF @@error <> 0
+	BEGIN
+		SELECT @ErrCode = 101
+		SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
+		RETURN
+	END
+
+	-- Update CustSearch
+	UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
+	SET PhoneNumber1 = ISNULL(@PhoneCountryCode,'') + ISNULL(@PhoneAreaCode,'') + ISNULL(@Phone,'')
+		,PhoneNumber2 = ISNULL(@Phone2CountryCode,'') + ISNULL(@Phone2AreaCode,'') + ISNULL(@Phone2,'')
+		,PhoneNumber3 = ISNULL(@Phone3CountryCode,'') + ISNULL(@Phone3AreaCode,'') + ISNULL(@Phone3,'')
+		,MobilePhone = ISNULL(@MobilePhoneCountryCode,'') + ISNULL(@MobilePhoneAreaCode,'') + ISNULL(@MobilePhone,'')
+	WHERE CustID = @CustID
+	AND (
+			ISNULL(@PhoneCountryCode,'') <> ISNULL(@PhoneCountryCode_Old,'')
+		OR ISNULL(@PhoneAreaCode,'') <> ISNULL(@PhoneAreaCode_Old,'')
+		OR ISNULL(@Phone,'') <> ISNULL(@Phone_Old,'')
+		OR ISNULL(@Phone2CountryCode,'') <> ISNULL(@Phone2CountryCode_Old ,'')
+		OR ISNULL(@Phone2AreaCode,'') <> ISNULL(@Phone2AreaCode ,'')
+		OR ISNULL(@Phone2 ,'')<> ISNULL(@Phone2_Old,'')
+		OR ISNULL(@Phone3CountryCode,'') <> ISNULL(@Phone3CountryCode_Old ,'')
+		OR ISNULL(@Phone3AreaCode,'') <> ISNULL(@Phone3AreaCode ,'')
+		OR ISNULL(@Phone3,'') <> ISNULL(@Phone3_Old,'')
+		OR ISNULL(@MobilePhoneCountryCode,'') <> ISNULL(@MobilePhoneCountryCode_Old ,'')
+		OR ISNULL(@MobilePhoneAreaCode,'') <> ISNULL(@MobilePhoneAreaCode ,'')
+		OR ISNULL(@MobilePhone,'') <> ISNULL(@MobilePhone_Old,'')
+	)
+		
+	IF @@error <> 0
+	BEGIN
+		SELECT @ErrCode = 101
+		SELECT @ErrMsg = 'Update Customer unsuccessfuly.'
+		RETURN
+	END
 END
 
 

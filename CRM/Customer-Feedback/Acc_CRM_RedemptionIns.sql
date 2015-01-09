@@ -1,18 +1,13 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_RedemptionIns    Script Date: 3/26/2014 6:06:08 PM ******/
-
-CREATE PROCEDURE Acc_CRM_RedemptionIns
+ALTER PROCEDURE Acc_CRM_RedemptionIns
     @Subject	NVARCHAR(200),
     @ClaimTime	DATETIME,
     @Remark		NTEXT,
     @StatusID	INT,
     @CustID		INT,
     @UserID		INT,
+	@CurrencyID INT,
+	@Amount		DECIMAL(18,2),
+	@DoneBy		NVARCHAR(300),
 	@IP			VARCHAR(15),
 	@ErrCode	INT				= 0 OUTPUT,
 	@ErrMsg		NVARCHAR(4000)	= '' OUTPUT
@@ -25,7 +20,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20141118@Dom: Add currency and amount
 Param's Explanation:
 */
 
@@ -50,14 +45,20 @@ INSERT INTO [dbo].[crmRedemption]
            ,[StatusID]
            ,[CustID]
            ,[CreateDate]
-           ,[Creator])
+           ,[Creator]
+		   ,[CurrencyID]
+		   ,[Amount]
+		   ,[DoneBy])
 SELECT      @Subject,
 			@ClaimTime,	
 			@Remark,		
 			@StatusID,	
 			@CustID,	
 			GETDATE(), 
-			@UserID
+			@UserID,
+			@CurrencyID,
+			@Amount,
+			@DoneBy
 			
 IF @@ERROR <> 0
 	BEGIN
@@ -72,11 +73,14 @@ SELECT @RedemptionID = @@identity
 
 	SELECT @LogElement = 				
 					'<Acc_CRM_RedemptionIns>' + --SP Name
-						'<Subject>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Subject),'')	+ '</Subject>' +
-						'<ClaimTime>'		+ ISNULL(CONVERT(VARCHAR(20),@ClaimTime),'')	+ '</ClaimTime>' +
-						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')	+ '</Remark>' +
-						'<StatusID>'		+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')		+ '</StatusID>' +
-						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')		+ '</CustID>' +
+						'<Subject>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Subject),'')		+ '</Subject>' +
+						'<ClaimTime>'		+ ISNULL(CONVERT(VARCHAR(20),@ClaimTime),'')		+ '</ClaimTime>' +
+						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
+						'<StatusID>'		+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')			+ '</StatusID>' +
+						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
+						'<CurrencyID>'		+ ISNULL(CONVERT(VARCHAR(10),@CurrencyID),'')		+ '</CurrencyID>' +
+						'<Amount>'			+ ISNULL(CONVERT(VARCHAR(30),@Amount),'')			+ '</Amount>' +
+						'<DoneBy>'			+ ISNULL([dbo].[f_EncodeXMLValue](@DoneBy),'')		+ '</DoneBy>' +
 					'</Acc_CRM_RedemptionIns>'
 
 
@@ -103,3 +107,4 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_RedemptionIns] TO [vnteam]
 GO 
+

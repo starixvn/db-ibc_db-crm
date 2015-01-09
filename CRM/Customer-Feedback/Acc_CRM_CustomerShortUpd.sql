@@ -35,11 +35,22 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerShortUpd]
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
 	@BettingCode				NVARCHAR(100)	= NULL,
 	@RefCode2					NVARCHAR(100)	= NULL,
 	@Passport					NVARCHAR(100),
 	@IsVip						BIT,
 	@SiteID						INT,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@ErrCode					INT OUTPUT,
 	@ErrMsg						NVARCHAR(4000) OUTPUT
 )
@@ -91,11 +102,22 @@ BEGIN
 		@Pic2_Old						NVARCHAR(100)	= NULL,
 		@Pic3_Old						NVARCHAR(100)	= NULL,
 		@Pic4_Old						NVARCHAR(100)	= NULL,
+		@Pic1Name_Old					NVARCHAR(100)	= NULL,
+		@Pic2Name_Old					NVARCHAR(100)	= NULL,
+		@Pic3Name_Old					NVARCHAR(100)	= NULL,
+		@Pic4Name_Old					NVARCHAR(100)	= NULL,
 		@BettingCode_Old				NVARCHAR(100)	= NULL,
 		@RefCode2_Old					NVARCHAR(100)	= NULL,
 		@Passport_Old					NVARCHAR(100),
 		@IsVip_Old						BIT,
-		@SiteID_Old						INT
+		@SiteID_Old						INT,
+		@LicenseeType_Old				INT				= 0,
+		@WhatsApp_Old					NVARCHAR(100)	= NULL,
+		@Line_Old						NVARCHAR(100)	= NULL,
+		@WeChat_Old						NVARCHAR(100)	= NULL,
+		@Yahoo_Old						NVARCHAR(100)	= NULL,
+		@QQ_Old							NVARCHAR(100)	= NULL,
+		@BBM_Old						NVARCHAR(100)	= NULL
 	
 	SELECT	@FirstName_Old				= FirstName,
 		@LastName_Old					= LastName,
@@ -123,11 +145,22 @@ BEGIN
 		@Pic2_Old						= Pic2,
 		@Pic3_Old						= Pic3,
 		@Pic4_Old						= Pic4,
+		@Pic1Name_Old					= Pic1Name,
+		@Pic2Name_Old					= Pic2Name,
+		@Pic3Name_Old					= Pic3Name,
+		@Pic4Name_Old					= Pic4Name,
 		@BettingCode_Old				= RefCode1,
 		@RefCode2_Old					= RefCode2,
 		@Passport_Old					= Passport,
 		@IsVip_Old						= IsVip,
-		@SiteID_Old						= SiteID
+		@SiteID_Old						= SiteID,
+		@LicenseeType_Old				= LicenseeType,	
+		@WhatsApp_Old					= WhatsApp,		
+		@Line_Old						= Line,			
+		@WeChat_Old						= WeChat,			
+		@Yahoo_Old						= Yahoo,			
+		@QQ_Old							= QQ,				
+		@BBM_Old						= BBM			
 	FROM crmCustomer WITH(NOLOCK)
 	WHERE CustID = @CustID
 
@@ -158,11 +191,22 @@ BEGIN
 		Pic2					= @Pic2,
 		Pic3					= @Pic3,
 		Pic4					= @Pic4,
+		Pic1Name				= @Pic1Name,
+		Pic2Name				= @Pic2Name,
+		Pic3Name				= @Pic3Name,
+		Pic4Name				= @Pic4Name,
 		RefCode1				= @BettingCode,
 		RefCode2				= @RefCode2,
 		Passport				= @Passport,
 		IsVip					= @IsVip,
-		SiteID					= @SiteID
+		SiteID					= @SiteID,
+		LicenseeType			= @LicenseeType,
+		WhatsApp				= @WhatsApp,
+		Line					= @Line,
+		WeChat					= @WeChat,
+		Yahoo					= @Yahoo,
+		QQ						= @QQ,
+		BBM						= @BBM
 	WHERE CustID = @CustID
 
 	IF @@error <> 0

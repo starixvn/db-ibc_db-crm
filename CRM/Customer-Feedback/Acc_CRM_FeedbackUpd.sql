@@ -55,7 +55,18 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd]
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
 	@RelatedCustID				NVARCHAR(MAX)	= NULL,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
 )
@@ -74,6 +85,7 @@ AS
 		- 20120529@Elodie: encode some parameters to write log in XML format, such as Subject, Pic1, Pic2, ...
 		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
 		- 20140303@Dom: Modify for new structure
+		- 20141118@Dom: add more fields of communication tool
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -188,8 +200,19 @@ DECLARE @TitleID_Old					INT,
 	@Pic2_Old						NVARCHAR(100)	= NULL,
 	@Pic3_Old						NVARCHAR(100)	= NULL,
 	@Pic4_Old						NVARCHAR(100)	= NULL,
-	@SolveDate_old						DATETIME,
-	@Creator_Old					INT
+	@SolveDate_old					DATETIME,
+	@Creator_Old					INT,
+	@Pic1Name_Old					NVARCHAR(100)	= NULL,
+	@Pic2Name_Old					NVARCHAR(100)	= NULL,
+	@Pic3Name_Old					NVARCHAR(100)	= NULL,
+	@Pic4Name_Old					NVARCHAR(100)	= NULL,
+	@LicenseeType_Old				INT				= 0,
+	@WhatsApp_Old					NVARCHAR(100)	= NULL,
+	@Line_Old						NVARCHAR(100)	= NULL,
+	@WeChat_Old						NVARCHAR(100)	= NULL,
+	@Yahoo_Old						NVARCHAR(100)	= NULL,
+	@QQ_Old							NVARCHAR(100)	= NULL,
+	@BBM_Old						NVARCHAR(100)	= NULL
 
 	SELECT  
 		 @TitleID_Old					= TitleID, 
@@ -244,7 +267,18 @@ DECLARE @TitleID_Old					INT,
 		 @Passport_Old					= Passport,
 		 @IsVip_Old						= IsVip,
 		 @SolveDate_old					= @SolveDate,
-		 @Creator_Old					= CreatorID
+		 @Creator_Old					= CreatorID,
+		 @Pic1Name_Old					= Pic1Name,
+		 @Pic2Name_Old					= Pic2Name,
+		 @Pic3Name_Old					= Pic3Name,
+		 @Pic4Name_Old					= Pic4Name,
+		 @LicenseeType_Old				= LicenseeType,
+		 @WhatsApp_Old					= WhatsApp,
+		 @Line_Old						= Line,
+		 @WeChat_Old					= WeChat,
+		 @Yahoo_Old						= Yahoo,
+		 @QQ_Old						= QQ,
+		 @BBM_Old						= BBM
 FROM crmFeedback WITH(NOLOCK)
 WHERE 
 		FeedbackID = @FeedbackID
@@ -309,7 +343,18 @@ WHERE
 		 RefCode1					= @BettingCode,
 		 RefCode2					= @RefCode2,
 		 Passport					= @Passport,
-		 IsVip						= @IsVip
+		 IsVip						= @IsVip,
+		 Pic1Name					= @Pic1Name,
+		 Pic2Name					= @Pic2Name,
+		 Pic3Name					= @Pic3Name,
+		 Pic4Name					= @Pic4Name,
+		 LicenseeType				= @LicenseeType,
+		 WhatsApp					= @WhatsApp,
+		 Line						= @Line,
+		 WeChat						= @WeChat,
+		 Yahoo						= @Yahoo,
+		 QQ							= @QQ,
+		 BBM						= @BBM
 	WHERE 
 		FeedbackID = @FeedbackID
 	 
@@ -375,6 +420,13 @@ WHERE
 						'<Passport>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Passport_Old),'')				+ '</Passport>' +
 						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description_Old),'')				+ '</Remark>' +
 						'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution_Old),'')				+ '</Solution>' +
+						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')					+ '</LicenseeType>' +
+						'<WhatsApp>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp_Old),'')				+ '</WhatsApp>' +
+						'<Line>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line_Old),'')					+ '</Line>' +
+						'<WeChat>'						+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat_Old),'')					+ '</WeChat>' +
+						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo_Old),'')					+ '</Yahoo>' +
+						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ_Old),'')						+ '</QQ>' +
+						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM_Old),'')						+ '</BBM>' +
 					'</Acc_CRM_FeedbackUpd>'
 	SELECT @NewValues = 				
 					'<Acc_CRM_FeedbackUpd>' + --SP Name
@@ -429,6 +481,13 @@ WHERE
 						'<Passport>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Passport),'')				+ '</Passport>' +
 						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description),'')				+ '</Remark>' +
 						'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution),'')				+ '</Solution>' +
+						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
+						'<WhatsApp>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')				+ '</WhatsApp>' +
+						'<Line>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')					+ '</Line>' +
+						'<WeChat>'						+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')					+ '</WeChat>' +
+						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')					+ '</Yahoo>' +
+						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')						+ '</QQ>' +
+						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')						+ '</BBM>' +
 					'</Acc_CRM_FeedbackUpd>'
 
 

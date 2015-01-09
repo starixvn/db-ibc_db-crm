@@ -23,6 +23,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
     @Review				NVARCHAR(MAX) = NULL,
     @ReviewerID			INT,
     @Subject			NVARCHAR(200),
+	@LicenseeType		INT				= 0,
 	@UserID				INT,
 	@IP					VARCHAR(15),
 	@ErrCode			INT				= 0 OUTPUT,
@@ -36,7 +37,8 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20141118@Dom: add more fields of communication tool
+
 Param's Explanation:
 */
 IF ISNULL(@CommunicationID,0) = 0 
@@ -75,7 +77,8 @@ DECLARE @CustID_Old				INT,
 		@Review_Old					NVARCHAR(4000),
 		@ReviewerID_Old				INT,
 		@Subject_Old				NVARCHAR(200),
-		@SolveDate_Old			DATETIME
+		@SolveDate_Old				DATETIME,
+		@LicenseeType_Old			INT
 
 SELECT	@CustID_Old				=CustID,							
 		@CountryID_Old			=CountryID,			
@@ -98,7 +101,8 @@ SELECT	@CustID_Old				=CustID,
 		@Review_Old				=Review,				
 		@ReviewerID_Old			=ReviewerID,			
 		@Subject_Old			=Subject,
-		@SolveDate_Old			= SolveDate
+		@SolveDate_Old			=SolveDate,
+		@LicenseeType_Old		=LicenseeType
 FROM crmFeedback WITH(NOLOCK)
 WHERE FeedbackID = @FeedbackID
 
@@ -163,7 +167,8 @@ SET LanguageID			= @LanguageID,
 	Review				= @Review,
 	ReviewerID			= @ReviewerID,
 	Subject				= @Subject,
-	SolveDate			= @SolveDate
+	SolveDate			= @SolveDate,
+	LicenseeType		= @LicenseeType
 WHERE FeedbackID = @FeedbackID
 
 IF @@ERROR <> 0
@@ -224,7 +229,8 @@ IF @@ERROR <> 0
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID_Old,'')										+ '</RelatedCustID>' +
 							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')					+ '</IsReviewed>' +
 							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')					+ '</Reviewer>' +	
-							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')					+ '</SolveDate>' +				
+							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')					+ '</SolveDate>' +	
+							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')					+ '</LicenseeType>' +			
 					'</Acc_CRM_CommunicationLogUpd>'
 	 
 	SELECT @NewValues=
@@ -248,9 +254,10 @@ IF @@ERROR <> 0
 							'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
 							'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
-							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
+							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5), @IsReviewed),'')					+ '</IsReviewed>' +
 							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +			
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')					+ '</SolveDate>' +			
+							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 					'</Acc_CRM_CommunicationLogUpd>'
 			
 	EXEC [dbo].[WriteLog_UserLog_crmLogFeedback]

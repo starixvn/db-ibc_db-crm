@@ -14,9 +14,10 @@ Revisions:
 Param's Explanation:	
 */
 
-SELECT TOP 5 r.ID RedemptionID,r.Subject,r.ClaimTime,st.Name Status 
+SELECT TOP 5 r.ID RedemptionID,r.Subject,r.ClaimTime,st.Name Status,e.Currency,r.Amount,r.DoneBy 
 FROM crmRedemption(NOLOCK) r
 INNER JOIN crmStatus(NOLOCK) st ON st.StatusID = r.StatusID
+INNER JOIN bodb02.dbo.exchange(NOLOCK) e ON r.CurrencyID=e.exchangeid 
 WHERE r.CustID = @CustID
 AND r.StatusID <> 11004
 ORDER BY r.ID DESC

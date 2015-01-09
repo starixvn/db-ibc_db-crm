@@ -15,7 +15,8 @@ DB: DBCRM/bodb_CRM
 Original:
 
 Revisions:
-	2014-08-12@Dom: Feature [#18860] Change requests on 10 Jul 2014
+	- 20140812@Dom: Feature [#18860] Change requests on 10 Jul 2014
+	- 20141118@Dom: add more fields of communication tool
 Param's Explanation:
 	@CustomerType: 0 = All
 					1 = Customer
@@ -37,6 +38,10 @@ SELECT DISTINCT CustID= c.CustID,
 		Pic2		= c.Pic2,
 		Pic3		= c.Pic3,
 		Pic4		= c.Pic4,
+		Pic1Name	= c.Pic1Name,
+		Pic2Name	= c.Pic2Name,
+		Pic3Name	= c.Pic3Name,
+		Pic4Name	= c.Pic4Name,
 		Language	= a.language_name,
 		Site		= site.SiteName,
 		c.Skype,

@@ -16,6 +16,7 @@ AS
 		- 20120710@Sophia: Add ProductID = 8013 for Mini Game
 		- 20120730@Sophia: Add ProductID = 8017 for Poker
 		- 20130805@Kathy:  Add ProductID = 8005 for Bingo
+		- 20141121@Dom: Add More Communication Tools
 	Param's Explanation:
 		@Type:	- 1	Daily
 				- 2	Weekly					
@@ -30,9 +31,6 @@ BEGIN
 			--c.UserName, 
 			fb.FirstName, 
 			fb.LastName, 
-			fb.Phone, 					
-			fb.MobilePhone, 
-			fb.Fax, 
 			fb.Email, 
 			fb.Skype, 
 			fb.MSN, 
@@ -59,7 +57,36 @@ BEGIN
 			fb.IsReviewed, 
 			fb.Review, 
 			fb.ReviewerID, 
-			fb.Subject
+			fb.Subject,
+			fb.PhoneCountryCode,
+			fb.PhoneAreaCode,
+			fb.Phone,
+			fb.FaxCountryCode,
+			fb.FaxAreaCode,
+			fb.Fax,
+			fb.Phone2CountryCode,
+			fb.Phone2AreaCode,
+			fb.Phone2,
+			fb.Phone3CountryCode,
+			fb.Phone3AreaCode,
+			fb.Phone3,
+			fb.MobilePhoneCountryCode,
+			fb.MobilePhoneAreaCode,
+			fb.MobilePhone,
+			fb.WhatsApp,
+			fb.Line,
+			fb.WeChat,
+			fb.Yahoo,
+			fb.QQ,
+			fb.BBM,
+			fb.PIC1,
+			fb.PIC2,
+			fb.PIC3,
+			fb.PIC4,
+			fb.PIC1Name,
+			fb.PIC2Name,
+			fb.PIC3Name,
+			fb.PIC4Name
 	INTO #Data
 	FROM crmFeedback fb WITH(NOLOCK)
 		--INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.CustID = c.CustID		
@@ -75,9 +102,6 @@ BEGIN
 			c.UserName, 
 			d.FirstName, 
 			d.LastName, 
-			d.Phone, 					
-			d.MobilePhone, 
-			d.Fax, 
 			d.Email, 
 			d.Skype, 
 			d.MSN, 
@@ -103,7 +127,36 @@ BEGIN
 			d.IsReviewed, 
 			d.Review, 
 			d.ReviewerID, 
-			d.Subject
+			d.Subject,
+			ISNULL(d.FaxCountryCode,'') FaxCountryCode,
+			ISNULL(d.FaxAreaCode,'') FaxAreaCode,
+			ISNULL(d.Fax,'') Fax,
+			ISNULL(d.PhoneCountryCode,'') PhoneCountryCode,
+			ISNULL(d.PhoneAreaCode,'') PhoneAreaCode,
+			ISNULL(d.Phone,'') Phone,
+			ISNULL(d.Phone2CountryCode,'') Phone2CountryCode,
+			ISNULL(d.Phone2AreaCode,'') Phone2AreaCode,
+			ISNULL(d.Phone2,'') Phone2,
+			ISNULL(d.Phone3CountryCode,'') Phone3CountryCode,
+			ISNULL(d.Phone3AreaCode,'') Phone3AreaCode,
+			ISNULL(d.Phone3,'') Phone3,
+			ISNULL(d.WhatsApp,'') WhatsApp,
+			ISNULL(d.Line,'') Line,
+			ISNULL(d.WeChat,'') WeChat,
+			ISNULL(d.Yahoo,'') Yahoo,
+			ISNULL(d.QQ,'') QQ,
+			ISNULL(d.BBM,'') BBM,
+			ISNULL(d.MobilePhoneCountryCode,'') MobilePhoneCountryCode,
+			ISNULL(d.MobilePhoneAreaCode,'') MobilePhoneAreaCode,
+			ISNULL(d.MobilePhone,'') MobilePhone,
+			ISNULL(d.PIC1,'') PIC1,
+			ISNULL(d.PIC2,'') PIC2,
+			ISNULL(d.PIC3,'') PIC3,
+			ISNULL(d.PIC4,'') PIC4,
+			ISNULL(d.PIC1Name,'') PIC1Name,
+			ISNULL(d.PIC2Name,'') PIC2Name,
+			ISNULL(d.PIC3Name,'') PIC3Name,
+			ISNULL(d.PIC4Name,'') PIC4Name
 	FROM #Data d
 	INNER JOIN crmCustomer c WITH(NOLOCK) ON d.CustID = c.CustID
 	LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID

@@ -56,6 +56,17 @@
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT,
 	@IsOverWrite				BIT				= 0
@@ -80,6 +91,7 @@ AS
 		- 20130121@Johnson: Change link server DB03 to DBPOLICY
 		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
 		- 20140303@Dom: Modify for new structure
+		- 20141118@Dom: add more fields of communication tool
 	Param's Explanation:
 		• @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -141,6 +153,13 @@ BEGIN
 				@IsVIP					= @IsVIP,
 				@SiteID					= @SiteID,				
 				@CreatorID				= @CreatorID,
+				@LicenseeType			= @LicenseeType,
+				@WhatsApp				= @WhatsApp,
+				@Line					= @Line,
+				@WeChat					= @WeChat,
+				@Yahoo					= @Yahoo,
+				@QQ						= @QQ,
+				@BBM					= @BBM,
 				@IP						= @IP,
 				@Pic1					= @Pic1,
 				@Pic2					= @Pic2,
@@ -190,10 +209,21 @@ BEGIN
 					@Pic2					= @Pic2,
 					@Pic3					= @Pic3,
 					@Pic4					= @Pic4,
+					@Pic1Name				= @Pic1Name,
+					@Pic2Name				= @Pic2Name,
+					@Pic3Name				= @Pic3Name,
+					@Pic4Name				= @Pic4Name,
 					@BettingCode			= @BettingCode,
 					@RefCode2				= @RefCode2,
 					@Passport				= @Passport,
 					@IsVip					= @IsVip,
+					@LicenseeType			= @LicenseeType,
+					@WhatsApp				= @WhatsApp,
+					@Line					= @Line,
+					@WeChat					= @WeChat,
+					@Yahoo					= @Yahoo,
+					@QQ						= @QQ,
+					@BBM					= @BBM,
 					@ErrCode				= @ErrCode OUTPUT,
 					@ErrMsg					= @ErrMsg OUTPUT
 		END
@@ -231,6 +261,10 @@ BEGIN
 					@Pic2					= @Pic2,
 					@Pic3					= @Pic3,
 					@Pic4					= @Pic4,
+					@Pic1Name				= @Pic1Name,
+					@Pic2Name				= @Pic2Name,
+					@Pic3Name				= @Pic3Name,
+					@Pic4Name				= @Pic4Name,
 					@Passport				= @Passport,
 					@SiteID					= @SiteID,
 					@BettingCode			= @BettingCode,
@@ -256,6 +290,13 @@ BEGIN
 					@IsReviewed				= @IsReviewed,
 					@Review					= @Review,
 					@ReviewerID				= @ReviewerID,
+					@LicenseeType			= @LicenseeType,
+					@WhatsApp				= @WhatsApp,
+					@Line					= @Line,
+					@WeChat					= @WeChat,
+					@Yahoo					= @Yahoo,
+					@QQ						= @QQ,
+					@BBM					= @BBM,
 					@IP						= @IP,
 					@ErrCode				= @ErrCode OUTPUT,
 					@ErrMsg					= @ErrMsg OUTPUT

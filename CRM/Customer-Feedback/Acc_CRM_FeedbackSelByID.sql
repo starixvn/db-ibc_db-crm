@@ -15,6 +15,7 @@ AS
 		- 20120307@Elodie: get more 3 values Pic1, Pic2, Pic3
 		- 20120319@Elodie: change DB06 to DB052
 		- 20140303@Dom: Modify for new structure
+		- 20141118@Dom: get more fields of communication tool
 	Param's Explanation:
 		
 */
@@ -86,13 +87,24 @@ BEGIN
 		ISNULL(fb.Pic1,'') Pic1,
 		ISNULL(fb.Pic2,'') Pic2,
 		ISNULL(fb.Pic3,'') Pic3,
-		ISNULL(fb.Pic4,'') Pic4
+		ISNULL(fb.Pic4,'') Pic4,
+		ISNULL(fb.Pic1Name,'') Pic1Name,
+		ISNULL(fb.Pic2Name,'') Pic2Name,
+		ISNULL(fb.Pic3Name,'') Pic3Name,
+		ISNULL(fb.Pic4Name,'') Pic4Name,
+		ISNULL(fb.WhatsApp,'') WhatsApp,
+		ISNULL(fb.Line,'') Line,
+		ISNULL(fb.WeChat,'') WeChat,
+		ISNULL(fb.Yahoo,'') Yahoo,
+		ISNULL(fb.QQ,'') QQ,
+		ISNULL(fb.BBM,'') BBM,
+		fb.LicenseeType
 	FROM 
 		crmFeedback fb WITH(NOLOCK) 
-			CROSS APPLY dbo.f_GetRelatedCustomer(fb.FeedbackID) l
-			INNER JOIN crmCustomer ctm WITH(NOLOCK) ON fb.CustID = ctm.CustID
-			INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
-			LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
+		CROSS APPLY dbo.f_GetRelatedCustomer(fb.FeedbackID) l
+		INNER JOIN crmCustomer ctm WITH(NOLOCK) ON fb.CustID = ctm.CustID
+		INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+		LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 										
 	WHERE 
 		fb.FeedbackID = @FeedbackID	

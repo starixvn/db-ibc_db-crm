@@ -30,6 +30,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
 	@SiteID						INT				= NULL,
 	@BettingCode				NVARCHAR(100)	= NULL,
 	@RefCode2					NVARCHAR(100)	= NULL,
@@ -61,6 +65,13 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@BankState					NVARCHAR(100)	= NULL,
 	@BankCountryID				INT				= NULL,
 	@Wire_AccountName			NVARCHAR(200)	= NULL,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
@@ -75,7 +86,8 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	20140827@Dom: [Redmine #18632] Update phone number in custsearch
+	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
+	- 20141118@Dom: add more fields of communication tool
 Param's Explanation:
 	
 */
@@ -124,6 +136,10 @@ BEGIN
 			@Pic2							= @Pic2,
 			@Pic3							= @Pic3,
 			@Pic4							= @Pic4,
+			@Pic1Name						= @Pic1Name,
+			@Pic2Name						= @Pic2Name,
+			@Pic3Name						= @Pic3Name,
+			@Pic4Name						= @Pic4Name,
 			@Line1							= @Line1,
 			@Line2							= @Line2,
 			@Line3							= @Line3,
@@ -151,6 +167,13 @@ BEGIN
 			@SpecialRemark					= @SpecialRemark,	
 			@Remark							= @Remark,	
 			@CreatorID						= @UserID,
+			@LicenseeType					= @LicenseeType,
+			@WhatsApp						= @WhatsApp,
+			@Line							= @Line,
+			@WeChat							= @WeChat,
+			@Yahoo							= @Yahoo,
+			@QQ								= @QQ,
+			@BBM							= @BBM,
 			@IP								= @IP,
 			@ErrCode						= @ErrCode OUTPUT,
 			@ErrMsg							= @ErrMsg OUTPUT
@@ -231,6 +254,10 @@ BEGIN
 			@Pic2_Old						NVARCHAR(100),
 			@Pic3_Old						NVARCHAR(100),
 			@Pic4_Old						NVARCHAR(100),
+			@Pic1Name_Old					NVARCHAR(100),
+			@Pic2Name_Old					NVARCHAR(100),
+			@Pic3Name_Old					NVARCHAR(100),
+			@Pic4Name_Old					NVARCHAR(100),
 			@SiteID_Old						INT			,
 			---Home Address
 			@Line1_Old						NVARCHAR(100),
@@ -251,7 +278,15 @@ BEGIN
 			@BankCity_Old					NVARCHAR(100),
 			@BankCode_Old					NVARCHAR(100),
 			@BankState_Old					NVARCHAR(100),
-			@BankCountryID_Old				INT			
+			@BankCountryID_Old				INT,
+			@LicenseeType_Old				INT,
+			@WhatsApp_Old					NVARCHAR(100)	= NULL,
+			@Line_Old						NVARCHAR(100)	= NULL,
+			@WeChat_Old						NVARCHAR(100)	= NULL,
+			@Yahoo_Old						NVARCHAR(100)	= NULL,
+			@QQ_Old							NVARCHAR(100)	= NULL,
+			@BBM_Old						NVARCHAR(100)	= NULL
+			
 
 	SELECT 
 		@FirstName_Old						= FirstName,
@@ -284,6 +319,10 @@ BEGIN
 		@Pic2_Old							= Pic2,
 		@Pic3_Old							= Pic3,
 		@Pic4_Old							= Pic4,	
+		@Pic1Name_Old						= Pic1Name,
+		@Pic2Name_Old						= Pic2Name,
+		@Pic3Name_Old						= Pic3Name,
+		@Pic4Name_Old						= Pic4Name,	
 		@Line1_Old							= Line1,
 		@Line2_Old							= Line2,
 		@Line3_Old							= Line3,
@@ -302,7 +341,14 @@ BEGIN
 		@BankLine3_Old						= BankLine3,
 		@BankCity_Old						= BankCity,
 		@BankCode_Old						= BankCode,
-		@BankState_Old						= BankState
+		@BankState_Old						= BankState,
+		@LicenseeType_Old					= LicenseeType,
+		@WhatsApp_Old						= WhatsApp,
+		@Line_Old							= Line,
+		@WeChat_Old							= WeChat,
+		@Yahoo_Old							= Yahoo,
+		@QQ_Old								= QQ,
+		@BBM_Old							= BBM
 	FROM crmCustomer WITH(NOLOCK)
 	WHERE CustID = @CustID --Old Values
 
@@ -346,6 +392,10 @@ BEGIN
 		Pic2						= @Pic2,
 		Pic3						= @Pic3,
 		Pic4						= @Pic4,	
+		Pic1Name					= @Pic1Name,
+		Pic2Name					= @Pic2Name,
+		Pic3Name					= @Pic3Name,
+		Pic4Name					= @Pic4Name,
 		Line1						= @Line1,
 		Line2						= @Line2,
 		Line3						= @Line3,
@@ -364,7 +414,14 @@ BEGIN
 		BankLine3					= @BankLine3,
 		BankCity					= @BankCity,
 		BankCode					= @BankCode,
-		BankState					= @BankState
+		BankState					= @BankState,
+		LicenseeType				= @LicenseeType,
+		WhatsApp					= @WhatsApp,
+		Line						= @Line,
+		WeChat						= @WeChat,
+		Yahoo						= @Yahoo,
+		QQ							= @QQ,
+		BBM							= @BBM
 	WHERE CustID = @CustID
 	
 	select @birthday
@@ -467,6 +524,10 @@ BEGIN
 							'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2_Old),'')								+ '</Pic2>' +
 							'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3_Old),'')								+ '</Pic3>' +
 							'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4_Old),'')								+ '</Pic4>' +
+							'<Pic1Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name_Old),'')								+ '</Pic1Name>' +
+							'<Pic2Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name_Old),'')								+ '</Pic2Name>' +
+							'<Pic3Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name_Old),'')								+ '</Pic3Name>' +
+							'<Pic4Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name_Old),'')								+ '</Pic4Name>' +
 							'<Line1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line1_Old),'')								+ '</Line1>' +
 							'<Line2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line2_Old),'')								+ '</Line2>' +
 							'<Line3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line3_Old),'')								+ '</Line3>' +
@@ -486,6 +547,13 @@ BEGIN
 							'<AccountNo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_AccountNo_Old),'')						+ '</AccountNo>' +
 							'<SwiftCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_SwiftCode_Old),'')						+ '</SwiftCode>' +
 							'<AccountHolderName>'			+ ISNULL([dbo].[f_EncodeXMLValue](@AccountHolderName_Old),'')					+ '</AccountHolderName>' +	
+							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')								+ '</LicenseeType>' +
+							'<WhatsApp>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp_Old),'')							+ '</WhatsApp>' +
+							'<Line>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line_Old),'')								+ '</Line>' +
+							'<WeChat>'						+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat_Old),'')								+ '</WeChat>' +
+							'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo_Old),'')								+ '</Yahoo>' +
+							'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ_Old),'')									+ '</QQ>' +
+							'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM_Old),'')									+ '</BBM>' +
 				'</Acc_CRM_CustomerUpd_New>'
 
 	SELECT @NewValues =
@@ -521,6 +589,10 @@ BEGIN
 						'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')										+ '</Pic2>' +
 						'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')										+ '</Pic3>' +
 						'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')										+ '</Pic4>' +
+						'<Pic1Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name),'')									+ '</Pic1Name>' +
+						'<Pic2Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')									+ '</Pic2Name>' +
+						'<Pic3Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')									+ '</Pic3Name>' +
+						'<Pic4Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')									+ '</Pic4Name>' +
 						'<Line1>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line1),'')										+ '</Line1>' +
 						'<Line2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line2),'')										+ '</Line2>' +
 						'<Line3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line3),'')										+ '</Line3>' +
@@ -540,6 +612,13 @@ BEGIN
 						'<AccountNo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_AccountNo),'')								+ '</AccountNo>' +
 						'<SwiftCode>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_SwiftCode),'')								+ '</SwiftCode>' +
 						'<AccountHolderName>'			+ ISNULL([dbo].[f_EncodeXMLValue](@AccountHolderName),'')							+ '</AccountHolderName>' +	
+						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')										+ '</LicenseeType>' +
+						'<WhatsApp>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')									+ '</WhatsApp>' +
+						'<Line>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')										+ '</Line>' +
+						'<WeChat>'						+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')										+ '</WeChat>' +
+						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')										+ '</Yahoo>' +
+						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')											+ '</QQ>' +
+						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')											+ '</BBM>' +
 			'</Acc_CRM_CustomerUpd_New>'
 				
 
@@ -566,3 +645,5 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpd_New] TO [vnteam]
 GO 
+
+select * from crmcustomer where username='test'

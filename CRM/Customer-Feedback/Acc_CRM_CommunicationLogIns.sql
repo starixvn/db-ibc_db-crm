@@ -26,6 +26,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogIns]
     --@IsReviewed			BIT,
     --@Review				NVARCHAR(4000),
     @Subject			NVARCHAR(200),
+	@LicenseeType		INT				= 0,
 	@UserID				INT,
 	@IP					VARCHAR(15),
 	@ErrCode			INT				= 0 OUTPUT,
@@ -38,7 +39,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20141118@Dom: add more fields of communication tool
 Param's Explanation:
 */
 
@@ -119,7 +120,13 @@ IF ISNULL(@CommunicationID,0) = 0
 			@BankLine3				NVARCHAR(200),
 			@BankCity				NVARCHAR(200),
 			@BankCode				NVARCHAR(200),
-			@BankState				NVARCHAR(200)
+			@BankState				NVARCHAR(200),
+			@WhatsApp				NVARCHAR(100)	= NULL,
+			@Line					NVARCHAR(100)	= NULL,
+			@WeChat					NVARCHAR(100)	= NULL,
+			@Yahoo					NVARCHAR(100)	= NULL,
+			@QQ						NVARCHAR(100)	= NULL,
+			@BBM					NVARCHAR(100)	= NULL
 	
 	SELECT @TitleID					= TitleID,
 			@FirstName				= FirstName,
@@ -162,76 +169,89 @@ IF ISNULL(@CommunicationID,0) = 0
 			@BankLine3				= BankLine3,
 			@BankCity				= BankCity,
 			@BankCode				= BankCode,
-			@BankState				= BankState
+			@BankState				= BankState,
+			@WhatsApp				= WhatsApp,
+			@Line					= Line,
+			@WeChat					= WeChat,
+			@Yahoo					= Yahoo,
+			@QQ						= QQ,
+			@BBM					= BBM
 	FROM crmCustomer(NOLOCK)
 	WHERE CustID = @CustID
 
 	INSERT INTO crmFeedback
-           ([CustID]--
-           ,[TitleID]
-           ,[FirstName]
-           ,[LastName]
-           ,[Phone]
-           ,[MobilePhone]
-           ,[Fax]
-           ,[Email]
-           ,[LanguageID]--
-           ,[CountryID]--
-           ,[CreateDate]--
-           ,[CreatorID]--
-           ,[FeedbackDate]--
-           ,[ResolutionDate]
-           ,[CommunicationID]--
-           ,[StationID]--
-           ,[MainCategoryID]--
-           ,[SubCategoryID]--
-           ,[SiteID]--
-           ,[RoleID]--
-           ,[ProductID]--
-           ,[BetTypeID]--
-           ,[ResponseID]--
-           ,[StatusID]--
-           ,[Description]--
-           ,[Solution]--
-           --,[IsReviewed]--
-           --,[Review]--
-           --,[ReviewerID]--
-           ,[Subject]--
-           ,[Skype]
-           ,[MSN]
-           ,[Pic1]
-           ,[Pic2]
-           ,[Pic3]
-           ,[PhoneCountryCode]
-           ,[PhoneAreaCode]
-           ,[Phone2]
-           ,[Phone2CountryCode]
-           ,[Phone2AreaCode]
-           ,[Phone3]
-           ,[Phone3CountryCode]
-           ,[Phone3AreaCode]
-           ,[MobilePhoneCountryCode]
-           ,[MobilePhoneAreaCode]
-           ,[FaxCountryCode]
-           ,[FaxAreaCode]
-           ,[Pic4]
-           ,[Passport]
-		   ,[RefCode1]
-		   ,[RefCode2]
-		   ,[Birthday]
-		   ,[IsVip]
-           ,[Line1]
-           ,[Line2]
-           ,[Line3]
-           ,[City]
-           ,[Postcode]
-           ,[State]
-           ,[BankLine1]
-           ,[BankLine2]
-           ,[BankLine3]
-           ,[BankCity]
-           ,[BankCode]
-           ,[BankState])
+		([CustID]--
+		,[TitleID]
+		,[FirstName]
+		,[LastName]
+		,[Phone]
+		,[MobilePhone]
+		,[Fax]
+		,[Email]
+		,[LanguageID]--
+		,[CountryID]--
+		,[CreateDate]--
+		,[CreatorID]--
+		,[FeedbackDate]--
+		,[ResolutionDate]
+		,[CommunicationID]--
+		,[StationID]--
+		,[MainCategoryID]--
+		,[SubCategoryID]--
+		,[SiteID]--
+		,[RoleID]--
+		,[ProductID]--
+		,[BetTypeID]--
+		,[ResponseID]--
+		,[StatusID]--
+		,[Description]--
+		,[Solution]--
+		--,[IsReviewed]--
+		--,[Review]--
+		--,[ReviewerID]--
+		,[Subject]--
+		,[Skype]
+		,[MSN]
+		,[Pic1]
+		,[Pic2]
+		,[Pic3]
+		,[PhoneCountryCode]
+		,[PhoneAreaCode]
+		,[Phone2]
+		,[Phone2CountryCode]
+		,[Phone2AreaCode]
+		,[Phone3]
+		,[Phone3CountryCode]
+		,[Phone3AreaCode]
+		,[MobilePhoneCountryCode]
+		,[MobilePhoneAreaCode]
+		,[FaxCountryCode]
+		,[FaxAreaCode]
+		,[Pic4]
+		,[Passport]
+		,[RefCode1]
+		,[RefCode2]
+		,[Birthday]
+		,[IsVip]
+		,[Line1]
+		,[Line2]
+		,[Line3]
+		,[City]
+		,[Postcode]
+		,[State]
+		,[BankLine1]
+		,[BankLine2]
+		,[BankLine3]
+		,[BankCity]
+		,[BankCode]
+		,[BankState]
+		,[LicenseeType]			
+		,[WhatsApp]		
+		,[Line]			
+		,[WeChat]			
+		,[Yahoo]			
+		,[QQ]				
+		,[BBM])			
     SELECT 
 		@CustID,--
         @TitleID,
@@ -297,7 +317,14 @@ IF ISNULL(@CommunicationID,0) = 0
         @BankLine3,
         @BankCity,
         @BankCode,
-        @BankState
+        @BankState,
+		@LicenseeType,			
+		@WhatsApp,		
+		@Line,			
+		@WeChat,			
+		@Yahoo,			
+		@QQ,				
+		@BBM
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -412,6 +439,13 @@ IF ISNULL(@CommunicationID,0) = 0
 						'<BankState>'					+ ISNULL([dbo].[f_EncodeXMLValue](@BankState),'')					+ '</BankState>' +
 						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description),'')					+ '</Remark>' +
 						'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution),'')					+ '</Solution>' +
+						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
+						'<WhatsApp>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')				+ '</WhatsApp>' +
+						'<Line>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')					+ '</Line>' +
+						'<WeChat>'						+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')					+ '</WeChat>' +
+						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')					+ '</Yahoo>' +
+						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')						+ '</QQ>' +
+						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')						+ '</BBM>' +
 					'</Acc_CRM_CommunicationLogIns>'
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogFeedback]

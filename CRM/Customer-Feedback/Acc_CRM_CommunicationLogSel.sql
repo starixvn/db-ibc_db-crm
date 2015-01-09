@@ -5,7 +5,7 @@ SET ANSI_NULLS ON
 GO
 
 /****** Object:  Stored Procedure dbo.Acc_CRM_CommunicationLogSel    Script Date: 3/26/2014 6:06:04 PM ******/
-CREATE PROC [dbo].[Acc_CRM_CommunicationLogSel]
+ALTER PROC [dbo].[Acc_CRM_CommunicationLogSel]
 	@FeedbackID INT
 AS
 
@@ -17,6 +17,7 @@ DB: DB052.bodb_CRM
 Original:
 
 Revisions:
+	- 20141118@Dom: add more fields of communication tool
 */
 
 SELECT f.FeedbackID,
@@ -42,7 +43,8 @@ SELECT f.FeedbackID,
 		f.IsReviewed,
 		f.Review,
 		review.username reviewer,
-		f.SolveDate
+		f.SolveDate,
+		f.LicenseeType
 FROM crmFeedback(nolock) f
 LEFT join crmCustomer(nolock) c on c.CustID = f.CustID
 LEFT JOIN bodb02.dbo.Customer(NOLOCK) review on f.ReviewerID = review.custid

@@ -32,6 +32,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns]
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
 	@Line1						NVARCHAR(100)	= NULL,
 	@Line2						NVARCHAR(100)	= NULL,
 	@Line3						NVARCHAR(100)	= NULL,
@@ -83,6 +87,13 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns]
 	@IsReviewed					BIT,
 	@Review						NVARCHAR(MAX)	= '',
 	@ReviewerID					INT				= NULL,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
@@ -106,6 +117,7 @@ AS
 		- 20130121@Johnson: change linked server DB03 to DBPOLICY
 		- 20140224@Johnson: change linked server DB03 to DBPOLICY
 		- 20140303@Dom: Modify for new structure
+		- 20141118@Dom: add more fields of communication tool
 	Param's Explanation:
 		
 */
@@ -151,6 +163,10 @@ BEGIN
 		@Pic2						= @Pic2,
 		@Pic3						= @Pic3,
 		@Pic4						= @Pic4,
+		@Pic1name					= @Pic1Name,
+		@Pic2name					= @Pic2Name,
+		@Pic3name					= @Pic3Name,
+		@Pic4name					= @Pic4Name,
 		@Line1						= @Line1,
 		@Line2						= @Line2,
 		@Line3						= @Line3,
@@ -184,6 +200,13 @@ BEGIN
 		@IsVerifyBetCredit			= @IsVerifyBetCredit,
 		@IsVerifyGivenCredit		= @IsVerifyGivenCredit,
 		@CreatorID					= @CreatorID,
+		@LicenseeType				= @LicenseeType,
+		@WhatsApp					= @WhatsApp,
+		@Line						= @Line,
+		@WeChat						= @WeChat,
+		@Yahoo						= @Yahoo,
+		@QQ							= @QQ,
+		@BBM						= @BBM,
 		@IP							= @IP,
 		@ErrCode					= @ErrCode OUTPUT,
 		@ErrMsg						= @ErrMsg OUTPUT					
@@ -247,6 +270,10 @@ BEGIN
 					@Pic2					= @Pic2,
 					@Pic3					= @Pic3,
 					@Pic4					= @Pic4,
+					@Pic1Name				= @Pic1Name,
+					@Pic2Name				= @Pic2Name,
+					@Pic3Name				= @Pic3Name,
+					@Pic4Name				= @Pic4Name,
 					@Passport				= @Passport,
 					@BettingCode			= @BettingCode,
 					@RefCode2				= @RefCode2,
@@ -272,6 +299,13 @@ BEGIN
 					@IsReviewed				= @IsReviewed,
 					@Review					= @Review,
 					@ReviewerID				= @ReviewerID,
+					@LicenseeType			= @LicenseeType,
+					@WhatsApp				= @WhatsApp,
+					@Line					= @Line,
+					@WeChat					= @WeChat,
+					@Yahoo					= @Yahoo,
+					@QQ						= @QQ,
+					@BBM					= @BBM,
 					@IP						= @IP,
 					@ErrCode				= @ErrCode OUTPUT,
 					@ErrMsg					= @ErrMsg OUTPUT

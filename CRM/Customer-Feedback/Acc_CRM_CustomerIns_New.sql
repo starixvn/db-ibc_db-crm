@@ -33,6 +33,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
 	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
 	@Line1						NVARCHAR(100)	= NULL,
 	@Line2						NVARCHAR(100)	= NULL,
 	@Line3						NVARCHAR(100)	= NULL,
@@ -66,6 +70,13 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 	@IsVerifyBetCredit			BIT				= 0,
 	@IsVerifyGivenCredit		BIT				= 0,
 	@CreatorID					INT,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
@@ -85,6 +96,7 @@ Revisions:
 	- 20120404@Elodie: change data type of @Skype, @MSN, @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 	- 20120529@Elodie: encode some parameters to write log in XML format, such as Question, Answer, Pic1, ...
 	- 20140123@Dom: update remark and language
+	- 20141118@Dom: Add new PIC name
 Param's Explanation:
 	
 */
@@ -150,6 +162,10 @@ BEGIN
 					Pic2, 
 					Pic3,
 					Pic4,
+					Pic1Name, 
+					Pic2Name, 
+					Pic3Name,
+					Pic4Name,
 					Line1,
 					Line2,
 					Line3,
@@ -181,7 +197,14 @@ BEGIN
 					IsVerifyBirthday,
 					IsVerifySecretCode,
 					IsVerifyBetCredit,
-					IsVerifyGivenCredit
+					IsVerifyGivenCredit,
+					LicenseeType,
+					WhatsApp,
+					Line,
+					WeChat,
+					Yahoo,
+					QQ,
+					BBM
 				)
 			VALUES
 				( 
@@ -216,6 +239,10 @@ BEGIN
 					@Pic2, 
 					@Pic3, 
 					@Pic4,
+					@Pic1Name, 
+					@Pic2Name, 
+					@Pic3Name, 
+					@Pic4Name,
 					@Line1,
 					@Line2,
 					@Line3,
@@ -247,7 +274,14 @@ BEGIN
 					@IsVerifyBirthday,
 					@IsVerifySecretCode,
 					@IsVerifyBetCredit,
-					@IsVerifyGivenCredit
+					@IsVerifyGivenCredit,
+					@LicenseeType,
+					@WhatsApp,
+					@Line,
+					@WeChat,
+					@Yahoo,
+					@QQ,
+					@BBM
 				)
 	
 	IF @@ERROR <> 0
@@ -329,6 +363,10 @@ BEGIN
 						'<Pic2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')				+ '</Pic2>' +
 						'<Pic3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')				+ '</Pic3>' +
 						'<Pic4>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')				+ '</Pic4>' +
+						'<Pic1Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name),'')			+ '</Pic1Name>' +
+						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')			+ '</Pic2Name>' +
+						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')			+ '</Pic3Name>' +
+						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')			+ '</Pic4Name>' +
 						'<Line1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line1),'')				+ '</Line1>' +
 						'<Line2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line2),'')				+ '</Line2>' +
 						'<Line3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line3),'')				+ '</Line3>' +
@@ -360,6 +398,13 @@ BEGIN
 						'<IsVerifyBirthday>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyBirthday),'')			+ '</IsVerifyBirthday>' +
 						'<IsVerifySecretCode>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifySecretCode),'')		+ '</IsVerifySecretCode>' +
 						'<IsVerifyBetCredit>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyBetCredit),'')		+ '</IsVerifyBetCredit>' +
+						'<LicenseeType>'			+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')				+ '</LicenseeType>' +
+						'<WhatsApp>'				+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')			+ '</WhatsApp>' +
+						'<Line>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')				+ '</Line>' +
+						'<WeChat>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')				+ '</WeChat>' +
+						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')				+ '</Yahoo>' +
+						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
+						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
 					'</Acc_CRM_CustomerIns_New>' 
 				
 
@@ -373,11 +418,3 @@ END
 
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 

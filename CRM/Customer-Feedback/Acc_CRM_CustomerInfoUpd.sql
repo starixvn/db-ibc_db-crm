@@ -5,7 +5,7 @@ SET ANSI_NULLS ON
 GO
 
 /****** Object:  Stored Procedure dbo.Acc_CRM_CustomerInfoUpd    Script Date: 3/26/2014 6:06:05 PM ******/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerInfoUpd]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerInfoUpd]
 (
 	@UserID						INT,
 	@CustID						INT,
@@ -86,6 +86,7 @@ AS
 		- 20120327@Elodie: change data type of @Skype, @MSN, @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 		- 20130121@Johnson: change link server DB03 to DBPOLICY
 		- 20140303@Dom: Modify for new structure
+		- 20141208@Dom: Remove policy checking
 	Param's Explanation:
 	
 */
@@ -96,9 +97,9 @@ BEGIN
 			@ErrMsg		= ''
 
 	--Check permission
-	EXEC DBPOLICY.bodb02.dbo.Acc_Con_CheckPermission @custid=@UserID,@funcname='[CustomerInfo]',@ErrCode=@ErrCode OUTPUT,@ErrMsg=@ErrMsg OUTPUT
-	IF @ErrCode <> 0
-		RETURN
+--	EXEC DBPOLICY.bodb02.dbo.Acc_Con_CheckPermission @custid=@UserID,@funcname='[CustomerInfo]',@ErrCode=@ErrCode OUTPUT,@ErrMsg=@ErrMsg OUTPUT
+--	IF @ErrCode <> 0
+--		RETURN
 
 	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN

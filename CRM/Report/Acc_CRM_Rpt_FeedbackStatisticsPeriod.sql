@@ -27,16 +27,16 @@ BEGIN
 			f.FeedbackDate,
 			ISNULL(f.CountryID,0) CountryID,
 			ISNULL(c.CountryName,'N/A') CountryName,
-			COUNT(f.FeedbackID) NoOfIssues 
+			COUNT(distinct f.FeedbackID) NoOfIssues 
 			FROM crmFeedback f WITH(NOLOCK) 
 	LEFT JOIN crmMainCategory m WITH(NOLOCK)  ON m.MainCategoryID = f.MainCategoryID
-	LEFT JOIN crmSubCategory s WITH(NOLOCK)  ON f.MainCategoryID = m.MainCategoryID and f.SubCategoryID = s.SubCategoryID
+	LEFT JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and f.SubCategoryID = s.SubCategoryID
 	LEFT JOIN crmCountry c WITH(NOLOCK) ON c.CountryID = f.CountryID
 	WHERE f.StatusID <> 11004
 	AND f.FeedbackDate BETWEEN @FromDate AND @ToDate
 	AND (@MainCategoryID = 0 OR f.MainCategoryID = @MainCategoryID)
 	AND (@SubCategoryID = 0 OR f.SubCategoryID = @SubCategoryID)
-	GROUP BY m.Name, s.Name, f.FeedbackDate,c.CountryName,f.CountryID
+	GROUP BY m.Name, s.Name, f.FeedbackDate,c.CountryName,f.CountryID,s.SubCategoryID
 	ORDER BY f.FeedbackDate DESC
 END
 
@@ -45,4 +45,3 @@ GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsPeriod] TO [bodbAdminNet]
 GO
 GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsPeriod] TO [vnteam] 
 GO
---Acc_CRM_Rpt_FeedbackStatisticsPeriod '20140101','20140401'

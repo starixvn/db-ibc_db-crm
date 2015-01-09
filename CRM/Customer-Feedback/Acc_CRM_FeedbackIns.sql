@@ -30,7 +30,11 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns]
 	@Pic1						NVARCHAR(100)	= NULL,
 	@Pic2						NVARCHAR(100)	= NULL,
 	@Pic3						NVARCHAR(100)	= NULL,
-	@Pic4						NVARCHAR(200)	= NULL,
+	@Pic4						NVARCHAR(100)	= NULL,
+	@Pic1Name					NVARCHAR(100)	= NULL,
+	@Pic2Name					NVARCHAR(100)	= NULL,
+	@Pic3Name					NVARCHAR(100)	= NULL,
+	@Pic4Name					NVARCHAR(100)	= NULL,
 	@Passport					NVARCHAR(100)	= NULL,
 	@BettingCode				NVARCHAR(100)	= NULL,			
 	@RefCode2					NVARCHAR(100)	= NULL,
@@ -55,6 +59,13 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns]
 	@IsReviewed					BIT				= 0,
 	@Review						NVARCHAR(MAX)	= NULL,
 	@ReviewerID					INT				= NULL,
+	@LicenseeType				INT				= 0,
+	@WhatsApp					NVARCHAR(100)	= NULL,
+	@Line						NVARCHAR(100)	= NULL,
+	@WeChat						NVARCHAR(100)	= NULL,
+	@Yahoo						NVARCHAR(100)	= NULL,
+	@QQ							NVARCHAR(100)	= NULL,
+	@BBM						NVARCHAR(100)	= NULL,
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
@@ -77,6 +88,7 @@ AS
 		- 20120529@Elodie: encode some parameters to write log in XML format, such as Pic1, Pic2, Pic3
 		- 20131108@Kathy: check required fields update to zero [Redmine:#7206]
 		- 20140303@Dom: Modify for new structure
+		- 20141118@Dom: get more fields of communication tool
 	Param's Explanation:
 	
 */
@@ -145,6 +157,10 @@ BEGIN
 					Pic2,
 					Pic3,
 					Pic4,
+					Pic1Name,
+					Pic2Name,
+					Pic3Name,
+					Pic4Name,
 					Passport,
 					RefCode1,
 					RefCode2,
@@ -168,7 +184,14 @@ BEGIN
 					IsReviewed,
 					Review,
 					ReviewerID,
-					SiteID
+					SiteID,
+					LicenseeType,
+					WhatsApp,
+					Line,
+					WeChat,
+					Yahoo,
+					QQ,
+					BBM
 				)
 			VALUES
 				(
@@ -201,6 +224,10 @@ BEGIN
 					@Pic2,
 					@Pic3,
 					@Pic4,
+					@Pic1Name,
+					@Pic2Name,
+					@Pic3Name,
+					@Pic4Name,
 					@Passport,
 					@BettingCode,
 					@RefCode2,
@@ -224,7 +251,14 @@ BEGIN
 					@IsReviewed,
 					@Review,
 					@ReviewerID,
-					@SiteID
+					@SiteID,
+					@LicenseeType,
+					@WhatsApp,
+					@Line,
+					@WeChat,
+					@Yahoo,
+					@QQ,
+					@BBM
 				)
 	IF @@ERROR <> 0
 	BEGIN
@@ -334,9 +368,19 @@ BEGIN
 						'<Pic2>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')					+ '</Pic2>' +
 						'<Pic3>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')					+ '</Pic3>' +
 						'<Pic4>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')					+ '</Pic4>' +
+						'<Pic1Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name),'')				+ '</Pic1Name>' +
+						'<Pic2Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')				+ '</Pic2Name>' +
+						'<Pic3Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')				+ '</Pic3Name>' +
+						'<Pic4Name>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')				+ '</Pic4Name>' +
 						'<Passport>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Passport),'')				+ '</Passport>' +
 						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Description),'')				+ '</Remark>' +
-						'<Solution>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Solution),'')				+ '</Solution>' +
+						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
+						'<WhatsApp>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')				+ '</WhatsApp>' +
+						'<Line>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')					+ '</Line>' +
+						'<WeChat>'						+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')					+ '</WeChat>' +
+						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')					+ '</Yahoo>' +
+						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')						+ '</QQ>' +
+						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')						+ '</BBM>' +
 					'</Acc_CRM_FeedbackIns>'
 
 

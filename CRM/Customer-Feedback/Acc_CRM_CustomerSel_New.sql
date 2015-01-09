@@ -18,6 +18,7 @@ Revisions:
 	- 20121120@Lukas: correct join condition (wrong alias)
 	- 20140120@Dom: add more information of customer
 	- 20140508@Dom: Add group headline
+	- 20141118@Dom: Return PIC Name
 Param's Explanation:	
 */
 BEGIN	
@@ -68,6 +69,10 @@ BEGIN
 			c.Pic2, 
 			c.Pic3, 
 			c.Pic4,
+			c.Pic1Name, 
+			c.Pic2Name, 
+			c.Pic3Name, 
+			c.Pic4Name,
 			c.Line1,
 			c.Line2,
 			c.Line3,
@@ -99,7 +104,14 @@ BEGIN
 					WHEN 3 THEN 7002
 					WHEN 4 THEN 7003
 					ELSE 7004 END as RoleID,
-			@IsGroupHeadLine IsGroupHeadLine
+			@IsGroupHeadLine IsGroupHeadLine,
+			ISNULL(c.LicenseeType,0) LicenseeType,
+			ISNULL(c.WhatsApp,'') WhatsApp,
+			ISNULL(c.Line,'') Line,
+			ISNULL(c.WeChat,'') WeChat,
+			ISNULL(c.Yahoo,'') Yahoo,
+			ISNULL(c.QQ,'') QQ,
+			ISNULL(c.BBM,'') BBM
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
@@ -210,6 +222,10 @@ BEGIN
 			c.Pic2, 
 			c.Pic3, 
 			c.Pic4,
+			c.Pic1Name, 
+			c.Pic2Name, 
+			c.Pic3Name, 
+			c.Pic4Name,
 			c.Question, 
 			c.Answer, 
 			ISNULL(c.CountryID,@CountryID) CountryID, 
@@ -238,7 +254,14 @@ BEGIN
 							WHEN 4 THEN 7003
 							ELSE 7004 
 			END AS RoleID,
-			@IsGroupHeadLine IsGroupHeadLine
+			@IsGroupHeadLine IsGroupHeadLine,
+			0 as LicenseeType,
+			ISNULL(c.WhatsApp,'') WhatsApp,
+			ISNULL(c.Line,'') Line,
+			ISNULL(c.WeChat,'') WeChat,
+			ISNULL(c.Yahoo,'') Yahoo,
+			ISNULL(c.QQ,'') QQ,
+			ISNULL(c.BBM,'') BBM
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID

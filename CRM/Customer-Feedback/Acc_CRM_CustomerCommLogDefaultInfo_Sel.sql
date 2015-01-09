@@ -51,7 +51,8 @@ BEGIN
 					WHEN 4 THEN 7003
 					ELSE 7004 END as RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
-			@DefaultLanguage DefaultLanguage
+			@DefaultLanguage DefaultLanguage,
+			c.LicenseeType LicenseeTypeId
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer cust WITH(NOLOCK) ON c.CustID = cust.custID
@@ -132,7 +133,8 @@ BEGIN
 							ELSE 7004 
 			END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
-			@DefaultLanguage DefaultLanguage
+			@DefaultLanguage DefaultLanguage,
+			ISNULL(c.LicenseeType,0) LicenseeTypeId
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
@@ -158,3 +160,4 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerCommLogDefaultInfo_Sel] TO [vnteam]
 GO 
+

@@ -19,6 +19,7 @@ Revisions:
 	- 20120319@Elodie: change DB06 to DB052
 	- 20130121@Johnson: change link server DB06 to DBACC
 	- 20140303@Dom: Modify for new structure
+	- 20141118@Dom: Return PIC Name
 Param's Explanation:	
 */
 BEGIN
@@ -150,6 +151,10 @@ BEGIN
 			crm.Pic2, 
 			crm.Pic3,
 			crm.Pic4,
+			crm.Pic1Name, 
+			crm.Pic2Name, 
+			crm.Pic3Name,
+			crm.Pic4Name,
 			crm.Question, 
 			crm.Answer, 
 			ISNULL(crm.CountryID,@CountryID) CountryID, 
@@ -176,7 +181,14 @@ BEGIN
 			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
 			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
 			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended,
-			@IsGroupHeadLine IsGroupHeadLine
+			@IsGroupHeadLine IsGroupHeadLine,
+			ISNULL(crm.LicenseeType,0) LicenseeType,
+			'' WhatsApp,
+			'' Line,
+			'' WeChat,
+			'' Yahoo,
+			'' QQ,
+			'' BBM
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
 					LEFT JOIN crmCustomer crm WITH(NOLOCK) ON c.custID = crm.custID
@@ -228,6 +240,10 @@ BEGIN
 			crm.Pic2, 
 			crm.Pic3,
 			crm.Pic4,
+			crm.Pic1Name, 
+			crm.Pic2Name, 
+			crm.Pic3Name,
+			crm.Pic4Name,
 			crm.Question, 
 			crm.Answer, 
 			crm.CountryID,
@@ -254,7 +270,14 @@ BEGIN
 			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
 			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
 			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended,
-			@IsGroupHeadLine IsGroupHeadLine
+			@IsGroupHeadLine IsGroupHeadLine,
+			ISNULL(crm.LicenseeType,0) LicenseeType,
+			ISNULL(crm.WhatsApp,'') WhatsApp,
+			ISNULL(crm.Line,'') Line,
+			ISNULL(crm.WeChat,'') WeChat,
+			ISNULL(crm.Yahoo,'') Yahoo,
+			ISNULL(crm.QQ,'') QQ,
+			ISNULL(crm.BBM,'') BBM
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
@@ -316,6 +339,10 @@ BEGIN
 			crm.Pic2, 
 			crm.Pic3,
 			crm.Pic4,
+			crm.Pic1Name, 
+			crm.Pic2Name, 
+			crm.Pic3Name,
+			crm.Pic4Name,
 			crm.Question, 
 			crm.Answer, 
 			crm.CountryID,
@@ -337,7 +364,14 @@ BEGIN
 			Active = NULL,
 			Closed = NULL,
 			Suspended = NULL,
-			CAST(0 as BIT) IsGroupHeadLine
+			CAST(0 as BIT) IsGroupHeadLine,
+			ISNULL(crm.LicenseeType,0) LicenseeType,
+			ISNULL(crm.WhatsApp,'') WhatsApp,
+			ISNULL(crm.Line,'') Line,
+			ISNULL(crm.WeChat,'') WeChat,
+			ISNULL(crm.Yahoo,'') Yahoo,
+			ISNULL(crm.QQ,'') QQ,
+			ISNULL(crm.BBM,'') BBM
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
@@ -365,3 +399,5 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSearch] TO [vnteam]
 GO 
+
+exec Acc_CRM_CustomerSearch @Username='test',@IsGuest=0

@@ -19,10 +19,14 @@ ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@Email					NVARCHAR(100),
 	@MSN					NVARCHAR(100),
 	@Skype					NVARCHAR(100),
-	@Pic1					NVARCHAR(200),
-	@Pic2					NVARCHAR(200),
-	@Pic3					NVARCHAR(200),
-	@Pic4					NVARCHAR(200),
+	@Pic1					NVARCHAR(200) = NULL,
+	@Pic2					NVARCHAR(200) = NULL,
+	@Pic3					NVARCHAR(200) = NULL,
+	@Pic4					NVARCHAR(200) = NULL,
+	@Pic1Name				NVARCHAR(200)='',
+	@Pic2Name				NVARCHAR(200)='',
+	@Pic3Name				NVARCHAR(200)='',
+	@Pic4Name				NVARCHAR(200)='',
 	@CustID					INT,
 	@UserID					INT,
 	@IP						VARCHAR(15),
@@ -37,7 +41,8 @@ DB: DB052.bodb_CRM
 Original:
 
 Revisions:
-	20140827@Dom: [Redmine #18632] Update phone number in custsearch
+	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
+	- 20141118@Dom: Add new PIC name
 */
 	SET NOCOUNT ON
 
@@ -90,6 +95,10 @@ WHERE custid = @CustID
 			@Pic2							= @Pic2,
 			@Pic3							= @Pic3,
 			@Pic4							= @Pic4,
+			@Pic1Name						= @Pic1Name,
+			@Pic2Name						= @Pic2Name,
+			@Pic3Name						= @Pic3Name,
+			@Pic4Name						= @Pic4Name,
 			@Line1							= NULL,
 			@Line2							= NULL,
 			@Line3							= NULL,
@@ -168,6 +177,10 @@ WHERE custid = @CustID
 		@Pic2_Old					NVARCHAR(200),
 		@Pic3_Old					NVARCHAR(200),
 		@Pic4_Old					NVARCHAR(200),
+		@Pic1Name_Old				NVARCHAR(200),
+		@Pic2Name_Old				NVARCHAR(200),
+		@Pic3Name_Old				NVARCHAR(200),
+		@Pic4Name_Old				NVARCHAR(200),
 		@CustID_Old					INT
 
 		SELECT 
@@ -193,7 +206,11 @@ WHERE custid = @CustID
 			@Pic1_Old						= Pic1,	
 			@Pic2_Old						= Pic2,	
 			@Pic3_Old						= Pic3,	
-			@Pic4_Old						= Pic4	
+			@Pic4_Old						= Pic4,	
+			@Pic1Name_Old					= Pic1Name,	
+			@Pic2Name_Old					= Pic2Name,	
+			@Pic3Name_Old					= Pic3Name,	
+			@Pic4Name_Old					= Pic4name	
 		FROM crmCustomer WITH(ROWLOCK,UPDLOCK)
 		WHERE CustID	= @CustID
 
@@ -226,7 +243,11 @@ WHERE custid = @CustID
 			Pic1						= @Pic1,	
 			Pic2						= @Pic2,	
 			Pic3						= @Pic3,	
-			Pic4						= @Pic4	
+			Pic4						= @Pic4,
+			Pic1Name					= @Pic1Name,	
+			Pic2Name					= @Pic2Name,	
+			Pic3Name					= @Pic3Name,	
+			Pic4Name					= @Pic4Name	
 		WHERE CustID	= @CustID
 
 		-- UPDATE Customer Language
@@ -320,6 +341,10 @@ WHERE custid = @CustID
 						'<Pic2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2_Old),'')					+ '</Pic2>'		+
 						'<Pic3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3_Old),'')					+ '</Pic3>'		+
 						'<Pic4>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4_Old),'')					+ '</Pic4>'		+
+						'<Pic1Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name_Old),'')				+ '</Pic1Name>'		+
+						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name_Old),'')				+ '</Pic2Name>'		+
+						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name_Old),'')				+ '</Pic3Name>'		+
+						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name_Old),'')				+ '</Pic4Name>'		+
 					'</Acc_CRM_CustomerUpdateBasicInfo>'
 
 	SELECT @NewValues =
@@ -348,6 +373,10 @@ WHERE custid = @CustID
 						'<Pic2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')					+ '</Pic2>'		+
 						'<Pic3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')					+ '</Pic3>'		+
 						'<Pic4>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')					+ '</Pic4>'		+
+						'<Pic1Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name),'')				+ '</Pic1Name>'		+
+						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')				+ '</Pic2Name>'		+
+						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')				+ '</Pic3Name>'		+
+						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')				+ '</Pic4Name>'		+
 					'</Acc_CRM_CustomerUpdateBasicInfo>'
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]

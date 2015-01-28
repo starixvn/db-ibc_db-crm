@@ -118,6 +118,7 @@ AS
 		- 20140224@Johnson: change linked server DB03 to DBPOLICY
 		- 20140303@Dom: Modify for new structure
 		- 20141118@Dom: add more fields of communication tool
+		- 20150121@Dom: Remove Sync code for Old system
 	Param's Explanation:
 		
 */
@@ -218,7 +219,7 @@ BEGIN
 	END
 	
 	--------Update language for Old System------
-	IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12000))
+	/*IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12000))
 	BEGIN
 		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
 	END
@@ -236,7 +237,7 @@ BEGIN
 	ELSE
 	BEGIN 
 		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@LanguageID,',')) WHERE CustID = @CustID
-	END
+	END*/
 		
 	--- insert feedback of guest
 	EXEC [dbo].[Acc_CRM_FeedbackIns]

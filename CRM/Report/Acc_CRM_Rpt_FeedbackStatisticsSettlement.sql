@@ -1,6 +1,7 @@
 ﻿ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement]
 (
-	@Year INT
+	@Year INT,
+	@TimeSpan INT
 )
 AS
 /*
@@ -19,12 +20,13 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @FromDate smalldatetime, @ToDate smalldatetime
-	SELECT @FromDate = CAST (@Year AS VARCHAR(10))+'01'+'01';
+	DECLARE @FromDate datetime
+		, @ToDate datetime
+	SELECT @FromDate = DATEADD(hour,@TimeSpan,CONVERT( DATETIME, CAST (@Year AS VARCHAR(10))+'01'+'01',102 ));
 	SELECT @ToDate = DATEADD(year,1,@FromDate);
 
 	SELECT 
-			Month(f.FeedbackDate) [Month],
+			MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate)) [Month],
 			f.CountryID,
 			c.CountryName,
 			COUNT(f.FeedbackID) NoOfIssues FROM crmFeedback f WITH(NOLOCK) 
@@ -34,7 +36,7 @@ BEGIN
 	WHERE f.StatusID <> 11004
 		AND f.MainCategoryID = 3025
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
-	GROUP BY Month(f.FeedbackDate),
+	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate)),
 			f.CountryID,
 			c.CountryName
 END
@@ -44,8 +46,5 @@ GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement] TO [bodbAdminN
 GO
 GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement] TO [vnteam] 
 GO
---[Acc_CRM_Rpt_FeedbackStatisticsSettlement] 2014
+--[Acc_CRM_Rpt_FeedbackStatisticsSettlement] 2010,-12
 
-select * from crmFeedback where maincategoryid= 3025 and FeedbackDate > '20140101'
-
-select * from crmMainCategory

@@ -88,6 +88,7 @@ Original:
 Revisions:
 	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
 	- 20141118@Dom: add more fields of communication tool
+	- 20150121@Dom: Remove Sync code for Old system
 Param's Explanation:
 	
 */
@@ -466,27 +467,6 @@ BEGIN
 		OR ISNULL(@MobilePhone,'') <> ISNULL(@MobilePhone_Old,'')
 	)
 	
-	--------Update language for Old System------
-	IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12000))
-	BEGIN
-		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
-	END
-
-	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12001))
-	BEGIN
-		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12001 WHERE CustID = @CustID
-	END
-
-	ELSE IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@LanguageID,',') WHERE SettingID = 12002))
-	BEGIN
-		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12002 WHERE CustID = @CustID
-	END
-
-	ELSE
-	BEGIN 
-		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@LanguageID,',')) WHERE CustID = @CustID
-	END
-
 
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML
@@ -645,5 +625,3 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpd_New] TO [vnteam]
 GO 
-
-select * from crmcustomer where username='test'

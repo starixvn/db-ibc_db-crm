@@ -271,18 +271,18 @@ WHERE custid = @CustID
 			,MobilePhone = @MobilePhoneCountryCode+@MobilePhoneAreaCode+@MobilePhone
 		WHERE CustID = @CustID
 		AND (
-				@PhoneCountryCode <> @PhoneCountryCode_Old 
-			OR @PhoneAreaCode <> @PhoneAreaCode_Old
-			OR @Phone <> @Phone_Old
-			OR @Phone2CountryCode <> @Phone2CountryCode_Old 
-			OR @Phone2AreaCode <> @Phone2AreaCode 
-			OR @Phone2 <> @Phone2_Old
-			OR @Phone3CountryCode <> @Phone3CountryCode_Old 
-			OR @Phone3AreaCode <> @Phone3AreaCode 
-			OR @Phone3 <> @Phone3_Old
-			OR @MobilePhoneCountryCode <> @MobilePhoneCountryCode_Old 
-			OR @MobilePhoneAreaCode <> @MobilePhoneAreaCode 
-			OR @MobilePhone <> @MobilePhone_Old
+				ISNULL(@PhoneCountryCode,'')		<> ISNULL(@PhoneCountryCode_Old,'')
+			OR ISNULL(@PhoneAreaCode,'')			<> ISNULL(@PhoneAreaCode_Old,'')
+			OR ISNULL(@Phone,'')					<> ISNULL(@Phone_Old,'')
+			OR ISNULL(@Phone2CountryCode,'')		<> ISNULL(@Phone2CountryCode_Old,'')
+			OR ISNULL(@Phone2AreaCode,'')			<> ISNULL(@Phone2AreaCode,'')
+			OR ISNULL(@Phone2,'')					<> ISNULL(@Phone2_Old,'')
+			OR ISNULL(@Phone3CountryCode,'')		<> ISNULL(@Phone3CountryCode_Old,'')
+			OR ISNULL(@Phone3AreaCode,'')			<> ISNULL(@Phone3AreaCode,'')
+			OR ISNULL(@Phone3,'')					<> ISNULL(@Phone3_Old,'')
+			OR ISNULL(@MobilePhoneCountryCode,'')	<> ISNULL(@MobilePhoneCountryCode_Old,'')
+			OR ISNULL(@MobilePhoneAreaCode,'')		<> ISNULL(@MobilePhoneAreaCode,'') 
+			OR ISNULL(@MobilePhone,'')				<> ISNULL(@MobilePhone_Old,'')
 		)
 		
 		IF @@error <> 0
@@ -293,7 +293,7 @@ WHERE custid = @CustID
 		END
 
 	--------Update language for Old System------
-	IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@Language,',') WHERE SettingID = 12000))
+	/*IF(EXISTS(SELECT TOP 1 1 FROM dbo.strSplit(@Language,',') WHERE SettingID = 12000))
 	BEGIN
 		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = 12000 WHERE CustID = @CustID
 	END
@@ -311,7 +311,7 @@ WHERE custid = @CustID
 	ELSE
 	BEGIN 
 		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK) SET LanguageID = (SELECT TOP 1 SettingID FROM dbo.strSplit(@Language,',')) WHERE CustID = @CustID
-	END
+	END*/
 
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML

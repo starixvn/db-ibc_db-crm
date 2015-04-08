@@ -81,22 +81,39 @@ BEGIN
 			AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
 	END		
 
-	SELECT	ID, HeadlineID, username, 
-			45006 AS InformHeadlineStatusID			
-	FROM (
-			SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
-					hl.CustID AS HeadlineID, 
-					c.username
-			FROM (
-					SELECT CustID
-					FROM #Headline
-					UNION ALL 
-					SELECT CustID
-					FROM #DirectAcc
-				)hl
-				INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
-			)tmp
-	WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
+	IF @ItemsPerPage = -1 -- Export excel purpose
+		SELECT	ID, HeadlineID, username, 
+				45006 AS InformHeadlineStatusID			
+		FROM (
+				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
+						hl.CustID AS HeadlineID, 
+						c.username
+				FROM (
+						SELECT CustID
+						FROM #Headline
+						UNION ALL 
+						SELECT CustID
+						FROM #DirectAcc
+					)hl
+					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
+				)tmp
+	ELSE
+		SELECT	ID, HeadlineID, username, 
+				45006 AS InformHeadlineStatusID			
+		FROM (
+				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
+						hl.CustID AS HeadlineID, 
+						c.username
+				FROM (
+						SELECT CustID
+						FROM #Headline
+						UNION ALL 
+						SELECT CustID
+						FROM #DirectAcc
+					)hl
+					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
+				)tmp
+		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 END
 
 GO 

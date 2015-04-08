@@ -1,9 +1,6 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@Title			NVARCHAR(2000),
-	@Currency		VARCHAR(1000) = '',
-	@Level			VARCHAR(10) = '',
-	@Site			VARCHAR(4000) = '',
-	@TypeAccount	TINYINT,
+	@Content		XML,
 	@UserID			INT,
 	@IP				VARCHAR(40),
 	@ErrCode		INT = 0 OUTPUT,
@@ -142,3 +139,8 @@ BEGIN
 	CLOSE CustID_cursor
 	DEALLOCATE CustID_cursor	
 END
+
+GO 
+GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineIns] TO [bodbAdminNet]
+GO 
+GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineIns] TO [vnteam]

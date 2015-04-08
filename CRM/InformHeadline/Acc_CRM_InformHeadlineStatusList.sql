@@ -17,3 +17,7 @@ BEGIN
 	WHERE s.SettingName = 'InformHeadlineStatus' AND s.SettingValue <> 'Keep for reference'
 END
 
+GO 
+GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineStatusList] TO [bodbAdminNet]
+GO 
+GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineStatusList] TO [vnteam]

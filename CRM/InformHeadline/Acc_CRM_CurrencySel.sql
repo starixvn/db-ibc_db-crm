@@ -19,3 +19,8 @@ BEGIN
 	FROM bodb02.dbo.Exchange WITH (NOLOCK)
 	ORDER BY currency
 END
+
+GO 
+GRANT EXECUTE ON [dbo].[Acc_CRM_CurrencySel] TO [bodbAdminNet]
+GO 
+GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CurrencySel] TO [vnteam]

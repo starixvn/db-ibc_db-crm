@@ -29,3 +29,8 @@ BEGIN
 	GROUP BY it.TitleID, it.Title, CONVERT(VARCHAR(10), it.CreatedDate,120), s.SettingName 
 	ORDER BY CONVERT(VARCHAR(10),it.CreatedDate,120) DESC
 END
+
+GO 
+GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineList] TO [bodbAdminNet]
+GO 
+GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineList] TO [vnteam]

@@ -1,4 +1,5 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearch]
+	@TitleID			INT,
 	@UserName			NVARCHAR(50) = '',
 	@StatusID			VARCHAR(100) = '',	
 	@PageIndex			INT = 1, 
@@ -14,7 +15,7 @@ AS
 
 	Parameter's Explanation:				
 		
-	Example: EXEC Acc_CRM_InformHeadlineSearch @UserName = 'Supert', @StatusID = '45001,45002,45006'
+	Example: EXEC Acc_CRM_InformHeadlineSearch @TitleID = 1, @UserName = 'Supert', @StatusID = '45001,45002,45006'
 */
 BEGIN
 	SET NOCOUNT ON
@@ -27,7 +28,7 @@ BEGIN
 
 	IF @ItemsPerPage = -1 -- Export excel purpose
 	BEGIN
-		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, ProductStatus
+		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
 						ih.HeadlineID, 
@@ -42,13 +43,14 @@ BEGIN
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
 					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid				
 					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
-				WHERE c.username LIKE '%' + @UserName + '%'
+				WHERE TitleID = @TitleID
+					AND c.username LIKE '%' + @UserName + '%'
 					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus)				
 				) tmp
 	END
 	ELSE
 	BEGIN
-		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, ProductStatus
+		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
 						ih.HeadlineID, 
@@ -63,7 +65,8 @@ BEGIN
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
 					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid				
 					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
-				WHERE c.username LIKE '%' + @UserName + '%'
+				WHERE TitleID = @TitleID
+					AND c.username LIKE '%' + @UserName + '%'
 					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus)				
 				) tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage

@@ -15,18 +15,18 @@ BEGIN
 	SELECT	it.TitleID, it.Title,
 			CONVERT(VARCHAR(10),it.CreatedDate,120) CreatedDate,
 			COUNT(1) Total,
-			s.SettingName AS Status, 
+			s.SettingValue AS Status, 
 			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45000 THEN 1 ELSE NULL END) Done,
-			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45001 THEN 1 ELSE NULL END) [Request_to_call_back], 
-			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45002 THEN 1 ELSE NULL END) [No_need_to_call], 
-			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45003 THEN 1 ELSE NULL END) [No_reply], 
-			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45004 THEN 1 ELSE NULL END) [Uncontactable], 
-			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45005 THEN 1 ELSE NULL END) [Internal_account], 
-			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45006 THEN 1 ELSE NULL END) [Never_touch]
+			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45001 THEN 1 ELSE NULL END) RequestToCallBack, 
+			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45002 THEN 1 ELSE NULL END) NoNeedToCall, 
+			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45003 THEN 1 ELSE NULL END) NoReply, 
+			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45004 THEN 1 ELSE NULL END) Uncontactable, 
+			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45005 THEN 1 ELSE NULL END) InternalAccount, 
+			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45006 THEN 1 ELSE NULL END) NeverTouch
 	FROM crmInformTitle it WITH (NOLOCK)
 		INNER JOIN crmInformHeadline ih WITH (NOLOCK) ON it.TitleID = ih.TitleID
 		INNER JOIN crmSetting s WITH (NOLOCK) ON it.StatusID = s.SettingID
-	GROUP BY it.TitleID, it.Title, CONVERT(VARCHAR(10), it.CreatedDate,120), s.SettingName 
+	GROUP BY it.TitleID, it.Title, CONVERT(VARCHAR(10), it.CreatedDate,120), s.SettingValue 
 	ORDER BY CONVERT(VARCHAR(10),it.CreatedDate,120) DESC
 END
 

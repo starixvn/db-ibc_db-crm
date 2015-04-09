@@ -33,8 +33,7 @@ BEGIN
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @tmpLevel TABLE (id INT IDENTITY(1,1), roleID INT)	
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
-	CREATE TABLE #Headline (CustID INT PRIMARY KEY, GroupID INT)	
-	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY)
+	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 
 	INSERT INTO @tmpCurrency
 	SELECT val
@@ -50,7 +49,7 @@ BEGIN
 
 	IF @TypeAccount = 1 OR @TypeAccount = 3
 	BEGIN
-	INSERT INTO #Headline (CustID, GroupID)
+	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT DISTINCT hl.custid, hl.groupID
 	FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
 		INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
@@ -69,8 +68,8 @@ BEGIN
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3
 	BEGIN
-		INSERT INTO #DirectAcc (CustID)
-		SELECT c.CustID
+		INSERT INTO #DirectAcc (CustID, GroupID)
+		SELECT c.CustID, 0
 		FROM bodb02.dbo.Customer c WITH (NOLOCK) 
 			INNER JOIN bodb02.dbo.CustInfo ci WITH (NOLOCK) ON c.custid = ci.custid
 		WHERE c.roleid IN (SELECT roleID FROM @tmpLevel)
@@ -82,35 +81,25 @@ BEGIN
 	END		
 
 	IF @ItemsPerPage = -1 -- Export excel purpose
-		SELECT	ID, HeadlineID, username, 
+		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
 						hl.CustID AS HeadlineID, 
-						c.username
-				FROM (
-						SELECT CustID
-						FROM #Headline
-						UNION ALL 
-						SELECT CustID
-						FROM #DirectAcc
-					)hl
+						c.username,
+						hl.GroupID
+				FROM #DirectAcc hl
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
 				)tmp
 	ELSE
-		SELECT	ID, HeadlineID, username, 
+		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
 						hl.CustID AS HeadlineID, 
-						c.username
-				FROM (
-						SELECT CustID
-						FROM #Headline
-						UNION ALL 
-						SELECT CustID
-						FROM #DirectAcc
-					)hl
+						c.username,
+						hl.GroupID
+				FROM #DirectAcc hl
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
 				)tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage

@@ -1,6 +1,9 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@Title			NVARCHAR(2000),
-	@Content		XML,
+	@Currency		VARCHAR(1000) = '',
+	@Level			VARCHAR(10) = '',
+	@Site			VARCHAR(4000) = '',
+	@TypeAccount	TINYINT,
 	@UserID			INT,
 	@IP				VARCHAR(40),
 	@ErrCode		INT = 0 OUTPUT,
@@ -31,8 +34,7 @@ BEGIN
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @tmpLevel TABLE (id INT IDENTITY(1,1), roleID INT)	
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
-	CREATE TABLE #Headline (CustID INT PRIMARY KEY, GroupID INT)	
-	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY)
+	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	DECLARE @Filter VARCHAR(4000), @TitleID INT
 
 	INSERT INTO @tmpCurrency
@@ -49,7 +51,7 @@ BEGIN
 
 	IF @TypeAccount = 1 OR @TypeAccount = 3
 	BEGIN
-	INSERT INTO #Headline (CustID, GroupID)
+	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT DISTINCT hl.custid, hl.groupID
 	FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
 		INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
@@ -68,8 +70,8 @@ BEGIN
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3
 	BEGIN
-		INSERT INTO #DirectAcc (CustID)
-		SELECT c.CustID
+		INSERT INTO #DirectAcc (CustID, GroupID)
+		SELECT c.CustID, 0
 		FROM bodb02.dbo.Customer c WITH (NOLOCK) 
 			INNER JOIN bodb02.dbo.CustInfo ci WITH (NOLOCK) ON c.custid = ci.custid
 		WHERE c.roleid IN (SELECT roleID FROM @tmpLevel)
@@ -80,21 +82,37 @@ BEGIN
 			AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
 	END	
 
-	--SELECT * FROM #DirectAcc
-	--SELECT * FROM #Headline
+	--DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT)
+	--INSERT INTO @HeadlineData
+	--SELECT	xmlData.Col.value('@HeadlineID','INT') HeadlineID,
+	--		xmlData.Col.value('@GroupID','INT') GroupID,
+	--		xmlData.Col.value('@StatusID','INT') InformHeadlineStatusID,
+	--		dbo.[f_EncodeXMLValue](xmlData.Col.value('@Remark','NVARCHAR(4000)')) Remark,
+	--		ISNULL(xmlData.Col.value('@Extension','INT'),0) Extension,
+	--		ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus
+	--FROM @Content.nodes('//content/headline') xmlData(Col)
 
-	SELECT @Filter = '<Filters><Site>' + @Site + '</Site><Position>' + @Level + '</Position><Currency>' + @Currency + '</Currency><DirrectAccount>' + CONVERT(VARCHAR(1),@TypeAccount) + '</DirrectAccount></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirrectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
 
 	INSERT INTO crmInformTitle (Title, CreatedDate, Creator, StatusID, Filter) VALUES (@Title, GETDATE(), @UserID, 11009, @Filter)
       
 	SELECT @TitleID = @@identity
 
-	INSERT INTO [dbo].[crmInformHeadline] (HealineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
+	--INSERT INTO [dbo].[crmInformHeadline] (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
+	--SELECT hl.HeadlineID, @TitleID, hl.InformHeadlineStatusID, hl.GroupID, GETDATE(), hl.Remark, @UserID, hl.Extension, hl.ProductStatus, 1
+	--FROM @HeadlineData hl
+
+	--IF @@ERROR <> 0
+	--BEGIN
+	--	DELETE crmInformTitle WHERE TitleID = @TitleID
+	--	SELECT @ErrCode = 102
+	--	SELECT @ErrMsg = 'Create new case unsuccessfuly.'
+	--	RETURN
+	--END
+
+	INSERT INTO [dbo].[crmInformHeadline] (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
 	SELECT hl.CustID, @TitleID, 45006, hl.GroupID, NULL, '', NULL, NULL, NULL, 1
-	FROM #Headline hl
-	UNION ALL
-	SELECT c.CustID, @TitleID, 45006, 0, NULL, '', NULL, NULL, NULL, 1
-	FROM #DirectAcc c
+	FROM #DirectAcc hl --WHERE hl.CustID NOT IN (SELECT HeadlineID FROM @HeadlineData)	
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -103,10 +121,6 @@ BEGIN
 		SELECT @ErrMsg = 'Create new case unsuccessfuly.'
 		RETURN
 	END
-
-	DECLARE @HeadLine VARCHAR(MAX)=''
-	SELECT @HeadLine = @HeadLine+'<Inform><HeadLineID>'+CAST(ca.CustID AS VARCHAR(20))+'</HeadLineID><Remark></Remark><StatusID>7</StatusID><Extension>0</Extension><ProductStatus>0</ProductStatus></Inform>'
-	FROM crmHeadLine ca WITH(NOLOCK)
 
 	-- write log
 	DECLARE @LogElement XML
@@ -121,7 +135,7 @@ BEGIN
 	
 	DECLARE @CustID INT
 	DECLARE CustID_cursor CURSOR FOR
-	SELECT CustID FROM #DirectAcc UNION ALL SELECT CustID FROM #Headline
+	SELECT CustID FROM #DirectAcc
 
 	OPEN CustID_cursor
 	FETCH NEXT FROM CustID_cursor INTO @CustID

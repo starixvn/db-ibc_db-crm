@@ -28,7 +28,7 @@ BEGIN
 			dbo.[f_EncodeXMLValue](xmlData.Col.value('@Remark','NVARCHAR(4000)')) Remark,
 			ISNULL(xmlData.Col.value('@Extension','INT'),0) Extension,
 			ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus
-	FROM @Content.nodes('//content/headline') xmlData(Col)
+	FROM @Content.nodes('//Content/Headline') xmlData(Col)
 
 	INSERT INTO @HeadlineDataOld
 	SELECT ih.HeadlineID, ih.InformHeadlineStatusID, ih.Remark, ih.Extension, ih.ProductStatus

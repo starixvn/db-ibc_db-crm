@@ -1,6 +1,6 @@
 ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmLogInformHeadline]
 (
-	@CustID		INT, 
+	@CustID		INT = 0, 
 	@TitleID	INT,
 	@UserID		INT, 
 	@ActionID	INT, 

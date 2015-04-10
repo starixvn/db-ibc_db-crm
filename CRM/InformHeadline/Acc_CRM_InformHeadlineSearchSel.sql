@@ -93,7 +93,7 @@ BEGIN
 				ISNULL(handler.Username, '') AS Handler,
 				st.SettingValue AS Extension,
 				ih.ProductStatus,
-				CASE WHEN ih.GroupID IS NULL THEN 13 WHEN ac.GroupID IS NULL AND ih.InformHeadlineStatusID <> 45007 THEN 12 ELSE 0 END AS Cases
+				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL AND ih.InformHeadlineStatusID <> 45007 THEN 1 ELSE 0 END AS Cases
 		FROM crmInformHeadline ih WITH (NOLOCK)
 			FULL OUTER JOIN #DirectAcc ac ON ih.GroupID = ac.GroupID AND ih.HeadlineID = ac.CustID
 			LEFT JOIN bodb02.dbo.CustInfo ihc WITH (NOLOCK) ON ih.HeadlineID = ihc.CustID

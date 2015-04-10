@@ -26,7 +26,7 @@ BEGIN
 	FROM crmInformTitle it WITH (NOLOCK)
 		INNER JOIN crmInformHeadline ih WITH (NOLOCK) ON it.TitleID = ih.TitleID
 		INNER JOIN crmSetting s WITH (NOLOCK) ON it.StatusID = s.SettingID
-	WHERE ih.IsInform = 1 
+	WHERE ih.IsInform = 1 OR ih.InformHeadlineStatusID = 45007
 	GROUP BY it.TitleID, it.Title, CONVERT(VARCHAR(10), it.CreatedDate,120), s.SettingValue 
 	ORDER BY CONVERT(VARCHAR(10),it.CreatedDate,120) DESC
 END

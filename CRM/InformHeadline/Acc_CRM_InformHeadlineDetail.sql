@@ -43,9 +43,9 @@ BEGIN
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
 					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid				
 					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
-				WHERE TitleID = @TitleID
+				WHERE TitleID = @TitleID 
 					AND c.username LIKE '%' + @UserName + '%'
-					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus)				
+					AND ((ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1) OR (ih.IsInform = 0 AND ih.InformHeadlineStatusID = 45007))
 				) tmp
 	END
 	ELSE
@@ -67,7 +67,7 @@ BEGIN
 					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
 				WHERE TitleID = @TitleID
 					AND c.username LIKE '%' + @UserName + '%'
-					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus)				
+					AND ((ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1) OR (ih.IsInform = 0 AND ih.InformHeadlineStatusID = 45007))
 				) tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 	END		

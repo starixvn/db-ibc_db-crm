@@ -176,13 +176,22 @@ BEGIN
 		SELECT @ErrCode = 102
 		SELECT @ErrMsg = 'Update case unsuccessfuly.'
 		RETURN
-	END
+	END	
 
-	INSERT INTO crmInformHeadline (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
-	SELECT ac.CustID_New, @TitleID, ISNULL(hl.InformHeadlineStatusID, 45006), ac.GroupID_New, GETDATE(), ISNULL(hl.Remark, ''), @UserID, hl.Extension, hl.ProductStatus, 1
-	FROM #NewDirectAcc ac
-		LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID
-	WHERE ac.Cases = 2
+	UPDATE ih
+	SET HeadlineID = CASE WHEN ac.Cases = 3 THEN ac.CustID_New ELSE ih.HeadlineID END,
+		GroupID = CASE WHEN ac.Cases = 4 THEN ac.GroupID_New ELSE ih.GroupID END,
+		InformHeadlineStatusID = CASE WHEN hl.IsKeep = 1 THEN 45007 ELSE hl.InformHeadlineStatusID END,
+		Remark = hl.Remark,
+		Extension = hl.Extension,
+		ProductStatus = hl.ProductStatus,
+		IsInform = CASE WHEN (ac.Cases = 1  OR ac.Cases = 5) AND (hl.IsKeep = 0 OR hl.IsKeep = NULL) THEN 0 ELSE IsInform END,
+		UpdatedTime = GETDATE(),
+		Handler = @UserID
+	FROM crmInformHeadline ih WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN #NewDirectAcc ac ON ih.HeadlineID = ac.CustID_Old
+		LEFT JOIN @HeadlineData hl ON ih.HeadlineID = hl.HeadlineID			
+	WHERE ih.TitleID = @TitleID		
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -192,19 +201,25 @@ BEGIN
 	END
 
 	UPDATE ih
-	SET HeadlineID = CASE WHEN ac.Cases = 3 THEN ac.CustID_New ELSE ih.HeadlineID END,
-		GroupID = CASE WHEN ac.Cases = 4 THEN ac.GroupID_New ELSE ih.GroupID END,
-		InformHeadlineStatusID = CASE WHEN hl.IsKeep = 1 THEN 45007 ELSE hl.InformHeadlineStatusID END,
+	SET HeadlineID = ac.CustID_New,
+		GroupID = ac.GroupID_New,
+		InformHeadlineStatusID = 45006,
 		Remark = hl.Remark,
 		Extension = hl.Extension,
 		ProductStatus = hl.ProductStatus,
-		IsInform = CASE WHEN (ac.Cases = 1  OR ac.Cases = 5) AND hl.IsKeep = 0 THEN 0 ELSE IsInform END,
+		IsInform = 1,
 		UpdatedTime = GETDATE(),
 		Handler = @UserID
 	FROM crmInformHeadline ih WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN #NewDirectAcc ac ON ih.HeadlineID = ac.CustID_Old
 		LEFT JOIN @HeadlineData hl ON ih.HeadlineID = hl.HeadlineID			
-	WHERE ih.TitleID = @TitleID		
+	WHERE ih.TitleID = @TitleID	AND ac.Cases = 2
+
+	INSERT INTO crmInformHeadline (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
+	SELECT ac.CustID_New, @TitleID, ISNULL(hl.InformHeadlineStatusID, 45006), ac.GroupID_New, GETDATE(), ISNULL(hl.Remark, ''), @UserID, hl.Extension, hl.ProductStatus, 1
+	FROM #NewDirectAcc ac
+		LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID
+	WHERE ac.Cases = 2 AND ac.CustID_New NOT IN (SELECT HeadlineID FROM crmInformHeadline WITH (NOLOCK) WHERE TitleID = @TitleID)
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -236,7 +251,8 @@ BEGIN
 						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](Remark),'')											+ '</Remark>' +
 						'<Extension>'					+ ISNULL(CAST(Extension AS VARCHAR(30)),'')												+ '</Extension>'+													
 						'<ProductStatus>'				+ ISNULL(CAST(ProductStatus AS VARCHAR(30)),'')											+'</ProductStatus>'	+
-						'<IsKeep>'						+ CAST(CASE WHEN hl.InformHeadlineStatusID = 45007 THEN 1 ELSE 0 END AS VARCHAR(1))	+ '</IsKeep>' +
+						'<IsKeep>'						+ CAST(CASE WHEN hl.InformHeadlineStatusID = 45007 THEN 1 ELSE 0 END AS VARCHAR(1))		+ '</IsKeep>' +
+						'<Case>'						+ '0'																					+ '</Case>' +
 					'</Acc_CRM_InformHeadlineSearchUpd>' 
 		FROM #NewDirectAcc ac
 			LEFT JOIN @HeadlineDataOld hl ON ac.CustID_New = hl.HeadlineID
@@ -255,6 +271,7 @@ BEGIN
 						'<Extension>'					+ ISNULL(CAST(Extension AS VARCHAR(30)),'')												+ '</Extension>'+													
 						'<ProductStatus>'				+ ISNULL(CAST(ProductStatus AS VARCHAR(30)),'')											+'</ProductStatus>'	+
 						'<IsKeep>'						+ CAST(ISNULL(hl.IsKeep, 0) AS VARCHAR(1))												+ '</IsKeep>' +
+						'<Case>'						+ CAST(ISNULL(ac.Cases, 0) AS VARCHAR(30))												+ '</Case>' +
 					'</Acc_CRM_InformHeadlineSearchUpd>' 
 		FROM #NewDirectAcc ac
 			LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID

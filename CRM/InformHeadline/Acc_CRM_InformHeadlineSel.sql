@@ -84,7 +84,7 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.GroupID DESC, c.username) AS ID,
 						hl.CustID AS HeadlineID, 
 						c.username,
 						hl.GroupID
@@ -95,7 +95,7 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.GroupID DESC, c.username) AS ID,
 						hl.CustID AS HeadlineID, 
 						c.username,
 						hl.GroupID

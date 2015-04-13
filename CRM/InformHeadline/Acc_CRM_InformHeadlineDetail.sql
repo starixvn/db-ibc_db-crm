@@ -30,7 +30,7 @@ BEGIN
 	BEGIN
 		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY ih.GroupID DESC, c.username) AS ID,
 						ih.HeadlineID, 
 						c.username, 
 						ih.InformHeadlineStatusID, 
@@ -45,14 +45,14 @@ BEGIN
 					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
 				WHERE TitleID = @TitleID 
 					AND c.username LIKE '%' + @UserName + '%'
-					AND ((ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1) OR (ih.IsInform = 0 AND ih.InformHeadlineStatusID = 45007))
+					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1
 				) tmp
 	END
 	ELSE
 	BEGIN
 		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY ih.GroupID DESC, c.username) AS ID,
 						ih.HeadlineID, 
 						c.username, 
 						ih.InformHeadlineStatusID, 
@@ -67,9 +67,9 @@ BEGIN
 					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
 				WHERE TitleID = @TitleID
 					AND c.username LIKE '%' + @UserName + '%'
-					AND ((ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1) OR (ih.IsInform = 0 AND ih.InformHeadlineStatusID = 45007))
+					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1				
 				) tmp
-		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
+		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage		
 	END		
 END
 

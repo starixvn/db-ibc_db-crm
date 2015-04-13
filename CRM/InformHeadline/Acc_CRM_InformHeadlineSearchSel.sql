@@ -100,7 +100,8 @@ BEGIN
 			LEFT JOIN bodb02.dbo.custInfo acc WITH (NOLOCK) ON ac.CustID = acc.CustID
 			LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.CustID
 			LEFT JOIN crmSetting st WITH (NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'	
-		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL) AND (ih.IsInform = 1 OR ih.IsInform IS NULL OR ih.InformHeadlineStatusID = 45007)
+		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL) AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
+		ORDER BY ih.GroupID DESC, Username
 	END
 	ELSE
 	BEGIN
@@ -112,28 +113,28 @@ BEGIN
 			FULL OUTER JOIN #DirectAcc ac ON ih.HeadlineID = ac.CustID
 			LEFT JOIN bodb02.dbo.CustInfo ci WITH (NOLOCK) ON ih.HeadlineID = ci.custid
 		WHERE ih.HeadlineID IS NULL OR ac.CustID IS NULL AND (ih.TitleID = @TitleID OR ih.TitleID IS NULL)
-			AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
+			AND (ih.IsInform = 1 OR ih.IsInform IS NULL) AND ih.InformHeadlineStatusID <> 45007
 
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				CASE WHEN ih.GroupID = 0 THEN 4 ELSE 2 END
 		FROM crmInformHeadline ih WITH (NOLOCK)
 			INNER JOIN #DirectAcc ac ON ih.HeadlineID = ac.CustID
-		WHERE (ih.GroupID = 0 OR ac.GroupID = 0) AND ac.GroupID <> ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+		WHERE (ih.GroupID = 0 OR ac.GroupID = 0) AND ac.GroupID <> ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007
 
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				3
 		FROM crmInformHeadline ih WITH (NOLOCK)
 			INNER JOIN #DirectAcc ac ON ih.GroupID = ac.GroupID
-		WHERE ih.GroupID <> 0 AND ih.HeadlineID <> ac.CustID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+		WHERE ih.GroupID <> 0 AND ih.HeadlineID <> ac.CustID AND ih.TitleID = @TitleID AND ih.IsInform = 1  AND ih.InformHeadlineStatusID <> 45007
 
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				0
 		FROM crmInformHeadline ih WITH (NOLOCK)
 			INNER JOIN #DirectAcc ac ON ih.GroupID = ac.GroupID AND ih.HeadlineID = ac.CustID
-		WHERE ih.TitleID = @TitleID AND ih.IsInform = 1
+		WHERE ih.TitleID = @TitleID AND ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007
 
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,
@@ -155,8 +156,9 @@ BEGIN
 			LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 			LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid
 			LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'	
-		WHERE ih.TitleID = @TitleID OR ih.TitleID IS NULL
-			AND (ih.IsInform = 1 OR ih.IsInform IS NULL OR ih.InformHeadlineStatusID = 45007)
+		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL)
+			AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
+		ORDER BY ac.Cases DESC, ac.GroupID_New DESC, cinew.Username
 	END	
 END
 

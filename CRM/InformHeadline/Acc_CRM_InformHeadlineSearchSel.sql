@@ -36,7 +36,7 @@ BEGIN
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 	
 
-	IF @ChangeFilter = 1
+	IF @ChangeFilter = 1 --if filter is changed
 	BEGIN
 		SELECT	--*
 				ISNULL(ih.HeadlineID, ac.CustID) AS HeadlineID,
@@ -57,9 +57,10 @@ BEGIN
 		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL) AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
 		ORDER BY ih.GroupID DESC, Username
 	END
-	ELSE
+	ELSE --if filter is not changed
 	BEGIN
 		CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)
+		--Get headline list who is found or removed now
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				CASE WHEN ih.HeadlineID IS NULL THEN 2 ELSE CASE WHEN ci.closed=0 AND ISNULL(ci.reject,0)=0 AND ci.Enabled=1 THEN 5 ELSE 1 END END
@@ -69,6 +70,7 @@ BEGIN
 		WHERE ih.HeadlineID IS NULL OR ac.CustID IS NULL AND (ih.TitleID = @TitleID OR ih.TitleID IS NULL)
 			AND (ih.IsInform = 1 OR ih.IsInform IS NULL) AND ih.InformHeadlineStatusID <> 45007
 
+		--Get headline list who is changed group headline
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				CASE WHEN ih.GroupID = 0 THEN 4 ELSE 2 END
@@ -76,6 +78,7 @@ BEGIN
 			INNER JOIN #DirectAcc ac ON ih.HeadlineID = ac.CustID
 		WHERE (ih.GroupID = 0 OR ac.GroupID = 0) AND ac.GroupID <> ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007
 
+		--Get headline list who is changed headlineID
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				3
@@ -83,6 +86,7 @@ BEGIN
 			INNER JOIN #DirectAcc ac ON ih.GroupID = ac.GroupID
 		WHERE ih.GroupID <> 0 AND ih.HeadlineID <> ac.CustID AND ih.TitleID = @TitleID AND ih.IsInform = 1  AND ih.InformHeadlineStatusID <> 45007
 
+		--Get headline list who is not changed
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				0
@@ -90,6 +94,7 @@ BEGIN
 			INNER JOIN #DirectAcc ac ON ih.GroupID = ac.GroupID AND ih.HeadlineID = ac.CustID
 		WHERE ih.TitleID = @TitleID AND ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007
 
+		--Get headline list who is keep for reference
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,
 				0

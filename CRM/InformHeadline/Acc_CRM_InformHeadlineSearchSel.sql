@@ -118,10 +118,12 @@ BEGIN
 		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL)
 			AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
 		ORDER BY ac.Cases DESC, ac.GroupID_New DESC, cinew.Username
+
+		DROP TABLE #NewDirectAcc
 	END	
 
 	DROP TABLE #DirectAcc 	
-	DROP TABLE #NewDirectAcc
+	
 END
 
 GO 

@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@TypeAccount	TINYINT,
 	@UserID			INT,
 	@IP				VARCHAR(40),
+	@TitleID		INT OUTPUT, 
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(200) = '' OUTPUT
 AS	
@@ -32,7 +33,7 @@ BEGIN
 	END	
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
-	DECLARE @Filter VARCHAR(4000), @TitleID INT
+	DECLARE @Filter VARCHAR(4000)
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 

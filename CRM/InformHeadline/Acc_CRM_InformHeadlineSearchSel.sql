@@ -40,13 +40,14 @@ BEGIN
 	BEGIN
 		SELECT	--*
 				ISNULL(ih.HeadlineID, ac.CustID) AS HeadlineID,
+				ISNULL(ih.GroupID, ac.GroupID) AS GroupID,
 				ISNULL(ihc.username, acc.username) AS Username,
 				ISNULL(ih.InformHeadlineStatusID, 45006) AS InformHeadlineStatusID,
 				ih.UpdatedTime, 
 				ISNULL(ih.Remark, '') AS Remark,
 				ISNULL(handler.Username, '') AS Handler,
 				st.SettingValue AS Extension,
-				ih.ProductStatus,
+				ih.ProductStatus,				
 				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL AND ih.InformHeadlineStatusID <> 45007 THEN 1 ELSE 0 END AS Cases
 		FROM crmInformHeadline ih WITH (NOLOCK)
 			FULL OUTER JOIN #DirectAcc ac ON ih.GroupID = ac.GroupID AND ih.HeadlineID = ac.CustID
@@ -102,12 +103,13 @@ BEGIN
 		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007
 
 		SELECT	ac.CustID_Old, ciold.Username, ac.CustID_New, cinew.Username, 
+				ac.GroupID_New AS GroupID,
 				ih.InformHeadlineStatusID, 
 				ih.UpdatedTime,
 				ISNULL(ih.Remark,'') Remark,
 				ISNULL(handler.username, '') AS Handler,
 				st.SettingValue AS Extension,
-				ih.ProductStatus,
+				ih.ProductStatus,				
 				ac.Cases
 		FROM #NewDirectAcc ac
 			LEFT JOIN crmInformHeadline ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID

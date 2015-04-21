@@ -121,7 +121,7 @@ BEGIN
 	--	INSERT (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
 	--	VALUES (h.HeadlineID, @TitleID, h.InformHeadlineStatusID, h.GroupID, GETDATE(), h.Remark, @UserID, h.Extension, h.ProductStatus, 1);
 	DECLARE @Filter VARCHAR(4000)
-	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirrectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
 
 	UPDATE crmInformTitle WITH (ROWLOCK, UPDLOCK)
 	SET Title = @Title, 

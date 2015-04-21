@@ -48,7 +48,7 @@ BEGIN
 	--		ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus
 	--FROM @Content.nodes('//content/headline') xmlData(Col)
 
-	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirrectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
 
 	INSERT INTO crmInformTitle (Title, CreatedDate, Creator, StatusID, Filter) VALUES (@Title, GETDATE(), @UserID, 11009, @Filter)
       

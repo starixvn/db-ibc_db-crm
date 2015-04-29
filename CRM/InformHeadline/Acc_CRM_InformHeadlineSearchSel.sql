@@ -46,7 +46,7 @@ BEGIN
 				ih.UpdatedTime, 
 				ISNULL(ih.Remark, '') AS Remark,
 				ISNULL(handler.Username, '') AS Handler,
-				st.SettingValue AS Extension,
+				ih.Extension,
 				ih.ProductStatus,				
 				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL AND ih.InformHeadlineStatusID <> 45007 THEN 1 ELSE 0 END AS Cases
 		FROM crmInformHeadline ih WITH (NOLOCK)
@@ -54,9 +54,8 @@ BEGIN
 			LEFT JOIN bodb02.dbo.CustInfo ihc WITH (NOLOCK) ON ih.HeadlineID = ihc.CustID
 			LEFT JOIN bodb02.dbo.custInfo acc WITH (NOLOCK) ON ac.CustID = acc.CustID
 			LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.CustID
-			LEFT JOIN crmSetting st WITH (NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'	
 		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL) AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
-		ORDER BY ih.GroupID DESC, Username
+		ORDER BY Cases DESC, CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, Username
 	END
 	ELSE --if filter is not changed
 	BEGIN
@@ -102,13 +101,13 @@ BEGIN
 		FROM crmInformHeadline ih WITH (NOLOCK)
 		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007
 
-		SELECT	ac.CustID_Old, ciold.Username, ac.CustID_New, cinew.Username, 
+		SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
 				ac.GroupID_New AS GroupID,
 				ih.InformHeadlineStatusID, 
 				ih.UpdatedTime,
 				ISNULL(ih.Remark,'') Remark,
 				ISNULL(handler.username, '') AS Handler,
-				st.SettingValue AS Extension,
+				ih.Extension,
 				ih.ProductStatus,				
 				ac.Cases
 		FROM #NewDirectAcc ac
@@ -116,10 +115,9 @@ BEGIN
 			LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
 			LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 			LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid
-			LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'	
 		WHERE (ih.TitleID = @TitleID OR ih.TitleID IS NULL)
 			AND (ih.IsInform = 1 OR ih.IsInform IS NULL)
-		ORDER BY ac.Cases DESC, ac.GroupID_New DESC, cinew.Username
+		ORDER BY ac.Cases DESC, CASE WHEN ac.GroupID_New > 0 THEN 1 ELSE 0 END DESC, cinew.Username
 
 		DROP TABLE #NewDirectAcc
 	END	

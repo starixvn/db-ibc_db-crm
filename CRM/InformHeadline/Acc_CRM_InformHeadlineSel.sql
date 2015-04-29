@@ -20,7 +20,7 @@ AS
 		- @TypeAccount =1: Headline
 						2: Direct account
 						3: Both
-	Example: EXEC Acc_CRM_InformHeadlineSel @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3
+	Example: EXEC Acc_CRM_InformHeadlineSel @Currency = '20,10,2', @Level = '3,4', @Site = '6004,6006,6014,6016,6019,6023,6024', @TypeAccount = 3
 */
 BEGIN
 	SET NOCOUNT ON
@@ -38,7 +38,7 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.GroupID DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						hl.CustID AS HeadlineID, 
 						c.username,
 						hl.GroupID
@@ -49,7 +49,7 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.GroupID DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						hl.CustID AS HeadlineID, 
 						c.username,
 						hl.GroupID

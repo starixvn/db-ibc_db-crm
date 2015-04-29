@@ -30,19 +30,19 @@ BEGIN
 	BEGIN
 		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY ih.GroupID DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						ih.HeadlineID, 
+						ih.GroupID,
 						c.username, 
 						ih.InformHeadlineStatusID, 
 						ih.UpdatedTime, 
 						ih.Remark, 
 						ISNULL(handler.username, '') AS Handler,
-						st.SettingValue AS Extension,
-						ih.ProductStatus
+						ih.Extension,
+						ih.ProductStatus						
 				FROM crmInformHeadline ih WITH (NOLOCK)
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
-					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid				
-					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
+					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid									
 				WHERE TitleID = @TitleID 
 					AND c.username LIKE '%' + @UserName + '%'
 					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1
@@ -52,19 +52,19 @@ BEGIN
 	BEGIN
 		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY ih.GroupID DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						ih.HeadlineID, 
+						ih.GroupID,
 						c.username, 
 						ih.InformHeadlineStatusID, 
 						ih.UpdatedTime, 
 						ih.Remark, 
 						ISNULL(handler.username, '') AS Handler,
-						st.SettingValue AS Extension,
+						ih.Extension,
 						ih.ProductStatus
 				FROM crmInformHeadline ih WITH (NOLOCK)
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
-					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid				
-					LEFT JOIN crmSetting st WITH(NOLOCK) ON ih.Extension = st.SettingID AND st.SettingName = 'Station'		 			
+					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid									
 				WHERE TitleID = @TitleID
 					AND c.username LIKE '%' + @UserName + '%'
 					AND ih.InformHeadlineStatusID IN (SELECT StatusID FROM @tmpStatus) AND ih.IsInform = 1				

@@ -1,12 +1,12 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchUpd]
 	@TitleID		INT,
-	@Title			NVARCHAR(2000),
+	@Title			NVARCHAR(2000) = '',
 	@Currency		VARCHAR(1000) = '',
 	@Level			VARCHAR(10) = '',
 	@Site			VARCHAR(4000) = '',
 	@TypeAccount	TINYINT,
 	@ChangeFilter	BIT, 	
-	@Content		XML,
+	@Content		XML = '',
 	@UserID			INT,
 	@IP				VARCHAR(40),
 	@ErrCode		INT	= 0 OUTPUT,
@@ -52,7 +52,7 @@ BEGIN
 			ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus,
 			xmlData.Col.value('@IsKeep','BIT') IsKeep
 	FROM @Content.nodes('//Content/Headline') xmlData(Col)
-
+	
 	INSERT INTO @HeadlineDataOld
 	SELECT ih.HeadlineID, ih.GroupID, ih.InformHeadlineStatusID, ih.Remark, ih.Extension, ih.ProductStatus
 	FROM @HeadlineData hl
@@ -140,7 +140,7 @@ BEGIN
 	UPDATE ih
 	SET HeadlineID = CASE WHEN ac.Cases = 3 THEN ac.CustID_New ELSE ih.HeadlineID END,
 		GroupID = CASE WHEN ac.Cases = 4 THEN ac.GroupID_New ELSE ih.GroupID END,
-		InformHeadlineStatusID = CASE WHEN hl.IsKeep = 1 THEN 45007 ELSE hl.InformHeadlineStatusID END,
+		InformHeadlineStatusID = CASE WHEN hl.IsKeep = 1 THEN 45007 ELSE ih.InformHeadlineStatusID END,
 		Remark = hl.Remark,
 		Extension = hl.Extension,
 		ProductStatus = hl.ProductStatus,
@@ -187,13 +187,13 @@ BEGIN
 		SELECT @ErrMsg = 'Update case unsuccessfuly.'
 		RETURN
 	END
-
+	
 	-- write log
 	DECLARE @OldValues XML, @NewValues XML
 
 	DECLARE @HeadlineID INT
 	DECLARE HeadlineID_cursor CURSOR FOR
-	SELECT CustID_New FROM #NewDirectAcc
+	SELECT ISNULL(CustID_New, CustID_Old) FROM #NewDirectAcc
 
 	OPEN HeadlineID_cursor
 	FETCH NEXT FROM HeadlineID_cursor INTO @HeadlineID
@@ -215,8 +215,8 @@ BEGIN
 						'<Case>'						+ '0'																					+ '</Case>' +
 					'</Acc_CRM_InformHeadlineSearchUpd>' 
 		FROM #NewDirectAcc ac
-			LEFT JOIN @HeadlineDataOld hl ON ac.CustID_New = hl.HeadlineID
-		WHERE CustID_New = @HeadlineID
+			LEFT JOIN @HeadlineDataOld hl ON ISNULL(ac.CustID_New, ac.CustID_Old) = hl.HeadlineID
+		WHERE ISNULL(ac.CustID_New, ac.CustID_Old) = @HeadlineID
 
 		SELECT @NewValues = 				
 					'<Acc_CRM_InformHeadlineSearchUpd>'			+ --SP Name
@@ -234,8 +234,8 @@ BEGIN
 						'<Case>'						+ CAST(ISNULL(ac.Cases, 0) AS VARCHAR(30))												+ '</Case>' +
 					'</Acc_CRM_InformHeadlineSearchUpd>' 
 		FROM #NewDirectAcc ac
-			LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID
-		WHERE CustID_New = @HeadlineID
+			LEFT JOIN @HeadlineData hl ON ISNULL(ac.CustID_New, ac.CustID_Old) = hl.HeadlineID
+		WHERE ISNULL(ac.CustID_New, ac.CustID_Old) = @HeadlineID
 
 		EXEC [dbo].[WriteLog_UserLog_crmLogInformHeadline]
 			@CustID = @HeadlineID, 

@@ -36,14 +36,16 @@ BEGIN
 	FROM dbo.custAccount hl WITH (NOLOCK)  
 		INNER JOIN dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
 		INNER JOIN dbo.CustInfo cih WITH (NOLOCK) ON ch.custid = cih.custid
+		INNER JOIN dbo.Customer chs WITH (NOLOCK) ON ch.srecommend = chs.custid
 		INNER JOIN dbo.custAccount m WITH (NOLOCK) ON hl.groupID = m.groupID
 		INNER JOIN dbo.Customer cm WITH (NOLOCK) ON m.custid = cm.custid
 		INNER JOIN dbo.CustInfo cim WITH (NOLOCK) ON cm.custid = cim.custid
+		INNER JOIN dbo.Customer cms WITH (NOLOCK) ON cm.srecommend = cms.custid
 	WHERE hl.IsGroupHeadLine = 1 
 		AND m.IsGroupHeadLine = 0 
 		AND ch.roleid IN (SELECT roleID FROM @tmpLevel)
 		AND (ch.currency IN (SELECT currency FROM @tmpCurrency) OR cm.currency IN (SELECT currency FROM @tmpCurrency)) 
-		AND (ch.site IN (SELECT Site FROM @tmpSite) OR cm.site IN (SELECT Site FROM @tmpSite))
+		AND (ch.site IN (SELECT Site FROM @tmpSite) OR cm.site IN (SELECT Site FROM @tmpSite) OR chs.site IN (SELECT Site FROM @tmpSite) OR cms.site IN (SELECT Site FROM @tmpSite))
 		AND ((cih.closed=0 AND ISNULL(cih.reject,0) = 0 AND cih.Enabled = 1) OR (cim.closed=0 AND ISNULL(cim.reject,0) = 0) AND cim.Enabled = 1)
 		AND hl.groupID > 0
 	END

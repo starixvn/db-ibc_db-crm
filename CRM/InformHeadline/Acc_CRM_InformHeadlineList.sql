@@ -13,7 +13,7 @@ AS
 */
 BEGIN
 	SELECT	it.TitleID, it.Title,
-			CONVERT(VARCHAR(10),it.CreatedDate,120) CreatedDate, 
+			it.CreatedDate, 
 			COUNT(1) Total,
 			s.SettingValue AS Status, 
 			COUNT(CASE WHEN ih.InformHeadlineStatusID = 45000 THEN 1 ELSE NULL END) Done,

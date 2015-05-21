@@ -18,7 +18,7 @@ BEGIN
 	DECLARE @Currency VARCHAR(1000), @Level VARCHAR(10), @Site VARCHAR(4000), @TypeAccount TINYINT, @Content XML
 
 	SELECT @Content = Filter
-	FROM crmInformTitle WITH (NOLOCK)
+	FROM crmInformTitle_New WITH (NOLOCK)
 	WHERE TitleID = @TitleID
 	
 	SELECT	@Site = xmlData.Col.value('@Site','VARCHAR(4000)'),
@@ -28,7 +28,7 @@ BEGIN
 	FROM @Content.nodes('Filters') xmlData(Col)
 
 	SELECT TitleID, Title, @Currency AS Currency, @Level AS Position, @Site AS Site, @TypeAccount AS TypeAccount
-	FROM crmInformTitle WITH (NOLOCK)
+	FROM crmInformTitle_New WITH (NOLOCK)
 	WHERE TitleID = @TitleID
 END
 

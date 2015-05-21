@@ -1,4 +1,5 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineStatusSel]
+	@Mode BIT = 0
 AS
 /*
 	Created: Elodie
@@ -9,12 +10,17 @@ AS
 
 	Revisions:	
 	
-	Param's Explanation:	
+	Param's Explanation:			
 */
 BEGIN
-	SELECT SettingID, SettingValue
-	FROM crmSetting s WITH (NOLOCK) 
-	WHERE s.SettingName = 'InformHeadlineStatus' AND s.SettingValue <> 'Keep for reference'
+	IF @Mode = 0
+		SELECT SettingID, SettingValue
+		FROM crmSetting s WITH (NOLOCK) 
+		WHERE s.SettingName = 'InformHeadlineStatus' AND s.SettingID <> 45007
+	ELSE
+		SELECT SettingID, SettingValue
+		FROM crmSetting s WITH (NOLOCK) 
+		WHERE s.SettingName = 'InformHeadlineStatus'
 END
 
 GO 

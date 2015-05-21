@@ -12,7 +12,7 @@ AS
 /*
 	Created: Elodie
 	Date: 20150406
-	Task : write crmLogInformHeadline
+	Task : write crmLogInformHeadline_New
 	DB: DBCRM/bodb_CRM
 	Original:
 
@@ -23,6 +23,6 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
-	INSERT INTO crmLogInformHeadline (LogDate, UserID, ActionId, IP, CustID, TitleID, NewValues, OldValues)
+	INSERT INTO crmLogInformHeadline_New (LogDate, UserID, ActionId, IP, CustID, TitleID, NewValues, OldValues)
 	VALUES (GETDATE(), @UserID, @ActionID, @IP, @CustID, @TitleID, @NewValues, @OldValues)
 END

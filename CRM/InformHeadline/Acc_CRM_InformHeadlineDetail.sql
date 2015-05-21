@@ -28,7 +28,7 @@ BEGIN
 
 	IF @ItemsPerPage = -1 -- Export excel purpose
 	BEGIN
-		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
+		SELECT ID, HeadlineID, GroupID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						ih.HeadlineID, 
@@ -40,7 +40,7 @@ BEGIN
 						ISNULL(handler.username, '') AS Handler,
 						ih.Extension,
 						ih.ProductStatus						
-				FROM crmInformHeadline ih WITH (NOLOCK)
+				FROM crmInformHeadline_New ih WITH (NOLOCK)
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
 					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid									
 				WHERE TitleID = @TitleID 
@@ -50,7 +50,7 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SELECT ID, HeadlineID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
+		SELECT ID, HeadlineID, GroupID, username, InformHeadlineStatusID, UpdatedTime, Remark, Handler, Extension, ProductStatus
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						ih.HeadlineID, 
@@ -62,7 +62,7 @@ BEGIN
 						ISNULL(handler.username, '') AS Handler,
 						ih.Extension,
 						ih.ProductStatus
-				FROM crmInformHeadline ih WITH (NOLOCK)
+				FROM crmInformHeadline_New ih WITH (NOLOCK)
 					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON ih.HeadlineID = c.custid
 					LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid									
 				WHERE TitleID = @TitleID

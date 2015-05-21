@@ -50,29 +50,29 @@ BEGIN
 
 	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
 
-	INSERT INTO crmInformTitle (Title, CreatedDate, Creator, StatusID, Filter) VALUES (@Title, GETDATE(), @UserID, 11009, @Filter)
+	INSERT INTO crmInformTitle_New (Title, CreatedDate, Creator, StatusID, Filter) VALUES (@Title, GETDATE(), @UserID, 11009, @Filter)
       
 	SELECT @TitleID = @@identity
 
-	--INSERT INTO [dbo].[crmInformHeadline] (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
+	--INSERT INTO [dbo].[crmInformHeadline_New] (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
 	--SELECT hl.HeadlineID, @TitleID, hl.InformHeadlineStatusID, hl.GroupID, GETDATE(), hl.Remark, @UserID, hl.Extension, hl.ProductStatus, 1
 	--FROM @HeadlineData hl
 
 	--IF @@ERROR <> 0
 	--BEGIN
-	--	DELETE crmInformTitle WHERE TitleID = @TitleID
+	--	DELETE crmInformTitle_New WHERE TitleID = @TitleID
 	--	SELECT @ErrCode = 102
 	--	SELECT @ErrMsg = 'Create new case unsuccessfuly.'
 	--	RETURN
 	--END
 
-	INSERT INTO [dbo].[crmInformHeadline] (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
-	SELECT hl.CustID, @TitleID, 45006, hl.GroupID, NULL, '', NULL, NULL, NULL, 1
+	INSERT INTO [dbo].[crmInformHeadline_New] (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
+	SELECT hl.CustID, @TitleID, 45006, hl.GroupID, NULL, '', 0, 0, 0, 1
 	FROM #DirectAcc hl --WHERE hl.CustID NOT IN (SELECT HeadlineID FROM @HeadlineData)	
 
 	IF @@ERROR <> 0
 	BEGIN
-		DELETE crmInformTitle WHERE TitleID = @TitleID
+		DELETE crmInformTitle_New WHERE TitleID = @TitleID
 		SELECT @ErrCode = 102
 		SELECT @ErrMsg = 'Create new case unsuccessfuly.'
 		RETURN

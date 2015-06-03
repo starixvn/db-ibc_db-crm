@@ -26,7 +26,7 @@ AS
 						3: Both
 		- @ChangeFilter =0: Not change
 						=1: Change filter
-	Example: EXEC Acc_CRM_InformHeadlineSearchUpd @TitleID = 1, @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @ChangeFilter = 0
+	Example:  EXEC Acc_CRM_InformHeadlineSearchUpd @TitleID = 1, @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @ChangeFilter = 0
 */
 BEGIN
 	SET NOCOUNT ON
@@ -59,16 +59,16 @@ BEGIN
 	BEGIN		
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,							
-				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 ELSE 0 END AS Cases
+				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 WHEN ih.GroupID = 0 AND ac.GroupID <> 0 THEN 4 WHEN ih.GroupID <> 0 AND ac.GroupID = 0 THEN 2 ELSE 0 END AS Cases
 		FROM #DirectAcc ac
-			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.GroupID = ac.GroupID AND ih.HeadlineID = ac.CustID
+			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
 
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,							
 				0 AS Cases
 		FROM crmInformHeadline_New ih WITH (NOLOCK) 
 		WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID = 45007
-			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
+			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)
 	END
 	ELSE --if filter is not changed
 	BEGIN				
@@ -244,7 +244,7 @@ BEGIN
 	SET HeadlineID = ac.CustID_New,
 		GroupID = ac.GroupID_New,
 		InformHeadlineStatusID = 45006,
-		Remark = hl.Remark,
+		Remark = ISNULL(hl.Remark,ih.Remark),
 		Extension = ISNULL(hl.Extension,0),
 		ProductStatus = ISNULL(hl.ProductStatus,0),
 		IsInform = 1,
@@ -363,7 +363,12 @@ BEGIN
 		--	   ,@Level																				
 		--	   ,@Site																					
 		--	   ,CONVERT(VARCHAR(1), @TypeAccount)														
-		--	   ,CAST(ISNULL(ac.GroupID_New, ac.GroupID_Old) AS VARCHAR(30))							
+		--	   ,CAST(ISNULL(ac.GroupID_New, ac.GroupID_Old) AS VARCHAR(30))		
+		--	   ,ac.CustID_New,ac.CustID_Old
+		--	   ,ih.InformHeadlineStatusID					
+		--	   ,hl.InformHeadlineStatusID
+		--	   ,ih.Remark
+		--	   ,hl.Remark
 		--	   ,CAST(ISNULL(hl.InformHeadlineStatusID, ih.InformHeadlineStatusID) AS VARCHAR(30))		
 		--	   ,ISNULL([dbo].[f_EncodeXMLValue](hl.Remark),[dbo].[f_EncodeXMLValue](ih.Remark))		
 		--	   ,ISNULL(CAST(hl.Extension AS VARCHAR(30)),CAST(ih.Extension AS VARCHAR(30)))			

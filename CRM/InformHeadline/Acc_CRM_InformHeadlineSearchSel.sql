@@ -35,6 +35,8 @@ BEGIN
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 	
+
+	--CREATE CLUSTERED INDEX CIX_CustID ON #DirectAcc(CustID)
 	
 	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
 
@@ -42,16 +44,16 @@ BEGIN
 	BEGIN
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,							
-				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 ELSE 0 END AS Cases
+				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 WHEN ih.GroupID = 0 AND ac.GroupID <> 0 THEN 4 WHEN ih.GroupID <> 0 AND ac.GroupID = 0 THEN 2 ELSE 0 END AS Cases
 		FROM #DirectAcc ac
-			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.GroupID = ac.GroupID AND ih.HeadlineID = ac.CustID
+			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
 
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,							
 				0 AS Cases
 		FROM crmInformHeadline_New ih WITH (NOLOCK) 
 		WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID = 45007
-			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
+			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)		
 
 		SELECT	ISNULL(ac.CustID_Old, ac.CustID_New) AS HeadlineID,
 				ISNULL(ac.GroupID_Old, ac.GroupID_New) AS GroupID,
@@ -117,22 +119,45 @@ BEGIN
 		FROM crmInformHeadline_New ih WITH (NOLOCK)
 		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007 AND ih.IsInform = 1
 			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
+		
+		--CREATE CLUSTERED INDEX CIX_CustID ON #NewDirectAcc(CustID)
 
-		SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
-				ac.GroupID_New AS GroupID,
-				ih.InformHeadlineStatusID, 
-				ih.UpdatedTime,
-				ISNULL(ih.Remark,'') Remark,
-				ISNULL(handler.username, '') AS Handler,
-				ih.Extension,
-				ih.ProductStatus,				
-				ac.Cases
-		FROM #NewDirectAcc ac
-			LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
-			LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
-			LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
-			LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
-		ORDER BY ac.Cases DESC, CASE WHEN ac.GroupID_New > 0 THEN 1 ELSE 0 END DESC, cinew.Username		
+		SELECT * 
+		FROM 
+		(
+			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
+					ac.GroupID_New AS GroupID,
+					ih.InformHeadlineStatusID, 
+					ih.UpdatedTime,
+					ISNULL(ih.Remark,'') Remark,
+					ISNULL(handler.username, '') AS Handler,
+					ih.Extension,
+					ih.ProductStatus,				
+					ac.Cases
+			FROM #NewDirectAcc ac
+				LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
+			WHERE ac.Cases <> 2
+			UNION ALL
+			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
+					ac.GroupID_New AS GroupID,
+					45006, 
+					NULL,
+					'' AS Remark,
+					NULL AS Handler,
+					0 AS Extension,
+					0 AS ProductStatus,				
+					ac.Cases
+			FROM #NewDirectAcc ac
+				LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
+			WHERE ac.Cases = 2
+		) tmp
+		ORDER BY Cases DESC, CASE WHEN GroupID > 0 THEN 1 ELSE 0 END DESC, UserName_New
 	END	
 
 	DROP TABLE #NewDirectAcc

@@ -55,23 +55,23 @@ BEGIN
 	FROM @Content.nodes('//Content/Headline') xmlData(Col)		
 	
 	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)
-	IF @ChangeFilter = 1 --if filter is changed
-	BEGIN		
-		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
-		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,							
-				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 WHEN ih.GroupID = 0 AND ac.GroupID <> 0 THEN 4 WHEN ih.GroupID <> 0 AND ac.GroupID = 0 THEN 2 ELSE 0 END AS Cases
-		FROM #DirectAcc ac
-			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
+	--IF @ChangeFilter = 1 --if filter is changed
+	--BEGIN		
+	--	INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
+	--	SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,							
+	--			CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 WHEN ih.GroupID = 0 AND ac.GroupID <> 0 THEN 4 WHEN ih.GroupID <> 0 AND ac.GroupID = 0 THEN 2 ELSE 0 END AS Cases
+	--	FROM #DirectAcc ac
+	--		FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
 
-		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
-		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,							
-				0 AS Cases
-		FROM crmInformHeadline_New ih WITH (NOLOCK) 
-		WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID = 45007
-			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)
-	END
-	ELSE --if filter is not changed
-	BEGIN				
+	--	INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
+	--	SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,							
+	--			0 AS Cases
+	--	FROM crmInformHeadline_New ih WITH (NOLOCK) 
+	--	WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID = 45007
+	--		AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)
+	--END
+	--ELSE --if filter is not changed
+	--BEGIN				
 		--Get headline list who is changed headlineID
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
@@ -102,7 +102,7 @@ BEGIN
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				CASE WHEN ih.HeadlineID IS NULL THEN 2 
 				ELSE 
-				CASE WHEN ci.closed=0 AND ISNULL(ci.reject,0)=0 AND ci.Enabled=1  THEN CASE WHEN ih.GroupID = 0 THEN 5 ELSE 1 END 
+				CASE WHEN ci.closed=0 AND ISNULL(ci.reject,0)=0 AND ci.Enabled=1  THEN CASE WHEN ih.GroupID = 0 AND @ChangeFilter = 0 THEN 5 ELSE 1 END 
 				ELSE 1 END END
 		FROM #DirectAcc ac
 			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
@@ -116,7 +116,7 @@ BEGIN
 		FROM crmInformHeadline_New ih WITH (NOLOCK)
 		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007
 			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
-	END	
+	--END	
 	
 	--MERGE crmInformHeadline_New ih
 	--USING (SELECT HeadlineID, GroupID, InformHeadlineStatusID, Remark, Extension, ProductStatus FROM @HeadlineData) AS h (HeadlineID, GroupID, InformHeadlineStatusID, Remark, Extension, ProductStatus) 
@@ -175,10 +175,11 @@ BEGIN
 		INNER JOIN #NewDirectAcc ac ON ih.HeadlineID = ac.CustID_Old
 	WHERE ih.TitleID = @TitleID AND ac.Cases = 0 AND ih.HeadlineID IN (SELECT HeadlineID FROM @HeadlineData)	
 
+	--Delete account is new found but it already exists in CRM system
 	DELETE ih WITH (UPDLOCK,ROWLOCK)	
 	FROM crmInformHeadline_New ih
 		LEFT JOIN #NewDirectAcc ac ON ih.HeadlineID = ac.CustID_Old AND ih.GroupID = ac.GroupID_Old
-	WHERE ac.CustID_Old  IS NULL AND ih.TitleID = @TitleID AND ih.IsInform = 1	
+	WHERE ac.CustID_Old  IS NULL AND ih.TitleID = @TitleID AND ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007
 	
 	UPDATE ih
 	SET InformHeadlineStatusID = CASE WHEN hl.IsKeep = 1 THEN 45007 WHEN hl.IsKeep = 0  THEN hl.InformHeadlineStatusID ELSE ih.InformHeadlineStatusID END,
@@ -238,23 +239,30 @@ BEGIN
 		SELECT @ErrCode = 103
 		SELECT @ErrMsg = 'Update case unsuccessfuly.'
 		RETURN
-	END						
+	END							
+	
+	--SELECT CASE WHEN ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007 THEN '' ELSE ISNULL(hl.Remark,ih.Remark) END AS aaa,
+	--		hl.Remark,ih.Remark,ih.IsInform, ih.InformHeadlineStatusID,*
+	--FROM crmInformHeadline_New ih WITH (NOLOCK)
+	--	INNER JOIN #NewDirectAcc ac ON ih.HeadlineID = ac.CustID_New
+	--	LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID		
+	--WHERE ih.TitleID = @TitleID	AND ac.Cases = 2
 
 	UPDATE ih
 	SET HeadlineID = ac.CustID_New,
 		GroupID = ac.GroupID_New,
 		InformHeadlineStatusID = 45006,
-		Remark = ISNULL(hl.Remark,ih.Remark),
-		Extension = ISNULL(hl.Extension,0),
-		ProductStatus = ISNULL(hl.ProductStatus,0),
+		Remark = CASE WHEN ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007 THEN '' ELSE ISNULL(hl.Remark,ih.Remark) END,
+		Extension = CASE WHEN ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007 THEN 0 ELSE ih.Extension END,
+		ProductStatus = CASE WHEN ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007 THEN 0 ELSE ih.ProductStatus END,
 		IsInform = 1,
 		UpdatedTime = GETDATE(),
 		Handler = @UserID
 	FROM crmInformHeadline_New ih WITH (ROWLOCK, UPDLOCK)
 		INNER JOIN #NewDirectAcc ac ON ih.HeadlineID = ac.CustID_New
-		LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID			
+		LEFT JOIN @HeadlineData hl ON ac.CustID_New = hl.HeadlineID		
 	WHERE ih.TitleID = @TitleID	AND ac.Cases = 2
-	
+
 	--Insert headline list who is found now
 	INSERT INTO crmInformHeadline_New (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
 	SELECT ac.CustID_New, @TitleID, ISNULL(hl.InformHeadlineStatusID, 45006), ac.GroupID_New, GETDATE(), ISNULL(hl.Remark, ''), @UserID, ISNULL(hl.Extension,0), ISNULL(hl.ProductStatus,0), 1
@@ -269,6 +277,12 @@ BEGIN
 		RETURN
 	END
 	
+	-- Delete account is duplicated in CRM system with IsInform = 1 AND IsInform = 0
+	DELETE ih
+	FROM crmInformHeadline_New ih WITH (ROWLOCK, UPDLOCK)
+	WHERE ih.HeadlineID IN (SELECT HeadlineID FROM crmInformHeadline_New ih1 WITH (NOLOCK) WHERE ih1.TitleID = ih.TitleID AND ih1.IsInform = 1 AND InformHeadlineStatusID <> 45007)
+		AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007) AND ih.TitleID = @TitleID
+
 	--SELECT DISTINCT a.HeadlineID
 	--FROM
 	--	(SELECT ISNULL(CustID_New, CustID_Old) AS HeadlineID FROM #NewDirectAcc WHERE Cases <> 0

@@ -40,40 +40,40 @@ BEGIN
 	
 	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
 
-	IF @ChangeFilter = 1 --if filter is changed
-	BEGIN
-		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
-		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,							
-				CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 WHEN ih.GroupID = 0 AND ac.GroupID <> 0 THEN 4 WHEN ih.GroupID <> 0 AND ac.GroupID = 0 THEN 2 ELSE 0 END AS Cases
-		FROM #DirectAcc ac
-			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
+	--IF @ChangeFilter = 1 --if filter is changed
+	--BEGIN
+	--	INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
+	--	SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,							
+	--			CASE WHEN ih.GroupID IS NULL THEN 2 WHEN ac.GroupID IS NULL THEN 1 WHEN ih.GroupID = 0 AND ac.GroupID <> 0 THEN 4 WHEN ih.GroupID <> 0 AND ac.GroupID = 0 THEN 2 ELSE 0 END AS Cases
+	--	FROM #DirectAcc ac
+	--		FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
 
-		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
-		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,							
-				0 AS Cases
-		FROM crmInformHeadline_New ih WITH (NOLOCK) 
-		WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID = 45007
-			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)		
+	--	INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
+	--	SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,							
+	--			0 AS Cases
+	--	FROM crmInformHeadline_New ih WITH (NOLOCK) 
+	--	WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID = 45007
+	--		AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)		
 
-		SELECT	ISNULL(ac.CustID_Old, ac.CustID_New) AS HeadlineID,
-				ISNULL(ac.GroupID_Old, ac.GroupID_New) AS GroupID,
-				ISNULL(ciold.username, cinew.username) AS Username,
-				ISNULL(ih.InformHeadlineStatusID, 45006) AS InformHeadlineStatusID,
-				ih.UpdatedTime, 
-				ISNULL(ih.Remark, '') AS Remark,
-				ISNULL(handler.Username, '') AS Handler,
-				ih.Extension,
-				ih.ProductStatus,				
-				ac.Cases
-		FROM #NewDirectAcc ac
-			LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
-			LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
-			LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
-			LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.CustID
-		ORDER BY Cases DESC, CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, Username	
-	END
-	ELSE --if filter is not changed
-	BEGIN				
+	--	SELECT	ISNULL(ac.CustID_Old, ac.CustID_New) AS HeadlineID,
+	--			ISNULL(ac.GroupID_Old, ac.GroupID_New) AS GroupID,
+	--			ISNULL(ciold.username, cinew.username) AS Username,
+	--			ISNULL(ih.InformHeadlineStatusID, 45006) AS InformHeadlineStatusID,
+	--			ih.UpdatedTime, 
+	--			ISNULL(ih.Remark, '') AS Remark,
+	--			ISNULL(handler.Username, '') AS Handler,
+	--			ih.Extension,
+	--			ih.ProductStatus,				
+	--			ac.Cases
+	--	FROM #NewDirectAcc ac
+	--		LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+	--		LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+	--		LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+	--		LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.CustID
+	--	ORDER BY Cases DESC, CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, Username	
+	--END
+	--ELSE --if filter is not changed
+	--BEGIN				
 		
 		--Step 1: Get headline list who is changed headlineID first
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
@@ -105,7 +105,7 @@ BEGIN
 		SELECT	ac.CustID, ac.GroupID, ih.HeadlineID, ih.GroupID,
 				CASE WHEN ih.HeadlineID IS NULL THEN 2 
 				ELSE 
-				CASE WHEN ci.closed=0 AND ISNULL(ci.reject,0)=0 AND ci.Enabled=1  THEN CASE WHEN ih.GroupID = 0 THEN 5 ELSE 1 END 
+				CASE WHEN ci.closed=0 AND ISNULL(ci.reject,0)=0 AND ci.Enabled=1  THEN CASE WHEN ih.GroupID = 0 AND @ChangeFilter = 0 THEN 5 ELSE 1 END 
 				ELSE 1 END END
 		FROM #DirectAcc ac
 			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
@@ -120,7 +120,18 @@ BEGIN
 		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007 AND ih.IsInform = 1
 			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
 		
-		--CREATE CLUSTERED INDEX CIX_CustID ON #NewDirectAcc(CustID)
+		--SELECT *
+		--FROM #NewDirectAcc ac
+		--WHERE CustID_NEW = 18003864
+
+		--SELECT *
+		--FROM crmInformHeadline_New ih WITH (NOLOCK) 
+		--WHERE ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
+
+		--SELECT *
+		--FROM #NewDirectAcc ac
+		--		INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_New = ih.HeadlineID AND ac.GroupID_New = ih.GroupID AND ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
+
 
 		SELECT * 
 		FROM 
@@ -151,14 +162,59 @@ BEGIN
 					0 AS ProductStatus,				
 					ac.Cases
 			FROM #NewDirectAcc ac
-				LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+				INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+			WHERE ac.Cases = 2
+			UNION ALL
+			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
+					ac.GroupID_New AS GroupID,
+					45006, 
+					NULL,
+					ISNULL(ih.Remark,'') Remark,
+					ISNULL(handler.username, '') AS Handler,
+					ih.Extension,
+					ih.ProductStatus,			
+					ac.Cases
+			FROM #NewDirectAcc ac
+				INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_New = ih.HeadlineID AND ac.GroupID_New = ih.GroupID AND ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
 				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
 			WHERE ac.Cases = 2
+			UNION ALL
+			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
+					ac.GroupID_New AS GroupID,
+					45006, 
+					NULL,
+					'' AS Remark,
+					NULL AS Handler,
+					0 AS Extension,
+					0 AS ProductStatus,				
+					ac.Cases
+			FROM #NewDirectAcc ac
+				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+			WHERE ac.Cases = 2 AND ac.CustID_New NOT IN (SELECT HeadlineID FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID)
 		) tmp
 		ORDER BY Cases DESC, CASE WHEN GroupID > 0 THEN 1 ELSE 0 END DESC, UserName_New
-	END	
+
+		--SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
+		--		ac.GroupID_New AS GroupID,
+		--		ih.InformHeadlineStatusID, 
+		--		ih.UpdatedTime,
+		--		ISNULL(ih.Remark,'') Remark,
+		--		ISNULL(handler.username, '') AS Handler,
+		--		ih.Extension,
+		--		ih.ProductStatus,				
+		--		ac.Cases
+		--FROM #NewDirectAcc ac
+		--	LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
+		--	LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+		--	LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+		--	LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
+		--ORDER BY ac.Cases DESC, CASE WHEN ac.GroupID_New > 0 THEN 1 ELSE 0 END DESC, cinew.Username	
+	--END	
 
 	DROP TABLE #NewDirectAcc
 	DROP TABLE #DirectAcc 	

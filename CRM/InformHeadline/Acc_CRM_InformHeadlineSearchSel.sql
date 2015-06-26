@@ -151,7 +151,7 @@ BEGIN
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
 			WHERE ac.Cases <> 2
-			UNION ALL
+			UNION ALL 
 			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
 					ac.GroupID_New AS GroupID,
 					45006, 
@@ -166,7 +166,7 @@ BEGIN
 				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 			WHERE ac.Cases = 2
-			UNION ALL
+			UNION ALL -- Direct account is found again with  old custid and old groupID
 			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
 					ac.GroupID_New AS GroupID,
 					45006, 
@@ -182,7 +182,23 @@ BEGIN
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
 			WHERE ac.Cases = 2
-			UNION ALL
+			UNION ALL -- Direct account is found again with  new groupID
+			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
+					ac.GroupID_New AS GroupID,
+					45006, 
+					NULL,
+					ISNULL(ih.Remark,'') Remark,
+					ISNULL(handler.username, '') AS Handler,
+					ih.Extension,
+					ih.ProductStatus,			
+					ac.Cases
+			FROM #NewDirectAcc ac
+				INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_New = ih.HeadlineID AND ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
+				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
+				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
+				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
+			WHERE ac.Cases = 2
+			UNION ALL --Direct account is new found
 			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
 					ac.GroupID_New AS GroupID,
 					45006, 
@@ -197,24 +213,7 @@ BEGIN
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 			WHERE ac.Cases = 2 AND ac.CustID_New NOT IN (SELECT HeadlineID FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID)
 		) tmp
-		ORDER BY Cases DESC, CASE WHEN GroupID > 0 THEN 1 ELSE 0 END DESC, UserName_New
-
-		--SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
-		--		ac.GroupID_New AS GroupID,
-		--		ih.InformHeadlineStatusID, 
-		--		ih.UpdatedTime,
-		--		ISNULL(ih.Remark,'') Remark,
-		--		ISNULL(handler.username, '') AS Handler,
-		--		ih.Extension,
-		--		ih.ProductStatus,				
-		--		ac.Cases
-		--FROM #NewDirectAcc ac
-		--	LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_Old = ih.HeadlineID AND ac.GroupID_Old = ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1
-		--	LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
-		--	LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
-		--	LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
-		--ORDER BY ac.Cases DESC, CASE WHEN ac.GroupID_New > 0 THEN 1 ELSE 0 END DESC, cinew.Username	
-	--END	
+		ORDER BY Cases DESC, CASE WHEN GroupID > 0 THEN 1 ELSE 0 END DESC, UserName_New		
 
 	DROP TABLE #NewDirectAcc
 	DROP TABLE #DirectAcc 	

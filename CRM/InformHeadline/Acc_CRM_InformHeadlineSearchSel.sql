@@ -193,7 +193,7 @@ BEGIN
 					ih.ProductStatus,			
 					ac.Cases
 			FROM #NewDirectAcc ac
-				INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_New = ih.HeadlineID AND ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
+				INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_New = ih.HeadlineID AND ac.GroupID_New <> ih.GroupID AND ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
 				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID_New = cinew.custid
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		

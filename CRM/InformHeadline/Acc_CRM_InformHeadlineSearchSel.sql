@@ -35,8 +35,6 @@ BEGIN
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 	
-
-	--CREATE CLUSTERED INDEX CIX_CustID ON #DirectAcc(CustID)
 	
 	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
 
@@ -118,20 +116,7 @@ BEGIN
 				0
 		FROM crmInformHeadline_New ih WITH (NOLOCK)
 		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007 AND ih.IsInform = 1
-			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
-		
-		--SELECT *
-		--FROM #NewDirectAcc ac
-		--WHERE CustID_NEW = 18003864
-
-		--SELECT *
-		--FROM crmInformHeadline_New ih WITH (NOLOCK) 
-		--WHERE ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
-
-		--SELECT *
-		--FROM #NewDirectAcc ac
-		--		INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID_New = ih.HeadlineID AND ac.GroupID_New = ih.GroupID AND ih.TitleID = @TitleID AND (ih.IsInform = 0 OR ih.InformHeadlineStatusID = 45007)
-
+			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)		
 
 		SELECT * 
 		FROM 
@@ -151,7 +136,7 @@ BEGIN
 				LEFT JOIN bodb02.dbo.CustInfo ciold WITH (NOLOCK) ON ac.CustID_Old = ciold.custid
 				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid		
 			WHERE ac.Cases <> 2
-			UNION ALL 
+			UNION ALL -- Group headline is removed from group and become dirrect account
 			SELECT	ac.CustID_Old, ciold.Username AS UserName_Old, ac.CustID_New, cinew.Username AS UserName_New, 
 					ac.GroupID_New AS GroupID,
 					45006, 

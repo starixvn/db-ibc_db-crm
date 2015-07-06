@@ -19,6 +19,7 @@ AS
 	DB: DBCRM/bodb_CRM
 		
 	Revisions:
+		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
 
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
@@ -87,7 +88,7 @@ BEGIN
 		FROM crmInformHeadline_New ih WITH (NOLOCK)
 			INNER JOIN #DirectAcc ac ON ih.HeadlineID = ac.CustID
 		WHERE (ih.GroupID = 0 OR ac.GroupID = 0) AND ac.GroupID <> ih.GroupID AND ih.TitleID = @TitleID AND ih.IsInform = 1 AND ih.InformHeadlineStatusID <> 45007		
-			AND ac.CustID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
+			AND ac.CustID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)
 
 		--Get headline list who is not changed
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
@@ -107,15 +108,15 @@ BEGIN
 		FROM #DirectAcc ac
 			FULL OUTER JOIN (SELECT * FROM crmInformHeadline_New WITH (NOLOCK) WHERE TitleID = @TitleID AND IsInform = 1 AND InformHeadlineStatusID <> 45007) ih ON ih.HeadlineID = ac.CustID		
 			LEFT JOIN bodb02.dbo.CustInfo ci WITH (NOLOCK) ON ih.HeadlineID = ci.custid
-		WHERE (ih.HeadlineID IS NULL AND ac.CustID NOT IN (SELECT CustID_New FROM #NewDirectAcc)) OR (ac.CustID IS NULL AND ih.HeadlineID NOT IN (SELECT CustID_Old FROM #NewDirectAcc))	
+		WHERE (ih.HeadlineID IS NULL AND ac.CustID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)) OR (ac.CustID IS NULL AND ih.HeadlineID NOT IN (SELECT CustID_Old FROM #NewDirectAcc WHERE CustID_Old IS NOT NULL))	
 
 		--Get headline list who is keep for reference
 		INSERT INTO #NewDirectAcc (CustID_New, GroupID_New, CustID_Old, GroupID_Old, Cases)
 		SELECT	ih.HeadlineID, ih.GroupID, ih.HeadlineID, ih.GroupID,
 				0
 		FROM crmInformHeadline_New ih WITH (NOLOCK)
-		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007
-			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc)
+		WHERE ih.TitleID = @TitleID AND ih.InformHeadlineStatusID = 45007 AND ih.IsInform = 1
+			AND ih.HeadlineID NOT IN (SELECT CustID_New FROM #NewDirectAcc WHERE CustID_New IS NOT NULL)
 	--END	
 	
 	--MERGE crmInformHeadline_New ih

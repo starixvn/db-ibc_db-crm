@@ -181,5 +181,7 @@ BEGIN
 	RETURN
 END
 
+GO 
+GRANT SELECT ON [dbo].[f_InformHeadlineList] TO [bodbAdminNet]
 GO
 GRANT VIEW DEFINITION ON [dbo].[f_InformHeadlineList] TO [vnteam] AS [dbo]

@@ -81,7 +81,7 @@ BEGIN
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN ( 11004, 11001)
+					AND fb.StatusID NOT IN (11004, 11001)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.CommunicationID
 			ORDER BY fb.MainCategoryID, fb.CommunicationID
@@ -108,7 +108,7 @@ BEGIN
 				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11004, 11001)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID
 			ORDER BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID
@@ -138,7 +138,7 @@ BEGIN
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID				
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN ( 11004, 11001)
+					AND fb.StatusID NOT IN (11004, 11001)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.CommunicationID, fb.ProductID
 			ORDER BY fb.MainCategoryID, fb.CommunicationID, fb.ProductID
@@ -166,7 +166,7 @@ BEGIN
 				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID <> 11004
+					AND fb.StatusID NOT IN (11004, 11001)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID, fb.ProductID
 			ORDER BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID, fb.ProductID

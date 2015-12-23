@@ -75,14 +75,14 @@ BEGIN
 
 			INSERT INTO #tmpResultAll (MainCategoryID, CommunicationID, Total)
 			SELECT fb.MainCategoryID, fb.CommunicationID, count(1) AS Total
-			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
+			FROM crmFeedback fb WITH(NOLOCK) 				
 				INNER JOIN @Product p ON fb.ProductID = p.ProductID
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
+				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
 					AND fb.StatusID NOT IN (11004, 11001)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
+					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.CommunicationID
 			ORDER BY fb.MainCategoryID, fb.CommunicationID
 
@@ -102,14 +102,14 @@ BEGIN
 			INSERT INTO #tmpResultAllDetail (MainCategoryID, SubCategoryID, CommunicationID, Total)
 			SELECT fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID, count(1) AS Total
 			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 				INNER JOIN @Product p ON fb.ProductID = p.ProductID
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID
 				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
+				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
 					AND fb.StatusID NOT IN (11004, 11001)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
+					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID
 			ORDER BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID
 
@@ -133,13 +133,13 @@ BEGIN
 			INSERT INTO #tmpResult (MainCategoryID, CommunicationID, ProductID, Total)
 			SELECT fb.MainCategoryID, fb.CommunicationID, fb.ProductID, count(1) AS Total
 			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 				INNER JOIN @Product p ON fb.ProductID = p.ProductID
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID				
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
+				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
 					AND fb.StatusID NOT IN (11004, 11001)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
+					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.CommunicationID, fb.ProductID
 			ORDER BY fb.MainCategoryID, fb.CommunicationID, fb.ProductID
 
@@ -160,14 +160,14 @@ BEGIN
 			INSERT INTO #tmpResultDetail (MainCategoryID, SubCategoryID, CommunicationID, ProductID, Total)
 			SELECT fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID, fb.ProductID, count(1) AS Total
 			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 				INNER JOIN @Product p ON fb.ProductID = p.ProductID
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID
 				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
+				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
 					AND fb.StatusID NOT IN (11004, 11001)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR fb.SiteID = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
+					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID, fb.ProductID
 			ORDER BY fb.MainCategoryID, fb.SubCategoryID, fb.CommunicationID, fb.ProductID
 

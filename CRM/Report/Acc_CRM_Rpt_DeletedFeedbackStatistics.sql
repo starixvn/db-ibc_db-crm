@@ -39,7 +39,7 @@ BEGIN
 		FROM	bodb02.dbo.Customer c WITH(NOLOCK)
 		WHERE	c.username = @CreatorName
 
-	IF	@DeletorName = ''
+	IF	@DeletorName = '' OR @DeletorName IS NULL
 		SELECT	@DeletorID = -1
 	ELSE
 		SELECT	@DeletorID = c.custid

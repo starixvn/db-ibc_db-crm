@@ -1,88 +1,104 @@
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DynamicFeedback]
-	@FromDate DATETIME,
-	@ToDate DATETIME,
-	@ProductID INT = NULL,
-	@StatusID INT = NULL,
-	@RoleID INT = NULL,
-	@MainCategoryID INT = NULL,
-	@HandledBy NVARCHAR(30) = NULL,
-	@Extension INT = NULL,
-	@SiteID INT = NULL,
-	@ResponseID INT = NULL,
-	@CommunicationID INT = NULL,
-	@SubCategoryID INT = NULL,
-	@ReviewedBy NVARCHAR(30) = NULL,
-	@Subject NVARCHAR(1000) = NULL
-AS
+ALTER PROCEDURE	dbo.Acc_CRM_Rpt_DynamicFeedback
+					@FromDate			DATETIME
+				,	@ToDate				DATETIME
+				,	@ProductID			INT				= NULL
+				,	@SubProductID		INT				= NULL
+				,	@StatusID			INT				= NULL
+				,	@RoleID				INT				= NULL
+				,	@MainCategoryID		INT				= NULL
+				,	@HandledBy			NVARCHAR(30)	= NULL
+				,	@Extension			INT				= NULL
+				,	@SiteID				INT				= NULL
+				,	@ResponseID			INT				= NULL
+				,	@CommunicationID	INT				= NULL
+				,	@SubCategoryID		INT				= NULL
+				,	@ReviewedBy			NVARCHAR(30)	= NULL
+				,	@Subject			NVARCHAR(1000)	= NULL
+AS 
 /*
-	Created: DOM
-	Date: 20140228
-	Task : Dynamic Report
-	DB: DBCRM/bodb_CRM
+	Created:	DOM
+	Date:		20140228
+	Task:		Dynamic Report
+	DB:			DBCRM/bodb_CRM
 	Original:
 
 	Revisions:
+		- 20160318@Billy:	Integrate Sub-Product Setting - [Redmine: #52998]
 		
 	Param's Explanation:
 		
 */
 
-select @Subject = REPLACE(@Subject,'[','%')
-select @Subject = REPLACE(@Subject,']','%')
+SELECT	@Subject = REPLACE(@Subject, '[', '%');
+SELECT	@Subject = REPLACE(@Subject,']','%');
 
-DECLARE @HandledID INT,@ReviewedID INT
+DECLARE	@HandledID		INT
+	,	@ReviewedID		INT;
 
-select @HandledID=CustID FROM bodb02.dbo.Customer WHERE UserName = @HandledBy
-select @ReviewedID=CustID FROM bodb02.dbo.Customer WHERE UserName = @ReviewedBy
+SELECT	@HandledID = CustID 
+FROM	bodb02.dbo.Customer 
+WHERE	UserName = @HandledBy;
+
+SELECT	@ReviewedID = CustID
+FROM	bodb02.dbo.Customer
+WHERE	UserName = @ReviewedBy;
 
 
-CREATE TABLE #Feedback (
-	FeedbackID INT 
-)
-INSERT INTO #Feedback SELECT DISTINCT FeedbackID FROM crmFeedback f WITH(NOLOCK)WHERE FeedbackDate BETWEEN @FromDate AND @ToDate AND (ISNULL(@ProductID,0)=0 OR f.ProductID= @ProductID) AND (ISNULL(@StatusID,0)=0 OR f.StatusID= @StatusID) 
-AND (ISNULL(@RoleID,0)=0 OR f.RoleID= @RoleID) 
-AND (ISNULL(@MainCategoryID,0)=0 OR f.MainCategoryID= @MainCategoryID) 
-AND (ISNULL(@HandledBy,'')='' OR f.CreatorID= @HandledID) 
-AND (ISNULL(@SiteID,0)=0 OR f.SiteID= @SiteID) 
-AND (ISNULL(@ResponseID,0)=0 OR f.ResponseID= @ResponseID) 
-AND (ISNULL(@CommunicationID,0)=0 OR f.CommunicationID= @CommunicationID) 
-AND (ISNULL(@SubCategoryID,0)=0 OR f.SubCategoryID= @SubCategoryID) 
-AND (ISNULL(@ReviewedBy,'')='' OR f.ReviewerID= @ReviewedID) 
-AND (ISNULL(@Extension,0)=0 OR f.StationID = @Extension ) 
-AND (ISNULL(@Subject,'')='' OR f.Subject like '%'+@Subject+'%' ) 
-AND f.StatusID <> 11004 
+CREATE TABLE	#Feedback (
+					FeedbackID		INT 
+				);
+INSERT INTO #Feedback
+SELECT DISTINCT	FeedbackID
+FROM	crmFeedback f WITH (NOLOCK)
+WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate
+	AND	(ISNULL(@ProductID, 0) = 0 OR f.ProductID = @ProductID)
+	AND	f.SubProductID = ISNULL(@SubProductID, f.SubProductID)
+	AND	(ISNULL(@StatusID, 0) = 0 OR f.StatusID = @StatusID) 
+	AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 
+	AND	(ISNULL(@MainCategoryID, 0) = 0 OR f.MainCategoryID = @MainCategoryID) 
+	AND	(ISNULL(@HandledBy, '') = '' OR f.CreatorID = @HandledID) 
+	AND	(ISNULL(@SiteID, 0) = 0 OR f.SiteID = @SiteID) 
+	AND	(ISNULL(@ResponseID, 0) = 0 OR f.ResponseID = @ResponseID) 
+	AND	(ISNULL(@CommunicationID, 0) = 0 OR f.CommunicationID = @CommunicationID) 
+	AND	(ISNULL(@SubCategoryID, 0) = 0 OR f.SubCategoryID = @SubCategoryID) 
+	AND	(ISNULL(@ReviewedBy, '') = '' OR f.ReviewerID = @ReviewedID) 
+	AND	(ISNULL(@Extension, 0) = 0 OR f.StationID = @Extension ) 
+	AND	(ISNULL(@Subject, '') = '' OR f.Subject LIKE '%' + @Subject + '%') 
+	AND	f.StatusID <> 11004; 
 
-SELECT f.FeedbackID,
-		f.FeedbackDate,
-		mc.Name MainCategory, 
-		sc.Name SubCategory,
-		cast(datepart(hour,ResolutionDate - FeedbackDate) as varchar) + ' : ' +cast(datepart(MINUTE,ResolutionDate - FeedbackDate) as varchar) + ' : ' +cast(datepart(second,ResolutionDate - FeedbackDate) as varchar) Duration,
-		f.Subject,
-		st.Name Status,
-		c.username HandledBy,
-		rv.username ReviewedBy,
-		cust.UserName
-FROM crmFeedback(NOLOCK) f
-LEFT JOIN crmMainCategory(NOLOCK) mc ON mc.MainCategoryID = f.MainCategoryID
-LEFT JOIN crmSubCategory(NOLOCK) sc ON sc.MainCategoryID= mc.MainCategoryID and sc.SubCategoryID = f.SubCategoryID
-LEFT JOIN crmStatus(NOLOCK) st ON st.StatusID = f.StatusID
-INNER JOIN bodb02.dbo.Customer(NOLOCK) c ON c.custid = f.CreatorID
-LEFT JOIN bodb02.dbo.Customer(NOLOCK) rv ON rv.custid = f.ReviewerID
-INNER JOIN crmCustomer cust WITH(NOLOCK) ON cust.CustID = f.CustID
-WHERE f.FeedbackID IN(SELECT feedbackid from #Feedback)
-ORDER BY f.FeedbackDate DESC, f.FeedbackID DESC
-DROP TABLE #Feedback
+SELECT	f.FeedbackID
+	,	f.FeedbackDate
+	,	mc.Name MainCategory
+	,	sc.Name SubCategory
+	,	CAST(DATEPART(HOUR, ResolutionDate - FeedbackDate) AS VARCHAR)
+	+	' : ' + CAST(DATEPART(MINUTE, ResolutionDate - FeedbackDate) AS VARCHAR)
+	+	' : ' + CAST(DATEPART(SECOND, ResolutionDate - FeedbackDate) AS VARCHAR) Duration
+	,	f.Subject
+	,	st.Name Status
+	,	c.username HandledBy
+	,	rv.username ReviewedBy
+	,	cust.UserName
+FROM		crmFeedback f WITH (NOLOCK) 
+LEFT JOIN	crmMainCategory mc WITH (NOLOCK)
+		ON	mc.MainCategoryID = f.MainCategoryID
+LEFT JOIN	crmSubCategory sc WITH (NOLOCK)
+		ON	sc.MainCategoryID= mc.MainCategoryID
+		AND	sc.SubCategoryID = f.SubCategoryID
+LEFT JOIN	crmStatus st WITH (NOLOCK)
+		ON	st.StatusID = f.StatusID
+INNER JOIN	bodb02.dbo.Customer c WITH (NOLOCK)
+		ON	c.custid = f.CreatorID
+LEFT JOIN	bodb02.dbo.Customer rv WITH (NOLOCK)
+		ON	rv.custid = f.ReviewerID
+INNER JOIN	crmCustomer cust WITH(NOLOCK)
+		ON	cust.CustID = f.CustID
+WHERE	f.FeedbackID IN (SELECT feedbackid FROM #Feedback)
+ORDER BY f.FeedbackDate DESC, f.FeedbackID DESC;
 
+DROP TABLE #Feedback;
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
+GRANT EXECUTE ON dbo.Acc_CRM_Rpt_DynamicFeedback TO bodbAdminNet;
 GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_DynamicFeedback] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_DynamicFeedback] TO [vnteam]
+GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_DynamicFeedback TO vnteam;
 GO 

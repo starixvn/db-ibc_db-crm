@@ -11,9 +11,9 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 )
 AS
 /*
-	Created: 20151111@Elodie
-	Task :  Daily statistics report
-	DB: DBCRM/bodb_CRM
+	Created:	20151111@Elodie
+	Task:		Daily statistics report
+	DB:			DBCRM/bodb_CRM
 	Original:
 
 	Revisions:

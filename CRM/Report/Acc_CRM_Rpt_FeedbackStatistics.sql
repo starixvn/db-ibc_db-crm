@@ -1,39 +1,3 @@
-﻿ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
-(
-	@Type			INT,
-	@FromDate		DATETIME,
-	@ToDate			DATETIME,
-	@FromDuration	VARCHAR(100),
-	@ToDuration		VARCHAR(100)
-)
-AS
-/*
-Created: Lukas
-Date: 20101116
-Task : feedback statistics report
-DB: DB052.bodb_CRM
-Original:
-
-Revisions:
-		- 20110818@Kevin: add new filter: Communication
-		- 20110622@Kevin: add new filter: Status, Response, Product, Category
-		- 20110628@Lukas: add filter Licensee & remove licensees from 'site' filter
-		- 20111011@Lukas: Add filter duration
-		- 20120425@Sophia: remove converting @FromDate, @Todate
-		- 20140523@Dom: modify site condition
-
-Param's Explanation:
-	@Type:	- 1		By Creator
-			- 2		By Country
-			- 3		By Role
-			- 4		By Site
-			- 5		By Status
-			- 6		By Customer Response
-			- 7		By Product
-			- 8		By Category
-			- 9		Licensees
-			- 10	Communication
-*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
 (
 	@Type			INT,
@@ -57,6 +21,7 @@ Revisions:
 		- 20111011@Lukas: Add filter duration
 		- 20120425@Sophia: remove converting @FromDate, @Todate
 		- 20120103@Lukas: exclude Pending feedback (statusID = 11001)
+		- 20140523@Dom: modify site condition
 Param's Explanation:
 	@Type:	- 1		By Creator
 			- 2		By Country

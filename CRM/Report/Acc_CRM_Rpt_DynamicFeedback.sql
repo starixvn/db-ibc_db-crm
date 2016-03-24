@@ -52,7 +52,7 @@ SELECT DISTINCT	FeedbackID
 FROM	crmFeedback f WITH (NOLOCK)
 WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate
 	AND	(ISNULL(@ProductID, 0) = 0 OR f.ProductID = @ProductID)
-	AND	f.SubProductID = ISNULL(@SubProductID, f.SubProductID)
+	AND	(ISNULL(@SubProductID, 0) = 0 OR f.SubProductID = @SubProductID)
 	AND	(ISNULL(@StatusID, 0) = 0 OR f.StatusID = @StatusID) 
 	AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 
 	AND	(ISNULL(@MainCategoryID, 0) = 0 OR f.MainCategoryID = @MainCategoryID) 

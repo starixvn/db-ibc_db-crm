@@ -1,3 +1,8 @@
+SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
 ALTER PROCEDURE dbo.Acc_CRM_Rpt_DeletedFeedbackStatistics
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
@@ -69,10 +74,29 @@ BEGIN
 				INNER JOIN	crmLogAction la WITH(NOLOCK)
 				ON		ilf.ActionID = la.ActionID
 				WHERE	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
+
+				UNION ALL
+
+				SELECT	ilf.LogID
+					,	ilf.LogDate
+					,	ilf.FeedbackID
+					,	ilf.CustID
+					,	ilf.UserID
+					,	ilf.ActionID
+					,	ilf.IP
+					,	ilf.Description
+					,	ilf.Solution
+					,	ilf.Review
+					,	ISNULL(ilf.Doing.value('(/Acc_CRM_CommunicationLogUpd/StatusID)[1]', 'INT'), 0) newStatus
+					,	ISNULL(ilf.OldValues.value('(/Acc_CRM_CommunicationLogUpd/StatusID)[1]', 'INT'), 0)	oldStatus
+				FROM		crmLogFeedback ilf WITH(NOLOCK)
+				INNER JOIN	crmLogAction la WITH(NOLOCK)
+				ON		ilf.ActionID = la.ActionID
+				WHERE	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
 			) iq
 			WHERE	iq.newStatus = 11004
 				AND	iq.oldStatus <> 11004
-				AND	iq.ActionID = 201
+				AND	iq.ActionID IN (201, 203)
 		)
 		INSERT INTO @ResultTable (
 				CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , MainCategoryID  , SubCategoryID  , CustID)
@@ -100,16 +124,17 @@ BEGIN
 	INNER JOIN	crmMainCategory mc WITH (NOLOCK)
 			ON	rt.MainCategoryID = mc.MainCategoryID
 	INNER JOIN	crmSubCategory sc WITH (NOLOCK)
-			ON	rt.SubCategoryID = sc.SubCategoryID
+			ON	rt.MainCategoryID = sc.MainCategoryID
+			AND	rt.SubCategoryID = sc.SubCategoryID
 	INNER JOIN	bodb02.dbo.Customer creator
 			ON	rt.CreatorID = creator.custid
 	INNER JOIN	bodb02.dbo.Customer deletor
 			ON	rt.DeletorID = deletor.custid
 	INNER JOIN	crmCustomer c WITH (NOLOCK)
 			ON	rt.CustID = c.CustID
-	CROSS APPLY	dbo.f_GetRelatedCustomer(rt.CustID) fgrc
-	ORDER BY	rt.CreatorID,
-				rt.CreateDate DESC;
+	CROSS APPLY	dbo.f_GetRelatedCustomer(rt.FeedbackID) fgrc
+	ORDER BY	rt.CreatorID
+			,	rt.CreateDate DESC;
 
 END;
 GO

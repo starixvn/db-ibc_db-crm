@@ -1,3 +1,8 @@
+SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
 ALTER PROCEDURE	dbo.Acc_CRM_Rpt_FeedbackStatisticDetails (
 					@Type			INT
 				,	@MainCategoryID	INT
@@ -883,20 +888,8 @@ BEGIN
 		ORDER BY t.feedbackdate DESC;
 	END; 
 END;
-
-
-
-
-
-GO
-
-SET QUOTED_IDENTIFIER OFF; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
-
 GO 
+
  GRANT EXECUTE ON dbo.Acc_CRM_Rpt_FeedbackStatisticDetails TO bodbAdminNet;
 GO 
  GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_FeedbackStatisticDetails TO vnteam;

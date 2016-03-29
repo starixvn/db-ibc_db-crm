@@ -1,4 +1,9 @@
-﻿ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByDate] (
+﻿SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
+ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByDate] (
 					@CustID			INT
 				,	@FromDate		DATETIME
 				,	@ToDate			DATETIME

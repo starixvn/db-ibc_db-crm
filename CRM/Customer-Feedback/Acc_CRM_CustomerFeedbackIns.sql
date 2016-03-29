@@ -1,4 +1,9 @@
-﻿ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
+﻿SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
+ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 					@UserID						INT
 				,	@CustID						INT
 				,	@UserName					NVARCHAR(50)

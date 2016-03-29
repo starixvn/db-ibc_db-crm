@@ -1,3 +1,8 @@
+SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 					@CustID				INT
 				,	@RelatedCustID		VARCHAR(500)	= NULL

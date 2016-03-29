@@ -1,4 +1,9 @@
-﻿ALTER PROCEDURE	dbo.Acc_CRM_SubjectTemplateDel (
+﻿SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
+ALTER PROCEDURE	dbo.Acc_CRM_SubjectTemplateDel (
 					@TemplateID		INT
 				,	@isActive		BIT
 				,	@errCode		INT				= 0		OUTPUT

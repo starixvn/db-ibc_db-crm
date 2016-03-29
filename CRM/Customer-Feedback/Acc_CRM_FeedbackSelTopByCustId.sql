@@ -1,4 +1,9 @@
-﻿ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTopByCustId (
+﻿SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
+ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTopByCustId (
 					@CustID		INT
 				,	@top		INT		= 10
 				)	

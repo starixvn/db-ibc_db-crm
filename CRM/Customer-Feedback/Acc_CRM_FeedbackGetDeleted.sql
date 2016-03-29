@@ -1,4 +1,9 @@
-﻿ALTER PROCEDURE	dbo.Acc_CRM_FeedbackGetDeleted (
+﻿SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
+ALTER PROCEDURE	dbo.Acc_CRM_FeedbackGetDeleted (
 					@UserName			NVARCHAR(50)	= NULL
 				,	@IsGuest			BIT				= NULL
 				,	@FromDate			DATETIME

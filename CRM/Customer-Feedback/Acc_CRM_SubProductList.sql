@@ -1,3 +1,8 @@
+SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
 ALTER PROCEDURE	dbo.Acc_CRM_SubProductList
 					@ProductID INT = 0
 AS /*

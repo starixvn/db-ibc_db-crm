@@ -161,7 +161,7 @@ BEGIN
 	INNER JOIN crmCustomer c WITH(NOLOCK) ON d.CustID = c.CustID
 	LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID
 	LEFT JOIN (
-		SELECT SettingID ProductID, SettingValue Product FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Product'
+		SELECT SettingID ProductID, SettingValue Product FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'ParentProduct'
 	) Product ON Product.ProductID = d.ProductID
 	LEFT JOIN crmBettype bt WITH(NOLOCK) ON bt.BettypeID = d.BettypeID AND d.ProductID = bt.ProductID
 	LEFT JOIN (

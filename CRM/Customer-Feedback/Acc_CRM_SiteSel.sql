@@ -14,7 +14,7 @@ AS
 
 	Revisions:
 		- 20150403@Elodie:	Filter by licensee type		
-		- 20160328@Billy:	
+		- 20160328@Billy:	Integrate Sub-Product Setting - [Redmine: #50691]
 			
 	Param's Explanation:
 		- @LicenseeType =	0: Both
@@ -25,20 +25,22 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
-	SELECT	s.SiteID, s.SiteName, s.IsLicensee
+	SELECT	s.SiteID, s.SiteName, s.IsLicensee, s.IsActive
 	FROM (
-		SELECT	s.SettingID			SiteID 
-			,	s.SettingValue		SiteName
-			,	CASE sr.ParentID WHEN 33000 THEN 1 WHEN 33001 THEN 0 ELSE -1 
-				END					IsLicensee
-			,	s.DisplayOrder		DisplayOrder
+		SELECT	SiteID			=	s.SettingID
+			,	SiteName		=	s.SettingValue
+			,	IsLicensee		=	CASE sr.ParentID	WHEN 33000 THEN 1
+													WHEN 33001 THEN 0
+													ELSE -1 
+									END			
+			,	DisplayOrder	=	s.DisplayOrder
+			,	IsActive		=	s.IsActive			
 		FROM		crmSettingRelation sr WITH(NOLOCK) 
 		INNER JOIN	crmSetting s WITH(NOLOCK)
 				ON	sr.SettingID = s.SettingID
 				AND	s.SettingName = 'Site'
 		WHERE	ParentID IN (33000, 33001)
-			AND	s.IsActive = 1
 	) s
 	WHERE	s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
-	ORDER BY s.IsLicensee, s.DisplayOrder
+	ORDER BY s.IsActive DESC, s.IsLicensee, s.DisplayOrder
 END

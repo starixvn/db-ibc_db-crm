@@ -21,16 +21,16 @@ BEGIN
 	DECLARE	@CreatorID		INT
 		,	@DeletorID		INT;
 
-	DECLARE	@ResultTable	TABLE (
-								CreateDate		DATETIME
-							,	CreatorID		INT
-							,	DeletorID		INT
-							,	FeedbackID		INT
-							,	Subject			NVARCHAR(200)
-							,	MainCategoryID	INT
-							,	SubCategoryID	INT
-							,	CustID			INT
-							);
+	CREATE TABLE	#ResultTable (
+						CreateDate		DATETIME
+					,	CreatorID		INT
+					,	DeletorID		INT
+					,	FeedbackID		INT
+					,	Subject			NVARCHAR(200)
+					,	MainCategoryID	INT
+					,	SubCategoryID	INT
+					,	CustID			INT
+					);
 
 	IF	@CreatorName = '' OR @CreatorName IS NULL
 		SELECT	@CreatorID = -1;
@@ -52,11 +52,21 @@ BEGIN
 			SELECT @CreatorID = NULL;
 
 		IF @DeletorID = -1
-			SELECT @DeletorID = NULL
+			SELECT @DeletorID = NULL;
 
-		;WITH logFeedback AS (
-			SELECT	*,
-					ROW_NUMBER() OVER (PARTITION BY iq.FeedbackID ORDER BY iq.LogDate DESC) RowNumber
+		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, cf.MainCategoryID, cf.SubCategoryID, cf.CustID
+		INTO	#feedback
+		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
+		WHERE	cf.StatusID = 11004
+			AND	cf.CreatorID = ISNULL(@CreatorID, cf.CreatorID)
+			AND	cf.CreateDate >= @FromDate AND cf.CreateDate <= @ToDate;
+			
+		INSERT INTO #ResultTable
+			(	CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , MainCategoryID  , SubCategoryID  , CustID)
+		SELECT	f.CreateDate, f.CreatorID, lf.UserID, f.FeedbackID, f.Subject, f.MainCategoryID, f.SubCategoryID, f.CustID
+		FROM		#feedback f WITH (NOLOCK)
+		CROSS APPLY	(
+			SELECT	TOP 1 *
 			FROM (
 				SELECT	ilf.LogID
 					,	ilf.LogDate
@@ -73,7 +83,8 @@ BEGIN
 				FROM		crmLogFeedback ilf WITH(NOLOCK)
 				INNER JOIN	crmLogAction la WITH(NOLOCK)
 				ON		ilf.ActionID = la.ActionID
-				WHERE	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
+				WHERE	ilf.FeedbackID = f.FeedbackID
+					AND	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
 
 				UNION ALL
 
@@ -92,23 +103,14 @@ BEGIN
 				FROM		crmLogFeedback ilf WITH(NOLOCK)
 				INNER JOIN	crmLogAction la WITH(NOLOCK)
 				ON		ilf.ActionID = la.ActionID
-				WHERE	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
+				WHERE	ilf.FeedbackID = f.FeedbackID
+					AND	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
 			) iq
 			WHERE	iq.newStatus = 11004
 				AND	iq.oldStatus <> 11004
 				AND	iq.ActionID IN (201, 203)
-		)
-		INSERT INTO @ResultTable (
-				CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , MainCategoryID  , SubCategoryID  , CustID)
-		SELECT	f.CreateDate, f.CreatorID, lf.UserID, f.FeedbackID, f.Subject, f.MainCategoryID, f.SubCategoryID, f.CustID
-		FROM		crmFeedback f WITH (NOLOCK)
-		INNER JOIN	logFeedback lf WITH (NOLOCK)
-		ON		f.FeedbackID = lf.FeedbackID
-		WHERE	f.StatusID = 11004
-			AND	f.CreatorID = ISNULL(@CreatorID, f.CreatorID)
-			AND	lf.UserID = ISNULL(@DeletorID, lf.UserID)
-			AND	f.CreateDate BETWEEN @FromDate AND @ToDate
-			AND	lf.RowNumber = 1;
+			ORDER BY iq.LogDate
+		) lf;
 	END;
 
 	SELECT	rt.CreateDate		CreateDate
@@ -120,7 +122,7 @@ BEGIN
 		,	sc.Name				SubCategory
 		,	c.UserName			Customer
 		,	fgrc.list			RelatedCustomer
-	FROM		@ResultTable rt
+	FROM		#ResultTable rt
 	INNER JOIN	crmMainCategory mc WITH (NOLOCK)
 			ON	rt.MainCategoryID = mc.MainCategoryID
 	INNER JOIN	crmSubCategory sc WITH (NOLOCK)
@@ -135,6 +137,9 @@ BEGIN
 	CROSS APPLY	dbo.f_GetRelatedCustomer(rt.FeedbackID) fgrc
 	ORDER BY	rt.CreatorID
 			,	rt.CreateDate DESC;
+
+	DROP TABLE #feedback;
+	DROP TABLE #ResultTable;
 
 END;
 GO

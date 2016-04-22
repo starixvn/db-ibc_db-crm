@@ -109,6 +109,7 @@ BEGIN
 			WHERE	iq.newStatus = 11004
 				AND	iq.oldStatus <> 11004
 				AND	iq.ActionID IN (201, 203)
+				AND	iq.UserID = ISNULL(@DeletorID, iq.UserID)
 			ORDER BY iq.LogDate
 		) lf;
 	END;

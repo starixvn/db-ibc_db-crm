@@ -53,7 +53,7 @@ BEGIN
 	SELECT r.value('.','INT'), s.SettingValue
 	FROM @xml.nodes('//root/r') AS RECORDS(r)
 		INNER JOIN crmSetting s WITH(NOLOCK) ON r.value('.','INT') = s.SettingID
-	WHERE SettingName = 'ParentProduct'
+	WHERE SettingName = 'Product'
 	
 	SELECT @string = @MainCategoryID
 	SET @XML = N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>'

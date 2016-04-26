@@ -24,7 +24,7 @@ BEGIN
 	FROM	dbo.crmSetting AS cs WITH (NOLOCK)
 	INNER JOIN	dbo.crmSettingRelation AS csr WITH (NOLOCK)
 			ON	csr.SettingID = cs.SettingID
-	WHERE	cs.SettingName = 'Product'
+	WHERE	cs.SettingName = 'SubProduct'
 		AND cs.IsActive = 1
 		AND	csr.ParentID = ISNULL(CASE WHEN @ProductID = 0 THEN NULL ELSE @ProductID END, csr.ParentID)
 	ORDER BY csr.ParentID ASC, cs.DisplayOrder ASC;

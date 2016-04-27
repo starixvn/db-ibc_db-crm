@@ -1,94 +1,93 @@
-﻿ 
+﻿SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
 
-ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelByDate]
-(
-	@CustID		INT,
-	@FromDate	DATETIME,
-	@ToDate		DATETIME
+ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByDate] (
+					@CustID			INT
+				,	@FromDate		DATETIME
+				,	@ToDate			DATETIME
 )	
 AS
 /*
-	Created: Lukas
-	Date: 20101023
-	Task : get feedback info
-	DB: DB06.bodb_CRM
+	Created:	Lukas
+	Date:		20101023
+	Task:		get feedback info
+	DB:			DB06.bodb_CRM
 	Original:
 
 	Revisions:
-		- 20110622@Kevin: remove paging
-		- 20110629@Lukas: support get multipe related customer
+		- 20110622@Kevin:	remove paging
+		- 20110629@Lukas:	support get multipe related customer
+		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
+
 	Param's Explanation:
 	
 */
 BEGIN		
 	SET NOCOUNT ON
 		
-	SELECT	@FromDate	= DATEADD(d,0,CONVERT(CHAR(12),@FromDate, 101)),
-			@ToDate		= DATEADD(ms,-2,DATEADD(d,1,CONVERT(CHAR(12),@ToDate, 101)))
+	SELECT	@FromDate	= DATEADD(d, 0, CONVERT(CHAR(12), @FromDate, 101))
+		,	@ToDate		= DATEADD(ms, -2, DATEADD(d, 1, CONVERT(CHAR(12), @ToDate, 101)))
 
-	SELECT t.*, l.list AS relatedCustomer
-	FROM (
-			SELECT 				
-				fb.FeedbackID, 
-				fb.CustID, 
-				ctm.UserName,
-				fb.TitleID, 
-				fb.FirstName, 
-				fb.LastName, 
-				fb.Phone, 
-				fb.MobilePhone, 
-				fb.Fax, 
-				fb.Email, 
-				fb.Skype,
-				fb.msn,
-				fb.LanguageID, 
-				fb.CountryID,
-				fb.CreatorID, 
-				c.username AS CreatorName,
-				fb.FeedbackDate,
-				fb.ResolutionDate,
-				fb.CreateDate,
-				fb.SolveDate,
-				fb.CommunicationID, 
-				fb.StationID, 
-				fb.MainCategoryID,
-				fb.SubCategoryID, 
-				fb.SiteID, 
-				fb.RoleID, 
-				fb.ProductID, 
-				fb.BetTypeID, 
-				fb.ResponseID, 
-				fb.StatusID, 
-				fb.Description, 
-				fb.Solution, 
-				fb.IsReviewed, 
-				fb.Review, 
-				fb.ReviewerID,
-				rv.username AS ReviewerName,		
-				fbc.IsRelated,
-				fb.Subject
-			FROM 
-				crmFeedbackCustomer fbc WITH(NOLOCK)
-					INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
-					INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
-					INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
-					LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID			
-			WHERE
-				fbc.CustID = @CustID 
-				AND 
-				fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-				AND fb.StatusID <> 11004
-		) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-	ORDER BY t.feedbackdate DESC
+	SELECT 	fb.FeedbackID
+		,	fb.CustID
+		,	ctm.UserName
+		,	fb.TitleID
+		,	fb.FirstName
+		,	fb.LastName
+		,	fb.Phone
+		,	fb.MobilePhone
+		,	fb.Fax
+		,	fb.Email
+		,	fb.Skype
+		,	fb.msn
+		,	fb.LanguageID
+		,	fb.CountryID
+		,	fb.CreatorID
+		,	c.username AS CreatorName
+		,	fb.FeedbackDate
+		,	fb.ResolutionDate
+		,	fb.CreateDate
+		,	fb.SolveDate
+		,	fb.CommunicationID
+		,	fb.StationID
+		,	fb.MainCategoryID
+		,	fb.SubCategoryID
+		,	fb.SiteID
+		,	fb.RoleID
+		,	fb.ProductID
+		,	fb.SubProductID
+		,	fb.BetTypeID
+		,	fb.ResponseID
+		,	fb.StatusID
+		,	fb.Description
+		,	fb.Solution
+		,	fb.IsReviewed
+		,	fb.Review
+		,	fb.ReviewerID
+		,	rv.username AS ReviewerName
+		,	fbc.IsRelated
+		,	fb.Subject
+		,	l.list AS relatedCustomer
+	FROM		crmFeedbackCustomer fbc WITH(NOLOCK)
+	INNER JOIN	crmFeedback fb WITH(NOLOCK)
+			ON	fb.FeedbackID = fbc.FeedbackID
+	INNER JOIN	crmCustomer ctm WITH(NOLOCK)
+			ON	ctm.CustID = fb.CustID
+	INNER JOIN	bodb02.dbo.custinfo c WITH(NOLOCK)
+			ON	fb.CreatorID = c.custID
+	LEFT JOIN	bodb02.dbo.custinfo rv WITH(NOLOCK)
+			ON	fb.ReviewerID = rv.custID
+	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
+	WHERE	fbc.CustID = @CustID 
+		AND	fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+		AND	fb.StatusID <> 11004
+	ORDER BY fb.FeedbackDate DESC
 END
-
-
-
-
-
-
-
 GO
+
 GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackSelByDate] TO [bodbAdminNet]
 GO
 GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackSelByDate] TO [vnteam]
+GO

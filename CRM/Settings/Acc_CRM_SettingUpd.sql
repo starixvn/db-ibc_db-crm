@@ -1,12 +1,9 @@
-
 SET QUOTED_IDENTIFIER ON 
 GO
 SET ANSI_NULLS ON 
 GO
 
-/****** Object:  Stored Procedure dbo.Acc_CRM_SettingUpd    Script Date: 3/26/2014 6:06:09 PM ******/
-
-CREATE PROCEDURE [dbo].[Acc_CRM_SettingUpd]
+ALTER PROCEDURE [dbo].[Acc_CRM_SettingUpd]
 (
 	@UserID			INT,
 	@SettingID		INT,	
@@ -73,19 +70,17 @@ BEGIN
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML
 
-	SELECT @OldValues = 				
-					'<Acc_CRM_SettingUpd>'	+ --SP Name
-						'<SettingName>'		+ ISNULL(@SettingName_Old,'')						+ '</SettingName>'	+
-						'<SettingValue>'	+ ISNULL(@SettingValue_Old,'')						+ '</SettingValue>'	+
-						'<DisplayOrder>'	+ ISNULL(CONVERT(VARCHAR(10),@DisplayOrder_Old),'')	+ '</DisplayOrder>' +
-					'</Acc_CRM_SettingUpd>' 
+	SELECT @OldValues =	(	SELECT	ISNULL(@SettingName_Old, '')						'SettingName'
+								,	ISNULL(@SettingValue_Old, '')						'SettingValue'
+								,	ISNULL(CONVERT(VARCHAR(10), @DisplayOrder_Old), '')	'DisplayOrder'
+							FOR XML PATH ('Acc_CRM_SettingUpd')
+						)
 
-	SELECT @NewValues = 				
-					'<Acc_CRM_SettingUpd>'	+ --SP Name
-						'<SettingName>'		+ ISNULL(@SettingName,'')						+ '</SettingName>'	+
-						'<SettingValue>'	+ ISNULL(@SettingValue,'')						+ '</SettingValue>'	+
-						'<DisplayOrder>'	+ ISNULL(CONVERT(VARCHAR(10),@DisplayOrder),'')	+ '</DisplayOrder>' +
-					'</Acc_CRM_SettingUpd>' 
+	SELECT @NewValues =	(	SELECT	ISNULL(@SettingName, '')							'SettingName'
+								,	ISNULL(@SettingValue, '')							'SettingValue'
+								,	ISNULL(CONVERT(VARCHAR(10), @DisplayOrder), '')		'DisplayOrder'
+							FOR XML PATH ('Acc_CRM_SettingUpd')
+						)
 				
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogSetting]
@@ -101,16 +96,6 @@ BEGIN
  select @ErrCode,
 		@ErrMsg,
 		@@error
-
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_SettingUpd] TO [bodbAdminNet]
 GO 

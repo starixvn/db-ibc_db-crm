@@ -1,4 +1,9 @@
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
+SET QUOTED_IDENTIFIER ON; 
+GO
+SET ANSI_NULLS ON; 
+GO
+
+ALTER PROCEDURE dbo.Acc_CRM_Rpt_DailyStatistics
 (
 	@ProductType		BIT = 0,
 	@CategoryType		BIT = 0,
@@ -11,9 +16,9 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 )
 AS
 /*
-	Created: 20151111@Elodie
-	Task :  Daily statistics report
-	DB: DBCRM/bodb_CRM
+	Created:	20151111@Elodie
+	Task:		Daily statistics report
+	DB:			DBCRM/bodb_CRM
 	Original:
 
 	Revisions:
@@ -104,7 +109,7 @@ BEGIN
 			FROM crmFeedback fb WITH(NOLOCK) 
 				INNER JOIN @Product p ON fb.ProductID = p.ProductID
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID
-				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID
+				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID AND fb.MainCategoryID = sc.MainCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
 				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
@@ -162,7 +167,7 @@ BEGIN
 			FROM crmFeedback fb WITH(NOLOCK) 
 				INNER JOIN @Product p ON fb.ProductID = p.ProductID
 				INNER JOIN @MainCategory mc ON fb.MainCategoryID = mc.MainCategoryID
-				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID
+				INNER JOIN crmSubCategory sc ON fb.SubCategoryID = sc.SubCategoryID AND fb.MainCategoryID = sc.MainCategoryID
 				INNER JOIN @Communication c ON fb.CommunicationID = c.CommunicationID
 				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
@@ -186,6 +191,6 @@ BEGIN
 END
 
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_DailyStatistics] TO [bodbAdminNet]
+GRANT EXECUTE ON dbo.Acc_CRM_Rpt_DailyStatistics TO bodbAdminNet
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_DailyStatistics] TO [vnteam]
+GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_DailyStatistics TO vnteam

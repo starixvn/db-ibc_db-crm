@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON; 
 GO
 
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelByID (
+ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByID] (
 					@FeedbackID INT
 				)
 AS
@@ -21,7 +21,7 @@ AS
 		- 20140303@Dom:		Modify for new structure
 		- 20141118@Dom:		get more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-
+		- 20160531@Winnie:  Add more cust info
 	Param's Explanation:
 		
 */
@@ -88,8 +88,7 @@ BEGIN
 		,	fb.Review
 		,	ISNULL(fb.ReviewerID, 0) ReviewerID
 		,	rv.username AS ReviewerName
-		,	fb.Subject
-		,	l.list relatedCustomer
+		,	fb.Subject		
 		,	ISNULL(fb.Pic1, '') Pic1
 		,	ISNULL(fb.Pic2, '') Pic2
 		,	ISNULL(fb.Pic3, '') Pic3
@@ -105,8 +104,7 @@ BEGIN
 		,	ISNULL(fb.QQ, '') QQ
 		,	ISNULL(fb.BBM, '') BBM
 		,	fb.LicenseeType
-	FROM	crmFeedback fb WITH (NOLOCK)
-	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
+	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID
 	INNER JOIN bodb02.dbo.custInfo c WITH (NOLOCK)
@@ -114,7 +112,18 @@ BEGIN
 	LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK)
 			ON	fb.ReviewerID = rv.custid
 	WHERE	fb.FeedbackID = @FeedbackID;	
+	
+		SELECT	cf.CustID
+		,	ISNULL(c.UserName, c1.username ) UserName
+	FROM		dbo.crmFeedbackCustomer AS cf WITH (NOLOCK)
+	LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
+			ON	c.CustID = cf.CustID
+	LEFT JOIN	bodb02.dbo.Customer AS c1 WITH (NOLOCK)
+			ON	c1.custid = cf.CustID
+	WHERE	cf.FeedbackID = @FeedbackID 
+		AND	cf.IsRelated = 1;
 END;
+
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelByID TO bodbAdminNet;

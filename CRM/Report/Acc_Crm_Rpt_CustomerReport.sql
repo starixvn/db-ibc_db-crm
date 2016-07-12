@@ -60,9 +60,9 @@ SELECT DISTINCT c.CustID,
 FROM crmCustomer(NOLOCK) c 
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
-LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus (NOLOCK) ON c.CustID=cus.custid
-LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed (NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
-LEFT JOIN DBAGE.bodb02.dbo.Customer hedinfo (NOLOCK) ON hedinfo.custid=hedinfo.custid
+LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed WITH(NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
+LEFT JOIN DBAGE.bodb02.dbo.Customer hedinfo WITH(NOLOCK) ON hed.custid=hedinfo.custid
 OUTER APPLY(
 	SELECT Stuff((SELECT ',' + lang.Name
                  FROM  crmCustomerLanguage(nolock) clang
@@ -81,6 +81,7 @@ WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND (ISNULL(@Vip,-1)=-1 OR c.IsVIP = @Vip)
 
 ORDER BY c.IsVIP DESC
+
 
 GO
 

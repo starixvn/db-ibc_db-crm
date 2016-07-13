@@ -17,7 +17,7 @@ Original:
 Revisions:
 	- 20140812@Dom: Feature [#18860] Change requests on 10 Jul 2014
 	- 20141118@Dom: add more fields of communication tool
-	- 20160712@Winnie: CR_20160630_Modify_CustomerReport
+	- 20160712@Winnie: #60341 Modify customer report to display more information
 Param's Explanation:
 	@CustomerType: 0 = All
 					1 = Customer
@@ -81,7 +81,6 @@ WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND (ISNULL(@Vip,-1)=-1 OR c.IsVIP = @Vip)
 
 ORDER BY c.IsVIP DESC
-
 
 GO
 

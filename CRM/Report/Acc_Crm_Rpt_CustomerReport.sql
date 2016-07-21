@@ -3,8 +3,7 @@ ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@LanguageID				VARCHAR(1000) = NULL,	
 	@SiteID					VARCHAR(1000) = NULL,	
 	@FromBirthday			DATETIME=NULL,
-	@ToBirthday				DATETIME=NULL,
-	@TitleID				INT = NULL,	
+	@ToBirthday				DATETIME=NULL,		
 	@VIP					SMALLINT = -1,
 	@PageSize				INT = 0,
 	@PageIndex				INT = 0,
@@ -83,12 +82,11 @@ OUTER APPLY(
 )A (language_name)
 WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND (
-			(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
+			(ISNULL(@LanguageID,0)=0 and isnull(A.language_name,'')='')
 			OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
 		)
-	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
+	AND ((ISNULL(@SiteID,0)=0 AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
 	AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
-	AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
 	AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
 
 ORDER BY ISNULL(c.IsVIP,0) DESC
@@ -108,12 +106,11 @@ BEGIN
 		)A (language_name)
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
-					(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
+					(ISNULL(@LanguageID,0)=0 and isnull(A.language_name,'')='')
 					OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
 				)
-			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
-			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
-			AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
+			AND ((ISNULL(@SiteID,0)=0 AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
+			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )			
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
 END
 ;WITH Pag AS
@@ -130,12 +127,11 @@ END
 		)A (language_name)
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
-					(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
+					(ISNULL(@LanguageID,0)=0 and isnull(A.language_name,'')='')
 					OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
-			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
-			AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
+			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )			
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
 	)
 	,pag2 as
@@ -185,6 +181,7 @@ OUTER APPLY(
                  FOR XML PATH('')), 1, 1, '')
 )A (language_name)
 WHERE pag2.RowNum BETWEEN @RowStart AND @RowEnd
+
 GO
 
 SET QUOTED_IDENTIFIER OFF 

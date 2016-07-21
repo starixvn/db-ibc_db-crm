@@ -130,7 +130,7 @@ END
 					(ISNULL(@LanguageID,0)=0 and isnull(A.language_name,'')='')
 					OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
 				)
-			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
+			AND ((ISNULL(@SiteID,0)=0 AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
 			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )			
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
 	)

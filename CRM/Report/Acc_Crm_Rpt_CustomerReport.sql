@@ -41,6 +41,7 @@ BEGIN
 SELECT  
 		DISTINCT
 		 c.CustID, 
+		ISNULL(hedinfo.custid,0) AS HeadlineID,
 		hedinfo.UserName AS Headline,
 		c.UserName,
 		c.FirstName,
@@ -91,14 +92,14 @@ WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
 	AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
 
-ORDER BY ISNULL(c.IsVIP,0) DESC
+ORDER BY ISNULL(hedinfo.custid,0) DESC, ISNULL(c.IsVIP,0) DESC
 RETURN
 END
 IF @TotalRows = 0  
 BEGIN  
 		SELECT @TotalRows = count(DISTINCT c.CustID)
 		FROM crmCustomer(NOLOCK) c 
-		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
+		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID		
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  crmCustomerLanguage(nolock) clang
@@ -118,9 +119,12 @@ BEGIN
 END
 ;WITH Pag AS
 	(
-	  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP
+	  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP, ISNULL(hedinfo.custid,0) AS HeadlineID
 	  FROM crmCustomer(NOLOCK) c 
 		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
+		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+		LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed WITH(NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
+		LEFT JOIN DBAGE.bodb02.dbo.Customer hedinfo WITH(NOLOCK) ON hed.custid=hedinfo.custid
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  crmCustomerLanguage(nolock) clang
@@ -140,7 +144,7 @@ END
 	)
 	,pag2 as
 	(
-	SELECT CustID, ROW_NUMBER() OVER(ORDER BY IsVIP DESC) AS RowNum FROM Pag
+	SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC) AS RowNum FROM Pag
 	)
 
 SELECT c.CustID, 

@@ -119,7 +119,8 @@ BEGIN
 END
 ;WITH Pag AS
 	(
-	  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP, ISNULL(hedinfo.custid,0) AS HeadlineID
+	  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP
+	  , ISNULL(hedinfo.custid,0) AS HeadlineID
 	  FROM crmCustomer(NOLOCK) c 
 		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
 		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
@@ -144,10 +145,12 @@ END
 	)
 	,pag2 as
 	(
-	SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC) AS RowNum FROM Pag
+	SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC
+	) AS RowNum FROM Pag
 	)
 
-SELECT c.CustID, 
+SELECT DISTINCT c.CustID, 
+		ISNULL(hedinfo.custid,0) AS hedId,
 		hedinfo.UserName AS Headline,
 		c.UserName,
 		c.FirstName,
@@ -176,7 +179,7 @@ SELECT c.CustID,
 		c.Passport,
 		site.SiteName		
 FROM crmCustomer(NOLOCK) c 
-INNER JOIN pag2 ON c.CustID = pag2.CustID
+INNER JOIN pag2 ON c.CustID = pag2.CustID 
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed WITH(NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
@@ -189,6 +192,7 @@ OUTER APPLY(
                  FOR XML PATH('')), 1, 1, '')
 )A (language_name)
 WHERE pag2.RowNum BETWEEN @RowStart AND @RowEnd
+ORDER BY ISNULL(hedinfo.custid,0) DESC,ISNULL(c.IsVIP,0) DESC
 GO
 
 SET QUOTED_IDENTIFIER OFF 

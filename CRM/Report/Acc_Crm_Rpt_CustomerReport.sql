@@ -5,7 +5,10 @@ ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@FromBirthday			DATETIME=NULL,
 	@ToBirthday				DATETIME=NULL,
 	@TitleID				INT = NULL,	
-	@VIP					SMALLINT = -1
+	@VIP					SMALLINT = -1,
+	@PageSize				INT = 0,
+	@PageIndex				INT = 0,
+	@TotalRows				INT = 0 OUTPUT
 AS
 /*
 Created: Dom
@@ -17,39 +20,61 @@ Original:
 Revisions:
 	- 20140812@Dom: Feature [#18860] Change requests on 10 Jul 2014
 	- 20141118@Dom: add more fields of communication tool
+	- 20160712@Winnie: #60341 Modify customer report to display more information
 Param's Explanation:
 	@CustomerType: 0 = All
 					1 = Customer
 					2 = Guest
 */
+DECLARE @RowStart INT, @RowEnd INT 
+	SELECT @TotalRows = 0		
+	SELECT @PageIndex = @PageIndex - 1
+			,@RowStart = @PageSize * @PageIndex + 1
+			,@RowEnd = @RowStart + @PageSize - 1
 
 if(@ToBirthday IS NULL and @FromBirthday IS NOT NULL)
 	select @ToBirthday = getdate()
 else if(@ToBirthday IS NOT NULL and @FromBirthday IS NULL)
 	select @FromBirthday = '19000101'
-
-SELECT DISTINCT CustID= c.CustID, 
-		
-		Title		= setting.SettingValue,
-		UserName	= c.UserName,
-		VIP			= c.IsVIP,
-		Birthday	= c.Birthday,
-		Pic1		= c.Pic1,
-		Pic2		= c.Pic2,
-		Pic3		= c.Pic3,
-		Pic4		= c.Pic4,
-		Pic1Name	= c.Pic1Name,
-		Pic2Name	= c.Pic2Name,
-		Pic3Name	= c.Pic3Name,
-		Pic4Name	= c.Pic4Name,
-		Language	= a.language_name,
-		Site		= site.SiteName,
+IF ((@PageSize <= 0) AND (@PageIndex <= 0))
+BEGIN
+SELECT  
+		DISTINCT
+		 c.CustID, 
+		ISNULL(hedinfo.custid,0) AS HeadlineID,
+		hedinfo.UserName AS Headline,
+		c.UserName,
+		c.FirstName,
+		c.LastName,
+		c.PhoneCountryCode+'-'+c.PhoneAreaCode+'-'+c.Phone AS Phone1,
+		c.Phone2CountryCode+'-'+c.Phone2AreaCode+'-'+c.Phone2 AS Phone2,
+		c.Phone3CountryCode+'-'+c.Phone3AreaCode+'-'+c.Phone3 AS Phone3,
+		c.MobilePhone AS Mobile,
+		c.Fax,
+		c.Email,
 		c.Skype,
-		c.Email
+		c.MSN,
+		c.WhatsApp,
+		c.Line,
+		c.WeChat,
+		c.Yahoo,
+		c.BBM,
+		c.QQ,
+		a.language_name AS Language ,
+		ISNULL(c.IsVIP,0) AS VIP,
+		c.Pic1Name+'-'+c.Pic1 AS PIC1,
+		c.Pic2Name+'-'+c.Pic2 AS PIC2,
+		c.Pic3Name+'-'+c.Pic3 AS PIC3,
+		c.Pic4Name+'-'+c.Pic4 AS PIC4,
+		c.Birthday,
+		c.Passport,
+		site.SiteName		
 FROM crmCustomer(NOLOCK) c 
-LEFT JOIN crmSetting(NOLOCK) setting ON setting.SettingID = c.TitleID AND setting.SettingName='title'
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
+LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed WITH(NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
+LEFT JOIN DBAGE.bodb02.dbo.Customer hedinfo WITH(NOLOCK) ON hed.custid=hedinfo.custid
 OUTER APPLY(
 	SELECT Stuff((SELECT ',' + lang.Name
                  FROM  crmCustomerLanguage(nolock) clang
@@ -60,15 +85,114 @@ OUTER APPLY(
 WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND (
 			(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
-			OR (custlang.LanguageID IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
+			OR (isnull(custlang.LanguageID,0) IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
 		)
-	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR c.SiteID IN(SELECT val FROM dbo.f_split(@SiteID,',')))
+	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT val FROM dbo.f_split(@SiteID,',') ))
 	AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
 	AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
-	AND (ISNULL(@Vip,-1)=-1 OR c.IsVIP = @Vip)
+	AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
 
-ORDER BY c.IsVIP DESC
+ORDER BY ISNULL(hedinfo.custid,0) DESC, ISNULL(c.IsVIP,0) DESC
+RETURN
+END
+IF @TotalRows = 0  
+BEGIN  
+		SELECT @TotalRows = count(DISTINCT c.CustID)
+		FROM crmCustomer(NOLOCK) c 
+		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID		
+		OUTER APPLY(
+			SELECT Stuff((SELECT ',' + lang.Name
+						 FROM  crmCustomerLanguage(nolock) clang
+						 inner join crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
+						 WHERE clang.CustID = c.CustID
+						 FOR XML PATH('')), 1, 1, '')
+		)A (language_name)
+		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
+			AND (
+					(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
+					OR (isnull(custlang.LanguageID,0) IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
+				)
+			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT val FROM dbo.f_split(@SiteID,',')))
+			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
+			AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
+			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
+END
+;WITH Pag AS
+	(
+	  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP
+	  , ISNULL(hedinfo.custid,0) AS HeadlineID
+	  FROM crmCustomer(NOLOCK) c 
+		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
+		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+		LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed WITH(NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
+		LEFT JOIN DBAGE.bodb02.dbo.Customer hedinfo WITH(NOLOCK) ON hed.custid=hedinfo.custid
+		OUTER APPLY(
+			SELECT Stuff((SELECT ',' + lang.Name
+						 FROM  crmCustomerLanguage(nolock) clang
+						 inner join crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
+						 WHERE clang.CustID = c.CustID
+						 FOR XML PATH('')), 1, 1, '')
+		)A (language_name)
+		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
+			AND (
+					(ISNULL(@LanguageID,'')='' and isnull(A.language_name,'')='')
+					OR (isnull(custlang.LanguageID,0) IN(SELECT val FROM dbo.f_split(@LanguageID,',')) AND ISNULL(@LanguageID,'')<>'')
+				)
+			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR isnull(c.SiteID,0) IN(SELECT val FROM dbo.f_split(@SiteID,',')))
+			AND ((@FromBirthday IS NULL AND @ToBirthday IS NULL) OR c.Birthday BETWEEN @FromBirthday AND @ToBirthday )
+			AND (ISNULL(@TitleID,0)=0 OR c.TitleID = @TitleID)
+			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)
+	)
+	,pag2 as
+	(
+	SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC
+	) AS RowNum FROM Pag
+	)
 
+SELECT DISTINCT c.CustID, 
+		ISNULL(hedinfo.custid,0) AS hedId,
+		hedinfo.UserName AS Headline,
+		c.UserName,
+		c.FirstName,
+		c.LastName,
+		c.PhoneCountryCode+'-'+c.PhoneAreaCode+'-'+c.Phone AS Phone1,
+		c.Phone2CountryCode+'-'+c.Phone2AreaCode+'-'+c.Phone2 AS Phone2,
+		c.Phone3CountryCode+'-'+c.Phone3AreaCode+'-'+c.Phone3 AS Phone3,
+		c.MobilePhone AS Mobile,
+		c.Fax,
+		c.Email,
+		c.Skype,
+		c.MSN,
+		c.WhatsApp,
+		c.Line,
+		c.WeChat,
+		c.Yahoo,
+		c.BBM,
+		c.QQ,
+		a.language_name AS Language ,
+		ISNULL(c.IsVIP,0) AS VIP,
+		c.Pic1Name+'-'+c.Pic1 AS PIC1,
+		c.Pic2Name+'-'+c.Pic2 AS PIC2,
+		c.Pic3Name+'-'+c.Pic3 AS PIC3,
+		c.Pic4Name+'-'+c.Pic4 AS PIC4,
+		c.Birthday,
+		c.Passport,
+		site.SiteName		
+FROM crmCustomer(NOLOCK) c 
+INNER JOIN pag2 ON c.CustID = pag2.CustID 
+LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
+LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN DBAGE.bodb02.dbo.CustAccount hed WITH(NOLOCK) ON cus.groupID=hed.groupID AND hed.IsGroupHeadLine=1
+LEFT JOIN DBAGE.bodb02.dbo.Customer hedinfo WITH(NOLOCK) ON hed.custid=hedinfo.custid
+OUTER APPLY(
+	SELECT Stuff((SELECT ',' + lang.Name
+                 FROM  crmCustomerLanguage(nolock) clang
+				 inner join crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
+				 WHERE clang.CustID = c.CustID
+                 FOR XML PATH('')), 1, 1, '')
+)A (language_name)
+WHERE pag2.RowNum BETWEEN @RowStart AND @RowEnd
+ORDER BY ISNULL(hedinfo.custid,0) DESC,ISNULL(c.IsVIP,0) DESC
 GO
 
 SET QUOTED_IDENTIFIER OFF 

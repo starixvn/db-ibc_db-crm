@@ -78,6 +78,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 	@QQ							NVARCHAR(100)	= NULL,
 	@BBM						NVARCHAR(100)	= NULL,
 	@IP							VARCHAR(15),
+	@Ignored					BIT	= 0,	
+	@Checker					NVARCHAR(50)	= NULL,	
 	@ErrCode					INT = 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000) = '' OUTPUT	
 )
@@ -96,6 +98,7 @@ Revisions:
 	- 20120529@Elodie: encode some parameters to write log in XML format, such as Question, Answer, Pic1, ...
 	- 20140303@Dom: Modify for new structure
 	- 20141118@Dom: add more fields of communication tool
+	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 Param's Explanation:
 	
 */
@@ -189,7 +192,9 @@ BEGIN
 					WeChat,
 					Yahoo,
 					QQ,
-					BBM
+					BBM,
+					Ignored,
+					Checker
 				)
 			VALUES 
 				( 
@@ -266,7 +271,9 @@ BEGIN
 					@WeChat,
 					@Yahoo,
 					@QQ,
-					@BBM
+					@BBM,
+					@Ignored,
+					@Checker
 				)
 	
 	IF @@ERROR <> 0
@@ -381,6 +388,8 @@ BEGIN
 						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')				+ '</Yahoo>' +
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
+						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')				+ '</Checker>' +
+						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</@Ignored>' +
 					'</Acc_CRM_CustomerGuestIns>'
 				
 

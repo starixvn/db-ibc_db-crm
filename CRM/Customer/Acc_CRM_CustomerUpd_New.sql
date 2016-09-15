@@ -51,6 +51,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@IsVIP						BIT				= 0,
 	@SpecialRemark				XML				= NULL,
 	@Remark						XML				= NULL,
+	@Checker					NVARCHAR(50)	= NULL,
+	@Ignored 					BIT				= 0,
 	--Bank Info
 	@AccountHolderName			NVARCHAR(100)	= NULL,	
 	@Wire_BankName				NVARCHAR(100)	= NULL,
@@ -89,6 +91,7 @@ Revisions:
 	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
 	- 20141118@Dom: add more fields of communication tool
 	- 20150121@Dom: Remove Sync code for Old system
+	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 Param's Explanation:
 	
 */
@@ -100,7 +103,7 @@ BEGIN
 
 	IF NOT EXISTS (SELECT CustID FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
-		print 'insert new'
+		
 		DECLARE @UserName varchar(30)
 		SELECT @UserName = UserName FROM bodb02.dbo.Customer(NOLOCK) WHERE custid = @CustID
 		EXEC Acc_CRM_CustomerIns_New
@@ -166,7 +169,9 @@ BEGIN
 			@Wire_SwiftCode					= @Wire_SwiftCode,
 			@AccountHolderName				= @AccountHolderName,
 			@SpecialRemark					= @SpecialRemark,	
-			@Remark							= @Remark,	
+			@Remark							= @Remark,
+			@Checker						= @Checker,
+			@Ignored 						= @Ignored,	
 			@CreatorID						= @UserID,
 			@LicenseeType					= @LicenseeType,
 			@WhatsApp						= @WhatsApp,
@@ -260,6 +265,8 @@ BEGIN
 			@Pic3Name_Old					NVARCHAR(100),
 			@Pic4Name_Old					NVARCHAR(100),
 			@SiteID_Old						INT			,
+			@Checker_Old					NVARCHAR(50),
+			@Ignored_Old					BIT			,
 			---Home Address
 			@Line1_Old						NVARCHAR(100),
 			@Line2_Old						NVARCHAR(100),
@@ -349,7 +356,9 @@ BEGIN
 		@WeChat_Old							= WeChat,
 		@Yahoo_Old							= Yahoo,
 		@QQ_Old								= QQ,
-		@BBM_Old							= BBM
+		@BBM_Old							= BBM,
+		@Checker_Old						=Checker,
+		@Ignored_Old						=Ignored
 	FROM crmCustomer WITH(NOLOCK)
 	WHERE CustID = @CustID --Old Values
 
@@ -422,7 +431,9 @@ BEGIN
 		WeChat						= @WeChat,
 		Yahoo						= @Yahoo,
 		QQ							= @QQ,
-		BBM							= @BBM
+		BBM							= @BBM,
+		Ignored						= @Ignored,
+		Checker						= @Checker
 	WHERE CustID = @CustID
 	
 	select @birthday
@@ -534,6 +545,8 @@ BEGIN
 							'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo_Old),'')								+ '</Yahoo>' +
 							'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ_Old),'')									+ '</QQ>' +
 							'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM_Old),'')									+ '</BBM>' +
+							'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Checker_Old),'')								+ '</Checker>' +
+							'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored_Old),'')								+ '</Ignored>' +
 				'</Acc_CRM_CustomerUpd_New>'
 
 	SELECT @NewValues =
@@ -599,6 +612,8 @@ BEGIN
 						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')										+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')											+ '</QQ>' +
 						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')											+ '</BBM>' +
+						'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')										+ '</Checker>' +
+						'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')											+ '</Ignored>' +
 			'</Acc_CRM_CustomerUpd_New>'
 				
 

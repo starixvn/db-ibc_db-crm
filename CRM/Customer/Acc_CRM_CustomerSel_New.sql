@@ -19,6 +19,7 @@ Revisions:
 	- 20140120@Dom: add more information of customer
 	- 20140508@Dom: Add group headline
 	- 20141118@Dom: Return PIC Name
+	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 Param's Explanation:	
 */
 BEGIN	
@@ -111,7 +112,9 @@ BEGIN
 			ISNULL(c.WeChat,'') WeChat,
 			ISNULL(c.Yahoo,'') Yahoo,
 			ISNULL(c.QQ,'') QQ,
-			ISNULL(c.BBM,'') BBM
+			ISNULL(c.BBM,'') BBM,
+			ISNULL(c.Ignored,0),
+			c.Checker
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
@@ -261,7 +264,9 @@ BEGIN
 			ISNULL(c.WeChat,'') WeChat,
 			ISNULL(c.Yahoo,'') Yahoo,
 			ISNULL(c.QQ,'') QQ,
-			ISNULL(c.BBM,'') BBM
+			ISNULL(c.BBM,'') BBM,
+			ISNULL(c.Ignored,0),
+			c.Checker
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID

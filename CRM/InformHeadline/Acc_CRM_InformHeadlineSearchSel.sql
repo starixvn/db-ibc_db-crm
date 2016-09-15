@@ -4,7 +4,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchSel]
 	@Level			VARCHAR(10) = '',
 	@Site			VARCHAR(4000) = '',
 	@TypeAccount	TINYINT,
-	@ChangeFilter	BIT, 	
+	@ChangeFilter	BIT, 
+	@Ignored		BIT=0,	
 	@ErrCode		INT	= 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT	
 AS	
@@ -16,7 +17,7 @@ AS
 		
 	Revisions:
 		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
-
+		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -35,7 +36,9 @@ BEGIN
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 	
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a	
+	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
+	WHERE (@Ignored IS NULL OR @Ignored=ISNULL(b.Ignored,0))
 	
 	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
 

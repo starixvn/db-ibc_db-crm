@@ -20,6 +20,7 @@ Revisions:
 	- 20130121@Johnson: change link server DB06 to DBACC
 	- 20140303@Dom: Modify for new structure
 	- 20141118@Dom: Return PIC Name
+	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 Param's Explanation:	
 */
 BEGIN
@@ -188,7 +189,9 @@ BEGIN
 			'' WeChat,
 			'' Yahoo,
 			'' QQ,
-			'' BBM
+			'' BBM,
+			crm.Ignored,
+			crm.Checker
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
 					LEFT JOIN crmCustomer crm WITH(NOLOCK) ON c.custID = crm.custID
@@ -277,7 +280,9 @@ BEGIN
 			ISNULL(crm.WeChat,'') WeChat,
 			ISNULL(crm.Yahoo,'') Yahoo,
 			ISNULL(crm.QQ,'') QQ,
-			ISNULL(crm.BBM,'') BBM
+			ISNULL(crm.BBM,'') BBM,
+			crm.Ignored,
+			crm.Checker
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
@@ -371,7 +376,9 @@ BEGIN
 			ISNULL(crm.WeChat,'') WeChat,
 			ISNULL(crm.Yahoo,'') Yahoo,
 			ISNULL(crm.QQ,'') QQ,
-			ISNULL(crm.BBM,'') BBM
+			ISNULL(crm.BBM,'') BBM,
+			crm.Ignored,
+			crm.Checker
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID

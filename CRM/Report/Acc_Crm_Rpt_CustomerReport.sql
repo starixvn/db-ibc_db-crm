@@ -37,7 +37,7 @@ DECLARE @RowStart INT, @RowEnd INT
 DECLARE @tmpRole TABLE (RoleId tinyint)
 INSERT INTO @tmpRole
 	SELECT val
-	FROM f_RMS_strSplit (@RoleID,',')
+	FROM f_CRM_strSplit (@RoleID,',')
 	
 IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 BEGIN

@@ -113,7 +113,7 @@ BEGIN
 			ISNULL(c.Yahoo,'') Yahoo,
 			ISNULL(c.QQ,'') QQ,
 			ISNULL(c.BBM,'') BBM,
-			ISNULL(c.Ignored,0),
+			ISNULL(c.Ignored,0) AS Ignored,
 			c.Checker
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
@@ -265,7 +265,7 @@ BEGIN
 			ISNULL(c.Yahoo,'') Yahoo,
 			ISNULL(c.QQ,'') QQ,
 			ISNULL(c.BBM,'') BBM,
-			ISNULL(c.Ignored,0),
+			ISNULL(c.Ignored,0) AS Ignored,
 			c.Checker
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 

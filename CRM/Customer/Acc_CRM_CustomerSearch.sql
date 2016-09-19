@@ -190,7 +190,7 @@ BEGIN
 			'' Yahoo,
 			'' QQ,
 			'' BBM,
-			crm.Ignored,
+			ISNULL(crm.Ignored,0) AS Ignored ,
 			crm.Checker
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
@@ -281,7 +281,7 @@ BEGIN
 			ISNULL(crm.Yahoo,'') Yahoo,
 			ISNULL(crm.QQ,'') QQ,
 			ISNULL(crm.BBM,'') BBM,
-			crm.Ignored,
+			ISNULL(crm.Ignored,0) AS Ignored ,
 			crm.Checker
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
@@ -377,7 +377,7 @@ BEGIN
 			ISNULL(crm.Yahoo,'') Yahoo,
 			ISNULL(crm.QQ,'') QQ,
 			ISNULL(crm.BBM,'') BBM,
-			crm.Ignored,
+			ISNULL(crm.Ignored,0) AS Ignored ,
 			crm.Checker
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 

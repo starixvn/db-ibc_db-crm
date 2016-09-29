@@ -4,7 +4,7 @@ ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@SiteID					VARCHAR(1000) = NULL,
 	@RoleID					VARCHAR(20)='',	
 	@HeadLine				VARCHAR(50)=NULL,
-	@ExcludeIgnoredAcc		BIT=1,
+	@ExcludeIgnoredAcc		BIT=0,
 	@VIP					SMALLINT = -1,
 	@PageSize				INT = 0,
 	@PageIndex				INT = 0,
@@ -52,17 +52,17 @@ INSERT INTO @tmpSite
 	FROM f_CRM_strSplit (@SiteID,',')
 	
 	
-CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT)
+CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Ignored BIT)
 CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline 
 	(
 		groupID ASC
 	)WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
 
-INSERT INTO #tempHeadline(Custid,Username,groupID)
-SELECT hed.custid,username,groupID
+INSERT INTO #tempHeadline(Custid,Username,groupID,Ignored)
+SELECT hed.custid,username,groupID,Ignored
 FROM DBAGE.bodb02.dbo.CustAccount hed INNER JOIN 
- DBAGE.bodb02.dbo.Customer hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
- WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
+crmCustomer hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
+WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
 
 IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 BEGIN
@@ -124,7 +124,7 @@ WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 		)
 	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 	AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)	
-	AND (ISNULL(@ExcludeIgnoredAcc,1)=1 OR ISNULL(c.ignored,0) = @ExcludeIgnoredAcc)
+	AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) = @ExcludeIgnoredAcc)
 	AND (ci.roleid IN (SELECT RoleID FROM @tmpRole) )
 	AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 ORDER BY ISNULL(hed.custid,0) DESC, ISNULL(c.IsVIP,0) DESC
@@ -146,7 +146,7 @@ BEGIN
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
-			AND (ISNULL(@ExcludeIgnoredAcc,1)=1 OR ISNULL(c.ignored,0) = @ExcludeIgnoredAcc)
+			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) = @ExcludeIgnoredAcc)
 			AND (ci.roleid IN (SELECT RoleID FROM @tmpRole) )
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 END
@@ -168,7 +168,7 @@ END
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR isnull(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))							
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
-			AND (ISNULL(@ExcludeIgnoredAcc,1)=1 OR ISNULL(c.ignored,0) = @ExcludeIgnoredAcc)
+			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) = @ExcludeIgnoredAcc)
 			AND (ci.roleid IN (SELECT RoleID FROM @tmpRole) )
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			

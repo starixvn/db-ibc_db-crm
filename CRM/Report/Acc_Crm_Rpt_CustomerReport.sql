@@ -125,7 +125,7 @@ WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 	AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)	
 	AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-	AND (ISNULL(ci.roleid,0) IN (SELECT RoleID FROM @tmpRole))
+	AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
 	AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 ORDER BY ISNULL(hed.custid,0) DESC, ISNULL(c.IsVIP,0) DESC
 RETURN
@@ -147,7 +147,7 @@ BEGIN
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-			AND (ISNULL(ci.roleid,0) IN (SELECT RoleID FROM @tmpRole))
+			AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 END
 ;WITH Pag AS
@@ -169,7 +169,7 @@ END
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR isnull(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))							
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-			AND (ISNULL(ci.roleid,0) IN (SELECT RoleID FROM @tmpRole))
+			AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			
 	)

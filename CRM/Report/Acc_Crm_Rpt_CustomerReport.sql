@@ -104,7 +104,7 @@ SELECT
 		ct.CountryName,
 		c.Checker
 FROM crmCustomer(NOLOCK) c 
-INNER JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
+LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
 LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
@@ -125,7 +125,7 @@ WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 	AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 	AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)	
 	AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-	AND (ci.roleid IN (SELECT RoleID FROM @tmpRole) )
+	AND (ISNULL(ci.roleid,0) IN (SELECT RoleID FROM @tmpRole))
 	AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 ORDER BY ISNULL(hed.custid,0) DESC, ISNULL(c.IsVIP,0) DESC
 RETURN
@@ -134,7 +134,7 @@ IF @TotalRows = 0
 BEGIN  
 		SELECT @TotalRows = count(DISTINCT c.CustID)
 		FROM crmCustomer(NOLOCK) c 
-		INNER JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid		
+		LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid		
 		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID	
 		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 		LEFT JOIN  #tempHeadline hed  ON cus.groupID=hed.groupID 
@@ -147,7 +147,7 @@ BEGIN
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-			AND (ci.roleid IN (SELECT RoleID FROM @tmpRole) )
+			AND (ISNULL(ci.roleid,0) IN (SELECT RoleID FROM @tmpRole))
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 END
 ;WITH Pag AS
@@ -155,7 +155,7 @@ END
 	  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP
 	  , ISNULL(hed.custid,0) AS HeadlineID
 	  FROM crmCustomer(NOLOCK) c 
-	    INNER JOIN 
+	    LEFT JOIN 
 	    DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid	   
 		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
 		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
@@ -169,7 +169,7 @@ END
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR isnull(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))							
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-			AND (ci.roleid IN (SELECT RoleID FROM @tmpRole) )
+			AND (ISNULL(ci.roleid,0) IN (SELECT RoleID FROM @tmpRole))
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			
 	)
@@ -216,7 +216,7 @@ SELECT DISTINCT c.CustID,
 		c.Checker
 FROM crmCustomer(NOLOCK) c 
 INNER JOIN pag2 ON c.CustID = pag2.CustID
-INNER JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
+LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 

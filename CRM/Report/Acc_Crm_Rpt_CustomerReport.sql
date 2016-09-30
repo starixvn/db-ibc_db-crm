@@ -102,7 +102,12 @@ SELECT
 			 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 			 ELSE 'Active' END AS Status,
 		ct.CountryName,
-		c.Checker
+		c.Checker,
+		CASE WHEN ci.roleid=1 THEN 'Member'
+			 WHEN ci.roleid=2 THEN 'Agent'
+			 WHEN ci.roleid=3 THEN 'Master'
+			 WHEN ci.roleid=4 THEN 'Super'
+			 ELSE  'Guest' END  AS Position
 FROM crmCustomer(NOLOCK) c 
 LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
@@ -213,7 +218,12 @@ SELECT DISTINCT c.CustID,
 			 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 			 ELSE 'Active' END AS Status,
 		ct.CountryName ,
-		c.Checker
+		c.Checker,
+		CASE WHEN ci.roleid=1 THEN 'Member'
+			 WHEN ci.roleid=2 THEN 'Agent'
+			 WHEN ci.roleid=3 THEN 'Master'
+			 WHEN ci.roleid=4 THEN 'Super'
+			 ELSE  'Guest' END AS Position
 FROM crmCustomer(NOLOCK) c 
 INNER JOIN pag2 ON c.CustID = pag2.CustID
 LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid

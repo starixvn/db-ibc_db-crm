@@ -35,7 +35,7 @@ BEGIN
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
-	WHERE (@Ignored IS NULL OR @Ignored=ISNULL(b.Ignored,0))
+	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 	
 	IF @ItemsPerPage = -1 -- Export excel purpose
 		SELECT	ID, HeadlineID, username, GroupID,
@@ -63,6 +63,7 @@ BEGIN
 
 	DROP TABLE #DirectAcc 	
 END
+
 
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSel] TO [bodbAdminNet]

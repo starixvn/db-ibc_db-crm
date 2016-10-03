@@ -38,7 +38,7 @@ BEGIN
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a	
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
-	WHERE (@Ignored IS NULL OR @Ignored=ISNULL(b.Ignored,0))
+	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 	
 	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
 
@@ -208,6 +208,7 @@ BEGIN
 	DROP TABLE #DirectAcc 	
 	
 END
+
 
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSearchSel] TO [bodbAdminNet]

@@ -36,7 +36,9 @@ BEGIN
 	DECLARE @Filter VARCHAR(4000)
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
+	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)
 
 	--DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT)
 	--INSERT INTO @HeadlineData

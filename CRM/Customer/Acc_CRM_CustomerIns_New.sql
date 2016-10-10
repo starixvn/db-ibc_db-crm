@@ -135,9 +135,9 @@ BEGIN
 	IF @Checker IS NULL
 	BEGIN
 	SELECT @Checker=chinfo.username 
-	FROM DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) 
-	INNER JOIN DBAGE.bodb02.dbo.customer ch WITH(NOLOCK) ON cus.checker=ch.custid 
-	INNER JOIN DBAGE.bodb02.dbo.customer chinfo WITH(NOLOCK) ON ch.custid=chinfo.custid 
+	FROM bodb02.dbo.CustAccount cus WITH(NOLOCK) 
+	INNER JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON cus.checker=ch.custid 
+	INNER JOIN bodb02.dbo.customer chinfo WITH(NOLOCK) ON ch.custid=chinfo.custid 
 	WHERE cus.custid=@CustID
 	END
 	

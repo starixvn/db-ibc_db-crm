@@ -60,7 +60,7 @@ CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline
 
 INSERT INTO #tempHeadline(Custid,Username,groupID,Ignored)
 SELECT hed.custid,username,groupID,Ignored
-FROM DBAGE.bodb02.dbo.CustAccount hed INNER JOIN 
+FROM  bodb02.dbo.CustAccount hed INNER JOIN 
 crmCustomer hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
 WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
 
@@ -109,10 +109,10 @@ SELECT
 			 WHEN ci.roleid=4 THEN 'Super'
 			 ELSE  'Guest' END  AS Position
 FROM crmCustomer(NOLOCK) c 
-LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
+LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
-LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 OUTER APPLY(
@@ -140,9 +140,9 @@ IF @TotalRows = 0
 BEGIN  
 		SELECT @TotalRows = count(DISTINCT c.CustID)
 		FROM crmCustomer(NOLOCK) c 
-		LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid		
+		LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid		
 		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID	
-		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+		LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 		LEFT JOIN  #tempHeadline hed  ON cus.groupID=hed.groupID 	
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
@@ -161,9 +161,9 @@ END
 	  , ISNULL(hed.custid,0) AS HeadlineID
 	  FROM crmCustomer(NOLOCK) c 
 	    LEFT JOIN 
-	    DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid	   
+	     bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid	   
 		LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
-		LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+		LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 		LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 
 		
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
@@ -226,9 +226,9 @@ SELECT DISTINCT c.CustID,
 			 ELSE  'Guest' END AS Position
 FROM crmCustomer(NOLOCK) c 
 INNER JOIN pag2 ON c.CustID = pag2.CustID
-LEFT JOIN DBAGE.bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
+LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
-LEFT JOIN DBAGE.bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 
 LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 OUTER APPLY(

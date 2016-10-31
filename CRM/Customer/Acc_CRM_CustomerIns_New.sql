@@ -77,6 +77,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 	@Yahoo						NVARCHAR(100)	= NULL,
 	@QQ							NVARCHAR(100)	= NULL,
 	@BBM						NVARCHAR(100)	= NULL,
+	@Ignored					BIT	= 0,	
+	@Checker					NVARCHAR(50)	= NULL,	
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
@@ -97,6 +99,7 @@ Revisions:
 	- 20120529@Elodie: encode some parameters to write log in XML format, such as Question, Answer, Pic1, ...
 	- 20140123@Dom: update remark and language
 	- 20141118@Dom: Add new PIC name
+	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 Param's Explanation:
 	
 */
@@ -128,7 +131,16 @@ BEGIN
 		INNER JOIN crmSite site WITH(NOLOCK) ON site.sitename = super.site
 		WHERE c.custid = @CustID
 	END
-		
+	
+	IF @Checker IS NULL
+	BEGIN
+	SELECT @Checker=chinfo.username 
+	FROM bodb02.dbo.CustAccount cus WITH(NOLOCK) 
+	INNER JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON cus.checker=ch.custid 
+	INNER JOIN bodb02.dbo.customer chinfo WITH(NOLOCK) ON ch.custid=chinfo.custid 
+	WHERE cus.custid=@CustID
+	END
+	
 	INSERT INTO crmCustomer
 				(	
 					CustID, 
@@ -204,7 +216,9 @@ BEGIN
 					WeChat,
 					Yahoo,
 					QQ,
-					BBM
+					BBM,
+					Checker,
+					Ignored
 				)
 			VALUES
 				( 
@@ -281,7 +295,9 @@ BEGIN
 					@WeChat,
 					@Yahoo,
 					@QQ,
-					@BBM
+					@BBM,
+					@Checker,
+					@Ignored
 				)
 	
 	IF @@ERROR <> 0
@@ -405,6 +421,8 @@ BEGIN
 						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')				+ '</Yahoo>' +
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
+						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')				+ '</Checker>' +
+						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</@Ignored>' +
 					'</Acc_CRM_CustomerIns_New>' 
 				
 

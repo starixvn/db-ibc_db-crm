@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchUpd]
 	@Level			VARCHAR(10) = '',
 	@Site			VARCHAR(4000) = '',
 	@TypeAccount	TINYINT,
+	@ExcludeIgnored	BIT=0,
 	@ChangeFilter	BIT, 	
 	@Content		XML = '',
 	@UserID			INT,
@@ -20,6 +21,7 @@ AS
 		
 	Revisions:
 		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
+		- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
@@ -39,7 +41,9 @@ BEGIN
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 		
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 	a
+	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
+	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)	
 
 	DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT, IsKeep BIT)
 	DECLARE @HeadlineDataOld TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT, Handler INT, UpdatedTime DATETIME, IsInform BIT)
@@ -128,15 +132,16 @@ BEGIN
 	--WHEN NOT MATCHED THEN
 	--	INSERT (HeadlineID, TitleID, InformHeadlineStatusID, GroupID, UpdatedTime, Remark, Handler, Extension, ProductStatus, IsInform)
 	--	VALUES (h.HeadlineID, @TitleID, h.InformHeadlineStatusID, h.GroupID, GETDATE(), h.Remark, @UserID, h.Extension, h.ProductStatus, 1);
-	DECLARE @Filter VARCHAR(4000), @Old_Filter XML, @Old_Title NVARCHAR(2000), @Old_Site VARCHAR(4000), @Old_Currency VARCHAR(1000), @Old_Level VARCHAR(10), @Old_TypeAccount TINYINT
+	DECLARE @Filter VARCHAR(4000), @Old_Filter XML, @Old_Title NVARCHAR(2000), @Old_Site VARCHAR(4000), @Old_Currency VARCHAR(1000), @Old_Level VARCHAR(10), @Old_TypeAccount TINYINT,@Old_ExcludeIgnored BIT
 	
-	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount)+ ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored)  + '''></Filters>'
 	SELECT @Old_Title = Title, @Old_Filter = Filter FROM crmInformTitle_New WITH (NOLOCK) WHERE TitleID = @TitleID
 
 	SELECT	@Old_Site = xmlData.Col.value('@Site','VARCHAR(4000)'),
 			@Old_Level = xmlData.Col.value('@Position','VARCHAR(10)'),
 			@Old_Currency = xmlData.Col.value('@Currency','VARCHAR(1000)'),			
-			@Old_TypeAccount = xmlData.Col.value('@DirectAccount','TINYINT')
+			@Old_TypeAccount = xmlData.Col.value('@DirectAccount','TINYINT'),
+			@Old_ExcludeIgnored = xmlData.Col.value('@ExcludeIgnored','BIT')
 	FROM @Old_Filter.nodes('//Filters') xmlData(Col)	
 	
 	IF @ChangeFilter = 1 OR @Old_Title <> @Title
@@ -312,6 +317,7 @@ BEGIN
 						'<Level>'						+ @Old_Level																			+ '</Level>' +
 						'<Site>'						+ @Old_Site																				+ '</Site>' +
 						'<TypeAccount>'					+ CONVERT(VARCHAR(1), @Old_TypeAccount)													+ '</TypeAccount>' +
+						'<ExcludeIgnored>'				+ CONVERT(VARCHAR(1), @Old_ExcludeIgnored)												+ '</ExcludeIgnored>' +
 						'<HeadlineID>'					+ CAST(ISNULL(hl.HeadlineID, ac.CustID_Old) AS VARCHAR(30))								+ '</HeadlineID>' +
 						'<GroupID>'						+ CAST(ISNULL(hl.GroupID, ac.GroupID_Old) AS VARCHAR(30))								+ '</GroupID>' +
 						'<StatusID>'					+ CAST(ISNULL(hl.InformHeadlineStatusID, -1) AS VARCHAR(30))							+ '</StatusID>' +
@@ -335,6 +341,7 @@ BEGIN
 						'<Level>'						+ @Level																				+ '</Level>' +
 						'<Site>'						+ @Site																					+ '</Site>' +
 						'<TypeAccount>'					+ CONVERT(VARCHAR(1), @TypeAccount)														+ '</TypeAccount>' +
+						'<ExcludeIgnored>'				+ CONVERT(VARCHAR(1), @ExcludeIgnored)													+ '</ExcludeIgnored>' +
 						'<HeadlineID>'					+ CAST(ISNULL(ac.CustID_New, ac.CustID_Old) AS VARCHAR(30))								+ '</HeadlineID>' +
 						'<GroupID>'						+ CAST(ISNULL(ac.GroupID_New, ac.GroupID_Old) AS VARCHAR(30))							+ '</GroupID>' +
 						'<StatusID>'					+ CAST(ISNULL(hl.InformHeadlineStatusID, ih.InformHeadlineStatusID) AS VARCHAR(30))		+ '</StatusID>' +

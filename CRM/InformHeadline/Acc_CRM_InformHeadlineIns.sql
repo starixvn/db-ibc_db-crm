@@ -7,6 +7,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@UserID			INT,
 	@IP				VARCHAR(40),
 	@TitleID		INT OUTPUT, 
+	@ExcludeIgnored	BIT=0,
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(200) = '' OUTPUT
 AS	
@@ -14,10 +15,9 @@ AS
 	Created: Elodie
 	Date: 2015-04-03
 	Task: Insert inform title and headline
-	DB: DBCRM/bodb_CRM
-		
+	DB: DBCRM/bodb_CRM		
 	Revisions:
-
+	- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -36,7 +36,9 @@ BEGIN
 	DECLARE @Filter VARCHAR(4000)
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
+	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)
 
 	--DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT)
 	--INSERT INTO @HeadlineData
@@ -48,7 +50,7 @@ BEGIN
 	--		ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus
 	--FROM @Content.nodes('//content/headline') xmlData(Col)
 
-	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + '''></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored)+ '''></Filters>'
 
 	INSERT INTO crmInformTitle_New (Title, CreatedDate, Creator, StatusID, Filter) VALUES (@Title, GETDATE(), @UserID, 11009, @Filter)
       
@@ -87,6 +89,7 @@ BEGIN
 						'<Level>'					+ @Level										+ '</Level>' +
 						'<Site>'					+ @Site											+ '</Site>' +
 						'<TypeAccount>'				+ CONVERT(VARCHAR(1), @TypeAccount)				+ '</TypeAccount>' +
+						'<ExcludeIgnored>'			+ CONVERT(VARCHAR(1), @ExcludeIgnored)			+ '</ExcludeIgnored>' +
 					'</Acc_CRM_InformHeadlineIns>'
 	
 	DECLARE @CustID INT

@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSel]
 	@TypeAccount	TINYINT,
 	@PageIndex		INT = 1, 
 	@ItemsPerPage	INT = 100,
+	@Ignored		BIT=0,
 	@ErrCode		INT	= 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT	
 AS	
@@ -15,7 +16,7 @@ AS
 	DB: DBCRM/bodb_CRM
 		
 	Revisions:
-
+		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -32,8 +33,10 @@ BEGIN
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) 	
-
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
+	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
+	
 	IF @ItemsPerPage = -1 -- Export excel purpose
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
@@ -60,6 +63,7 @@ BEGIN
 
 	DROP TABLE #DirectAcc 	
 END
+
 
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSel] TO [bodbAdminNet]

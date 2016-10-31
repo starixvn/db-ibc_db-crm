@@ -1,4 +1,4 @@
-ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
+ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport_xtest]
 	@UserName 				NVARCHAR(100) = '',
 	@LanguageID				VARCHAR(1000) = NULL,	
 	@SiteID					VARCHAR(1000) = NULL,
@@ -180,7 +180,7 @@ END
 	)
 	,pag2 as
 	(
-	SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC
+	SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC,Custid ASC
 	) AS RowNum FROM Pag
 	)
 

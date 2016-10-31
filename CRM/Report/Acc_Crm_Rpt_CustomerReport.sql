@@ -1,4 +1,4 @@
-ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport_xtest]
+ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@UserName 				NVARCHAR(100) = '',
 	@LanguageID				VARCHAR(1000) = NULL,	
 	@SiteID					VARCHAR(1000) = NULL,

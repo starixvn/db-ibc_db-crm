@@ -310,7 +310,7 @@ BEGIN
 		SELECT @ErrMsg = 'create guest unsuccessfuly.'
 		RETURN
 	END
-	print 'test'
+
 select CONVERT(VARCHAR(10),@Ignored)
 	-- write log
 	DECLARE @LogElement XML

@@ -99,6 +99,7 @@ Revisions:
 	- 20140303@Dom: Modify for new structure
 	- 20141118@Dom: add more fields of communication tool
 	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+	- 20161215@Winnie: HotFix When adding new Guest Feedback, Guest is created but feedback is not RedmineID: RedmineID: #64067
 Param's Explanation:
 	
 */
@@ -310,6 +311,7 @@ BEGIN
 		RETURN
 	END
 
+select CONVERT(VARCHAR(10),@Ignored)
 	-- write log
 	DECLARE @LogElement XML
 
@@ -389,7 +391,7 @@ BEGIN
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
 						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')				+ '</Checker>' +
-						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</@Ignored>' +
+						'<Ignored>'				    + ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				    + '</Ignored>' +					
 					'</Acc_CRM_CustomerGuestIns>'
 				
 
@@ -400,8 +402,6 @@ BEGIN
 					@IP = @IP, 
 					@NewValues = @LogElement
 END
-
-
 GO
 
 SET QUOTED_IDENTIFIER OFF 

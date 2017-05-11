@@ -100,6 +100,7 @@ Revisions:
 	- 20140123@Dom: update remark and language
 	- 20141118@Dom: Add new PIC name
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
+	- 20170511@Winnie: Duplicate & Missing Special Remark [RedmineID: #76399]
 Param's Explanation:
 	
 */
@@ -422,7 +423,7 @@ BEGIN
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
 						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')				+ '</Checker>' +
-						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</@Ignored>' +
+						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</Ignored>' +
 					'</Acc_CRM_CustomerIns_New>' 
 				
 

@@ -1,6 +1,6 @@
 USE [bodb_CRM]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_CRM_GuestFeedbackIns_Multiple]    Script Date: 06/07/2017 09:36:35 ******/
+/****** Object:  StoredProcedure [dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType]    Script Date: 6/8/2017 1:00:44 PM ******/
 SET ANSI_NULLS ON
 GO
 SET QUOTED_IDENTIFIER ON
@@ -55,8 +55,9 @@ BEGIN
 	SELECT	@ErrCode = 0
 		,	@ErrMsg	 = '';
 
-	SELECT @Custid=Custid,@Old_SiteID=SiteID,@Old_LicenseeType=LicenseeType
-	FROM  [dbo].[crmFeedback] cb WITH(NOLOCK) where cb.FeedbackID=@FeedbackID	
+	SELECT TOP 1 @Custid=Custid,@Old_SiteID=SiteID,@Old_LicenseeType=LicenseeType,@FeedbackID=cb.FeedbackID
+	FROM  [dbo].[crmFeedback] cb WITH(NOLOCK) 
+	INNER JOIN @tmpFeedbackID t ON cb.FeedbackID=t.FeedbackID	
 	
 	SELECT @New_SiteID=SiteID,@New_LicenseeType=LicenseeType
 	FROM crmCustomer c WITH(NOLOCK) WHERE CustID=@CustID 
@@ -105,9 +106,7 @@ BEGIN
 END
 
 	
-END;
-GO
-
+END
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType] TO [bodbAdminNet]

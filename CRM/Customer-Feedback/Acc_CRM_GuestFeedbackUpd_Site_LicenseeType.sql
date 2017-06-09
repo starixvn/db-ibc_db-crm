@@ -8,6 +8,7 @@ GO
 /****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns_Multiple    Script Date: 2/21/2017 2:17:13 PM ******/
 /****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns    Script Date: 4/26/2016 8:58:07 AM ******/
 
+
 ALTER PROCEDURE	[dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType] (
 					@UserID						INT
 				,	@ListFeedbackID				VARCHAR(MAX)
@@ -63,8 +64,8 @@ BEGIN
 	FROM crmCustomer c WITH(NOLOCK) WHERE CustID=@CustID 
 
 	UPDATE cb SET cb.SiteID=@New_SiteID,cb.LicenseeType=@New_LicenseeType
-	FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) 
-					  
+	FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) WHERE Feedbackid=@FeedbackID
+	  
 	IF	@ErrCode <> 0
 	BEGIN
 		SELECT	@ErrCode = 102;
@@ -107,6 +108,8 @@ END
 
 	
 END
+
+
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType] TO [bodbAdminNet]

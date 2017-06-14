@@ -8,7 +8,6 @@ GO
 /****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns_Multiple    Script Date: 2/21/2017 2:17:13 PM ******/
 /****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns    Script Date: 4/26/2016 8:58:07 AM ******/
 
-
 ALTER PROCEDURE	[dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType] (
 					@UserID						INT
 				,	@ListFeedbackID				VARCHAR(MAX)
@@ -78,14 +77,14 @@ BEGIN
 		,	@NewValues	XML;
 	SELECT	@OldValues = 				
 					'<Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>' + --SP Name
-						'<FeedbackID>'						+ ISNULL(CONVERT(VARCHAR(5),@FeedbackID),'')				+ '</FeedbackID>' +
+						'<FeedbackID>'						+ ISNULL(CONVERT(VARCHAR(30),@FeedbackID),'')				+ '</FeedbackID>' +
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(5),@Old_SiteID),'')					+ '</SiteID>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(5),@Old_LicenseeType),'')				+ '</LicenseeType>' +
 						
 					'</Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>';
 	SELECT @NewValues = 				
 					'<Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>' + --SP Name
-						'<FeedbackID>'						+ ISNULL(CONVERT(VARCHAR(5),@FeedbackID),'')				+ '</FeedbackID>' +
+						'<FeedbackID>'						+ ISNULL(CONVERT(VARCHAR(30),@FeedbackID),'')				+ '</FeedbackID>' +
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(5),@New_SiteID),'')					+ '</SiteID>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(5),@New_LicenseeType),'')				+ '</LicenseeType>' +
 					'</Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>';

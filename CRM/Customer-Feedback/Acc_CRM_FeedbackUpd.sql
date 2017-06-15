@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON; 
 GO
 
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackUpd (
+ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackUpd] (
 					@UserID						INT
 				,	@FeedbackID					INT
 				,	@CustID						INT
@@ -426,7 +426,7 @@ BEGIN
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')					+ '</StatusID>' +
 						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')				+ '</IsReviewed>' +
 						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')				+ '</Reviewer>' +	
-						'<Review>'						+ ISNULL(@Review_Old,'')										+ '</Review>' +						
+						'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')										+ '</Review>' +						
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID_Old,'')									+ '</RelatedCustID>' +
 						'<Pic1>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic1_Old),'')					+ '</Pic1>' +
 						'<Pic2>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic2_Old),'')					+ '</Pic2>' +
@@ -489,7 +489,7 @@ BEGIN
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
 						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +	
-						'<Review>'						+ ISNULL(@Review,'')										+ '</Review>' +											
+						'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review),'')									+ '</Review>' +											
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
 						'<Pic1>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic1),'')						+ '</Pic1>' +
 						'<Pic2>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic2),'')						+ '</Pic2>' +

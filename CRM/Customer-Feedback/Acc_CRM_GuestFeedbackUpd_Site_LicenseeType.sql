@@ -24,7 +24,7 @@ AS
 	Original:
 
 	Revisions:
-	- 20170101@Winnie: Create new [RedmineID: #77820]
+	- 20170607@Winnie: Create new [RedmineID: #77820]
 	Param's Explanation:
 		
 */

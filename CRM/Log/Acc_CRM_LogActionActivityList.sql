@@ -5,7 +5,7 @@ SET ANSI_NULLS ON
 GO
 
 /****** Object:  Stored Procedure dbo.Acc_CRM_LogActionActivityList    Script Date: 3/26/2014 6:06:07 PM ******/
-CREATE procedure [dbo].[Acc_CRM_LogActionActivityList]
+ALTER procedure [dbo].[Acc_CRM_LogActionActivityList]
 	@username	varchar(50) = NULL,
 	@fromdate	datetime,
 	@todate		datetime,
@@ -21,7 +21,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	-- 20170614@Winnie: Get log for update siteid,LicenseeType RedmineID:77820
 Param's Explanation:
 */
 
@@ -40,7 +40,7 @@ Param's Explanation:
 	from crmLogFeedback(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
-	where (lc.actionid BETWEEN 200 and 299 or lc.actionid BETWEEN 400 and 499) AND lc.ActionID NOT IN(400,401,402)
+	where (lc.actionid BETWEEN 200 and 299 or lc.actionid BETWEEN 400 and 499 or lc.ActionID=704) AND lc.ActionID NOT IN(400,401,402)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID

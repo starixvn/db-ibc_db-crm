@@ -3,7 +3,7 @@ GO
 SET ANSI_NULLS ON; 
 GO
 
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackUpd (
+ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackUpd] (
 					@UserID						INT
 				,	@FeedbackID					INT
 				,	@CustID						INT
@@ -92,7 +92,7 @@ AS
 		- 20140303@Dom:		Modify for new structure
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-
+		- 20170614@Winnie: Write log for review - [Redmine: #77820]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -425,7 +425,8 @@ BEGIN
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID_Old),'')				+ '</ResponseID>' +
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')					+ '</StatusID>' +
 						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')				+ '</IsReviewed>' +
-						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')				+ '</Reviewer>' +						
+						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')				+ '</Reviewer>' +	
+						'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')										+ '</Review>' +						
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID_Old,'')									+ '</RelatedCustID>' +
 						'<Pic1>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic1_Old),'')					+ '</Pic1>' +
 						'<Pic2>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic2_Old),'')					+ '</Pic2>' +
@@ -487,7 +488,8 @@ BEGIN
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
-						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +						
+						'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +	
+						'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review),'')									+ '</Review>' +											
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
 						'<Pic1>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic1),'')						+ '</Pic1>' +
 						'<Pic2>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic2),'')						+ '</Pic2>' +

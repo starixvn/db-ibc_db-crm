@@ -1,3 +1,6 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+USE bodb_CRM
+GO 
 ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@UserName 				NVARCHAR(100) = '',
 	@LanguageID				VARCHAR(1000) = NULL,	
@@ -22,6 +25,8 @@ Revisions:
 	- 20141118@Dom: add more fields of communication tool
 	- 20160712@Winnie: #60341 Modify customer report to display more information
 	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+	- 20170911@Winnie: Get Checker from NAP RedmineID #82040
 Param's Explanation:
 declare @p1 int
 set @p1=9608
@@ -102,7 +107,7 @@ SELECT
 			 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 			 ELSE 'Active' END AS Status,
 		ct.CountryName,
-		c.Checker,
+		cus.Checker,
 		CASE WHEN ci.roleid=1 THEN 'Member'
 			 WHEN ci.roleid=2 THEN 'Agent'
 			 WHEN ci.roleid=3 THEN 'Master'
@@ -218,7 +223,7 @@ SELECT DISTINCT c.CustID,
 			 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 			 ELSE 'Active' END AS Status,
 		ct.CountryName ,
-		c.Checker,
+		cus.Checker,
 		CASE WHEN ci.roleid=1 THEN 'Member'
 			 WHEN ci.roleid=2 THEN 'Agent'
 			 WHEN ci.roleid=3 THEN 'Master'
@@ -243,14 +248,3 @@ ORDER BY ISNULL(hed.custid,0) DESC,ISNULL(c.IsVIP,0) DESC
 
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_Crm_Rpt_CustomerReport] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_Crm_Rpt_CustomerReport] TO [vnteam]
-GO 

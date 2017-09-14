@@ -51,7 +51,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@IsVIP						BIT				= 0,
 	@SpecialRemark				XML				= NULL,
 	@Remark						XML				= NULL,
-	@Checker					NVARCHAR(50)	= NULL,
+	@IntroducedBy					NVARCHAR(50)	= NULL,
 	@Ignored 					BIT				= 0,
 	--Bank Info
 	@AccountHolderName			NVARCHAR(100)	= NULL,	
@@ -92,6 +92,7 @@ Revisions:
 	- 20141118@Dom: add more fields of communication tool
 	- 20150121@Dom: Remove Sync code for Old system
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
+	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 Param's Explanation:
 	
 */
@@ -170,7 +171,7 @@ BEGIN
 			@AccountHolderName				= @AccountHolderName,
 			@SpecialRemark					= @SpecialRemark,	
 			@Remark							= @Remark,
-			@Checker						= @Checker,
+			@IntroducedBy						= @IntroducedBy,
 			@Ignored 						= @Ignored,	
 			@CreatorID						= @UserID,
 			@LicenseeType					= @LicenseeType,
@@ -265,7 +266,7 @@ BEGIN
 			@Pic3Name_Old					NVARCHAR(100),
 			@Pic4Name_Old					NVARCHAR(100),
 			@SiteID_Old						INT			,
-			@Checker_Old					NVARCHAR(50),
+			@IntroducedBy_Old					NVARCHAR(50),
 			@Ignored_Old					BIT			,
 			---Home Address
 			@Line1_Old						NVARCHAR(100),
@@ -357,7 +358,7 @@ BEGIN
 		@Yahoo_Old							= Yahoo,
 		@QQ_Old								= QQ,
 		@BBM_Old							= BBM,
-		@Checker_Old						=Checker,
+		@IntroducedBy_Old						=Checker,
 		@Ignored_Old						=Ignored
 	FROM crmCustomer WITH(NOLOCK)
 	WHERE CustID = @CustID --Old Values
@@ -433,7 +434,7 @@ BEGIN
 		QQ							= @QQ,
 		BBM							= @BBM,
 		Ignored						= @Ignored,
-		Checker						= @Checker
+		Checker						= @IntroducedBy
 	WHERE CustID = @CustID
 	
 	select @birthday
@@ -545,7 +546,7 @@ BEGIN
 							'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo_Old),'')								+ '</Yahoo>' +
 							'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ_Old),'')									+ '</QQ>' +
 							'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM_Old),'')									+ '</BBM>' +
-							'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Checker_Old),'')								+ '</Checker>' +
+							'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy_Old),'')								+ '</Checker>' +
 							'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored_Old),'')								+ '</Ignored>' +
 				'</Acc_CRM_CustomerUpd_New>'
 
@@ -612,7 +613,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')										+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')											+ '</QQ>' +
 						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')											+ '</BBM>' +
-						'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')										+ '</Checker>' +
+						'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')										+ '</Checker>' +
 						'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')											+ '</Ignored>' +
 			'</Acc_CRM_CustomerUpd_New>'
 				

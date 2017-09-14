@@ -48,7 +48,16 @@ IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 BEGIN
 	;WITH temp AS
 	(
-		SELECT c.Username, c.custid, c.roleid,site,ci.Enabled,c.Currency	
+		SELECT c.Username, c.custid,site,c.Currency,
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
@@ -56,7 +65,17 @@ BEGIN
 				AND c.roleid=3 		
 
 		UNION ALL
-		SELECT c.Username, c.custid, c.roleid,site,ci.Enabled,c.Currency		
+		SELECT c.Username, c.custid,site,c.CurrencY,	
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
+				
 		FROM  bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
@@ -64,7 +83,16 @@ BEGIN
 				AND ci.roleid=2 	
 
 		UNION ALL
-		SELECT c.Username, c.custid, c.roleid,ca.site,ci.Enabled,c.Currency	
+		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
@@ -74,7 +102,7 @@ BEGIN
 	)
 
 	SELECT ROW_NUMBER() OVER(ORDER BY t.Username  ASC) AS RowNum,
-		hed.Username AS headline,t.Username, t.custid, t.roleid,t.site,t.Enabled,t.Currency,	
+		hed.Username AS headline,t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,	
 		crm.IntroducedBy,a.language_name,ctr.CountryName,checker.Username AS Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
 		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
 	FROM temp t
@@ -96,7 +124,7 @@ BEGIN
 END
 
 
-CREATE TABLE #Cust_tmp(CustID INT PRIMARY KEY CLUSTERED,roleid TINYINT,Site VARCHAR(10),UserName VARCHAR(30),Enabled BIT,Currency TINYINT,RowNum INT,
+CREATE TABLE #Cust_tmp(CustID INT PRIMARY KEY CLUSTERED,Position VARCHAR(30),Site VARCHAR(10),UserName VARCHAR(30),Status VARCHAR(30),Currency TINYINT,RowNum INT,
 	IntroducedBy VARCHAR(50),Checker INT,IsVIP BIT,FirstName NVARCHAR(50),LastName NVARCHAR(50),Phone NVARCHAR(50),Phone2 NVARCHAR(50),
 	Phone3 NVARCHAR(50),Pic1 NVARCHAR(100),Pic2 NVARCHAR(100),Pic3 NVARCHAR(100),Pic4 NVARCHAR(100),MobilePhone NVARCHAR(50),Email NVARCHAR(254),Skype NVARCHAR(100),MSN NVARCHAR(100)
 	,WhatsApp NVARCHAR(100),Line NVARCHAR(100),	WeChat NVARCHAR(100),Yahoo NVARCHAR(100),BBM NVARCHAR(100),QQ NVARCHAR(100),CountryID INT,Headline VARCHAR(30)	)	
@@ -108,31 +136,58 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 
 ;WITH temp2 AS
 (
-SELECT c.Username, c.custid, c.roleid,site,ci.Enabled,c.Currency	
-FROM bodb02.dbo.Customer c WITH(NOLOCK)
-	INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-	WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-		AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-		AND c.roleid=3 		
-UNION ALL
-SELECT c.Username, c.custid, c.roleid,site,ci.Enabled,c.Currency		
-FROM  bodb02.dbo.Customer c WITH(NOLOCK)
-	INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-	WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-		AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-		AND ci.roleid=2 	
-UNION ALL
-SELECT c.Username, c.custid, c.roleid,ca.site,ci.Enabled,c.Currency
-FROM bodb02.dbo.Customer c WITH(NOLOCK)
-	INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
-	INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-	WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-		AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-		AND c.roleid=1 	
+	SELECT  c.Username, c.custid,site,c.Currency,
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+		WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND c.roleid=3 		
+	UNION ALL
+	SELECT  c.Username, c.custid,site,c.Currency,
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position	
+	FROM  bodb02.dbo.Customer c WITH(NOLOCK)
+		INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND ci.roleid=2 	
+	UNION ALL
+	SELECT  c.Username, c.custid,ca.site,c.Currency,
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
+		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+		WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND c.roleid=1 	
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,roleid,Site,Enabled,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline	)
-SELECT t.Username, t.custid, t.roleid,t.site,t.Enabled,t.Currency,ROW_NUMBER() OVER(ORDER BY t.Username  ASC) AS RowNum,
+SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() OVER(ORDER BY t.Username  ASC) AS RowNum,
 		crm.IntroducedBy,cus.Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
 		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,
 		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username
@@ -149,7 +204,7 @@ BEGIN
 	FROM #Cust_tmp
 END
 
-SELECT t.headline,t.RowNum,t.Username, t.custid, t.roleid,t.site,t.Enabled,t.Currency,	
+SELECT t.headline,t.RowNum,t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,	
 	t.IntroducedBy,a.language_name,ctr.CountryName,Checker.Username AS Checker,t.IsVIP,t.FirstName,t.LastName,t.Phone,t.Phone2,
 	t.Phone3,t.Pic1,t.Pic2,t.Pic3,t.Pic4,t.MobilePhone,t.Email,t.Skype,t.MSN,t.WhatsApp,t.Line,t.Line,t.WeChat,t.Yahoo,t.BBM,t.QQ	
 FROM #Cust_tmp t	

@@ -211,7 +211,7 @@ BEGIN
 					Yahoo,
 					QQ,
 					BBM,
-					Checker,
+					[IntroducedBy],
 					Ignored
 				)
 			VALUES

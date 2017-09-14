@@ -108,7 +108,7 @@ BEGIN
 		
 		DECLARE @UserName varchar(30)
 		SELECT @UserName = UserName FROM bodb02.dbo.Customer(NOLOCK) WHERE custid = @CustID
-		EXEC Acc_CRM_CustomerIns_New
+		EXEC Acc_CRM_CustomerIns_New_xtest
 			@UserID							= @UserID,				
 			@CustID							= @CustID OUTPUT,						
 			@UserName						= @UserName,
@@ -359,7 +359,7 @@ BEGIN
 		@Yahoo_Old							= Yahoo,
 		@QQ_Old								= QQ,
 		@BBM_Old							= BBM,
-		@IntroducedBy_Old						=Checker,
+		@IntroducedBy_Old					= IntroducedBy,
 		@Ignored_Old						=Ignored
 	FROM crmCustomer WITH(NOLOCK)
 	WHERE CustID = @CustID --Old Values
@@ -435,7 +435,7 @@ BEGIN
 		QQ							= @QQ,
 		BBM							= @BBM,
 		Ignored						= @Ignored,
-		Checker						= @IntroducedBy
+		IntroducedBy				= @IntroducedBy
 	WHERE CustID = @CustID
 	
 	select @birthday

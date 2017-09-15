@@ -415,7 +415,7 @@ BEGIN
 						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')				+ '</Yahoo>' +
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
-						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')				+ '</Checker>' +
+						'<IntroducedBy>'			+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')	+ '</IntroducedBy>' +
 						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</Ignored>' +
 					'</Acc_CRM_CustomerIns_New>' 
 				

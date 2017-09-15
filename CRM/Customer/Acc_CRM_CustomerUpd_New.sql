@@ -108,7 +108,7 @@ BEGIN
 		
 		DECLARE @UserName varchar(30)
 		SELECT @UserName = UserName FROM bodb02.dbo.Customer(NOLOCK) WHERE custid = @CustID
-		EXEC Acc_CRM_CustomerIns_New_xtest
+		EXEC Acc_CRM_CustomerIns_New
 			@UserID							= @UserID,				
 			@CustID							= @CustID OUTPUT,						
 			@UserName						= @UserName,
@@ -547,7 +547,7 @@ BEGIN
 							'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo_Old),'')								+ '</Yahoo>' +
 							'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ_Old),'')									+ '</QQ>' +
 							'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM_Old),'')									+ '</BBM>' +
-							'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy_Old),'')								+ '</Checker>' +
+							'<IntroducedBy>'				+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy_Old),'')						+ '</IntroducedBy>' +
 							'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored_Old),'')								+ '</Ignored>' +
 				'</Acc_CRM_CustomerUpd_New>'
 
@@ -614,7 +614,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')										+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')											+ '</QQ>' +
 						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')											+ '</BBM>' +
-						'<Checker>'						+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')										+ '</Checker>' +
+						'<IntroducedBy>'				+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')								+ '</IntroducedBy>' +
 						'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')											+ '</Ignored>' +
 			'</Acc_CRM_CustomerUpd_New>'
 				

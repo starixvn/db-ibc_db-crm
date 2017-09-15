@@ -185,7 +185,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=1 	
 )	
-INSERT INTO #Cust_tmp(UserName,CustID,roleid,Site,Enabled,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
+INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline	)
 SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() OVER(ORDER BY t.Username  ASC) AS RowNum,
 		crm.IntroducedBy,cus.Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,

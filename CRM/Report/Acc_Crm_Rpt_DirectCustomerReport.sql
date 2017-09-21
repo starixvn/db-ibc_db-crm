@@ -79,7 +79,7 @@ BEGIN
 			WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.roleid=3 		
-				AND @Username IS NULL OR( c.username LIKE @Username+'%')
+				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -97,7 +97,7 @@ BEGIN
 			WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.roleid=2 	
-				AND @Username IS NULL OR( c.username LIKE @Username+'%')
+				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 		UNION ALL
 		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -115,7 +115,7 @@ BEGIN
 			WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.roleid=1 	
-				AND @Username IS NULL OR( c.username LIKE @Username+'%')
+				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 	)
 
 	SELECT ROW_NUMBER() OVER(ORDER BY t.Username  ASC) AS RowNum,
@@ -123,7 +123,7 @@ BEGIN
 		crm.IntroducedBy,a.language_name,ctr.CountryName,checker.Username AS Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
 		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
 	FROM temp t
-		INNER JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID=t.custid
+		LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID=t.custid
 		INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 		LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 		LEFT JOIN dbo.crmCountry ctr ON crm.CountryID=ctr.CountryID
@@ -183,7 +183,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=3 	
-			AND @Username IS NULL OR( c.username LIKE @Username+'%')	
+			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -200,7 +200,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND ci.roleid=2 	
-			AND @Username IS NULL OR( c.username LIKE @Username+'%')
+			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 	UNION ALL
 	SELECT  c.Username, c.custid,ca.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -218,7 +218,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=1 	
-			AND @Username IS NULL OR( c.username LIKE @Username+'%')
+			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline	)
@@ -228,7 +228,7 @@ SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() 
 		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username
 FROM temp2 t	
 	INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
-	INNER JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID=t.custid
+	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID=t.custid
 	LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID	
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
@@ -253,6 +253,8 @@ FROM #Cust_tmp t
 					 FOR XML PATH('')), 1, 1, '')
 		)A (language_name)
 	WHERE t.RowNum BETWEEN @RowStart AND @RowEnd
+
+
 
 GO
 

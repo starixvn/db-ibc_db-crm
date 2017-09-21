@@ -138,6 +138,7 @@ BEGIN
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
+			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN
 END
 
@@ -255,8 +256,7 @@ FROM #Cust_tmp t
 					 FOR XML PATH('')), 1, 1, '')
 		)A (language_name)
 	WHERE t.RowNum BETWEEN @RowStart AND @RowEnd
-
+	ORDER BY t.headline ASC, t.Username  ASC
 
 
 GO
-

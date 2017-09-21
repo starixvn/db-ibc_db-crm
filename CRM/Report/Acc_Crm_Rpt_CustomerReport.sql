@@ -107,7 +107,7 @@ SELECT
 			 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 			 ELSE 'Active' END AS Status,
 		ct.CountryName,
-		cus.Checker,
+		ch.username AS Checker,
 		CASE WHEN ci.roleid=1 THEN 'Member'
 			 WHEN ci.roleid=2 THEN 'Agent'
 			 WHEN ci.roleid=3 THEN 'Master'
@@ -118,6 +118,7 @@ LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
 LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker
 LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 OUTER APPLY(
@@ -223,7 +224,7 @@ SELECT DISTINCT c.CustID,
 			 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 			 ELSE 'Active' END AS Status,
 		ct.CountryName ,
-		cus.Checker,
+		ch.username AS Checker,
 		CASE WHEN ci.roleid=1 THEN 'Member'
 			 WHEN ci.roleid=2 THEN 'Agent'
 			 WHEN ci.roleid=3 THEN 'Master'
@@ -234,6 +235,7 @@ INNER JOIN pag2 ON c.CustID = pag2.CustID
 LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
 LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
 LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker
 LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 
 LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 OUTER APPLY(

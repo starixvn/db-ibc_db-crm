@@ -118,13 +118,14 @@ BEGIN
 			ISNULL(c.QQ,'') QQ,
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
-			ca.Checker,
+			ch.username AS Checker,
 			c.IntroducedBy
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
 			LEFT JOIN bodb02.dbo.customer cust WITH(NOLOCK) ON c.CustID = cust.custID
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON c.CustID = ca.custID
+			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			c.CustID = @CustID
 
@@ -272,13 +273,14 @@ BEGIN
 			ISNULL(c.QQ,'') QQ,
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
-			ca.Checker,
+			ch.Username AS Checker,
 			c.IntroducedBy
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
 			LEFT JOIN bodb02.dbo.custinfo cr WITH(NOLOCK) ON c.CreatorID = cr.custID
 			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON c.CustID = ca.custID
+			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
 

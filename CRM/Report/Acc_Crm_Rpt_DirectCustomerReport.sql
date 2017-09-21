@@ -9,7 +9,8 @@ SET QUOTED_IDENTIFIER ON
 GO
 /****** Object:  Stored Procedure dbo.Acc_Crm_Rpt_CustomerReport    Script Date: 10/31/2016 4:20:42 PM ******/
 ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_DirectCustomerReport]	
-	@HeadLine				VARCHAR(50)=NULL,
+	@HeadLine				VARCHAR(30)=NULL,
+	@UserName				VARCHAR(30)=NULL,
 	@ExcludeIgnoredAcc		BIT=0,	
 	@PageSize				INT = 0,
 	@PageIndex				INT = 0,
@@ -58,12 +59,27 @@ BEGIN
 					WHEN ci.roleid=3 THEN 'Master'
 					WHEN ci.roleid=4 THEN 'Super'
 					ELSE  'Guest' END  AS Position
+		FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
+			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+			WHERE @Username IS NULL OR( c.username LIKE @Username+'%')
+		UNION ALL
+		SELECT c.Username, c.custid,site,c.Currency,
+				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
+				CASE WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.roleid=3 		
-
+				AND @Username IS NULL OR( c.username LIKE @Username+'%')
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -81,7 +97,7 @@ BEGIN
 			WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.roleid=2 	
-
+				AND @Username IS NULL OR( c.username LIKE @Username+'%')
 		UNION ALL
 		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -99,6 +115,7 @@ BEGIN
 			WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.roleid=1 	
+				AND @Username IS NULL OR( c.username LIKE @Username+'%')
 	)
 
 	SELECT ROW_NUMBER() OVER(ORDER BY t.Username  ASC) AS RowNum,
@@ -136,6 +153,21 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 
 ;WITH temp2 AS
 (
+	SELECT c.Username, c.custid,site,c.Currency,
+			CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+				WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+				WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+				ELSE 'Active' END AS Status,
+			CASE WHEN ci.roleid=1 THEN 'Member'
+				WHEN ci.roleid=2 THEN 'Agent'
+				WHEN ci.roleid=3 THEN 'Master'
+				WHEN ci.roleid=4 THEN 'Super'
+				ELSE  'Guest' END  AS Position
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
+		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+		WHERE @Username IS NULL OR( c.username LIKE @Username+'%')
+	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
@@ -150,7 +182,8 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-			AND c.roleid=3 		
+			AND c.roleid=3 	
+			AND @Username IS NULL OR( c.username LIKE @Username+'%')	
 	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -167,6 +200,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND ci.roleid=2 	
+			AND @Username IS NULL OR( c.username LIKE @Username+'%')
 	UNION ALL
 	SELECT  c.Username, c.custid,ca.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -184,6 +218,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=1 	
+			AND @Username IS NULL OR( c.username LIKE @Username+'%')
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline	)

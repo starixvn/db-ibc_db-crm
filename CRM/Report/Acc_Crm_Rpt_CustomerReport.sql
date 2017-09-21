@@ -5,7 +5,7 @@ ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@UserName 				NVARCHAR(100) = '',
 	@LanguageID				VARCHAR(1000) = NULL,	
 	@SiteID					VARCHAR(1000) = NULL,
-	@RoleID					VARCHAR(20)='',	
+	@RoleID					VARCHAR(50)='',	
 	@HeadLine				VARCHAR(50)=NULL,
 	@ExcludeIgnoredAcc		BIT=0,
 	@VIP					SMALLINT = -1,

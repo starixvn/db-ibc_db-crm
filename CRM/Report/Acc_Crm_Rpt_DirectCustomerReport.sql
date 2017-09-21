@@ -119,7 +119,7 @@ BEGIN
 	)
 
 	SELECT ROW_NUMBER() OVER(ORDER BY hed.Username ASC, t.Username  ASC) AS RowNum,
-		hed.Username AS headline,t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,	
+		hed.Username AS headline,t.Username, t.custid, t.Position,t.site,t.Status,e.Currency,	
 		crm.IntroducedBy,a.language_name,ctr.CountryName,checker.Username AS Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
 		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
 	FROM temp t
@@ -128,6 +128,7 @@ BEGIN
 		LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 		LEFT JOIN dbo.crmCountry ctr ON crm.CountryID=ctr.CountryID
 		LEFT JOIN bodb02.dbo.Customer checker WITH(NOLOCK) ON checker.CustID=cus.Checker
+		LEFT JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  dbo.crmCustomerLanguage(nolock) clang
@@ -239,12 +240,13 @@ BEGIN
 	FROM #Cust_tmp
 END
 
-SELECT t.headline,t.RowNum,t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,	
+SELECT t.headline,t.RowNum,t.Username, t.custid, t.Position,t.site,t.Status,e.Currency,	
 	t.IntroducedBy,a.language_name,ctr.CountryName,Checker.Username AS Checker,t.IsVIP,t.FirstName,t.LastName,t.Phone,t.Phone2,
 	t.Phone3,t.Pic1,t.Pic2,t.Pic3,t.Pic4,t.MobilePhone,t.Email,t.Skype,t.MSN,t.WhatsApp,t.Line,t.Line,t.WeChat,t.Yahoo,t.BBM,t.QQ	
 FROM #Cust_tmp t	
 	LEFT JOIN dbo.crmCountry ctr ON t.CountryID=ctr.CountryID
 	LEFT JOIN bodb02.dbo.Customer checker WITH(NOLOCK) ON checker.CustID=t.Checker
+	LEFT JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 	OUTER APPLY(
 		SELECT Stuff((SELECT ',' + lang.Name
 					 FROM  dbo.crmCustomerLanguage(nolock) clang

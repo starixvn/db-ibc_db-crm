@@ -120,14 +120,18 @@ BEGIN
 
 	SELECT ROW_NUMBER() OVER(ORDER BY hed.Username ASC, t.Username  ASC) AS RowNum,
 		hed.Username AS headline,t.Username, t.custid, t.Position,t.site,t.Status,e.Currency,	
-		crm.IntroducedBy,a.language_name,ctr.CountryName,checker.Username AS Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
+		crm.IntroducedBy,a.language_name,ctr.CountryName,
+		CASE WHEN hed.Username IS NULL THEN checkerDirect.Username ELSE checkerhed.username END AS Checker,
+		crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
 		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
 	FROM temp t
-		LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID=t.custid
 		INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 		LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
+		LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID= CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END
 		LEFT JOIN dbo.crmCountry ctr ON crm.CountryID=ctr.CountryID
-		LEFT JOIN bodb02.dbo.Customer checker WITH(NOLOCK) ON checker.CustID=cus.Checker
+		LEFT JOIN bodb02.dbo.Customer checkerDirect WITH(NOLOCK) ON checkerDirect.CustID= cus.Checker
+		LEFT JOIN bodb02.dbo.CustAccount cahed WITH(NOLOCK) ON hed.CustID=cahed.custid
+		LEFT JOIN bodb02.dbo.Customer checkerhed WITH(NOLOCK) ON checkerhed.CustID= cahed.Checker
 		LEFT JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
@@ -146,7 +150,7 @@ END
 CREATE TABLE #Cust_tmp(CustID INT PRIMARY KEY CLUSTERED,Position VARCHAR(30),Site VARCHAR(10),UserName VARCHAR(30),Status VARCHAR(30),Currency TINYINT,RowNum INT,
 	IntroducedBy VARCHAR(50),Checker INT,IsVIP BIT,FirstName NVARCHAR(50),LastName NVARCHAR(50),Phone NVARCHAR(50),Phone2 NVARCHAR(50),
 	Phone3 NVARCHAR(50),Pic1 NVARCHAR(100),Pic2 NVARCHAR(100),Pic3 NVARCHAR(100),Pic4 NVARCHAR(100),MobilePhone NVARCHAR(50),Email NVARCHAR(254),Skype NVARCHAR(100),MSN NVARCHAR(100)
-	,WhatsApp NVARCHAR(100),Line NVARCHAR(100),	WeChat NVARCHAR(100),Yahoo NVARCHAR(100),BBM NVARCHAR(100),QQ NVARCHAR(100),CountryID INT,Headline VARCHAR(30)	)	
+	,WhatsApp NVARCHAR(100),Line NVARCHAR(100),	WeChat NVARCHAR(100),Yahoo NVARCHAR(100),BBM NVARCHAR(100),QQ NVARCHAR(100),CountryID INT,Headline VARCHAR(30),HeadlineCustid INT	)	
 	
 CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp 
 	(
@@ -223,15 +227,15 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
-						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline	)
+						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)
 SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() OVER(ORDER BY hed.Username ASC, t.Username  ASC) AS RowNum,
 		crm.IntroducedBy,cus.Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
 		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,
-		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username
+		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username,hed.Custid
 FROM temp2 t	
 	INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
-	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID=t.custid
 	LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID	
+	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
 
@@ -242,11 +246,15 @@ BEGIN
 END
 
 SELECT t.headline,t.RowNum,t.Username, t.custid, t.Position,t.site,t.Status,e.Currency,	
-	t.IntroducedBy,a.language_name,ctr.CountryName,Checker.Username AS Checker,t.IsVIP,t.FirstName,t.LastName,t.Phone,t.Phone2,
+	t.IntroducedBy,a.language_name,ctr.CountryName,
+	CASE WHEN t.Headline IS NULL THEN checker.Username ELSE checkerhed.username END AS Checker,
+	t.IsVIP,t.FirstName,t.LastName,t.Phone,t.Phone2,
 	t.Phone3,t.Pic1,t.Pic2,t.Pic3,t.Pic4,t.MobilePhone,t.Email,t.Skype,t.MSN,t.WhatsApp,t.Line,t.Line,t.WeChat,t.Yahoo,t.BBM,t.QQ	
 FROM #Cust_tmp t	
 	LEFT JOIN dbo.crmCountry ctr ON t.CountryID=ctr.CountryID
-	LEFT JOIN bodb02.dbo.Customer checker WITH(NOLOCK) ON checker.CustID=t.Checker
+	LEFT JOIN bodb02.dbo.Customer checker WITH(NOLOCK) ON checker.CustID= t.Checker
+	LEFT JOIN bodb02.dbo.CustAccount cahed WITH(NOLOCK) ON t.HeadlineCustid=cahed.custid
+	LEFT JOIN bodb02.dbo.Customer checkerhed WITH(NOLOCK) ON checkerhed.CustID= cahed.Checker
 	LEFT JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 	OUTER APPLY(
 		SELECT Stuff((SELECT ',' + lang.Name

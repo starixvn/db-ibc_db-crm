@@ -122,8 +122,16 @@ BEGIN
 		hed.Username AS headline,t.Username, t.custid, t.Position,t.site,t.Status,e.Currency,	
 		crm.IntroducedBy,a.language_name,ctr.CountryName,
 		CASE WHEN hed.Username IS NULL THEN checkerDirect.Username ELSE checkerhed.username END AS Checker,
-		crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
-		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
+		crm.IsVIP,crm.FirstName,crm.LastName,
+		crm.PhoneCountryCode+'-'+crm.PhoneAreaCode+'-'+crm.Phone AS Phone1,
+		crm.Phone2CountryCode+'-'+crm.Phone2AreaCode+'-'+crm.Phone2 AS Phone2,
+		crm.Phone3CountryCode+'-'+crm.Phone3AreaCode+'-'+crm.Phone3 AS Phone3,
+		crm.Pic1Name+'-'+crm.Pic1 AS PIC1,
+		crm.Pic2Name+'-'+crm.Pic2 AS PIC2,
+		crm.Pic3Name+'-'+crm.Pic3 AS PIC3,
+		crm.Pic4Name+'-'+crm.Pic4 AS PIC4,
+		crm.MobilePhoneCountryCode+'-'+ crm.MobilePhoneAreaCode +'-'+crm.MobilePhone AS MobilePhone,
+		crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
 	FROM temp t
 		INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 		LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
@@ -137,7 +145,7 @@ BEGIN
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  dbo.crmCustomerLanguage(nolock) clang
 						 inner join dbo.crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
-						 WHERE clang.CustID = crm.CustID
+						 WHERE clang.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.Custid END	--crm.CustID
 						 FOR XML PATH('')), 1, 1, '')
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
@@ -148,8 +156,8 @@ END
 
 
 CREATE TABLE #Cust_tmp(CustID INT PRIMARY KEY CLUSTERED,Position VARCHAR(30),Site VARCHAR(10),UserName VARCHAR(30),Status VARCHAR(30),Currency TINYINT,RowNum INT,
-	IntroducedBy NVARCHAR(50),Checker INT,IsVIP BIT,FirstName NVARCHAR(50),LastName NVARCHAR(50),Phone NVARCHAR(100),Phone2 NVARCHAR(100),
-	Phone3 NVARCHAR(100),Pic1 NVARCHAR(100),Pic2 NVARCHAR(100),Pic3 NVARCHAR(100),Pic4 NVARCHAR(100),MobilePhone NVARCHAR(50),Email NVARCHAR(254),Skype NVARCHAR(100),MSN NVARCHAR(100)
+	IntroducedBy NVARCHAR(50),Checker INT,IsVIP BIT,FirstName NVARCHAR(50),LastName NVARCHAR(50),Phone NVARCHAR(500),Phone2 NVARCHAR(500),
+	Phone3 NVARCHAR(500),Pic1 NVARCHAR(500),Pic2 NVARCHAR(500),Pic3 NVARCHAR(500),Pic4 NVARCHAR(500),MobilePhone NVARCHAR(500),Email NVARCHAR(254),Skype NVARCHAR(100),MSN NVARCHAR(100)
 	,WhatsApp NVARCHAR(100),Line NVARCHAR(100),	WeChat NVARCHAR(100),Yahoo NVARCHAR(100),BBM NVARCHAR(100),QQ NVARCHAR(100),CountryID INT,Headline VARCHAR(30),HeadlineCustid INT	)	
 	
 CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp 
@@ -229,8 +237,16 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)
 SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() OVER(ORDER BY hed.Username ASC, t.Username  ASC) AS RowNum,
-		crm.IntroducedBy,cus.Checker,crm.IsVIP,crm.FirstName,crm.LastName,crm.Phone,crm.Phone2,
-		crm.Phone3,crm.Pic1,crm.Pic2,crm.Pic3,crm.Pic4,crm.MobilePhone,crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,
+		crm.IntroducedBy,cus.Checker,crm.IsVIP,crm.FirstName,crm.LastName,
+		crm.PhoneCountryCode+'-'+crm.PhoneAreaCode+'-'+crm.Phone AS Phone1,
+		crm.Phone2CountryCode+'-'+crm.Phone2AreaCode+'-'+crm.Phone2 AS Phone2,
+		crm.Phone3CountryCode+'-'+crm.Phone3AreaCode+'-'+crm.Phone3 AS Phone3,
+		crm.Pic1Name+'-'+crm.Pic1 AS PIC1,
+		crm.Pic2Name+'-'+crm.Pic2 AS PIC2,
+		crm.Pic3Name+'-'+crm.Pic3 AS PIC3,
+		crm.Pic4Name+'-'+crm.Pic4 AS PIC4,
+		crm.MobilePhoneCountryCode+'-'+ crm.MobilePhoneAreaCode +'-'+crm.MobilePhone AS MobilePhone,
+		crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,
 		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username,hed.Custid
 FROM temp2 t	
 	INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
@@ -260,7 +276,7 @@ FROM #Cust_tmp t
 		SELECT Stuff((SELECT ',' + lang.Name
 					 FROM  dbo.crmCustomerLanguage(nolock) clang
 					 inner join dbo.crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
-					 WHERE clang.CustID = t.CustID
+					 WHERE clang.CustID = CASE WHEN t.HeadlineCustid IS NULL THEN t.custid ELSE t.HeadlineCustid END	--t.CustID
 					 FOR XML PATH('')), 1, 1, '')
 		)A (language_name)
 	WHERE t.RowNum BETWEEN @RowStart AND @RowEnd

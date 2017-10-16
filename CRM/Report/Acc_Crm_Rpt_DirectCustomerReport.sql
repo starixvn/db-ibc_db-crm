@@ -33,11 +33,22 @@ DECLARE @RowStart INT, @RowEnd INT
 			,@RowEnd = @RowStart + @PageSize - 1			
 
 CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT)
+CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY,groupID SMALLINT,IsGroupHeadLine BIT,checker INT)
+
 CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline 
 	(
 		groupID ASC
 	)WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
 
+INSERT INTO #tempcustAccount(CustID,groupID,IsGroupHeadLine,checker)
+SELECT  CustID,groupID,IsGroupHeadLine,checker 
+FROM bodb02.dbo.CustAccount WITH(NOLOCK)
+WHERE GroupID
+  NOT IN
+  (SELECT [groupID]
+	FROM bodb02.dbo.CustAccount WITH(NOLOCK)
+	WHERE [groupID]<>0 and IsGroupHeadLine=1)
+  AND GroupID<>0
 
 INSERT INTO #tempHeadline(Custid,Username,groupID)
 SELECT hed.custid,username,groupID
@@ -54,11 +65,7 @@ BEGIN
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position
+				 'Super' AS Position
 		FROM bodb02.dbo.Customer c WITH(NOLOCK) 
 			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
@@ -69,11 +76,7 @@ BEGIN
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position
+				'Master' AS Position
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
@@ -86,12 +89,7 @@ BEGIN
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position
-				
+				'Agent'	AS Position					
 		FROM  bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
@@ -104,16 +102,13 @@ BEGIN
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position
+				'Member' AS Position
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 			INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+				AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 	)
@@ -133,14 +128,14 @@ BEGIN
 		crm.MobilePhoneCountryCode+'-'+ crm.MobilePhoneAreaCode +'-'+crm.MobilePhone AS MobilePhone,
 		crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ	
 	FROM temp t
-		INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
+		LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 		LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 		LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID= CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END
 		LEFT JOIN dbo.crmCountry ctr ON crm.CountryID=ctr.CountryID
 		LEFT JOIN bodb02.dbo.Customer checkerDirect WITH(NOLOCK) ON checkerDirect.CustID= cus.Checker
 		LEFT JOIN bodb02.dbo.CustAccount cahed WITH(NOLOCK) ON hed.CustID=cahed.custid
 		LEFT JOIN bodb02.dbo.Customer checkerhed WITH(NOLOCK) ON checkerhed.CustID= cahed.Checker
-		LEFT JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
+		INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  dbo.crmCustomerLanguage(nolock) clang
@@ -150,6 +145,7 @@ BEGIN
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
+			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
 			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN
 END
@@ -172,11 +168,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 				WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 				WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 				ELSE 'Active' END AS Status,
-			CASE WHEN ci.roleid=1 THEN 'Member'
-				WHEN ci.roleid=2 THEN 'Agent'
-				WHEN ci.roleid=3 THEN 'Master'
-				WHEN ci.roleid=4 THEN 'Super'
-				ELSE  'Guest' END  AS Position
+			'Super'	AS Position	
 	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
 		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
@@ -187,11 +179,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position
+				'Master'	AS Position
 	FROM bodb02.dbo.Customer c WITH(NOLOCK)
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
@@ -204,11 +192,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position	
+				'Agent'	AS Position	
 	FROM  bodb02.dbo.Customer c WITH(NOLOCK)
 		INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
@@ -221,16 +205,13 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,
-				CASE WHEN ci.roleid=1 THEN 'Member'
-					WHEN ci.roleid=2 THEN 'Agent'
-					WHEN ci.roleid=3 THEN 'Master'
-					WHEN ci.roleid=4 THEN 'Super'
-					ELSE  'Guest' END  AS Position
+				'Member'	  AS Position
 	FROM bodb02.dbo.Customer c WITH(NOLOCK)
 		INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 			AND c.roleid=1 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 )	
@@ -249,11 +230,12 @@ SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() 
 		crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,
 		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username,hed.Custid
 FROM temp2 t	
-	INNER JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
+	LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 	LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID	
 	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
+		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
 
 IF @TotalRows = 0  
 BEGIN  
@@ -271,7 +253,7 @@ FROM #Cust_tmp t
 	LEFT JOIN bodb02.dbo.Customer checker WITH(NOLOCK) ON checker.CustID= t.Checker
 	LEFT JOIN bodb02.dbo.CustAccount cahed WITH(NOLOCK) ON t.HeadlineCustid=cahed.custid
 	LEFT JOIN bodb02.dbo.Customer checkerhed WITH(NOLOCK) ON checkerhed.CustID= cahed.Checker
-	LEFT JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
+	INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 	OUTER APPLY(
 		SELECT Stuff((SELECT ',' + lang.Name
 					 FROM  dbo.crmCustomerLanguage(nolock) clang

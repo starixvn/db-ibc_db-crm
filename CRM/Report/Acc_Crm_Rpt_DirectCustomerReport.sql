@@ -52,7 +52,9 @@ WHERE (GroupID
 	FROM bodb02.dbo.CustAccount WITH(NOLOCK)
 	WHERE [groupID]<>0 and IsGroupHeadLine=1)
   AND GroupID<>0)
-  OR custid NOT IN(SELECT custid FROM bodb02.dbo.Customer WITH(NOLOCK))
+  OR groupID IN (SELECT groupID 
+					FROM bodb02.dbo.custAccount WITH(NOLOCK) 
+					WHERE IsGroupHeadline=1 AND custid NOT IN(SELECT custid FROM bodb02.dbo.Customer WITH(NOLOCK)))
 
 INSERT INTO #tempHeadline(Custid,Username,groupID)
 SELECT hed.custid,username,groupID

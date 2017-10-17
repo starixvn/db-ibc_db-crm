@@ -34,6 +34,9 @@ DECLARE @RowStart INT, @RowEnd INT
 
 CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT)
 CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY,groupID SMALLINT,IsGroupHeadLine BIT,checker INT)
+CREATE TABLE #tempSite(Site VARCHAR(10)  PRIMARY KEY)
+INSERT INTO #tempSite(Site)
+select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1
 
 CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline 
 	(
@@ -43,12 +46,13 @@ CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline
 INSERT INTO #tempcustAccount(CustID,groupID,IsGroupHeadLine,checker)
 SELECT  CustID,groupID,IsGroupHeadLine,checker 
 FROM bodb02.dbo.CustAccount WITH(NOLOCK)
-WHERE GroupID
+WHERE (GroupID
   NOT IN
   (SELECT [groupID]
 	FROM bodb02.dbo.CustAccount WITH(NOLOCK)
 	WHERE [groupID]<>0 and IsGroupHeadLine=1)
-  AND GroupID<>0
+  AND GroupID<>0)
+  OR custid NOT IN(SELECT custid FROM bodb02.dbo.Customer WITH(NOLOCK))
 
 INSERT INTO #tempHeadline(Custid,Username,groupID)
 SELECT hed.custid,username,groupID
@@ -70,6 +74,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE @Username IS NULL OR( c.username LIKE @Username+'%')
+				AND c.site IN (select [site] from #tempSite)
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -83,6 +88,7 @@ BEGIN
 				AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.roleid=3 		
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
+				AND c.site IN (select [site] from #tempSite)
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -96,6 +102,7 @@ BEGIN
 				AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.roleid=2 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
+				AND c.site IN (select [site] from #tempSite)
 		UNION ALL
 		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -111,7 +118,7 @@ BEGIN
 				AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-				
+				AND ca.site IN (select [site] from #tempSite)
 
 	)
 
@@ -147,8 +154,7 @@ BEGIN
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
-			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
-			AND t.site IN (select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1)
+			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)			
 			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN
 END
@@ -176,6 +182,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE @Username IS NULL OR( c.username LIKE @Username+'%')
+			AND c.site IN (select [site] from #tempSite)
 	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -189,6 +196,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=3 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
+			AND c.site IN (select [site] from #tempSite)
 	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -202,6 +210,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND ci.roleid=2 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
+			AND c.site IN (select [site] from #tempSite)
 	UNION ALL
 	SELECT  c.Username, c.custid,ca.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -217,6 +226,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 			AND c.roleid=1 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
+			AND ca.site IN (select [site] from #tempSite)
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)
@@ -238,8 +248,7 @@ FROM temp2 t
 	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
-		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
-		AND t.site IN (select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1)
+		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)		
 
 IF @TotalRows = 0  
 BEGIN  

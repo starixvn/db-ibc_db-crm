@@ -111,6 +111,8 @@ BEGIN
 				AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
+				
+
 	)
 
 	SELECT ROW_NUMBER() OVER(ORDER BY hed.Username ASC, t.Username  ASC) AS RowNum,
@@ -146,6 +148,7 @@ BEGIN
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
 			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
+			AND t.site IN (select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1)
 			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN
 END
@@ -236,6 +239,7 @@ FROM temp2 t
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
 		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
+		AND t.site IN (select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1)
 
 IF @TotalRows = 0  
 BEGIN  

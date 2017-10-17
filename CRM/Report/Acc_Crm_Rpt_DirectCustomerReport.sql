@@ -33,7 +33,7 @@ DECLARE @RowStart INT, @RowEnd INT
 			,@RowEnd = @RowStart + @PageSize - 1			
 
 CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT)
-CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY,groupID SMALLINT,IsGroupHeadLine BIT,checker INT)
+CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY)
 CREATE TABLE #tempSite(Site VARCHAR(10)  PRIMARY KEY)
 INSERT INTO #tempSite(Site)
 select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1
@@ -43,8 +43,8 @@ CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline
 		groupID ASC
 	)WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
 
-INSERT INTO #tempcustAccount(CustID,groupID,IsGroupHeadLine,checker)
-SELECT  CustID,groupID,IsGroupHeadLine,checker 
+INSERT INTO #tempcustAccount(CustID)
+SELECT  CustID
 FROM bodb02.dbo.CustAccount WITH(NOLOCK)
 WHERE (GroupID
   NOT IN

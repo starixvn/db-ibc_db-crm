@@ -75,7 +75,7 @@ BEGIN
 		FROM bodb02.dbo.Customer c WITH(NOLOCK) 
 			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-			WHERE @Username IS NULL OR( c.username LIKE @Username+'%')
+			WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND c.site IN (select [site] from #tempSite)
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.Currency,
@@ -183,7 +183,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
 		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-		WHERE @Username IS NULL OR( c.username LIKE @Username+'%')
+		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND c.site IN (select [site] from #tempSite)
 	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,

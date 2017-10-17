@@ -255,7 +255,8 @@ FROM temp2 t
 IF @TotalRows = 0  
 BEGIN  
 	SELECT @TotalRows = COUNT(1)
-	FROM #Cust_tmp
+	FROM #Cust_tmp t
+	INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
 END
 
 SELECT t.headline,t.RowNum,t.Username, t.custid, t.Position,t.site,t.Status,e.Currency,	

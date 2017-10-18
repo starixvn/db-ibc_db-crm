@@ -118,7 +118,7 @@ BEGIN
 				AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+				AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
 
 	)
 
@@ -227,7 +227,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 			AND c.roleid=1 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+			AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)

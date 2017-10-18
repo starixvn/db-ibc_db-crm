@@ -191,15 +191,14 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 					ELSE 'Active' END AS Status,
 				'Master'	AS Position
 	FROM bodb02.dbo.Customer c WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-		INNER JOIN  bodb02.dbo.CustAgent ca WITH(NOLOCK) ON ca.custid = c.custid AND ca.IsInternal = 0  
+		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid			
 		WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=3 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
 	UNION ALL
-	SELECT  c.Username, c.custid,site,c.Currency,
+	SELECT  c.Username, c.custid,c.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
@@ -207,7 +206,8 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 				'Agent'	AS Position	
 	FROM  bodb02.dbo.Customer c WITH(NOLOCK)
 		INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+		INNER JOIN  bodb02.dbo.CustAgent ca WITH(NOLOCK) ON ca.custid = c.custid AND ca.IsInternal = 0  
+		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))		
 			AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND ci.roleid=2 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
@@ -278,6 +278,9 @@ FROM #Cust_tmp t
 		)A (language_name)
 	WHERE t.RowNum BETWEEN @RowStart AND @RowEnd
 	ORDER BY t.headline ASC, t.Username  ASC
+
+
+
 
 
 

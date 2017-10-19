@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 (
 	@UserID						INT,
@@ -78,7 +79,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 	@QQ							NVARCHAR(100)	= NULL,
 	@BBM						NVARCHAR(100)	= NULL,
 	@Ignored					BIT	= 0,	
-	@Checker					NVARCHAR(50)	= NULL,	
+	@IntroducedBy					NVARCHAR(50)	= NULL,	
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
@@ -101,6 +102,7 @@ Revisions:
 	- 20141118@Dom: Add new PIC name
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170511@Winnie: Duplicate & Missing Special Remark [RedmineID: #76399]
+	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 Param's Explanation:
 	
 */
@@ -131,15 +133,6 @@ BEGIN
 		INNER JOIN bodb02.dbo.Customer super WITH(NOLOCK) ON c.srecommend = super.custid
 		INNER JOIN crmSite site WITH(NOLOCK) ON site.sitename = super.site
 		WHERE c.custid = @CustID
-	END
-	
-	IF @Checker IS NULL
-	BEGIN
-	SELECT @Checker=chinfo.username 
-	FROM bodb02.dbo.CustAccount cus WITH(NOLOCK) 
-	INNER JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON cus.checker=ch.custid 
-	INNER JOIN bodb02.dbo.customer chinfo WITH(NOLOCK) ON ch.custid=chinfo.custid 
-	WHERE cus.custid=@CustID
 	END
 	
 	INSERT INTO crmCustomer
@@ -218,7 +211,7 @@ BEGIN
 					Yahoo,
 					QQ,
 					BBM,
-					Checker,
+					[IntroducedBy],
 					Ignored
 				)
 			VALUES
@@ -297,7 +290,7 @@ BEGIN
 					@Yahoo,
 					@QQ,
 					@BBM,
-					@Checker,
+					@IntroducedBy,
 					@Ignored
 				)
 	
@@ -422,7 +415,7 @@ BEGIN
 						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')				+ '</Yahoo>' +
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
-						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')				+ '</Checker>' +
+						'<IntroducedBy>'			+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')	+ '</IntroducedBy>' +
 						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				+ '</Ignored>' +
 					'</Acc_CRM_CustomerIns_New>' 
 				

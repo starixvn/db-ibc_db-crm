@@ -1,3 +1,6 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+USE bodb_CRM
+GO 
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
 (
 	@CustID	INT,
@@ -20,6 +23,7 @@ Revisions:
 	- 20140508@Dom: Add group headline
 	- 20141118@Dom: Return PIC Name
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
+	- 20170911@Winnie: Get Introduced By RedmineID #82040
 Param's Explanation:	
 */
 BEGIN	
@@ -114,11 +118,14 @@ BEGIN
 			ISNULL(c.QQ,'') QQ,
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
-			c.Checker
+			ch.username AS Checker,
+			c.IntroducedBy
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
 			LEFT JOIN bodb02.dbo.customer cust WITH(NOLOCK) ON c.CustID = cust.custID
+			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON c.CustID = ca.custID
+			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			c.CustID = @CustID
 
@@ -266,11 +273,14 @@ BEGIN
 			ISNULL(c.QQ,'') QQ,
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
-			c.Checker
+			ch.Username AS Checker,
+			c.IntroducedBy
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
 			LEFT JOIN bodb02.dbo.custinfo cr WITH(NOLOCK) ON c.CreatorID = cr.custID
+			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON c.CustID = ca.custID
+			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
 
@@ -307,15 +317,3 @@ END
 
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSel_New] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSel_New] TO [vnteam]
-GO 

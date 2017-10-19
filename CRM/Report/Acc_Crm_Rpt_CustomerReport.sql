@@ -24,8 +24,7 @@ Revisions:
 	- 20140812@Dom: Feature [#18860] Change requests on 10 Jul 2014
 	- 20141118@Dom: add more fields of communication tool
 	- 20160712@Winnie: #60341 Modify customer report to display more information
-	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
-	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067	
 	- 20170911@Winnie: Get Checker from NAP RedmineID #82040
 Param's Explanation:
 declare @p1 int

@@ -100,6 +100,7 @@ Revisions:
 	- 20141118@Dom: add more fields of communication tool
 	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20161215@Winnie: HotFix When adding new Guest Feedback, Guest is created but feedback is not RedmineID: RedmineID: #64067
+	- 20171204@Winnie: HotFix Record special characters included in feedback content RedmineID: RedmineID: #85858
 Param's Explanation:
 	
 */
@@ -317,7 +318,7 @@ select CONVERT(VARCHAR(10),@Ignored)
 
 	SELECT @LogElement = 				
 					'<Acc_CRM_CustomerGuestIns>' + --SP Name
-						'<UserName>'				+ ISNULL(@UserName,'')										+ '</UserName>' +
+						'<UserName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@UserName),'')			+ '</UserName>' +
 						'<FirstName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')			+ '</FirstName>' +
 						'<LastName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')			+ '</LastName>' +
 						'<TitleID>'					+ ISNULL(CONVERT(VARCHAR(10),@TitleID),'')					+ '</TitleID>' +

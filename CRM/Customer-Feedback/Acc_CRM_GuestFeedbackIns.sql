@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 					@UserID						INT
 				,	@UserName					NVARCHAR(50)
@@ -328,8 +324,3 @@ BEGIN
 
 END;
 GO 
-
-GRANT EXECUTE ON dbo.Acc_CRM_GuestFeedbackIns TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_GuestFeedbackIns TO vnteam;
-GO

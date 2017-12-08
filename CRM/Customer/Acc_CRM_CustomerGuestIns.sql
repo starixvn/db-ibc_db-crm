@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 (
 	@UserID						INT,
@@ -100,6 +101,7 @@ Revisions:
 	- 20141118@Dom: add more fields of communication tool
 	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20161215@Winnie: HotFix When adding new Guest Feedback, Guest is created but feedback is not RedmineID: RedmineID: #64067
+	- 20171204@Winnie: HotFix Record special characters included in feedback content RedmineID: RedmineID: #85858
 Param's Explanation:
 	
 */
@@ -111,6 +113,7 @@ BEGIN
 
 	IF EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE UserName = @UserName AND CustID < 0)
 	BEGIN
+		PRINT @Username
 		SELECT @ErrCode = 100
 		SELECT @ErrMsg = 'Username already existed.'
 		RETURN
@@ -317,81 +320,81 @@ select CONVERT(VARCHAR(10),@Ignored)
 
 	SELECT @LogElement = 				
 					'<Acc_CRM_CustomerGuestIns>' + --SP Name
-						'<UserName>'				+ ISNULL(@UserName,'')										+ '</UserName>' +
-						'<FirstName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')			+ '</FirstName>' +
-						'<LastName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')			+ '</LastName>' +
-						'<TitleID>'					+ ISNULL(CONVERT(VARCHAR(10),@TitleID),'')					+ '</TitleID>' +
-						'<Birthday>'				+ ISNULL(CONVERT(VARCHAR(30),@Birthday),'')					+ '</Birthday>' +
-						'<LanguageID>'				+ ISNULL(@LanguageID,'')									+ '</LanguageID>' +
-						'<Phone>'					+ ISNULL(@Phone,'')											+ '</Phone>' +
-						'<PhoneCountryCode>'		+ ISNULL(@PhoneCountryCode,'')								+ '</PhoneCountryCode>' +
-						'<PhoneAreaCode>'			+ ISNULL(@PhoneAreaCode,'')									+ '</PhoneAreaCode>' +
-						'<Phone2>'					+ ISNULL(@Phone2,'')										+ '</Phone2>' +
-						'<Phone2CountryCode>'		+ ISNULL(@Phone2CountryCode,'')								+ '</Phone2CountryCode>' +
-						'<Phone2AreaCode>'			+ ISNULL(@Phone2AreaCode,'')								+ '</Phone2AreaCode>' +
-						'<Phone3>'					+ ISNULL(@Phone3,'')										+ '</Phone3>' +
-						'<Phone3CountryCode>'		+ ISNULL(@Phone3CountryCode,'')								+ '</Phone3CountryCode>' +
-						'<Phone3AreaCode>'			+ ISNULL(@Phone3AreaCode,'')								+ '</Phone3AreaCode>' +
-						'<Passport>'				+ ISNULL(@Passport,'')										+ '</Passport>' +
-						'<MobilePhone>'				+ ISNULL(@MobilePhone,'')									+ '</MobilePhone>' +
-						'<MobilePhoneCountryCode>'	+ ISNULL(@MobilePhoneCountryCode,'')						+ '</MobilePhoneCountryCode>' +
-						'<MobilePhoneAreaCode>'		+ ISNULL(@MobilePhoneAreaCode,'')							+ '</MobilePhoneAreaCode>' +
-						'<Fax>'						+ ISNULL(@Fax,'')											+ '</Fax>' +
-						'<FaxCountryCode>'			+ ISNULL(@FaxCountryCode,'')								+ '</FaxCountryCode>' +
-						'<FaxAreaCode>'				+ ISNULL(@FaxAreaCode,'')									+ '</FaxAreaCode>' +
-						'<Email>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')				+ '</Email>' +
-						'<Skype>'					+ ISNULL(@Skype,'')											+ '</Skype>' +
-						'<MSN>'						+ ISNULL(@MSN,'')											+ '</MSN>' +
-						'<BettingCode>'				+ ISNULL(@BettingCode,'')									+ '</BettingCode>' +
-						'<RefCode2>'				+ ISNULL(@RefCode2,'')										+ '</RefCode2>' +
-						'<Pic1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')				+ '</Pic1>' +
-						'<Pic2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')				+ '</Pic2>' +
-						'<Pic3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')				+ '</Pic3>' +
-						'<Pic4>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')				+ '</Pic4>' +
-						'<Pic1Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name),'')			+ '</Pic1Name>' +
-						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')			+ '</Pic2Name>' +
-						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')			+ '</Pic3Name>' +
-						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')			+ '</Pic4Name>' +
-						'<Line1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line1),'')				+ '</Line1>' +
-						'<Line2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line2),'')				+ '</Line2>' +
-						'<Line3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line3),'')				+ '</Line3>' +
-						'<City>'					+ ISNULL([dbo].[f_EncodeXMLValue](@City),'')				+ '</City>' +
-						'<Postcode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Postcode),'')			+ '</Postcode>' +
-						'<State>'					+ ISNULL([dbo].[f_EncodeXMLValue](@State),'')				+ '</State>' +
-						'<BankLine1>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine1),'')			+ '</BankLine1>' +
-						'<BankLine2>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine2),'')			+ '</BankLine2>' +
-						'<BankLine3>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine3),'')			+ '</BankLine3>' +
-						'<BankCity>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCity),'')			+ '</BankCity>' +
-						'<BankCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode),'')			+ '</BankCode>' +
-						'<BankState>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode),'')			+ '</BankState>' +
-						'<Question>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Question),'')			+ '</Question>' +
-						'<Answer>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Answer),'')				+ '</Answer>' +
-						'<CountryID>'				+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')				+ '</CountryID>' +
-						'<IsVIP>'					+ ISNULL(CONVERT(VARCHAR(1),@IsVIP),'')						+ '</IsVIP>' +					
-						'<SiteID>'					+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')					+ '</SiteID>' +
-						'<BankName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')		+ '</BankName>' +
-						'<BankAddress>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankAddress),'')	+ '</BankAddress>' +
-						'<AccountName>'				+ ISNULL(@Wire_AccountName,'')								+ '</AccountName>' +
-						'<AccountNo>'				+ ISNULL(@Wire_AccountNo,'')								+ '</AccountNo>' +
-						'<SwiftCode>'				+ ISNULL(@Wire_SwiftCode,'')								+ '</SwiftCode>' +
-						'<AccountHolderName>'		+ ISNULL(@AccountHolderName,'')								+ '</AccountHolderName>' +	
+						'<UserName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@UserName),'')				+ '</UserName>' +
+						'<FirstName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FirstName),'')				+ '</FirstName>' +
+						'<LastName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@LastName),'')				+ '</LastName>' +
+						'<TitleID>'					+ ISNULL(CONVERT(VARCHAR(10),@TitleID),'')						+ '</TitleID>' +
+						'<Birthday>'				+ ISNULL(CONVERT(VARCHAR(30),@Birthday),'')						+ '</Birthday>' +
+						'<LanguageID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@LanguageID),'')				+ '</LanguageID>' +
+						'<Phone>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Phone),'')					+ '</Phone>' +
+						'<PhoneCountryCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneCountryCode),'')		+ '</PhoneCountryCode>' +
+						'<PhoneAreaCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@PhoneAreaCode),'')			+ '</PhoneAreaCode>' +
+						'<Phone2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2),'')					+ '</Phone2>' +
+						'<Phone2CountryCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2CountryCode),'')		+ '</Phone2CountryCode>' +
+						'<Phone2AreaCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone2AreaCode),'')			+ '</Phone2AreaCode>' +
+						'<Phone3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3),'')					+ '</Phone3>' +
+						'<Phone3CountryCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3CountryCode),'')		+ '</Phone3CountryCode>' +
+						'<Phone3AreaCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Phone3AreaCode),'')			+ '</Phone3AreaCode>' +
+						'<Passport>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Passport),'')				+ '</Passport>' +
+						'<MobilePhone>'				+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhone),'')				+ '</MobilePhone>' +
+						'<MobilePhoneCountryCode>'	+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneCountryCode),'')	+ '</MobilePhoneCountryCode>' +
+						'<MobilePhoneAreaCode>'		+ ISNULL([dbo].[f_EncodeXMLValue](@MobilePhoneAreaCode),'')		+ '</MobilePhoneAreaCode>' +
+						'<Fax>'						+ ISNULL([dbo].[f_EncodeXMLValue](@Fax),'')						+ '</Fax>' +
+						'<FaxCountryCode>'			+ ISNULL([dbo].[f_EncodeXMLValue](@FaxCountryCode),'')			+ '</FaxCountryCode>' +
+						'<FaxAreaCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@FaxAreaCode),'')				+ '</FaxAreaCode>' +
+						'<Email>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Email),'')					+ '</Email>' +
+						'<Skype>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Skype),'')					+ '</Skype>' +
+						'<MSN>'						+ ISNULL([dbo].[f_EncodeXMLValue](@MSN),'')						+ '</MSN>' +
+						'<BettingCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BettingCode),'')				+ '</BettingCode>' +
+						'<RefCode2>'				+ ISNULL([dbo].[f_EncodeXMLValue](@RefCode2),'')				+ '</RefCode2>' +
+						'<Pic1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1),'')					+ '</Pic1>' +
+						'<Pic2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2),'')					+ '</Pic2>' +
+						'<Pic3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3),'')					+ '</Pic3>' +
+						'<Pic4>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4),'')					+ '</Pic4>' +
+						'<Pic1Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic1Name),'')				+ '</Pic1Name>' +
+						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')				+ '</Pic2Name>' +
+						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')				+ '</Pic3Name>' +
+						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')				+ '</Pic4Name>' +
+						'<Line1>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line1),'')					+ '</Line1>' +
+						'<Line2>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line2),'')					+ '</Line2>' +
+						'<Line3>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line3),'')					+ '</Line3>' +
+						'<City>'					+ ISNULL([dbo].[f_EncodeXMLValue](@City),'')					+ '</City>' +
+						'<Postcode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Postcode),'')				+ '</Postcode>' +
+						'<State>'					+ ISNULL([dbo].[f_EncodeXMLValue](@State),'')					+ '</State>' +
+						'<BankLine1>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine1),'')				+ '</BankLine1>' +
+						'<BankLine2>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine2),'')				+ '</BankLine2>' +
+						'<BankLine3>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankLine3),'')				+ '</BankLine3>' +
+						'<BankCity>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCity),'')				+ '</BankCity>' +
+						'<BankCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode),'')				+ '</BankCode>' +
+						'<BankState>'				+ ISNULL([dbo].[f_EncodeXMLValue](@BankCode),'')				+ '</BankState>' +
+						'<Question>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Question),'')				+ '</Question>' +
+						'<Answer>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Answer),'')					+ '</Answer>' +
+						'<CountryID>'				+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')					+ '</CountryID>' +
+						'<IsVIP>'					+ ISNULL(CONVERT(VARCHAR(1),@IsVIP),'')							+ '</IsVIP>' +					
+						'<SiteID>'					+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
+						'<BankName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankName),'')			+ '</BankName>' +
+						'<BankAddress>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_BankAddress),'')		+ '</BankAddress>' +
+						'<AccountName>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_AccountName),'')		+ '</AccountName>' +
+						'<AccountNo>'				+ ISNULL(@Wire_AccountNo,'')									+ '</AccountNo>' +
+						'<SwiftCode>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Wire_SwiftCode),'')			+ '</SwiftCode>' +
+						'<AccountHolderName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@AccountHolderName),'')		+ '</AccountHolderName>' +	
 						--CAST(@SpecialRemark AS VARCHAR(1000)) +
 						--CAST(@Remark AS VARCHAR(1000)) +
-						'<CreatorID>'				+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')				+ '</CreatorID>' +
-						'<IsVerifyEmail>'			+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyEmail),'')			+ '</IsVerifyEmail>' +
-						'<IsVerifyPassport>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyPassport),'')			+ '</IsVerifyPassport>' +
-						'<IsVerifyBirthday>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyBirthday),'')			+ '</IsVerifyBirthday>' +
-						'<IsVerifySecretCode>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifySecretCode),'')		+ '</IsVerifySecretCode>' +
-						'<IsVerifyBetCredit>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyBetCredit),'')		+ '</IsVerifyBetCredit>' +
-						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')			+ '</LicenseeType>' +
-						'<WhatsApp>'				+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')			+ '</WhatsApp>' +
-						'<Line>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')				+ '</Line>' +
-						'<WeChat>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')				+ '</WeChat>' +
-						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')				+ '</Yahoo>' +
-						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')					+ '</QQ>' +
-						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')					+ '</BBM>' +
-						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')				+ '</Checker>' +
-						'<Ignored>'				    + ISNULL(CONVERT(VARCHAR(10),@Ignored),'')				    + '</Ignored>' +					
+						'<CreatorID>'				+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')					+ '</CreatorID>' +
+						'<IsVerifyEmail>'			+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyEmail),'')				+ '</IsVerifyEmail>' +
+						'<IsVerifyPassport>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyPassport),'')				+ '</IsVerifyPassport>' +
+						'<IsVerifyBirthday>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyBirthday),'')				+ '</IsVerifyBirthday>' +
+						'<IsVerifySecretCode>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifySecretCode),'')			+ '</IsVerifySecretCode>' +
+						'<IsVerifyBetCredit>'		+ ISNULL(CONVERT(VARCHAR(10),@IsVerifyBetCredit),'')			+ '</IsVerifyBetCredit>' +
+						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')				+ '</LicenseeType>' +
+						'<WhatsApp>'				+ ISNULL([dbo].[f_EncodeXMLValue](@WhatsApp),'')				+ '</WhatsApp>' +
+						'<Line>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Line),'')					+ '</Line>' +
+						'<WeChat>'					+ ISNULL([dbo].[f_EncodeXMLValue](@WeChat),'')					+ '</WeChat>' +
+						'<Yahoo>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Yahoo),'')					+ '</Yahoo>' +
+						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')						+ '</QQ>' +
+						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')						+ '</BBM>' +
+						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')					+ '</Checker>' +
+						'<Ignored>'				    + ISNULL(CONVERT(VARCHAR(10),@Ignored),'')						+ '</Ignored>' +					
 					'</Acc_CRM_CustomerGuestIns>'
 				
 
@@ -404,14 +407,3 @@ select CONVERT(VARCHAR(10),@Ignored)
 END
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerGuestIns] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerGuestIns] TO [vnteam]
-GO 

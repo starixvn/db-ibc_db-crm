@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_GuestUpdUserName]
 (
 	@UserID		INT,
@@ -19,6 +20,7 @@ AS
 		- 20110701@Lukas: support update username for guest
 		- 20120503@Elodie: check if user exists in CRM system before updating
 		- 20140303@Dom: Modify for new structure
+		- 20171204@Winnie: HotFix Record special characters included in feedback content RedmineID: RedmineID: #85858
 	Param's Explanation:
 	
 */
@@ -67,12 +69,12 @@ BEGIN
 
 	SELECT @NewValues =
 					'<Acc_CRM_GuestUpdUserName>' + --SP Name
-						'<UserName>'		+ ISNULL(@UserName,'')	+ '</UserName>' +						
+						'<UserName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@UserName),'')		+ '</UserName>' +						
 					'</Acc_CRM_GuestUpdUserName>'
 
 	SELECT @OldValues =
 					'<Acc_CRM_GuestUpdUserName>' + --SP Name
-						'<UserName>'		+ ISNULL(@Username_Old,'')	+ '</UserName>' +						
+						'<UserName>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Username_Old),'')		+ '</UserName>' +						
 					'</Acc_CRM_GuestUpdUserName>'
 				
 
@@ -88,15 +90,3 @@ END
 
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_GuestUpdUserName] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_GuestUpdUserName] TO [vnteam]
-GO 

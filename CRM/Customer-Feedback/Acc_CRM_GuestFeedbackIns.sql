@@ -71,15 +71,12 @@ ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@CreatorID					INT
 				,	@FeedbackDate				DATETIME		= NULL
-				,	@ResolutionDate				DATETIME
-				,	@CommunicationID			INT
-				,	@StationID					INT
-				,	@MainCategoryID				INT
-				,	@SubCategoryID				INT
+				,	@ResolutionDate				DATETIME			
 				,	@RoleID						INT				= 7004
-				,	@ProductID					INT
-				,	@SubProductID				INT
-				,	@BettypeID					INT
+				,	@Product					VARCHAR(MAX)			
+				,	@Category					VARCHAR(MAX)
+				,	@CommunicationID			VARCHAR(MAX)
+				,	@StationID					VARCHAR(MAX)			
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@RelatedCustID				NVARCHAR(500)	= NULL
@@ -123,7 +120,23 @@ AS
 		- 20150121@Dom:		Remove Sync code for Old system
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]	 
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - [Redmine: #84714]
 	Param's Explanation:
+	@Product:
+		<ROOT>
+		<Product       
+			ProductID="212" 
+			SubProductID="2401" 
+			BettypeID="1,2,3,4,5"
+		/>
+		</ROOT>
+	@Category:
+		<ROOT>
+			<Category       
+			  MainCategoryID="212" 
+			  SubCategoryID="2401"      
+			/>
+		</ROOT>
 		
 */
 BEGIN	
@@ -292,12 +305,9 @@ BEGIN
 			,	@ResolutionDate			= @ResolutionDate
 			,	@CommunicationID		= @CommunicationID
 			,	@StationID				= @StationID
-			,	@MainCategoryID			= @MainCategoryID
-			,	@SubCategoryID			= @SubCategoryID
-			,	@RoleID					= @RoleID
-			,	@ProductID				= @ProductID
-			,	@SubProductID			= @SubProductID
-			,	@BettypeID				= @BettypeID
+			,	@Category				= @Category	
+			,	@Product				= @Product		
+			,	@RoleID					= @RoleID			
 			,	@ResponseID				= @ResponseID
 			,	@StatusID				= @StatusID
 			,	@RelatedCustID			= @RelatedCustID

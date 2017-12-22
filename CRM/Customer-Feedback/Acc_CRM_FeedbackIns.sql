@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 					@UserID						INT
 				,	@CustID						INT
 				,	@UserName					NVARCHAR(50)
@@ -127,12 +127,12 @@ BEGIN
 		RETURN;
 	END;	
 
-	IF	ISNULL(@CommunicationID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = ''
 	OR	ISNULL(@Category, '') = '' 	
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
@@ -512,6 +512,7 @@ BEGIN
 			,	@Review =  @Review
 			,	@NewValues = @LogElement;
 END;
+
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackIns TO bodbAdminNet;

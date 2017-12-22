@@ -44,8 +44,8 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@FeedbackDate				DATETIME
 				,	@ResolutionDate				DATETIME
-				,	@CommunicationID			INT
-				,	@StationID					INT
+				,	@CommunicationID			VARCHAR(MAX)	
+				,	@StationID					VARCHAR(MAX)	
 				,	@Category					VARCHAR(MAX)		
 				,	@Product					VARCHAR(MAX)						
 				,	@RoleID						INT											

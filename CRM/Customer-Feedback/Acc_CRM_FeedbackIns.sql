@@ -346,7 +346,7 @@ BEGIN
 
 		RETURN;
 	END;
-	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel2)
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
 	SELECT @FeedbackID,MainCategoryID,ISNULL(SubCategoryID,0),0
 	FROM @tblCategory
 
@@ -361,7 +361,7 @@ BEGIN
 		RETURN;
 	END;
 
-	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel2)
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
 	SELECT @FeedbackID,ProductID,ISNULL(SubProductID,0),ISNULL(BetTypeID,0)
 	FROM @tblProduct
 	IF	@@ERROR <> 0
@@ -376,7 +376,7 @@ BEGIN
 		RETURN;
 	END;
 
-	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel2)
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
 	SELECT @FeedbackID,StationID,0,0
 	FROM @tblStation
 	IF	@@ERROR <> 0
@@ -390,7 +390,7 @@ BEGIN
 
 		RETURN;
 	END;
-	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel2)
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
 	SELECT @FeedbackID,CommID,0,0
 	FROM @tblComm
 	IF	@@ERROR <> 0

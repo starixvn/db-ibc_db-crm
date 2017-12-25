@@ -1,4 +1,4 @@
-﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="1"></info>*/
 ALTER  FUNCTION [dbo].[f_GetFeedbackSetting]   
 ( 
 	@FeedbackID		INT, 

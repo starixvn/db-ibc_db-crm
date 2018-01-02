@@ -37,9 +37,7 @@ BEGIN
 		INNER JOIN crmSubCategory s WITH(NOLOCK)  ON  fs.SubSettingID = s.SubCategoryID AND s.MainCategoryID = m.MainCategoryID 
 		LEFT JOIN crmCountry c WITH(NOLOCK) ON c.CountryID = f.CountryID 
 		WHERE f.StatusID <> 11004
-		AND f.FeedbackDate BETWEEN @FromDate AND @ToDate
-		AND (@MainCategoryID = 0 OR f.MainCategoryID = @MainCategoryID)
-		AND (@SubCategoryID = 0 OR f.SubCategoryID = @SubCategoryID)
+		AND f.FeedbackDate BETWEEN @FromDate AND @ToDate	
 		GROUP BY m.Name, s.Name, f.FeedbackDate,c.CountryName,f.CountryID
 		ORDER BY f.FeedbackDate DESC
 	END
@@ -64,7 +62,6 @@ BEGIN
 		ORDER BY f.FeedbackDate DESC
 	END
 END
-
 
 
 GO

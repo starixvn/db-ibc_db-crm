@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_Rpt_DailyStatisticsDetail (
+ALTER PROCEDURE	[dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
 				,	@ToDate				DATETIME
@@ -20,6 +20,7 @@ AS
 	Revisions:	
 		- 20160505@Billy:	Add Sub-Product in Detail Reports - [Redmine: #57052]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -72,7 +73,7 @@ BEGIN
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
 	INSERT INTO	@MainCategory
-		(	MainCategoryID    , MainCategory  )
+		(MainCategoryID,MainCategory)
 	SELECT	r.value('.','INT'), s.SettingValue
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 	INNER JOIN	crmSetting s WITH (NOLOCK)
@@ -156,14 +157,22 @@ BEGIN
 			,	PIC1Name				=	ISNULL(fb.PIC1Name, '')
 			,	PIC2Name				=	ISNULL(fb.PIC2Name, '')
 			,	PIC3Name				=	ISNULL(fb.PIC3Name, '')
-			,	PIC4Name				=	ISNULL(fb.PIC4Name, '')
+			,	PIC4Name				=	ISNULL(fb.PIC4Name, '')		
 		FROM		crmFeedback fb WITH (NOLOCK) 
+		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
+				ON fb.FeedbackID=fp.FeedbackID	
+		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+				ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
+				ON fb.FeedbackID=fc.FeedbackID	
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+				ON fb.FeedbackID=fs.FeedbackID					
 		INNER JOIN	@Product p
-				ON	fb.ProductID = p.ProductID
+				ON	fp.SettingID = p.ProductID
 		INNER JOIN	@MainCategory mc
-				ON	fb.MainCategoryID = mc.MainCategoryID	
+				ON	fm.SettingID = mc.MainCategoryID	
 		INNER JOIN	@Communication cto
-				ON	fb.CommunicationID = cto.CommunicationID
+				ON	fc.SettingID = cto.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		INNER JOIN	crmCustomer c WITH (NOLOCK)
@@ -174,16 +183,16 @@ BEGIN
 				ON	ct.CountryID = fb.CountryID
 		LEFT JOIN	bodb02.dbo.custinfo ci WITH (NOLOCK)
 				ON	fb.CreatorID = ci.custID
-		LEFT JOIN	crmStation Station
-				ON	Station.StationID = fb.StationID		
+		INNER JOIN	crmStation Station
+				ON	Station.StationID = fs.SettingID
 		LEFT JOIN	crmBettype bt WITH (NOLOCK)
-				ON	bt.BettypeID = fb.BettypeID
-				AND	fb.ProductID = bt.ProductID
+				ON	fp.SubSettingIDLevel3 = bt.BettypeID
+				AND	fp.SettingID = bt.ProductID
 		LEFT JOIN	crmStatus st WITH (NOLOCK)
 				ON	st.StatusID = fb.StatusID			
 		LEFT JOIN	crmSubCategory sc WITH (NOLOCK)
-				ON	sc.SubCategoryID = fb.SubCategoryID
-				AND	sc.MainCategoryID = fb.MainCategoryID
+				ON	sc.SubCategoryID = fm.SubSettingID
+				AND	sc.MainCategoryID = fm.SettingID
 		LEFT JOIN	(	SELECT	SettingID ResponseID, SettingValue Response
 						FROM	crmSetting WITH (NOLOCK)
 						WHERE	SettingName = 'Response'
@@ -198,7 +207,7 @@ BEGIN
 						FROM	dbo.crmSetting WITH (NOLOCK)
 						WHERE	SettingName = 'SubProduct'
 					) SP
-				ON	SP.SubProductID = fb.SubProductID	
+				ON	SP.SubProductID = fp.SubSettingID
 		WHERE	fb.feedbackdate BETWEEN @fromdate AND @todate
 			AND	fb.StatusID <> 11004
 			AND	(	@SiteType = 0
@@ -208,7 +217,7 @@ BEGIN
 				OR	(	@SiteType = 1
 					AND	s.IsLicensee = 1
 					)
-				)
+				)		
 		
 		)
 		
@@ -286,12 +295,18 @@ BEGIN
 	BEGIN  
 		SELECT	@TotalRows = COUNT(1)
 		FROM		crmFeedback fb WITH (NOLOCK) 
+		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
+				ON fb.FeedbackID=fp.FeedbackID	
+		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+				ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
+				ON fb.FeedbackID=fc.FeedbackID			
 		INNER JOIN	@Product p
-				ON	fb.ProductID = p.ProductID
+				ON	fp.SettingID = p.ProductID
 		INNER JOIN	@MainCategory mc
-				ON	fb.MainCategoryID = mc.MainCategoryID	
+				ON	fm.SettingID = mc.MainCategoryID	
 		INNER JOIN	@Communication cto
-				ON	fb.CommunicationID = cto.CommunicationID
+				ON	fc.SettingID = cto.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		WHERE	fb.feedbackdate BETWEEN @fromdate AND @todate
@@ -310,12 +325,18 @@ BEGIN
 		SELECT	RowNum		=	ROW_NUMBER() OVER(ORDER BY feedbackdate DESC)
 			,	FeedbackID	=	fb.FeedbackID
 		FROM	crmFeedback fb WITH (NOLOCK)
+		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
+				ON fb.FeedbackID=fp.FeedbackID	
+		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+				ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
+				ON fb.FeedbackID=fc.FeedbackID	
 		INNER JOIN	@Product p
-				ON	fb.ProductID = p.ProductID
+				ON	fp.SettingID = p.ProductID
 		INNER JOIN	@MainCategory mc
-				ON	fb.MainCategoryID = mc.MainCategoryID	
+				ON	fm.SettingID = mc.MainCategoryID	
 		INNER JOIN	@Communication cto
-				ON	fb.CommunicationID = cto.CommunicationID
+				ON	fc.SettingID = cto.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		WHERE	fb.feedbackdate BETWEEN @fromdate AND @todate
@@ -397,12 +418,20 @@ BEGIN
 		FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN	Pag
 				ON	fb.FeedbackID = pag.FeedbackID
+	INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
+			ON fb.FeedbackID=fp.FeedbackID	
+	INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+			ON fb.FeedbackID=fm.FeedbackID
+	INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
+			ON fb.FeedbackID=fc.FeedbackID	
+	INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+			ON fb.FeedbackID=fs.FeedbackID	
 		INNER JOIN	@Product p
-				ON	fb.ProductID = p.ProductID
-		INNER JOIN	@MainCategory mc
-				ON	fb.MainCategoryID = mc.MainCategoryID	
+			ON	fp.SettingID = p.ProductID
+		INNER JOIN	@MainCategory mc		
+			ON	fm.SettingID = mc.MainCategoryID	
 		INNER JOIN	@Communication cto
-				ON	fb.CommunicationID = cto.CommunicationID
+			ON	fc.SettingID = cto.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		INNER JOIN	crmCustomer c WITH (NOLOCK)
@@ -413,16 +442,16 @@ BEGIN
 				ON	ct.CountryID = fb.CountryID
 		LEFT JOIN	bodb02.dbo.custinfo ci WITH (NOLOCK)
 				ON	fb.CreatorID = ci.custID
-		LEFT JOIN	crmStation Station
-				ON	Station.StationID = fb.StationID		
+	INNER JOIN	crmStation Station
+			ON	Station.StationID = fs.SettingID		
 		LEFT JOIN	crmBettype bt WITH (NOLOCK)
-				ON	bt.BettypeID = fb.BettypeID
-				AND	fb.ProductID = bt.ProductID
+			ON	bt.BettypeID = fp.SubSettingIDLevel3
+			AND	fp.SettingID = bt.ProductID
 		LEFT JOIN	crmStatus st WITH (NOLOCK)
 				ON	st.StatusID = fb.StatusID			
 		LEFT JOIN	crmSubCategory sc WITH (NOLOCK)
-				ON	sc.SubCategoryID = fb.SubCategoryID
-				AND	sc.MainCategoryID = fb.MainCategoryID
+			ON	sc.SubCategoryID = fm.SubSettingID
+			AND	sc.MainCategoryID = fm.SettingID
 		LEFT JOIN	(	SELECT	SettingID ResponseID, SettingValue Response
 						FROM	crmSetting WITH (NOLOCK)
 						WHERE	SettingName = 'Response'
@@ -431,13 +460,13 @@ BEGIN
 		LEFT JOIN	(	SELECT	SettingID RoleID, SettingValue Role
 						FROM	crmSetting WITH (NOLOCK)
 						WHERE	SettingName = 'Role'
-					) Role
+				) Role 
 				ON	Role.RoleID = fb.RoleID
 		LEFT JOIN	(	SELECT	SettingID SubProductID, SettingValue SubProduct
 							FROM	dbo.crmSetting WITH (NOLOCK)
 							WHERE	SettingName = 'SubProduct'
 						) SP
-				ON	SP.SubProductID = fb.SubProductID
+			ON	SP.SubProductID = fp.SubSettingID
 		WHERE	pag.RowNum BETWEEN @RowStart AND @RowEnd
 	)
 			
@@ -508,9 +537,4 @@ BEGIN
 		 from temp AS c
 		 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)
 END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_Rpt_DailyStatisticsDetail TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_DailyStatisticsDetail TO vnteam;
 GO

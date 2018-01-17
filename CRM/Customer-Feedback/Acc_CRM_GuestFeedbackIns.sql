@@ -120,7 +120,7 @@ AS
 		- 20140303@Dom:		Modify for new structure
 		- 20141118@Dom:		add more fields of communication tool
 		- 20150121@Dom:		Remove Sync code for Old system
-		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
+		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]	 
 	Param's Explanation:
 		
 */

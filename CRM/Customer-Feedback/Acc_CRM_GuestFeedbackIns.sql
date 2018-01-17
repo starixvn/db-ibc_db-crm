@@ -302,6 +302,7 @@ BEGIN
 			,	@StatusID				= @StatusID
 			,	@RelatedCustID			= @RelatedCustID
 			,	@Description			= @Description
+			,	@AutoField				= @AutoField
 			,	@Solution				= @Solution
 			,	@IsReviewed				= @IsReviewed
 			,	@Review					= @Review

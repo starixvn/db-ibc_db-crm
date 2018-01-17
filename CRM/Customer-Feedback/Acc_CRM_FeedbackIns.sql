@@ -56,6 +56,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
 				,	@StatusID					INT
 				,	@RelatedCustID				VARCHAR(500)	= NULL
 				,	@Description				NVARCHAR(MAX)	= NULL
+				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)	= NULL
 				,	@IsReviewed					BIT				= 0
 				,	@Review						NVARCHAR(MAX)	= NULL
@@ -101,7 +102,7 @@ BEGIN
 	DECLARE	@FeedbackID		INT
 		,	@SolveDate		DATETIME;				
 
-	SELECT @Description= (SELECT '' AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
+	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
 	SELECT	@ErrCode	= 0
 		,	@ErrMsg		= '';

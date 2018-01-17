@@ -84,6 +84,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 				,	@StatusID					INT
 				,	@RelatedCustID				NVARCHAR(500)	= NULL
 				,	@Description				NVARCHAR(MAX)
+				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)	= ''
 				,	@IsReviewed					BIT
 				,	@Review						NVARCHAR(MAX)	= ''
@@ -121,6 +122,7 @@ AS
 		- 20141118@Dom:		add more fields of communication tool
 		- 20150121@Dom:		Remove Sync code for Old system
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]	 
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 		
 */

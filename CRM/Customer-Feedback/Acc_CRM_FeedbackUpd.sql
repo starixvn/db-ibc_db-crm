@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackUpd] (
 					@UserID						INT
 				,	@FeedbackID					INT
@@ -46,6 +42,7 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackUpd] (
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@Description				NVARCHAR(MAX)
+				,	@AutoField					NVARCHAR(MAX)
 				,	@Solution					NVARCHAR(MAX)
 				,	@UpdateReviewedMode			TINYINT			= 0
 				,	@IsReviewed					BIT				= 0
@@ -93,6 +90,7 @@ AS
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20170614@Winnie: Write log for review - [Redmine: #77820]
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -102,8 +100,8 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	
-	DECLARE @SolveDate	DATETIME;
-
+	DECLARE @SolveDate	DATETIME;	
+	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 	
 	SELECT	@ErrCode	= 0
 		,	@ErrMsg		= '';

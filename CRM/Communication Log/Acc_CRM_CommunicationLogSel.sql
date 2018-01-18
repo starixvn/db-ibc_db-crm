@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogSel
 					@FeedbackID INT
 AS
@@ -16,8 +12,26 @@ AS
 	Revisions:
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 */
 BEGIN
+	DECLARE   @AutoField       NVARCHAR(MAX)
+			, @Remark		   NVARCHAR(MAX)
+			, @xmlDoc		   XML
+	DECLARE @iDoc AS INT
+	SELECT @xmlDoc=CAST(Description AS XML)
+	FROM crmfeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID
+
+	EXECUTE	sp_xml_preparedocument @iDoc OUTPUT, @xmlDoc;
+
+	SELECT	@AutoField=ox.AutoField,@Remark=ox.Remark
+	FROM OPENXML (@iDoc, '/ROOT/row', 1) 
+	WITH (
+		AutoField		NVARCHAR(MAX)
+	,	Remark			NVARCHAR(MAX)	
+	) AS ox;
+
+
 	SELECT	f.FeedbackID
 		,	f.CustID
 		,	c.UserName
@@ -37,7 +51,8 @@ BEGIN
 		,	f.SiteID
 		,	f.ResponseID
 		,	f.Subject
-		,	f.Description
+		,	@AutoField	AS AutoField
+		,	@Remark		AS Description
 		,	f.Solution
 		,	f.IsReviewed
 		,	f.Review

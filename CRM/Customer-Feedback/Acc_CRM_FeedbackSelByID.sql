@@ -33,7 +33,7 @@ BEGIN
 	DECLARE @iDoc AS INT
 	SELECT @xmlDoc=CAST(Description AS XML)
 	FROM crmfeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID
-	select @xmlDoc
+
 	EXECUTE	sp_xml_preparedocument @iDoc OUTPUT, @xmlDoc;
 
 	SELECT	@AutoField=ox.AutoField,@Remark=ox.Remark

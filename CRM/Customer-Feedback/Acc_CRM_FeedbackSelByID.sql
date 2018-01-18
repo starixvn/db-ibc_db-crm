@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByID] (
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID] (
 					@FeedbackID INT
 				)
 AS
@@ -33,11 +33,11 @@ BEGIN
 	DECLARE @iDoc AS INT
 	SELECT @xmlDoc=CAST(Description AS XML)
 	FROM crmfeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID
-
+	select @xmlDoc
 	EXECUTE	sp_xml_preparedocument @iDoc OUTPUT, @xmlDoc;
 
 	SELECT	@AutoField=ox.AutoField,@Remark=ox.Remark
-	FROM OPENXML (@iDoc, '/ROOT/crmFeedback', 1) 
+	FROM OPENXML (@iDoc, '/ROOT/row', 1) 
 	WITH (
 		AutoField		NVARCHAR(MAX)
 	,	Remark			NVARCHAR(MAX)	
@@ -94,8 +94,8 @@ BEGIN
 		,	ISNULL(fb.BetTypeID, 0) BettypeID
 		,	ISNULL(fb.ResponseID, 0) ResponseID
 		,	ISNULL(fb.StatusID, 0) StatusID
-		,	@AutoField
-		,	@Remark
+		,	@AutoField AS AutoField
+		,	@Remark AS Description
 		,	fb.Solution
 		,	fb.IsReviewed
 		,	fb.Review

@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 					@CustID				INT
 				,	@RelatedCustID		VARCHAR(500)	= NULL
@@ -21,6 +17,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 				,	@BetTypeID			INT
 				,	@ResponseID			INT
 				,	@StatusID			INT
+				,	@AutoField			NVARCHAR(MAX)	= NULL
 				,	@Description		NVARCHAR(MAX)
 				,	@Solution			NVARCHAR(MAX)
 				,	@Subject			NVARCHAR(200)
@@ -39,7 +36,7 @@ AS
 	Revisions:
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 */
 BEGIN
@@ -121,6 +118,8 @@ BEGIN
 		,	@Yahoo					NVARCHAR(100)	= NULL
 		,	@QQ						NVARCHAR(100)	= NULL
 		,	@BBM					NVARCHAR(100)	= NULL;
+
+	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 	
 	SELECT	@TitleID				= TitleID
 		,	@FirstName				= FirstName

@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogUpd
 					@FeedbackID				INT
 				,	@CustID					INT
@@ -24,6 +20,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogUpd
 				,	@StatusID				INT
 				,	@UpdateReviewedMode		TINYINT = 0
 				,	@Description			NVARCHAR(MAX)
+				,	@AutoField				NVARCHAR(MAX)	= NULL
 				,	@Solution				NVARCHAR(MAX)
 				,	@IsReviewed				BIT
 				,	@Review					NVARCHAR(MAX)	= NULL
@@ -44,6 +41,7 @@ AS
 	Revisions:
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 
 	Param's Explanation:
 */
@@ -62,6 +60,8 @@ BEGIN
 
 		RETURN;
 	END;
+
+	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
 	DECLARE	@CustID_Old					INT
 		,	@RelatedCustID_Old			VARCHAR(MAX)

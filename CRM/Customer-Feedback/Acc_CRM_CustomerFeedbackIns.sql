@@ -233,7 +233,7 @@ BEGIN
 					,	@ErrMsg					= @ErrMsg OUTPUT;
 		END;
 	END; 
-	PRINT	@birthday;
+	
 	-- insert feedback	
 	EXECUTE	dbo.Acc_CRM_FeedbackIns
 				@UserID					= @UserID

@@ -245,8 +245,7 @@ BEGIN
 				,	Role					
 				,	Bettype					
 				,	Response				
-				,	Status					
-				,	Description				
+				,	Status		
 				,	Solution				
 				,	IsReviewed				
 				,	Review					
@@ -475,8 +474,7 @@ BEGIN
 				,	Role					
 				,	Bettype					
 				,	Response				
-				,	Status					
-				,	Description				
+				,	Status			
 				,	Solution				
 				,	IsReviewed				
 				,	Review					

@@ -108,8 +108,7 @@ BEGIN
 						,	t.SubProductID
 						,	t.BetTypeID
 						,	t.ResponseID
-						,	t.StatusID
-						,nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
+						,	t.StatusID					
 						,nr.value(N'@Remark',N'nvarchar(max)') AS Description
 						,	t.Solution
 						,	t.IsReviewed

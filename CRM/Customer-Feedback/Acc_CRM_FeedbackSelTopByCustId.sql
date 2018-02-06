@@ -110,7 +110,7 @@ BEGIN
 						,	t.ResponseID
 						,	t.StatusID
 						,nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
-						,nr.value(N'@Remark',N'nvarchar(max)') AS Remark
+						,nr.value(N'@Remark',N'nvarchar(max)') AS Description
 						,	t.Solution
 						,	t.IsReviewed
 						,	t.Review

@@ -125,7 +125,7 @@ BEGIN
 			,	t.Subject
 			,	t.relatedCustomer
 			,nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
-			,nr.value(N'@Remark',N'nvarchar(max)') AS Remark
+			,nr.value(N'@Remark',N'nvarchar(max)') AS Description
 	FROM temp t
 	OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 	ORDER BY t.FeedbackDate DESC

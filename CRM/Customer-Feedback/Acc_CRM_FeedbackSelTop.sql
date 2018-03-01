@@ -113,7 +113,8 @@ BEGIN
 						,	t.IsRelated
 						,	t.Subject
 						,	t.relatedCustomer
-						, nr.value(N'@Remark',N'nvarchar(max)') AS Description
+						,	nr.value(N'@Remark',N'nvarchar(max)') AS Description
+						,	nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
 	FROM temp t
 		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 		

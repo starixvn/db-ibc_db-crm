@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTop (
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelTop] (
 					@top int = 10
 				)	
 AS
@@ -72,6 +72,7 @@ BEGIN
 		CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 		WHERE	fb.StatusID <> 11004
 			AND	fbc.IsRelated = 0	
+		ORDER BY fb.FeedbackDate DESC
 	)
 					SELECT	t.FeedbackID
 						,	t.CustID
@@ -115,7 +116,7 @@ BEGIN
 						, nr.value(N'@Remark',N'nvarchar(max)') AS Description
 	FROM temp t
 		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
-		ORDER BY t.FeedbackDate DESC
+		
 
 END;
 GO

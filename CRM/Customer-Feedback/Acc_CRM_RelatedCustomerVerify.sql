@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROC [dbo].[Acc_CRM_RelatedCustomerVerify]
+ALTER PROCEDURE dbo.Acc_CRM_RelatedCustomerVerify
 (
 	@UserName	NVARCHAR(MAX) = ''	
 )

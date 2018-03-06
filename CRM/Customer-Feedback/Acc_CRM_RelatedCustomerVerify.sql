@@ -1,4 +1,5 @@
-﻿ALTER PROC [dbo].[Acc_CRM_RelatedCustomerVerify]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE dbo.Acc_CRM_RelatedCustomerVerify
 (
 	@UserName	NVARCHAR(MAX) = ''	
 )
@@ -16,6 +17,7 @@ AS
 		- 20120409@Elodie: return username and custid = 0 if customer doesn't exist
 		- 20121115@Lukas: change the query to use index on DB06
 		- 20130121@Johnson: change linked server DB06 to DBACC
+		- 20180305@Winnie: Support long list of "Verify related customer" RedmineID: #91469
 	Param's Explanation:	
 */
 BEGIN

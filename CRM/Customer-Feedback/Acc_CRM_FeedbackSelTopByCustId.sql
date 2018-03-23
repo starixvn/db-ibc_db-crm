@@ -16,6 +16,7 @@ AS
 	    - 20110722@Kevin:	add @top param
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20180323@Winnie:	CRM - display wrong review information. - [Redmine: #92586]
 	Param's Explanation:
 	
 */
@@ -115,7 +116,7 @@ BEGIN
 						,	t.IsReviewed
 						,	t.Review
 						,	t.ReviewerID
-						,	t.username AS ReviewerName
+						,	t.ReviewerName AS ReviewerName
 						,	t.IsRelated
 						,	t.Subject
 						,	t.relatedCustomer

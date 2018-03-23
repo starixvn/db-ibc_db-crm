@@ -1,9 +1,5 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
-ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByID] (
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID] (
 					@FeedbackID INT
 				)
 AS
@@ -22,14 +18,30 @@ AS
 		- 20141118@Dom:		get more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20160531@Winnie:  Add more cust info
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 		
 */
 BEGIN	
 	SET NOCOUNT ON;
 
-	DECLARE	@RelatedCustID	INT
-		,	@RelatedUserName NVARCHAR(MAX);
+	DECLARE	@RelatedCustID	 INT
+		,	@RelatedUserName NVARCHAR(MAX)
+		,   @AutoField       NVARCHAR(MAX)
+		,   @Remark		     NVARCHAR(MAX)
+		,	@xmlDoc			 XML
+	DECLARE @iDoc AS INT
+	SELECT @xmlDoc=CAST(Description AS XML)
+	FROM crmfeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID
+
+	EXECUTE	sp_xml_preparedocument @iDoc OUTPUT, @xmlDoc;
+
+	SELECT	@AutoField=ox.AutoField,@Remark=ox.Remark
+	FROM OPENXML (@iDoc, '/ROOT/row', 1) 
+	WITH (
+		AutoField		NVARCHAR(MAX)
+	,	Remark			NVARCHAR(MAX)	
+	) AS ox;
 
 		
 	--- get feedback info
@@ -82,7 +94,8 @@ BEGIN
 		,	ISNULL(fb.BetTypeID, 0) BettypeID
 		,	ISNULL(fb.ResponseID, 0) ResponseID
 		,	ISNULL(fb.StatusID, 0) StatusID
-		,	fb.Description
+		,	@AutoField AS AutoField
+		,	@Remark AS Description
 		,	fb.Solution
 		,	fb.IsReviewed
 		,	fb.Review

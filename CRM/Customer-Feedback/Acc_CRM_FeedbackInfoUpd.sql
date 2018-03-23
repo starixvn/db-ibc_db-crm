@@ -1,8 +1,4 @@
-﻿SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 					@UserID						INT
 				,	@FeedbackID					INT
@@ -47,6 +43,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@Description				NVARCHAR(MAX)
+				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)
 				,	@UpdateReviewedMode			TINYINT = 0
 				,	@IsReviewed					BIT				= 0
@@ -98,7 +95,7 @@ AS
 		- 20140303@Dom:		Modify for new structure
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -233,6 +230,7 @@ BEGIN
 			,	@ResponseID				= @ResponseID
 			,	@StatusID				= @StatusID
 			,	@Description			= @Description
+			,	@AutoField				= @AutoField
 			,	@Solution				= @Solution
 			,	@UpdateReviewedMode		= @UpdateReviewedMode
 			,	@IsReviewed				= @IsReviewed

@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
 					@UserID						INT
 				,	@CustID						INT
@@ -60,6 +56,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
 				,	@StatusID					INT
 				,	@RelatedCustID				VARCHAR(500)	= NULL
 				,	@Description				NVARCHAR(MAX)	= NULL
+				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)	= NULL
 				,	@IsReviewed					BIT				= 0
 				,	@Review						NVARCHAR(MAX)	= NULL
@@ -95,7 +92,7 @@ AS
 		- 20140303@Dom:		Modify for new structure
 		- 20141118@Dom:		get more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 	
 */
@@ -104,6 +101,8 @@ BEGIN
 
 	DECLARE	@FeedbackID		INT
 		,	@SolveDate		DATETIME;				
+
+	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
 	SELECT	@ErrCode	= 0
 		,	@ErrMsg		= '';

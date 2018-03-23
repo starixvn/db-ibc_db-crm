@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_Rpt_FeedbackStatisticDetails (
 					@Type			INT
 				,	@MainCategoryID	INT
@@ -26,7 +22,7 @@ AS
 		- 20111011@Lukas:	Add filter duration
 		- 20120425@Sophia:	remove converting @FromDate, @Todate
 		- 20140303@Dom:		Modify for new structure
-
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 		@Type:	- 1		Creator
 				- 2		Country
@@ -123,7 +119,6 @@ BEGIN
 					fb.BetTypeID, 
 					fb.ResponseID, 
 					fb.StatusID, 
-					fb.Description, 
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -203,8 +198,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -284,8 +278,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -366,8 +359,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -447,8 +439,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -528,8 +519,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -609,8 +599,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -691,8 +680,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -771,8 +759,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 
@@ -853,8 +840,7 @@ BEGIN
 					fb.SubProductID, 
 					fb.BetTypeID, 
 					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Description, 
+					fb.StatusID, 					
 					fb.Solution, 
 					fb.IsReviewed, 
 					fb.Review, 

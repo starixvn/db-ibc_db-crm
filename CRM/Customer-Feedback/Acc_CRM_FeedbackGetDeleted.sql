@@ -1,7 +1,4 @@
-﻿SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackGetDeleted (
 					@UserName			NVARCHAR(50)	= NULL
@@ -26,7 +23,7 @@ AS
 		- 20110629@Lukas:	support multiple feedback related customer
 		- 20120425@Sophia:	remove converting @FromDate, @Todate
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-		
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 	Param's Explanation:
 	
 */
@@ -36,7 +33,48 @@ BEGIN
 	DECLARE	@CustID			INT
 		,	@GuestID		INT
 		,	@TotalPages		INT;
-
+	DECLARE @result TABLE (
+				FeedbackID INT
+			,	CustID INT
+			,	UserName NVARCHAR(50)
+			,	TitleID INT
+			,	FirstName  NVARCHAR(50)
+			,	LastName  NVARCHAR(50)
+			,	Phone NVARCHAR(100)
+			,	MobilePhone NVARCHAR(100)
+			,	Fax NVARCHAR(50)
+			,	Email NVARCHAR(254)
+			,	Skype  NVARCHAR(100)
+			,	msn NVARCHAR(100)
+			,	LanguageID INT
+			,	CountryID INT
+			,	CreatorID INT
+			,	CreatorName NVARCHAR(50)
+			,	FeedbackDate DATETIME
+			,	ResolutionDate DATETIME
+			,	CreateDate DATETIME
+			,	SolveDate DATETIME
+			,	CommunicationID INT
+			,	StationID INT
+			,	MainCategoryID INT
+			,	SubCategoryID INT
+			,	SiteID INT 
+			,	RoleID INT
+			,	ProductID INT
+			,	SubProductID INT
+			,	BetTypeID INT
+			,	ResponseID INT
+			,	StatusID INT
+			,	Description XML
+			,	Solution NVARCHAR(MAX)
+			,	IsReviewed BIT
+			,	Review NVARCHAR(MAX)
+			,	ReviewerID INT
+			,	ReviewerName NVARCHAR(50)
+			,	IsRelated BIT
+			,	Subject NVARCHAR(MAX)
+			,	relatedCustomer NVARCHAR(MAX)
+			)
 	--- get feedback for specific customer
 	IF	@UserName IS NOT NULL AND @UserName <> ''
 	BEGIN
@@ -68,7 +106,48 @@ BEGIN
 			WHERE	UserName = @UserName
 				AND	CustID < 0;
 		END;			
-		
+		INSERT INTO @result  (
+				FeedbackID 
+			,	CustID 
+			,	UserName 
+			,	TitleID 
+			,	FirstName 
+			,	LastName  
+			,	Phone
+			,	MobilePhone 
+			,	Fax
+			,	Email 
+			,	Skype 
+			,	msn 
+			,	LanguageID 
+			,	CountryID 
+			,	CreatorID 
+			,	CreatorName 
+			,	FeedbackDate 
+			,	ResolutionDate 
+			,	CreateDate 
+			,	SolveDate 
+			,	CommunicationID 
+			,	StationID 
+			,	MainCategoryID 
+			,	SubCategoryID 
+			,	SiteID  
+			,	RoleID 
+			,	ProductID 
+			,	SubProductID 
+			,	BetTypeID 
+			,	ResponseID 
+			,	StatusID 
+			,	Description 
+			,	Solution 
+			,	IsReviewed 
+			,	Review
+			,	ReviewerID 
+			,	ReviewerName 
+			,	IsRelated 
+			,	Subject 
+			,	relatedCustomer 
+			)
 		SELECT	fb.FeedbackID
 			,	fb.CustID
 			,	ctm.UserName
@@ -134,6 +213,48 @@ BEGIN
 	BEGIN
 		IF	@IsGuest IS NULL ------ get feedback for all customer
 		BEGIN		
+			INSERT INTO @result  (
+				FeedbackID 
+			,	CustID 
+			,	UserName 
+			,	TitleID 
+			,	FirstName 
+			,	LastName  
+			,	Phone
+			,	MobilePhone 
+			,	Fax
+			,	Email 
+			,	Skype 
+			,	msn 
+			,	LanguageID 
+			,	CountryID 
+			,	CreatorID 
+			,	CreatorName 
+			,	FeedbackDate 
+			,	ResolutionDate 
+			,	CreateDate 
+			,	SolveDate 
+			,	CommunicationID 
+			,	StationID 
+			,	MainCategoryID 
+			,	SubCategoryID 
+			,	SiteID  
+			,	RoleID 
+			,	ProductID 
+			,	SubProductID 
+			,	BetTypeID 
+			,	ResponseID 
+			,	StatusID 
+			,	Description 
+			,	Solution 
+			,	IsReviewed 
+			,	Review
+			,	ReviewerID 
+			,	ReviewerName 
+			,	IsRelated 
+			,	Subject 
+			,	relatedCustomer 
+			)
 			SELECT	fb.FeedbackID
 				,	fb.CustID
 				,	ctm.UserName
@@ -197,6 +318,48 @@ BEGIN
 		-- customer
 		ELSE IF	@IsGuest = 0
 		BEGIN
+			INSERT INTO @result  (
+				FeedbackID 
+			,	CustID 
+			,	UserName 
+			,	TitleID 
+			,	FirstName 
+			,	LastName  
+			,	Phone
+			,	MobilePhone 
+			,	Fax
+			,	Email 
+			,	Skype 
+			,	msn 
+			,	LanguageID 
+			,	CountryID 
+			,	CreatorID 
+			,	CreatorName 
+			,	FeedbackDate 
+			,	ResolutionDate 
+			,	CreateDate 
+			,	SolveDate 
+			,	CommunicationID 
+			,	StationID 
+			,	MainCategoryID 
+			,	SubCategoryID 
+			,	SiteID  
+			,	RoleID 
+			,	ProductID 
+			,	SubProductID 
+			,	BetTypeID 
+			,	ResponseID 
+			,	StatusID 
+			,	Description 
+			,	Solution 
+			,	IsReviewed 
+			,	Review
+			,	ReviewerID 
+			,	ReviewerName 
+			,	IsRelated 
+			,	Subject 
+			,	relatedCustomer 
+			)
 			SELECT	fb.FeedbackID
 				,	fb.CustID
 				,	ctm.UserName
@@ -262,6 +425,48 @@ BEGIN
 		ELSE
 		-- get feedback for guest
 		BEGIN
+			INSERT INTO @result  (
+				FeedbackID 
+			,	CustID 
+			,	UserName 
+			,	TitleID 
+			,	FirstName 
+			,	LastName  
+			,	Phone
+			,	MobilePhone 
+			,	Fax
+			,	Email 
+			,	Skype 
+			,	msn 
+			,	LanguageID 
+			,	CountryID 
+			,	CreatorID 
+			,	CreatorName 
+			,	FeedbackDate 
+			,	ResolutionDate 
+			,	CreateDate 
+			,	SolveDate 
+			,	CommunicationID 
+			,	StationID 
+			,	MainCategoryID 
+			,	SubCategoryID 
+			,	SiteID  
+			,	RoleID 
+			,	ProductID 
+			,	SubProductID 
+			,	BetTypeID 
+			,	ResponseID 
+			,	StatusID 
+			,	Description 
+			,	Solution 
+			,	IsReviewed 
+			,	Review
+			,	ReviewerID 
+			,	ReviewerName 
+			,	IsRelated 
+			,	Subject 
+			,	relatedCustomer 
+			)
 			SELECT	fb.FeedbackID
 				,	fb.CustID
 				,	ctm.UserName
@@ -325,6 +530,50 @@ BEGIN
 
 		END; -- end: get feedback for guest
 	END;
+		SELECT		fb.FeedbackID
+				,	fb.CustID
+				,	fb.UserName
+				,	fb.TitleID
+				,	fb.FirstName
+				,	fb.LastName
+				,	fb.Phone
+				,	fb.MobilePhone
+				,	fb.Fax
+				,	fb.Email
+				,	fb.Skype
+				,	fb.msn
+				,	fb.LanguageID
+				,	fb.CountryID
+				,	fb.CreatorID
+				,	fb.username AS CreatorName
+				,	fb.FeedbackDate
+				,	fb.ResolutionDate
+				,	fb.CreateDate
+				,	fb.SolveDate
+				,	fb.CommunicationID
+				,	fb.StationID
+				,	fb.MainCategoryID
+				,	fb.SubCategoryID
+				,	fb.SiteID
+				,	fb.RoleID
+				,	fb.ProductID
+				,	fb.SubProductID
+				,	fb.BetTypeID
+				,	fb.ResponseID
+				,	fb.StatusID
+				,	fb.Description
+				,	fb.Solution
+				,	fb.IsReviewed
+				,	fb.Review
+				,	fb.ReviewerID
+				,	fb.username AS ReviewerName			
+				,	fb.IsRelated
+				,	fb.Subject
+				,	fb.relatedCustomer
+				,nr.value(N'@Remark',N'nvarchar(max)') AS Description
+	FROM @result fb
+		OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
+		ORDER BY fb.FeedbackDate DESC
 END;
 GO
 

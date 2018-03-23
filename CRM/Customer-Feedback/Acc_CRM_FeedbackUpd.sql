@@ -42,7 +42,7 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackUpd] (
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@Description				NVARCHAR(MAX)
-				,	@AutoField					NVARCHAR(MAX)
+				,	@AutoField					NVARCHAR(MAX)	=''
 				,	@Solution					NVARCHAR(MAX)
 				,	@UpdateReviewedMode			TINYINT			= 0
 				,	@IsReviewed					BIT				= 0

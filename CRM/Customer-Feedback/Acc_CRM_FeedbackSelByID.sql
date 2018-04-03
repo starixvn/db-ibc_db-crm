@@ -9,7 +9,6 @@ AS
 	Task:		get feedback info
 	DB:			DB052.bodb_CRM
 	Original:
-
 	Revisions:
 		- 20110629@Lukas:	support get multipe related customer
 		- 20120307@Elodie:	get more 3 values Pic1, Pic2, Pic3
@@ -19,6 +18,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20160531@Winnie:  Add more cust info
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 		
 */
@@ -45,7 +45,7 @@ BEGIN
 
 		
 	--- get feedback info
-	SELECT	fb.FeedbackID
+	SELECT	fb.FeedbackID		
 		,	fb.CustID
 		,	ctm.UserName
 		,	ISNULL(fb.TitleID, 0) TitleID
@@ -83,15 +83,15 @@ BEGIN
 		,	fb.CreateDate
 		,	fb.SolveDate
 		,	fb.LanguageID
-		,	ISNULL(fb.CommunicationID, 0) CommunicationID
-		,	ISNULL(fb.StationID, 0) StationID
-		,	ISNULL(fb.MainCategoryID, 0) MainCategoryID
-		,	ISNULL(fb.SubCategoryID, 0) SubCategoryID
+		,	ISNULL(com.SettingID, 0) CommunicationID
+		,	ISNULL(st.SettingID, 0) StationID
+		,	ISNULL(m.SettingID, 0) MainCategoryID
+		,	ISNULL(s.SettingID, 0) SubCategoryID
 		,	ISNULL(fb.SiteID, 0) SiteID
 		,	ISNULL(fb.RoleID, 0) RoleID
-		,	ISNULL(fb.ProductID, 0) ProductID
-		,	ISNULL(fb.SubProductID, 0) SubProductID
-		,	ISNULL(fb.BetTypeID, 0) BettypeID
+		,	ISNULL(p.SettingID, 0) ProductID
+		,	ISNULL(sp.SettingID, 0) SubProductID
+		,	ISNULL(b.SettingID, 0) BettypeID
 		,	ISNULL(fb.ResponseID, 0) ResponseID
 		,	ISNULL(fb.StatusID, 0) StatusID
 		,	@AutoField AS AutoField
@@ -120,13 +120,35 @@ BEGIN
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID
+	INNER JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fsp 
+			ON fb.FeedbackID=fsp.FeedbackID
+	INNER JOIN [dbo].[crmSetting] p
+			ON p.SettingID=fsp.SettingID AND p.SettingName='Product'
+	INNER JOIN [dbo].[crmSetting] sp
+			ON sp.SettingID=fsp.SubSettingID AND sp.SettingName='SubProduct'		
+	INNER JOIN [dbo].[crmSetting] b
+			ON b.SettingID=fsp.SubSettingIDLevel3 AND b.SettingName='BetType'
+	INNER JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,2) fsc
+			ON fb.FeedbackID=fsc.FeedbackID
+	INNER JOIN [dbo].[crmSetting] m
+			ON m.SettingID=fsc.SettingID AND m.SettingName='MainCategory'
+	INNER JOIN [dbo].[crmSetting] s
+			ON s.SettingID=fsc.SubSettingID AND s.SettingName='SubCategory'
+	LEFT JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,1) fss
+			ON fb.FeedbackID=fss.FeedbackID
+	INNER JOIN [dbo].[crmSetting] st
+			ON st.SettingID=fss.SettingID AND st.SettingName='Station'
+	LEFT JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fscom
+			ON fb.FeedbackID=fscom.FeedbackID
+	INNER JOIN [dbo].[crmSetting] com
+			ON com.SettingID=fscom.SettingID AND com.SettingName='Communication'
 	INNER JOIN bodb02.dbo.custInfo c WITH (NOLOCK)
 			ON	fb.CreatorID = c.custid
 	LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK)
 			ON	fb.ReviewerID = rv.custid
 	WHERE	fb.FeedbackID = @FeedbackID;	
 	
-		SELECT	cf.CustID
+	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
 	FROM		dbo.crmFeedbackCustomer AS cf WITH (NOLOCK)
 	LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)

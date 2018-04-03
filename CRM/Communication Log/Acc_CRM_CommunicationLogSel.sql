@@ -1,4 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogSel
 					@FeedbackID INT
 AS
 /*

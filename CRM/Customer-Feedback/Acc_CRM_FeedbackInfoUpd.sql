@@ -31,15 +31,12 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@RelatedCustID				NVARCHAR(MAX)	= NULL
 				,	@FeedbackDate				DATETIME
 				,	@ResolutionDate				DATETIME
-				,	@CommunicationID			INT
-				,	@StationID					INT
-				,	@MainCategoryID				INT
-				,	@SubCategoryID				INT
+				,	@CommunicationID			VARCHAR(MAX)	
+				,	@StationID					VARCHAR(MAX)
+				,	@Category					VARCHAR(MAX)	
 				,	@SiteID						INT
 				,	@RoleID						INT
-				,	@ProductID					INT
-				,	@SubProductID				INT
-				,	@BettypeID					INT
+				,	@Product					VARCHAR(MAX)				
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@Description				NVARCHAR(MAX)
@@ -96,6 +93,7 @@ AS
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -114,14 +112,14 @@ BEGIN
 		RETURN;
 	END;
 
-	IF	ISNULL(@CommunicationID, 0) = 0 
-	OR	ISNULL(@MainCategoryID, 0) = 0 
-	OR	ISNULL(@SubCategoryID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = ''
+	OR	ISNULL(@Category, '') = ''
+	OR	ISNULL(@Product, '') = ''
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@LanguageID, 0) = 0
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
@@ -220,13 +218,10 @@ BEGIN
 			,	@ResolutionDate			= @ResolutionDate
 			,	@CommunicationID		= @CommunicationID
 			,	@StationID				= @StationID
-			,	@MainCategoryID			= @MainCategoryID
-			,	@SubCategoryID			= @SubCategoryID
+			,	@Category				= @Category		
 			,	@SiteID					= @SiteID
 			,	@RoleID					= @RoleID
-			,	@ProductID				= @ProductID
-			,	@SubProductID			= @SubProductID
-			,	@BettypeID				= @BettypeID
+			,	@Product				= @Product			
 			,	@ResponseID				= @ResponseID
 			,	@StatusID				= @StatusID
 			,	@Description			= @Description

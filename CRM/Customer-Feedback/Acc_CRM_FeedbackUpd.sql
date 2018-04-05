@@ -306,15 +306,15 @@ BEGIN
 		,	@FeedbackDate_Old				= FeedbackDate
 		,	@ResolutionDate_Old				= ResolutionDate
 		,	@SolveDate_Old					= SolveDate
-		,	@CommunicationID_Old			= CommunicationID
-		,	@StationID_Old					= StationID
-		,	@MainCategoryID_Old				= MainCategoryID
-		,	@SubCategoryID_Old				= SubCategoryID
+		--,	@CommunicationID_Old			= CommunicationID
+		--,	@StationID_Old					= StationID
+		--,	@MainCategoryID_Old				= MainCategoryID
+		--,	@SubCategoryID_Old				= SubCategoryID
 		,	@SiteID_Old						= SiteID
 		,	@RoleID_Old						= RoleID
-		,	@ProductID_Old					= ProductID
-		,	@SubProductID_Old				= SubProductID
-		,	@BetTypeID_Old					= BetTypeID
+		--,	@ProductID_Old					= ProductID
+		--,	@SubProductID_Old				= SubProductID
+		--,	@BetTypeID_Old					= BetTypeID
 		,	@ResponseID_Old					= ResponseID
 		,	@StatusID_Old					= StatusID
 		,	@Description_Old				= Description
@@ -389,15 +389,8 @@ BEGIN
 	,	FeedbackDate				= @FeedbackDate
 	,	ResolutionDate				= @ResolutionDate
 	,	SolveDate					= @SolveDate
-	--,	CommunicationID				= @CommunicationID
-	--,	StationID					= @StationID
-	--,	MainCategoryID				= @MainCategoryID
-	--,	SubCategoryID				= @SubCategoryID
 	,	SiteID						= @SiteID
 	,	RoleID						= @RoleID
-	--,	ProductID					= @ProductID
-	--,	SubProductID				= @SubProductID
-	--,	BetTypeID					= @BetTypeID
 	,	ResponseID					= @ResponseID
 	,	StatusID					= @StatusID
 	,	Description					= @Description
@@ -427,15 +420,17 @@ BEGIN
 	WHERE	FeedbackID = @FeedbackID;
 
 	
-    MERGE Production.UnitMeasure AS target  
-    USING (SELECT @UnitMeasureCode, @Name) AS source (UnitMeasureCode, Name)  
-    ON (target.UnitMeasureCode = source.UnitMeasureCode)  
-    WHEN MATCHED THEN   
-        UPDATE SET Name = source.Name  
-	WHEN NOT MATCHED THEN  
-    INSERT (UnitMeasureCode, Name)  
-    VALUES (source.UnitMeasureCode, source.Name)  
-	 
+    MERGE crmfeedbackSetting AS target  
+    USING (SELECT @FeedbackID, SettingID,SubSettingID,SubSettingIDLevel3 FROM @tblFbSetting) AS source (FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)  
+    ON (target.FeedbackID = source.FeedbackID AND target.SettingID=Source.SettingID)  
+    WHEN MATCHED AND (TARGET.SubSettingID <> Source.SubSettingID OR TARGET.SubSettingIDLevel3 <> Source.SubSettingIDLevel3)  THEN   
+        UPDATE SET  SubSettingID = source.SubSettingID,SubSettingIDLevel3 = source.SubSettingIDLevel3
+	WHEN NOT MATCHED BY SOURCE THEN	
+		DELETE 
+	WHEN NOT MATCHED BY TARGET THEN	
+		INSERT (FeedbackID, SettingID,SubSettingID,SubSettingIDLevel3 )  
+		VALUES (@FeedbackID,source.SettingID, source.SubSettingID,source.SubSettingIDLevel3) ;		
+
 	IF	@@ERROR <> 0
 	BEGIN
 		SELECT	@ErrCode = 101
@@ -588,7 +583,7 @@ BEGIN
 			,	@OldValues = @OldValues;
 
 END;
-GO 
+GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackUpd TO bodbAdminNet;
 GO 

@@ -82,16 +82,9 @@ BEGIN
 		,	fb.ResolutionDate
 		,	fb.CreateDate
 		,	fb.SolveDate
-		,	fb.LanguageID
-		,	ISNULL(com.SettingID, 0) CommunicationID
-		,	ISNULL(st.SettingID, 0) StationID
-		,	ISNULL(m.SettingID, 0) MainCategoryID
-		,	ISNULL(s.SettingID, 0) SubCategoryID
+		,	fb.LanguageID	
 		,	ISNULL(fb.SiteID, 0) SiteID
-		,	ISNULL(fb.RoleID, 0) RoleID
-		,	ISNULL(p.SettingID, 0) ProductID
-		,	ISNULL(sp.SettingID, 0) SubProductID
-		,	ISNULL(b.SettingID, 0) BettypeID
+		,	ISNULL(fb.RoleID, 0) RoleID		
 		,	ISNULL(fb.ResponseID, 0) ResponseID
 		,	ISNULL(fb.StatusID, 0) StatusID
 		,	@AutoField AS AutoField
@@ -120,28 +113,6 @@ BEGIN
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID
-	INNER JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fsp 
-			ON fb.FeedbackID=fsp.FeedbackID
-	INNER JOIN [dbo].[crmSetting] p
-			ON p.SettingID=fsp.SettingID AND p.SettingName='Product'
-	INNER JOIN [dbo].[crmSetting] sp
-			ON sp.SettingID=fsp.SubSettingID AND sp.SettingName='SubProduct'		
-	INNER JOIN [dbo].[crmSetting] b
-			ON b.SettingID=fsp.SubSettingIDLevel3 AND b.SettingName='BetType'
-	INNER JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,2) fsc
-			ON fb.FeedbackID=fsc.FeedbackID
-	INNER JOIN [dbo].[crmSetting] m
-			ON m.SettingID=fsc.SettingID AND m.SettingName='MainCategory'
-	INNER JOIN [dbo].[crmSetting] s
-			ON s.SettingID=fsc.SubSettingID AND s.SettingName='SubCategory'
-	LEFT JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,1) fss
-			ON fb.FeedbackID=fss.FeedbackID
-	INNER JOIN [dbo].[crmSetting] st
-			ON st.SettingID=fss.SettingID AND st.SettingName='Station'
-	LEFT JOIN dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fscom
-			ON fb.FeedbackID=fscom.FeedbackID
-	INNER JOIN [dbo].[crmSetting] com
-			ON com.SettingID=fscom.SettingID AND com.SettingName='Communication'
 	INNER JOIN bodb02.dbo.custInfo c WITH (NOLOCK)
 			ON	fb.CreatorID = c.custid
 	LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK)
@@ -157,7 +128,25 @@ BEGIN
 			ON	c1.custid = cf.CustID
 	WHERE	cf.FeedbackID = @FeedbackID 
 		AND	cf.IsRelated = 1;
+		
+			
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
+		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
+				WHEN s.StationID		IS NOT NULL THEN 'Station' 
+				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
+				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
+				END AS SettingType
+	FROM dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fs
+		LEFT JOIN crmMainCategory m 
+			ON fs.SettingID=m.MainCategoryID
+		LEFT JOIN crmStation s 
+			ON fs.SettingID=s.StationID
+		LEFT JOIN crmSetting p
+			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+		LEFT JOIN crmSetting c
+			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END;
+
 
 GO
 

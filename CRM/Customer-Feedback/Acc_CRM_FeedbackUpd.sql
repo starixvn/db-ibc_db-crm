@@ -30,15 +30,19 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackUpd] (
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@FeedbackDate				DATETIME
 				,	@ResolutionDate				DATETIME
-				,	@CommunicationID			INT
-				,	@StationID					INT
-				,	@MainCategoryID				INT
-				,	@SubCategoryID				INT
+				--,	@CommunicationID			INT
+				--,	@StationID					INT
+				--,	@MainCategoryID				INT
+				--,	@SubCategoryID				INT
 				,	@SiteID						INT
 				,	@RoleID						INT
-				,	@ProductID					INT
-				,	@SubProductID				INT		
-				,	@BettypeID					INT
+				--,	@ProductID					INT
+				--,	@SubProductID				INT		
+				--,	@BettypeID					INT
+				,	@CommunicationID			VARCHAR(MAX)	
+				,	@StationID					VARCHAR(MAX)	
+				,	@Category					VARCHAR(MAX)		
+				,	@Product					VARCHAR(MAX)	
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@Description				NVARCHAR(MAX)
@@ -91,6 +95,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20170614@Winnie: Write log for review - [Redmine: #77820]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -114,20 +119,67 @@ BEGIN
 		RETURN;
 	END;
 
-	IF	ISNULL(@CommunicationID, 0) = 0 
-	OR	ISNULL(@MainCategoryID, 0) = 0 
-	OR	ISNULL(@SubCategoryID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = ''
+	OR	ISNULL(@Category, '') = ''
+	OR	ISNULL(@Product, '') = ''
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@LanguageID, '') = ''
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
 
 		RETURN;
 	END;
+
+	DECLARE  @tblFbSetting TABLE(		
+		SettingID			INT
+		,SubSettingID		INT 	
+		,SubSettingIDLevel3	INT 	
+	)
+
+	
+	-- Read XML
+	DECLARE	@iDoc			INT;
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category;
+
+	INSERT INTO	@tblFbSetting
+		( SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT	ox.MainCategoryID, ox.SubCategoryID,0
+	FROM	OPENXML(@iDoc, '/ROOT/Category', 1)
+			WITH (		
+				MainCategoryID				INT
+			,	SubCategoryID				INT					
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;	
+
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Product;
+
+	INSERT INTO	@tblFbSetting
+		( SettingID,SubSettingID,SubSettingIDLevel3)		
+	SELECT	ox.ProductID, ox.SubProductID,ox.BetTypeID
+	FROM	OPENXML(@iDoc, '/ROOT/Product', 1)
+			WITH (		
+				ProductID				INT
+			,	SubProductID			INT	
+			,	BetTypeID				INT
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;
+
+	INSERT INTO	@tblFbSetting
+	( SettingID,SubSettingID,SubSettingIDLevel3)	
+	SELECT SettingID,0,0
+	FROM dbo.strSplit(@StationID,',')
+
+	INSERT INTO	@tblFbSetting
+	( SettingID,SubSettingID,SubSettingIDLevel3)	
+	SELECT SettingID,0,0
+	FROM dbo.strSplit(@CommunicationID,',')
+
 
 	SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate 
 								WHEN @UpdateReviewedMode = 1 THEN GETDATE() 
@@ -179,15 +231,22 @@ BEGIN
 		,	@Subject_Old					NVARCHAR(200)	= NULL
 		,	@FeedbackDate_Old				DATETIME
 		,	@ResolutionDate_Old				DATETIME
-		,	@CommunicationID_Old			INT
-		,	@StationID_Old					INT
-		,	@MainCategoryID_Old				INT
-		,	@SubCategoryID_Old				INT
+		,	@CommunicationID_Old			VARCHAR(1000)
+		,	@StationID_Old					VARCHAR(1000)
+		,	@MainCategoryID_Old				VARCHAR(1000)
+		,	@SubCategoryID_Old				VARCHAR(1000)
+		,	@Communication					VARCHAR(1000)
+		,	@Station						VARCHAR(1000)
+		,	@MainCategoryID					VARCHAR(1000)
+		,	@SubCategoryID					VARCHAR(1000)
 		,	@SiteID_Old						INT
 		,	@RoleID_Old						INT
-		,	@ProductID_Old					INT
-		,	@SubProductID_Old				INT
-		,	@BettypeID_Old					INT
+		,	@ProductID_Old					VARCHAR(1000)
+		,	@SubProductID_Old				VARCHAR(1000)
+		,	@BettypeID_Old					VARCHAR(1000)
+		,	@ProductID						VARCHAR(1000)
+		,	@SubProductID					VARCHAR(1000)
+		,	@BettypeID						VARCHAR(1000)
 		,	@ResponseID_Old					INT
 		,	@StatusID_Old					INT
 		,	@Description_Old				NVARCHAR(MAX)
@@ -330,15 +389,15 @@ BEGIN
 	,	FeedbackDate				= @FeedbackDate
 	,	ResolutionDate				= @ResolutionDate
 	,	SolveDate					= @SolveDate
-	,	CommunicationID				= @CommunicationID
-	,	StationID					= @StationID
-	,	MainCategoryID				= @MainCategoryID
-	,	SubCategoryID				= @SubCategoryID
+	--,	CommunicationID				= @CommunicationID
+	--,	StationID					= @StationID
+	--,	MainCategoryID				= @MainCategoryID
+	--,	SubCategoryID				= @SubCategoryID
 	,	SiteID						= @SiteID
 	,	RoleID						= @RoleID
-	,	ProductID					= @ProductID
-	,	SubProductID				= @SubProductID
-	,	BetTypeID					= @BetTypeID
+	--,	ProductID					= @ProductID
+	--,	SubProductID				= @SubProductID
+	--,	BetTypeID					= @BetTypeID
 	,	ResponseID					= @ResponseID
 	,	StatusID					= @StatusID
 	,	Description					= @Description
@@ -366,6 +425,16 @@ BEGIN
 	,	QQ							= @QQ
 	,	BBM							= @BBM
 	WHERE	FeedbackID = @FeedbackID;
+
+	
+    MERGE Production.UnitMeasure AS target  
+    USING (SELECT @UnitMeasureCode, @Name) AS source (UnitMeasureCode, Name)  
+    ON (target.UnitMeasureCode = source.UnitMeasureCode)  
+    WHEN MATCHED THEN   
+        UPDATE SET Name = source.Name  
+	WHEN NOT MATCHED THEN  
+    INSERT (UnitMeasureCode, Name)  
+    VALUES (source.UnitMeasureCode, source.Name)  
 	 
 	IF	@@ERROR <> 0
 	BEGIN

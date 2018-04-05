@@ -355,6 +355,7 @@ BEGIN
 		-- rollback
 		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
 		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
 		SELECT	@ErrCode = 103
 			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
 

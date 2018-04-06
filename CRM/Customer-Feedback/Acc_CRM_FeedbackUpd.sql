@@ -227,9 +227,7 @@ BEGIN
 		,	@CommunicationID_Old			VARCHAR(1000)
 		,	@StationID_Old					VARCHAR(1000)
 		,	@MainCategoryID_Old				VARCHAR(1000)
-		,	@SubCategoryID_Old				VARCHAR(1000)
-		,	@CommunicationID_New			VARCHAR(1000)
-		,	@StationID_New					VARCHAR(1000)
+		,	@SubCategoryID_Old				VARCHAR(1000)		
 		,	@MainCategoryID_New				VARCHAR(1000)
 		,	@SubCategoryID_New				VARCHAR(1000)
 		,	@SiteID_Old						INT
@@ -394,22 +392,11 @@ BEGIN
 					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SubSettingID=p.SettingID AND p.SettingName='SubProduct'					
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @BettypeID_Old = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
+	SELECT @BettypeID_New = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
                  FROM  @tblFbSetting fs 
 					INNER JOIN crmBettype p WITH(NOLOCK) ON fs.SubSettingIDLevel3=p.BettypeID				
                  FOR XML PATH('')), 1, 1, '')
 	
-	SELECT @CommunicationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
-                 FROM  @tblFbSetting fs 
-					INNER JOIN crmCommunicationTool p WITH(NOLOCK) ON fs.SettingID=p.CommunicationID				
-                 FOR XML PATH('')), 1, 1, '')
-
-	SELECT @StationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
-                FROM  @tblFbSetting fs 
-				INNER JOIN crmStation p WITH(NOLOCK) ON fs.SettingID=p.StationID		
-                FOR XML PATH('')), 1, 1, '')
-	
-
 	DECLARE	@RelatedCustID_Old varchar(max) = '';
 
 	SELECT	@RelatedCustID_Old = '';
@@ -602,8 +589,8 @@ BEGIN
 						'<Creator>'						+ ISNULL(CONVERT(VARCHAR(10),@Creator_Old),'')					+ '</Creator>' +
 						'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
-						'<CommunicationID>'				+ ISNULL(@CommunicationID_New,'')								+ '</CommunicationID>' +
-						'<StationID>'					+ ISNULL(@StationID_New,'')										+ '</StationID>' +
+						'<CommunicationID>'				+ ISNULL(@CommunicationID,'')									+ '</CommunicationID>' +
+						'<StationID>'					+ ISNULL(@StationID,'')											+ '</StationID>' +
 						'<MainCategoryID>'				+ ISNULL(@MainCategoryID_New,'')								+ '</MainCategoryID>' +
 						'<SubCategoryID>'				+ ISNULL(@SubCategoryID_New,'')									+ '</SubCategoryID>' +
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +

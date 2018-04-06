@@ -7,15 +7,12 @@ ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogUpd
 				,	@CountryID				INT
 				,	@FeedbackDate			DATETIME
 				,	@ResolutionDate			DATETIME
-				,	@CommunicationID		INT
-				,	@StationID				INT
-				,	@MainCategoryID			INT
-				,	@SubCategoryID			INT
+				,	@CommunicationID		VARCHAR(MAX)	
+				,	@StationID				VARCHAR(MAX)	
+				,	@Category				VARCHAR(MAX)		
+				,	@Product				VARCHAR(MAX)
 				,	@SiteID					INT
-				,	@RoleID					INT
-				,	@ProductID				INT
-				,	@SubProductID			INT
-				,	@BetTypeID				INT
+				,	@RoleID					INT				
 				,	@ResponseID				INT
 				,	@StatusID				INT
 				,	@UpdateReviewedMode		TINYINT = 0
@@ -42,24 +39,70 @@ AS
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
-
+		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 	Param's Explanation:
 */
 BEGIN
-	IF	ISNULL(@CommunicationID, 0) = 0 
-	OR	ISNULL(@MainCategoryID, 0) = 0 
-	OR	ISNULL(@SubCategoryID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = '' 
+	OR	ISNULL(@Product, '') = '' 
+	OR	ISNULL(@Category, '') = ''
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@LanguageID, 0) = 0
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
-
 		RETURN;
 	END;
+
+	
+	DECLARE  @tblFbSetting TABLE(		
+		SettingID			INT
+		,SubSettingID		INT 	
+		,SubSettingIDLevel3	INT 	
+	)
+
+	
+	-- Read XML
+	DECLARE	@iDoc			INT;
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category;
+
+	INSERT INTO	@tblFbSetting
+		( SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT	ox.MainCategoryID, ox.SubCategoryID,0
+	FROM	OPENXML(@iDoc, '/ROOT/Category', 1)
+			WITH (		
+				MainCategoryID				INT
+			,	SubCategoryID				INT					
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;	
+
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Product;
+
+	INSERT INTO	@tblFbSetting
+		( SettingID,SubSettingID,SubSettingIDLevel3)		
+	SELECT	ox.ProductID, ox.SubProductID,ox.BetTypeID
+	FROM	OPENXML(@iDoc, '/ROOT/Product', 1)
+			WITH (		
+				ProductID				INT
+			,	SubProductID			INT	
+			,	BetTypeID				INT
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;
+
+	INSERT INTO	@tblFbSetting
+	( SettingID,SubSettingID,SubSettingIDLevel3)	
+	SELECT SettingID,0,0
+	FROM dbo.strSplit(@StationID,',')
+
+	INSERT INTO	@tblFbSetting
+	( SettingID,SubSettingID,SubSettingIDLevel3)	
+	SELECT SettingID,0,0
+	FROM dbo.strSplit(@CommunicationID,',')
 
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
@@ -69,15 +112,20 @@ BEGIN
 		,	@CountryID_Old				INT
 		,	@ResolutionDate_Old			DATETIME
 		,	@FeedbackDate_Old			DATETIME
-		,	@CommunicationID_Old		INT
-		,	@StationID_Old				INT
-		,	@MainCategoryID_Old			INT
-		,	@SubCategoryID_Old			INT
+		,	@CommunicationID_Old		VARCHAR(1000)
+		,	@StationID_Old				VARCHAR(1000)
+		,	@MainCategoryID_Old			VARCHAR(1000)
+		,	@SubCategoryID_Old			VARCHAR(1000)
+		,	@MainCategoryID_New			VARCHAR(1000)
+		,	@SubCategoryID_New			VARCHAR(1000)
 		,	@SiteID_Old					INT
 		,	@RoleID_Old					INT
-		,	@ProductID_Old				INT
-		,	@SubProductID_Old			INT
-		,	@BetTypeID_Old				INT
+		,	@ProductID_Old				VARCHAR(1000)
+		,	@SubProductID_Old			VARCHAR(1000)
+		,	@BetTypeID_Old				VARCHAR(1000)
+		,	@ProductID_New				VARCHAR(1000)
+		,	@SubProductID_New			VARCHAR(1000)
+		,	@BetTypeID_New				VARCHAR(1000)
 		,	@ResponseID_Old				INT
 		,	@StatusID_Old				INT
 		,	@Description_Old			NVARCHAR(MAX)
@@ -94,15 +142,8 @@ BEGIN
 		,	@LanguageID_Old			= LanguageID
 		,	@ResolutionDate_Old		= ResolutionDate
 		,	@FeedbackDate_Old		= FeedbackDate
-		,	@CommunicationID_Old	= CommunicationID
-		,	@StationID_Old			= StationID
-		,	@MainCategoryID_Old		= MainCategoryID
-		,	@SubCategoryID_Old		= SubCategoryID
 		,	@SiteID_Old				= SiteID
 		,	@RoleID_Old				= RoleID
-		,	@ProductID_Old			= ProductID
-		,	@SubProductID_Old		= SubProductID
-		,	@BetTypeID_Old			= BetTypeID
 		,	@ResponseID_Old			= ResponseID
 		,	@StatusID_Old			= StatusID
 		,	@Description_Old		= Description
@@ -132,7 +173,7 @@ BEGIN
 	AND	@IsReviewed = 1
 		SET	@ReviewerID = @UserID;
 
-SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate 
+	SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate 
 							WHEN @UpdateReviewedMode = 1 THEN GETDATE() 
 							WHEN @UpdateReviewedMode = 2 THEN NULL 
 							ELSE SolveDate
@@ -155,22 +196,80 @@ SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
-	PRINT	@SolveDate;
+	SELECT @MainCategoryID_Old = Stuff((SELECT ',' + CAST(SettingID AS VARCHAR(50))
+                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+					INNER JOIN crmMainCategory m WITH(NOLOCK) ON fs.SettingID=m.MainCategoryID
+					WHERE FeedbackID=@FeedbackID
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT SubCategoryID_Old = Stuff((SELECT ',' + CAST(SubSettingID AS VARCHAR(50))
+                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+					INNER JOIN crmSubCategory m WITH(NOLOCK) ON fs.SubSettingID=m.SubCategoryID AND fs.SettingID=m.MainCategoryID
+					WHERE FeedbackID=@FeedbackID
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @ProductID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+					WHERE FeedbackID=@FeedbackID
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @SubProductID_Old = Stuff((SELECT ',' + CAST(fs.SubSettingID AS VARCHAR(50))
+                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SubSettingID=p.SettingID AND p.SettingName='SubProduct'
+					WHERE FeedbackID=@FeedbackID
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @BettypeID_Old = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
+                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+					INNER JOIN crmBettype p WITH(NOLOCK) ON fs.SubSettingIDLevel3=p.BettypeID
+					WHERE FeedbackID=@FeedbackID
+                 FOR XML PATH('')), 1, 1, '')
+	
+	SELECT @CommunicationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+					INNER JOIN crmCommunicationTool p WITH(NOLOCK) ON fs.SettingID=p.CommunicationID
+					WHERE FeedbackID=@FeedbackID
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @StationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+                FROM  crmFeedbackSetting fs WITH(NOLOCK) 
+				INNER JOIN crmStation p WITH(NOLOCK) ON fs.SettingID=p.StationID
+				WHERE FeedbackID=@FeedbackID
+                FOR XML PATH('')), 1, 1, '')
+	
+	SELECT @MainCategoryID_New = Stuff((SELECT ',' + CAST(SettingID AS VARCHAR(50))
+                 FROM  @tblFbSetting fs
+					INNER JOIN crmMainCategory m WITH(NOLOCK) ON fs.SettingID=m.MainCategoryID					
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT SubCategoryID_New = Stuff((SELECT ',' + CAST(SubSettingID AS VARCHAR(50))
+                 FROM  @tblFbSetting fs  
+					INNER JOIN crmSubCategory m WITH(NOLOCK) ON fs.SubSettingID=m.SubCategoryID AND fs.SettingID=m.MainCategoryID					
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @ProductID_New = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+                 FROM  @tblFbSetting fs
+					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SettingID=p.SettingID AND p.SettingName='Product'				
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @SubProductID_New = Stuff((SELECT ',' + CAST(fs.SubSettingID AS VARCHAR(50))
+                 FROM  @tblFbSetting fs
+					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SubSettingID=p.SettingID AND p.SettingName='SubProduct'					
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @BetTypeID_New = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
+                 FROM  @tblFbSetting fs 
+					INNER JOIN crmBettype p WITH(NOLOCK) ON fs.SubSettingIDLevel3=p.BettypeID				
+                 FOR XML PATH('')), 1, 1, '')
 
 	UPDATE	crmFeedback WITH (ROWLOCK, UPDLOCK)
 	SET	LanguageID			= @LanguageID
 	,	CountryID			= @CountryID
 	,	ResolutionDate		= @ResolutionDate
 	,	FeedbackDate		= @FeedbackDate
-	,	CommunicationID		= @CommunicationID
-	,	StationID			= @StationID
-	,	MainCategoryID		= @MainCategoryID
-	,	SubCategoryID		= @SubCategoryID
 	,	SiteID				= @SiteID
 	,	RoleID				= @RoleID
-	,	ProductID			= @ProductID
-	,	SubProductID		= @SubProductID
-	,	BetTypeID			= @BetTypeID
 	,	ResponseID			= @ResponseID
 	,	StatusID			= @StatusID
 	,	Description			= @Description
@@ -182,12 +281,30 @@ SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate
 	,	SolveDate			= @SolveDate
 	,	LicenseeType		= @LicenseeType
 	WHERE	FeedbackID = @FeedbackID;
-
 	IF	@@ERROR <> 0
 	BEGIN
 		-- Rollback
 		SELECT	@ErrCode = 103
 			,	@ErrMsg = 'Update feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+
+	MERGE crmfeedbackSetting AS target  
+    USING (SELECT @FeedbackID, SettingID,SubSettingID,SubSettingIDLevel3 FROM @tblFbSetting) AS source (FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)  
+    ON (target.FeedbackID = source.FeedbackID AND target.SettingID=Source.SettingID)  
+    WHEN MATCHED AND (TARGET.SubSettingID <> Source.SubSettingID OR TARGET.SubSettingIDLevel3 <> Source.SubSettingIDLevel3)  THEN   
+        UPDATE SET  SubSettingID = source.SubSettingID,SubSettingIDLevel3 = source.SubSettingIDLevel3
+	WHEN NOT MATCHED BY SOURCE THEN	
+		DELETE 
+	WHEN NOT MATCHED BY TARGET THEN	
+		INSERT (FeedbackID, SettingID,SubSettingID,SubSettingIDLevel3 )  
+		VALUES (@FeedbackID,source.SettingID, source.SubSettingID,source.SubSettingIDLevel3) ;		
+
+	IF	@@ERROR <> 0
+	BEGIN
+		SELECT	@ErrCode = 101
+			,	@ErrMsg = 'updated feedback unsuccessfuly.';
 
 		RETURN;
 	END;
@@ -232,15 +349,15 @@ SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate
 							'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')						+ '</Review>' +
 							'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')				+ '</ResolutionDate>' +
 							'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate_Old),'')					+ '</FeedbackDate>' +
-							'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID_Old),'')				+ '</CommunicationID>' +
-							'<StationID>'					+ ISNULL(CONVERT(VARCHAR(10),@StationID_Old),'')					+ '</StationID>' +
-							'<MainCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@MainCategoryID_Old),'')				+ '</MainCategoryID>' +
-							'<SubCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubCategoryID_Old),'')				+ '</SubCategoryID>' +
+							'<CommunicationID>'				+ ISNULL(@CommunicationID_Old,'')									+ '</CommunicationID>' +
+							'<StationID>'					+ ISNULL(@StationID_Old,'')											+ '</StationID>' +
+							'<MainCategoryID>'				+ ISNULL(@MainCategoryID_Old,'')									+ '</MainCategoryID>' +
+							'<SubCategoryID>'				+ ISNULL(@SubCategoryID_Old,'')										+ '</SubCategoryID>' +
 							'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID_Old),'')						+ '</SiteID>' +
 							'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID_Old),'')						+ '</RoleID>' +
-							'<ProductID>'					+ ISNULL(CONVERT(VARCHAR(10),@ProductID_Old),'')					+ '</ProductID>' +
-							'<SubProductID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubProductID_Old),'')					+ '</SubProductID>' +
-							'<BettypeID>'					+ ISNULL(CONVERT(VARCHAR(10),@BettypeID_Old),'')					+ '</BettypeID>' +
+							'<ProductID>'					+ ISNULL(@ProductID_Old,'')											+ '</ProductID>' +
+							'<SubProductID>'				+ ISNULL(@SubProductID_Old,'')										+ '</SubProductID>' +
+							'<BettypeID>'					+ ISNULL(@BettypeID_Old,'')											+ '</BettypeID>' +
 							'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID_Old),'')					+ '</ResponseID>' +
 							'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')						+ '</StatusID>' +
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID_Old,'')										+ '</RelatedCustID>' +
@@ -260,15 +377,15 @@ SELECT	@SolveDate	= CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate
 							'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review),'')						+ '</Review>' +
 							'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
 							'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
-							'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID),'')				+ '</CommunicationID>' +
-							'<StationID>'					+ ISNULL(CONVERT(VARCHAR(10),@StationID),'')					+ '</StationID>' +
-							'<MainCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@MainCategoryID),'')				+ '</MainCategoryID>' +
-							'<SubCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubCategoryID),'')				+ '</SubCategoryID>' +
+							'<CommunicationID>'				+ ISNULL(@CommunicationID,'')									+ '</CommunicationID>' +
+							'<StationID>'					+ ISNULL(@StationID,'')											+ '</StationID>' +
+							'<MainCategoryID>'				+ ISNULL(@MainCategoryID_New,'')								+ '</MainCategoryID>' +
+							'<SubCategoryID>'				+ ISNULL(@SubCategoryID_New,'')									+ '</SubCategoryID>' +
 							'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
 							'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +
-							'<ProductID>'					+ ISNULL(CONVERT(VARCHAR(10),@ProductID),'')					+ '</ProductID>' +
-							'<SubProductID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubProductID),'')					+ '</SubProductID>' +
-							'<BettypeID>'					+ ISNULL(CONVERT(VARCHAR(10),@BettypeID),'')					+ '</BettypeID>' +
+							'<ProductID>'					+ ISNULL(@ProductID_New,'')										+ '</ProductID>' +
+							'<SubProductID>'				+ ISNULL(@SubProductID_New,'')									+ '</SubProductID>' +
+							'<BettypeID>'					+ ISNULL(@BetTypeID_New,'')										+ '</BettypeID>' +
 							'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
 							'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +

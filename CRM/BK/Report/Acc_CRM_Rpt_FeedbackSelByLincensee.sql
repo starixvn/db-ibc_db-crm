@@ -15,6 +15,7 @@ AS
 		- 20111126@Sophia: Not to show Status is Pending (StatusID = 11001)		
 		- 20140523@Dom: modify site condition
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 	
 */
@@ -22,9 +23,9 @@ BEGIN
 	SET NOCOUNT ON	
 	SELECT	@FromDate	= DATEADD(d,0,CONVERT(CHAR(12),@FromDate, 101)),
 			@ToDate		= DATEADD(ms,-2,DATEADD(d,1,CONVERT(CHAR(12),@ToDate, 101)))
-	;WITH temp AS
-	(
+	
 		SELECT t.*, l.list AS relatedCustomer
+		INTO #temp
 		FROM (	
 				SELECT 
 					fb.FeedbackID, 
@@ -70,7 +71,7 @@ BEGIN
 					AND s.IsLicensee=1
 					AND fb.StatusID NOT IN (11004, 11001)
 			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		)
+		
 		SELECT 
 					fb.FeedbackID, 
 					fb.CustID, 
@@ -102,9 +103,26 @@ BEGIN
 					fb.Subject,
 					fb.relatedCustomer,
 					nr.value(N'@Remark',N'nvarchar(max)') AS Description
-		FROM temp fb
+		FROM #temp fb
 		OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
 		
+		SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
+		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
+				WHEN s.StationID		IS NOT NULL THEN 'Station' 
+				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
+				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
+				END AS SettingType
+		FROM #temp fp
+			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+				ON fs.FeedbackID=fp.FeedbackID	
+			LEFT JOIN crmMainCategory m 
+				ON fs.SettingID=m.MainCategoryID
+			LEFT JOIN crmStation s 
+				ON fs.SettingID=s.StationID
+			LEFT JOIN crmSetting p
+				ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+			LEFT JOIN crmSetting c
+				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END
 
 

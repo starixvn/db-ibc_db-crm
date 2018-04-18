@@ -31,6 +31,7 @@ AS
 		- 20140528@Dom:		Fix bug duplicated data
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 	
 */

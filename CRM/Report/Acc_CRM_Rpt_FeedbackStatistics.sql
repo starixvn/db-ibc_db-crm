@@ -27,6 +27,7 @@ Revisions:
 		- 20120425@Sophia: remove converting @FromDate, @Todate
 		- 20120103@Lukas: exclude Pending feedback (statusID = 11001)
 		- 20140523@Dom: modify site condition
+		- 20180420@Winnie: FB Statistics report - There is no data when filter By Site RedmineID:#94047
 Param's Explanation:
 	@Type:	- 1		By Creator
 			- 2		By Country
@@ -237,16 +238,16 @@ BEGIN
 	BEGIN
 
 		INSERT INTO @Items(Item)
-			SELECT ISNULL(r.SiteID,0)
-			FROM crmfeedback fb WITH(NOLOCK) 
-					LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND r.IsLicensee=0 --fb.SiteID < 6200
-					AND fb.StatusID NOT IN (11001,11004)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			GROUP BY r.SiteName, r.SiteID
-			ORDER BY r.SiteName ASC
+		SELECT ISNULL(fb.SiteID,0)
+		FROM crmfeedback fb WITH(NOLOCK) 
+				LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
+		WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+				AND (r.IsLicensee=0 OR r.IsLicensee IS NULL) --fb.SiteID < 6200
+				AND fb.StatusID NOT IN (11001,11004)
+				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+		GROUP BY r.SiteName, fb.SiteID
+		ORDER BY r.SiteName ASC
 					 
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
@@ -273,7 +274,7 @@ BEGIN
 										LEFT JOIN crmSetting s WITH(NOLOCK) ON fb.SubCategoryID = s.SettingID
 										LEFT JOIN crmSite site WITH(NOLOCK) ON fb.SiteID = site.SiteID
 								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND site.IsLicensee = 0
+										AND (site.IsLicensee = 0 OR site.IsLicensee IS NULL)
 										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
@@ -288,8 +289,7 @@ BEGIN
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 		
 		SELECT	Item 
-		FROM	@Items i
-		
+		FROM	@Items i		
 
 		RETURN
 	END
@@ -605,10 +605,6 @@ BEGIN
 		RETURN
 	END
 END
-
-
-
-
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatistics] TO [bodbAdminNet]
 GO

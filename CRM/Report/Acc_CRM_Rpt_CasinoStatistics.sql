@@ -20,6 +20,7 @@ AS
 		- 20120730@Sophia: Add ProductID = 8017 for Poker
 		- 20130607@Elodie: Add CommunicationID (1005->1010) for every ProductID
 		- 20130805@Kathy:  Add ProductID = 8005 for Bingo
+		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 		@Type:	- 1	Daily
 				- 2	Weekly	
@@ -127,8 +128,8 @@ BEGIN
 
 	
 	INSERT INTO @tmp
-	SELECT	ISNULL(m.SettingID, 0) AS MainCategoryID,
-			ISNULL(m.SettingValue,'N/A') AS MainCategory, 				
+	SELECT	ISNULL(m.MaincategoryID, 0) AS MainCategoryID,
+			ISNULL(m.Maincategory,'N/A') AS MainCategory, 				
 			SUM(CASE WHEN ProductID = 8003 AND CommunicationID = 1000 THEN 1 ELSE 0 END) IBCBetCasino_Call,
 			SUM(CASE WHEN ProductID = 8003 AND CommunicationID = 1001 THEN 1 ELSE 0 END) IBCBetCasino_Email,
 			SUM(CASE WHEN ProductID = 8003 AND CommunicationID = 1002 THEN 1 ELSE 0 END) IBCBetCasino_MSN,
@@ -213,11 +214,16 @@ BEGIN
 			SUM(CASE WHEN ProductID = 8017 AND CommunicationID = 1009 THEN 1 ELSE 0 END) Poker_WhatsApp,
 			SUM(CASE WHEN ProductID = 8017 AND CommunicationID = 1010 THEN 1 ELSE 0 END) Poker_QQ
 	FROM crmFeedback fb WITH(NOLOCK) 
-			LEFT JOIN crmSetting m WITH(NOLOCK) ON fb.MainCategoryID = m.SettingID
-	WHERE ProductID IN (8003, 8005, 8008,8011,8013,8014,8017) 
+		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
+			ON fb.FeedbackID=fp.FeedbackID
+		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+			ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN @category m
+			ON fb.MainCategoryID = m.MaincategoryID
+	WHERE fp.SettingID IN (8003, 8005, 8008,8011,8013,8014,8017) 
 			AND fb.feedbackdate BETWEEN @fromdate AND @todate
 			AND fb.StatusID NOT IN ( 11004, 11001)
-	GROUP BY m.SettingID,m.SettingValue
+	GROUP BY m.MaincategoryID,m.Maincategory
 	
 
 

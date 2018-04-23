@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_CustomerStatistics]
 (
 	@fromdate	DATETIME,
@@ -33,13 +34,13 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
+	CREATE TABLE #DATA(MainCategoryID INT,SubcategoryID INT,Call BIGINT,Email BIGINT,MSN BIGINT,Skype BIGINT,LiveChat BIGINT,NA BIGINT,Yahoo BIGINT,WeChat BIGINT,Line BIGINT,WhatsApp BIGINT,QQ BIGINT)
 
 	IF @SiteType = 0
 	BEGIN			
+		INSERT INTO #DATA	
 		SELECT	ISNULL(fm.SettingID, 0) AS MainCategoryID,
-				ISNULL(fm.SubSettingID,0) AS SubcategoryID,		
-				m.Name AS MainCategory,
-				s.Name AS SubCategory,
+				ISNULL(fm.SubSettingID,0) AS SubcategoryID,					
 				SUM(CASE WHEN CommunicationID = 1000 THEN 1 ELSE 0 END) Call,
 				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
 				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
@@ -54,27 +55,25 @@ BEGIN
 	
 		FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
-		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID	
-		LEFT JOIN  crmSubCategory s WITH(NOLOCK) ON fm.SubSettingID=s.SubCategoryID AND s.MainCategoryID=m.MainCategoryID
+		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID			
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
-		INNER JOIN crmProduct p WITH(NOLOCK) ON fp.SettingID=p.ProductID	
+		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'	
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND p.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+				AND p.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND ((([site].IsLicensee=0 OR fb.SiteID = 0)) OR ([site].IsLicensee=1))		
-		GROUP BY ISNULL(fm.SettingID, 0),
-				ISNULL(fm.SubSettingID,0)
+		GROUP BY	ISNULL(fm.SettingID, 0),
+					ISNULL(fm.SubSettingID,0)				
 		ORDER  BY ISNULL(fm.SettingID, 0),
 				ISNULL(fm.SubSettingID,0)
 
 	END
 	ELSE IF @SiteType = 1
 	BEGIN
+		INSERT INTO #DATA	
 		SELECT	ISNULL(fm.SettingID, 0) AS MainCategoryID,
-				ISNULL(fm.SubSettingID,0) AS SubcategoryID,		
-				m.Name AS MainCategory,
-				s.Name AS SubCategory,				
+				ISNULL(fm.SubSettingID,0) AS SubcategoryID,						
 				SUM(CASE WHEN CommunicationID = 1000 THEN 1 ELSE 0 END) Call,
 				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
 				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
@@ -91,24 +90,22 @@ BEGIN
 		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID	
 		LEFT JOIN  crmSubCategory s WITH(NOLOCK) ON fm.SubSettingID=s.SubCategoryID AND s.MainCategoryID=m.MainCategoryID
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
-		INNER JOIN crmProduct p WITH(NOLOCK) ON fp.SettingID=p.ProductID	
+		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'	
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND p.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+				AND p.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND (([site].IsLicensee=0 OR fb.SiteID = 0))
-		GROUP BY ISNULL(fm.SettingID, 0),
-				ISNULL(fm.SubSettingID,0)
+		GROUP BY	ISNULL(fm.SettingID, 0),
+					ISNULL(fm.SubSettingID,0)					
 		ORDER  BY ISNULL(fm.SettingID, 0),
 				ISNULL(fm.SubSettingID,0)
 	END
 	ELSE IF @SiteType = 2
 	BEGIN
-	
+		INSERT INTO #DATA	
 		SELECT	ISNULL(fm.SettingID, 0) AS MainCategoryID,
-				ISNULL(fm.SubSettingID,0) AS SubcategoryID,		
-				m.Name AS MainCategory,
-				s.Name AS SubCategory,						
+				ISNULL(fm.SubSettingID,0) AS SubcategoryID,											
 				SUM(CASE WHEN CommunicationID = 1000 THEN 1 ELSE 0 END) Call,
 				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
 				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
@@ -125,29 +122,42 @@ BEGIN
 		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID	
 		LEFT JOIN  crmSubCategory s WITH(NOLOCK) ON fm.SubSettingID=s.SubCategoryID AND s.MainCategoryID=m.MainCategoryID
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
-		INNER JOIN crmProduct p WITH(NOLOCK) ON fp.SettingID=p.ProductID	
+		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'		
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND p.ProductID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+				AND p.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND ([site].IsLicensee=1)
-		GROUP BY ISNULL(fm.SettingID, 0),
-				ISNULL(fm.SubSettingID,0)
+		GROUP BY	ISNULL(fm.SettingID, 0),
+					ISNULL(fm.SubSettingID,0)				
 		ORDER  BY ISNULL(fm.SettingID, 0),
 				ISNULL(fm.SubSettingID,0)
 	END
 	
+	SELECT m.MainCategoryID,
+			m.Name MainCategory,
+			s.SubCategoryID,
+			s.Name SubCategory,
+			ISNULL(Call,0)		AS Call,
+			ISNULL(Email,0)		AS Email,
+			ISNULL(MSN,0)		AS MSN,
+			ISNULL(Skype,0)		AS Skype,
+			ISNULL(LiveChat,0)	AS LiveChat,
+			ISNULL(NA,0)		AS NA,
+			ISNULL(Yahoo,0)		AS Yahoo,
+			ISNULL(WeChat,0)	AS WeChat,
+			ISNULL(Line,0)		AS Line,
+			ISNULL(WhatsApp,0)	AS WhatsApp,
+			ISNULL(QQ,0)		AS QQ
+		from crmMainCategory m WITH(NOLOCK) 
+		INNER JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID
+		LEFT JOIN #data d on d.MainCategoryID = m.MainCategoryID and d.SubcategoryID = s.SubCategoryID
+		ORDER by m.MainCategoryID,s.SubcategoryID
+		DROP TABLE #data	
 END
 
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_CustomerStatistics] TO [bodbAdminNet]
 GO 

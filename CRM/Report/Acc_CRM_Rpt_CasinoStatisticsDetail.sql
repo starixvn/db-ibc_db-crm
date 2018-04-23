@@ -40,17 +40,9 @@ BEGIN
 			fb.CreatorID, 			
 			fb.FeedbackDate, 
 			fb.ResolutionDate,
-			fb.SolveDate, 
-			fb.CommunicationID, 
-			fb.StationID, 
-			fb.MainCategoryID,
-			ISNULL(m.Name,'N/A') MainCategory, 							
-			fb.SubCategoryID, 
+			fb.SolveDate, 			
 			fb.SiteID, 
-			fb.RoleID, 
-			fb.ProductID, 
-			ISNULL(p.SettingValue,'N/A') Product, 
-			fb.BetTypeID, 
+			fb.RoleID, 			
 			fb.ResponseID, 
 			fb.StatusID, 					
 			CAST(fb.Description AS XML) AS Description,
@@ -89,11 +81,7 @@ BEGIN
 			fb.PIC3Name,
 			fb.PIC4Name
 	INTO #Data
-	FROM crmFeedback fb WITH(NOLOCK)		
-		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
-			ON fb.FeedbackID=fm.FeedbackID
-		INNER JOIN crmMainCategory m WITH(NOLOCK)
-			ON fm.SettingID=m.MainCategoryID
+	FROM crmFeedback fb WITH(NOLOCK)			
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK)
 			ON fb.FeedbackID=fp.FeedbackID
 		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'
@@ -110,22 +98,16 @@ BEGIN
 				d.LastName, 
 				d.Email, 
 				d.Skype, 
-				d.MSN, 
-				d.Product,
+				d.MSN, 			
 				ISNULL(lang.Name,'N/A') Language, 
 				ISNULL(country.CountryName,'N/A') CountryName, 
 				d.CreateDate, 					
 				ci.UserName as CreatorName, 
 				d.FeedbackDate, 
 				d.ResolutionDate,
-				d.SolveDate, 
-				ISNULL(cto.Name,'N/A') Communication, 
-				ISNULL(Station.Station,'N/A') Station, 
-				d.MainCategory,		
-				ISNULL(sc.Name,'N/A') SubCategory, 
+				d.SolveDate, 			
 				ISNULL(s.SiteName,'N/A') SiteName, 
-				Role.Role, 
-				ISNULL(bt.Name,'N/A') Bettype, 
+				Role.Role,			
 				ISNULL(Response.Response,'N/A') Response, 
 				ISNULL(st.Name,'N/A') Status, 	
 				d.Solution, 
@@ -166,18 +148,12 @@ BEGIN
 		FROM #Data d
 		OUTER APPLY d.Description.nodes(N'//row') AS A(nr)
 		INNER JOIN crmCustomer c WITH(NOLOCK) ON d.CustID = c.CustID
-		LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID		
-		LEFT JOIN crmBettype bt WITH(NOLOCK) ON bt.BettypeID = d.BettypeID AND d.ProductID = bt.ProductID
+		LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID				
 		LEFT JOIN (
 			SELECT SettingValue Title, SettingID TitleID FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Title'
 		) Title ON Title.TitleID = d.TitleID
 		LEFT JOIN crmLanguage lang WITH(NOLOCK) ON lang.LanguageID = d.LanguageID
-		LEFT JOIN crmCountry country WITH(NOLOCK) ON country.CountryID = d.CountryID
-		LEFT JOIN crmCommunicationTool cto WITH(NOLOCK) ON cto.CommunicationID = d.CommunicationID
-		LEFT JOIN (
-			SELECT SettingID StationID, SettingValue Station FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Station'
-		) Station ON Station.StationID = d.StationID		
-		LEFT JOIN crmSubCategory sc WITH(NOLOCK) ON sc.SubCategoryID = d.SubCategoryID and sc.MainCategoryID = d.MainCategoryID
+		LEFT JOIN crmCountry country WITH(NOLOCK) ON country.CountryID = d.CountryID	
 		LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = d.SiteID
 		LEFT JOIN (
 			SELECT SettingID RoleID, SettingValue Role FROM crmSetting WITH(NOLOCK) WHERE SettingName = 'Role'
@@ -187,7 +163,24 @@ BEGIN
 		) Response ON Response.ResponseID = d.ResponseID
 		LEFT JOIN crmStatus st WITH(NOLOCK) ON st.StatusID = d.StatusID
 			ORDER BY d.FeedbackDate DESC
-	
+		
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
+		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
+				WHEN s.StationID		IS NOT NULL THEN 'Station' 
+				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
+				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
+				END AS SettingType
+		FROM #Data fp
+			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+				ON fs.FeedbackID=fp.FeedbackID	
+			LEFT JOIN crmMainCategory m 
+				ON fs.SettingID=m.MainCategoryID
+			LEFT JOIN crmStation s 
+				ON fs.SettingID=s.StationID
+			LEFT JOIN crmSetting p
+				ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+			LEFT JOIN crmSetting c
+				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 
 END
 

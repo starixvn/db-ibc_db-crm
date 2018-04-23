@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_CasinoStatistics]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_CasinoStatistics]
 (
 	@Type		INT = 1,
 	@fromdate	DATETIME,

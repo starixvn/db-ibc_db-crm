@@ -1,5 +1,5 @@
-﻿﻿﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-CREATE PROC [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement]
 (
 	@Year INT,
 	@TimeSpan INT

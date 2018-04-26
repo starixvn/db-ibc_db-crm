@@ -1,4 +1,5 @@
-﻿ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSummary]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSummary]
 (
 	@Year INT
 	,@SiteType TINYINT = 0
@@ -13,8 +14,8 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-		2014-08-12@Dom: Feature [#18860] Change requests on 10 Jul 2014
-		
+		- 2014-08-12@Dom: Feature [#18860] Change requests on 10 Jul 2014
+		- 20180420@Winnie: Missing some data on Categories Summary Report RedmineID:#94053
 Param's Explanation:
 	@SiteType:	0-All,
 				1-IBC,
@@ -41,7 +42,7 @@ BEGIN
 	LEFT JOIN crmSite [site] WITH (NOLOCK) ON [site].SiteID = f.SiteID
 	WHERE f.StatusID <> 11004
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
-		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1))
+		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1)   OR (@SiteType=3 and IsLicensee IS NULL))
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ),
 			LEFT( DATENAME(mm,DATEADD(hour,-@TimeSpan,f.FeedbackDate)),3 ),
 			m.MainCategoryID,

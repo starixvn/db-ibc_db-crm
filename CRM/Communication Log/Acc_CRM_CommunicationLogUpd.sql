@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogUpd
+ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 					@FeedbackID				INT
 				,	@CustID					INT
 				,	@RelatedCustID			VARCHAR(MAX)	= NULL
@@ -289,17 +289,12 @@ BEGIN
 
 		RETURN;
 	END;
-
-	MERGE crmfeedbackSetting AS target  
-    USING (SELECT @FeedbackID, SettingID,SubSettingID,SubSettingIDLevel3 FROM @tblFbSetting) AS source (FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)  
-    ON (target.FeedbackID = source.FeedbackID AND target.SettingID=Source.SettingID)  
-    WHEN MATCHED AND (TARGET.SubSettingID <> Source.SubSettingID OR TARGET.SubSettingIDLevel3 <> Source.SubSettingIDLevel3)  THEN   
-        UPDATE SET  SubSettingID = source.SubSettingID,SubSettingIDLevel3 = source.SubSettingIDLevel3
-	WHEN NOT MATCHED BY SOURCE THEN	
-		DELETE 
-	WHEN NOT MATCHED BY TARGET THEN	
-		INSERT (FeedbackID, SettingID,SubSettingID,SubSettingIDLevel3 )  
-		VALUES (@FeedbackID,source.SettingID, source.SubSettingID,source.SubSettingIDLevel3) ;		
+	
+	DELETE FROM crmfeedbackSetting WHERE FeedbackID=@FeedbackID
+	
+	INSERT INTO crmfeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,t.SettingID,t.SubSettingID,t.SubSettingIDLevel3
+	FROM @tblFbSetting t	
 
 	IF	@@ERROR <> 0
 	BEGIN

@@ -35,15 +35,12 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@FeedbackDate				DATETIME
 				,	@ResolutionDate				DATETIME
-				,	@CommunicationID			INT
-				,	@StationID					INT
-				,	@MainCategoryID				INT
-				,	@SubCategoryID				INT
+				,	@CommunicationID			VARCHAR(MAX)	
+				,	@StationID					VARCHAR(MAX)	
+				,	@Category					VARCHAR(MAX)		
+				,	@Product					VARCHAR(MAX)	
 				,	@SiteID						INT
-				,	@RoleID						INT
-				,	@ProductID					INT
-				,	@SubProductID				INT
-				,	@BettypeID					INT
+				,	@RoleID						INT			
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@RelatedCustID				VARCHAR(500)	= NULL
@@ -96,6 +93,7 @@ AS
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -105,14 +103,13 @@ BEGIN
 	DECLARE @FeedbackID	INT,
 			@SolveDate	DATETIME;
 
-	IF	ISNULL(@CommunicationID, 0) = 0 
-	OR	ISNULL(@MainCategoryID, 0) = 0 
-	OR	ISNULL(@SubCategoryID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = ''
+	OR	ISNULL(@Category, '') = '' 	
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@LanguageID, 0) = 0
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
@@ -282,12 +279,9 @@ BEGIN
 			,	@ResolutionDate			= @ResolutionDate
 			,	@CommunicationID		= @CommunicationID
 			,	@StationID				= @StationID
-			,	@MainCategoryID			= @MainCategoryID
-			,	@SubCategoryID			= @SubCategoryID
+			,	@Category				= @Category		
 			,	@RoleID					= @RoleID
-			,	@ProductID				= @ProductID
-			,	@SubProductID			= @SubProductID
-			,	@BettypeID				= @BettypeID
+			,	@Product				= @Product			
 			,	@ResponseID				= @ResponseID
 			,	@StatusID				= @StatusID
 			,	@RelatedCustID			= @RelatedCustID

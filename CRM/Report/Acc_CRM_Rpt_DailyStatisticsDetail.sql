@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	[dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
 				,	@ToDate				DATETIME
@@ -230,7 +230,7 @@ BEGIN
 		RETURN;
 	END;
 	INSERT INTO #tempFB2(FeedbackID ,FeedbackDate,SiteName)	
-	SELECT fb.FeedbackID,fb.FeedbackDate,s.SiteName
+	SELECT DISTINCT fb.FeedbackID,fb.FeedbackDate,s.SiteName
 	FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
 				ON fb.FeedbackID=fp.FeedbackID	

@@ -1,4 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
@@ -94,7 +95,7 @@ BEGIN
 	IF	((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN		
 		INSERT INTO #tempFB(FeedbackID,Username,SiteName)
-		SELECT fb.FeedbackID,c.UserName,s.SiteName
+		SELECT DISTINCT fb.FeedbackID,c.UserName,s.SiteName
 		FROM crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
 				ON fb.FeedbackID=fp.FeedbackID	
@@ -428,5 +429,6 @@ BEGIN
 			LEFT JOIN crmSetting c
 				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END;
+
 
 GO

@@ -41,26 +41,27 @@ BEGIN
 		INSERT INTO #DATA	
 		SELECT	ISNULL(fm.SettingID, 0) AS MainCategoryID,
 				ISNULL(fm.SubSettingID,0) AS SubcategoryID,					
-				SUM(CASE WHEN CommunicationID = 1000 THEN 1 ELSE 0 END) Call,
-				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
-				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
-				SUM(CASE WHEN CommunicationID = 1003 THEN 1 ELSE 0 END) Skype,
-				SUM(CASE WHEN CommunicationID = 1004 THEN 1 ELSE 0 END) LiveChat,
-				SUM(CASE WHEN CommunicationID = 1005 THEN 1 ELSE 0 END) NA,
-				SUM(CASE WHEN CommunicationID = 1006 THEN 1 ELSE 0 END) Yahoo,	
-				SUM(CASE WHEN CommunicationID = 1007 THEN 1 ELSE 0 END) WeChat,
-				SUM(CASE WHEN CommunicationID = 1008 THEN 1 ELSE 0 END) Line,
-				SUM(CASE WHEN CommunicationID = 1009 THEN 1 ELSE 0 END) WhatsApp,
-				SUM(CASE WHEN CommunicationID = 1010 THEN 1 ELSE 0 END) QQ
+				SUM(CASE WHEN fc.SettingID = 1000 THEN 1 ELSE 0 END) Call,
+				SUM(CASE WHEN fc.SettingID = 1001 THEN 1 ELSE 0 END) Email,
+				SUM(CASE WHEN fc.SettingID = 1002 THEN 1 ELSE 0 END) MSN,
+				SUM(CASE WHEN fc.SettingID = 1003 THEN 1 ELSE 0 END) Skype,
+				SUM(CASE WHEN fc.SettingID = 1004 THEN 1 ELSE 0 END) LiveChat,
+				SUM(CASE WHEN fc.SettingID = 1005 THEN 1 ELSE 0 END) NA,
+				SUM(CASE WHEN fc.SettingID = 1006 THEN 1 ELSE 0 END) Yahoo,	
+				SUM(CASE WHEN fc.SettingID = 1007 THEN 1 ELSE 0 END) WeChat,
+				SUM(CASE WHEN fc.SettingID = 1008 THEN 1 ELSE 0 END) Line,
+				SUM(CASE WHEN fc.SettingID = 1009 THEN 1 ELSE 0 END) WhatsApp,
+				SUM(CASE WHEN fc.SettingID = 1010 THEN 1 ELSE 0 END) QQ
 	
 		FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
 		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID			
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
 		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'	
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND p.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+				AND fp.SubSettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND ((([site].IsLicensee=0 OR fb.SiteID = 0)) OR ([site].IsLicensee=1))		
 		GROUP BY	ISNULL(fm.SettingID, 0),
@@ -74,26 +75,27 @@ BEGIN
 		INSERT INTO #DATA	
 		SELECT	ISNULL(fm.SettingID, 0) AS MainCategoryID,
 				ISNULL(fm.SubSettingID,0) AS SubcategoryID,						
-				SUM(CASE WHEN CommunicationID = 1000 THEN 1 ELSE 0 END) Call,
-				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
-				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
-				SUM(CASE WHEN CommunicationID = 1003 THEN 1 ELSE 0 END) Skype,
-				SUM(CASE WHEN CommunicationID = 1004 THEN 1 ELSE 0 END) LiveChat,
-				SUM(CASE WHEN CommunicationID = 1005 THEN 1 ELSE 0 END) NA,
-				SUM(CASE WHEN CommunicationID = 1006 THEN 1 ELSE 0 END) Yahoo,	
-				SUM(CASE WHEN CommunicationID = 1007 THEN 1 ELSE 0 END) WeChat,
-				SUM(CASE WHEN CommunicationID = 1008 THEN 1 ELSE 0 END) Line,
-				SUM(CASE WHEN CommunicationID = 1009 THEN 1 ELSE 0 END) WhatsApp,
-				SUM(CASE WHEN CommunicationID = 1010 THEN 1 ELSE 0 END) QQ			
+				SUM(CASE WHEN fc.SettingID = 1000 THEN 1 ELSE 0 END) Call,
+				SUM(CASE WHEN fc.SettingID = 1001 THEN 1 ELSE 0 END) Email,
+				SUM(CASE WHEN fc.SettingID = 1002 THEN 1 ELSE 0 END) MSN,
+				SUM(CASE WHEN fc.SettingID = 1003 THEN 1 ELSE 0 END) Skype,
+				SUM(CASE WHEN fc.SettingID = 1004 THEN 1 ELSE 0 END) LiveChat,
+				SUM(CASE WHEN fc.SettingID = 1005 THEN 1 ELSE 0 END) NA,
+				SUM(CASE WHEN fc.SettingID = 1006 THEN 1 ELSE 0 END) Yahoo,	
+				SUM(CASE WHEN fc.SettingID = 1007 THEN 1 ELSE 0 END) WeChat,
+				SUM(CASE WHEN fc.SettingID = 1008 THEN 1 ELSE 0 END) Line,
+				SUM(CASE WHEN fc.SettingID = 1009 THEN 1 ELSE 0 END) WhatsApp,
+				SUM(CASE WHEN fc.SettingID = 1010 THEN 1 ELSE 0 END) QQ			
 		FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID		
 		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID	
 		LEFT JOIN  crmSubCategory s WITH(NOLOCK) ON fm.SubSettingID=s.SubCategoryID AND s.MainCategoryID=m.MainCategoryID
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
 		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'	
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND p.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+				AND fp.SubSettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND (([site].IsLicensee=0 OR fb.SiteID = 0))
 		GROUP BY	ISNULL(fm.SettingID, 0),
@@ -106,32 +108,34 @@ BEGIN
 		INSERT INTO #DATA	
 		SELECT	ISNULL(fm.SettingID, 0) AS MainCategoryID,
 				ISNULL(fm.SubSettingID,0) AS SubcategoryID,											
-				SUM(CASE WHEN CommunicationID = 1000 THEN 1 ELSE 0 END) Call,
-				SUM(CASE WHEN CommunicationID = 1001 THEN 1 ELSE 0 END) Email,
-				SUM(CASE WHEN CommunicationID = 1002 THEN 1 ELSE 0 END) MSN,
-				SUM(CASE WHEN CommunicationID = 1003 THEN 1 ELSE 0 END) Skype,
-				SUM(CASE WHEN CommunicationID = 1004 THEN 1 ELSE 0 END) LiveChat,
-				SUM(CASE WHEN CommunicationID = 1005 THEN 1 ELSE 0 END) NA,
-				SUM(CASE WHEN CommunicationID = 1006 THEN 1 ELSE 0 END) Yahoo,	
-				SUM(CASE WHEN CommunicationID = 1007 THEN 1 ELSE 0 END) WeChat,
-				SUM(CASE WHEN CommunicationID = 1008 THEN 1 ELSE 0 END) Line,
-				SUM(CASE WHEN CommunicationID = 1009 THEN 1 ELSE 0 END) WhatsApp,
-				SUM(CASE WHEN CommunicationID = 1010 THEN 1 ELSE 0 END) QQ			
+				SUM(CASE WHEN fc.SettingID = 1000 THEN 1 ELSE 0 END) Call,
+				SUM(CASE WHEN fc.SettingID = 1001 THEN 1 ELSE 0 END) Email,
+				SUM(CASE WHEN fc.SettingID = 1002 THEN 1 ELSE 0 END) MSN,
+				SUM(CASE WHEN fc.SettingID = 1003 THEN 1 ELSE 0 END) Skype,
+				SUM(CASE WHEN fc.SettingID = 1004 THEN 1 ELSE 0 END) LiveChat,
+				SUM(CASE WHEN fc.SettingID = 1005 THEN 1 ELSE 0 END) NA,
+				SUM(CASE WHEN fc.SettingID = 1006 THEN 1 ELSE 0 END) Yahoo,	
+				SUM(CASE WHEN fc.SettingID = 1007 THEN 1 ELSE 0 END) WeChat,
+				SUM(CASE WHEN fc.SettingID = 1008 THEN 1 ELSE 0 END) Line,
+				SUM(CASE WHEN fc.SettingID = 1009 THEN 1 ELSE 0 END) WhatsApp,
+				SUM(CASE WHEN fc.SettingID = 1010 THEN 1 ELSE 0 END) QQ			
 		FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID	
 		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fm.SettingID=m.MainCategoryID	
 		LEFT JOIN  crmSubCategory s WITH(NOLOCK) ON fm.SubSettingID=s.SubCategoryID AND s.MainCategoryID=m.MainCategoryID
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
 		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'		
 		LEFT JOIN crmSite [site] WITH(NOLOCK) ON [site].SiteID = fb.SiteID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-				AND p.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+				AND fp.SubSettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 				AND fb.StatusID NOT IN (11004, 11001)
 				AND ([site].IsLicensee=1)
 		GROUP BY	ISNULL(fm.SettingID, 0),
 					ISNULL(fm.SubSettingID,0)				
 		ORDER  BY ISNULL(fm.SettingID, 0),
 				ISNULL(fm.SubSettingID,0)
+
 	END
 	
 	SELECT m.MainCategoryID,
@@ -155,6 +159,7 @@ BEGIN
 		ORDER by m.MainCategoryID,s.SubcategoryID
 		DROP TABLE #data	
 END
+
 
 
 GO

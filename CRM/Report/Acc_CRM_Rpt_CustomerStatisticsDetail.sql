@@ -34,78 +34,20 @@ AS
 					2: Licensee				
 */
 BEGIN
-	SET NOCOUNT ON	 	
-	SELECT	fb.FeedbackID, 
-			fb.CustID, 
-			fb.TitleID, 			
-			fb.FirstName, 
-			fb.LastName, 
-			fb.Email, 
-			fb.Skype, 
-			fb.MSN,
-			fb.ProductID, 
-			fb.LanguageID, 
-			fb.CountryID, 
-			fb.CreateDate, 		
-			fb.CreatorID, 			
-			fb.FeedbackDate, 
-			fb.ResolutionDate,
-			fb.SolveDate, 
-			fb.CommunicationID, 
-			fb.StationID, 
-			fb.MainCategoryID, 		
-			fb.SubCategoryID, 
-			fb.SiteID, 
-			fb.RoleID, 
-			fb.BetTypeID, 
-			fb.ResponseID, 
-			fb.StatusID, 		
-			CAST(fb.Description AS XML) AS Description,
-			fb.Solution, 
-			fb.IsReviewed, 
-			fb.Review, 
-			fb.ReviewerID, 
-			fb.Subject,
-			fb.FaxCountryCode,
-			fb.FaxAreaCode,
-			fb.Fax,
-			fb.PhoneCountryCode,
-			fb.PhoneAreaCode,
-			fb.Phone,
-			fb.Phone2CountryCode,
-			fb.Phone2AreaCode,
-			fb.Phone2,
-			fb.Phone3CountryCode,
-			fb.Phone3AreaCode,
-			fb.Phone3,
-			fb.MobilePhoneCountryCode,
-			fb.MobilePhoneAreaCode,
-			fb.MobilePhone,
-			fb.WhatsApp,
-			fb.Line,
-			fb.WeChat,
-			fb.Yahoo,
-			fb.QQ,
-			fb.BBM,
-			fb.PIC1,
-			fb.PIC2,
-			fb.PIC3,
-			fb.PIC4,
-			fb.PIC1Name,
-			fb.PIC2Name,
-			fb.PIC3Name,
-			fb.PIC4Name
-	INTO #DATA
+	SET NOCOUNT ON	 
+	CREATE TABLE #temp (FeedbackID INT PRIMARY KEY)
+	INSERT INTO #temp(FeedbackID)
+	SELECT	DISTINCT fb.FeedbackID
 	FROM crmFeedback fb WITH(NOLOCK)
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID
 		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'
 		LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate		
-		AND fp.SettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
+		AND fp.SubSettingID NOT IN (8003, 8005, 8008, 8011, 8013, 8014, 8017)
 		AND fb.StatusID <> 11004
 		AND ( (@SiteType=0) OR (@SiteType=1 AND (st.IsLicensee=0 OR ISNULL(fb.SiteID,0)=0)) OR (@SiteType=2 AND st.IsLicensee=1))
 	
-	SELECT FeedbackID, 
+	SELECT d.FeedbackID, 
 			d.CustID, 
 			d.TitleID,
 			c.UserName,
@@ -160,9 +102,10 @@ BEGIN
 			ISNULL(d.PIC2Name,'') PIC2Name,
 			ISNULL(d.PIC3Name,'') PIC3Name,
 			ISNULL(d.PIC4Name,'') PIC4Name,
-			nr.value(N'@Remark',N'nvarchar(max)') AS Description
-	FROM #DATA d
-	OUTER APPLY d.Description.nodes(N'//row') AS A(nr)
+			CAST(d.Description AS XML) AS Description			
+	INTO #Data
+	FROM #temp t
+	INNER JOIN crmFeedback d WITH(NOLOCK) ON t.Feedbackid=d.Feedbackid	
 	INNER JOIN crmCustomer c WITH(NOLOCK) ON d.CustID = c.CustID		
 	LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON d.CreatorID = ci.custID		
 	LEFT JOIN crmLanguage l WITH(NOLOCK) ON l.LanguageID = d.languageid
@@ -176,6 +119,66 @@ BEGIN
 	) Response ON Response.ResponseID = d.ResponseID
 	LEFT JOIN crmStatus st WITH(NOLOCK) ON st.StatusID = d.StatusID
 	ORDER BY d.FeedbackDate DESC
+	
+	 
+		SELECT d.FeedbackID, 
+			d.CustID, 
+			d.TitleID,
+			d.UserName,
+			d.FirstName, 
+			d.LastName, 
+			d.Email, 
+			d.Skype, 
+			d.MSN,			
+			d.Language, 
+			d.CountryName, 
+			d.CreateDate, 		
+			d.CreatorID,
+			d.CreatorName, 
+			d.FeedbackDate, 
+			d.ResolutionDate,
+			d.SolveDate, 				 
+			d.SiteName, 
+			d.Role, 
+			d.Response, 
+			d.Status, 	
+			d.Solution, 
+			d.IsReviewed, 
+			d.Review, 
+			d.ReviewerID, 
+			d.Subject,
+			d.FaxCountryCode,
+			d.FaxAreaCode,
+			d.Fax,
+			d.PhoneCountryCode,
+			d.PhoneAreaCode,
+			d.Phone,
+			d.Phone2CountryCode,
+			d.Phone2AreaCode,
+			d.Phone2,
+			d.Phone3CountryCode,
+			d.Phone3AreaCode,
+			d.Phone3,
+			d.WhatsApp,
+			d.Line,
+			d.WeChat,
+			d.Yahoo,
+			d.QQ,
+			d.BBM,
+			d.MobilePhoneCountryCode,
+			d.MobilePhoneAreaCode,
+			d.MobilePhone,
+			d.PIC1,
+			d.PIC2,
+			d.PIC3,
+			d.PIC4,
+			d.PIC1Name,
+			d.PIC2Name,
+			d.PIC3Name,
+			d.PIC4Name,			
+			nr.value(N'@Remark',N'nvarchar(max)') AS Description
+	FROM #Data d
+		OUTER APPLY d.Description.nodes(N'//row') AS A(nr)
 		
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
 		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 

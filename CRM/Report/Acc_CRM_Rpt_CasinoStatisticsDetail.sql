@@ -85,7 +85,7 @@ BEGIN
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK)
 			ON fb.FeedbackID=fp.FeedbackID
 		INNER JOIN crmSetting p WITH(NOLOCK) ON fp.SettingID=p.SettingID AND p.SettingName='Product'
-	WHERE fp.SettingID IN (8003,8005,8008,8011,8013,8014,8017) 
+	WHERE fp.SubSettingID IN (8003,8005,8008,8011,8013,8014,8017) 
 			AND fb.feedbackdate BETWEEN @fromdate AND @todate
 			AND fb.StatusID <> 11004	
 	ORDER BY fb.feedbackdate DESC
@@ -183,6 +183,7 @@ BEGIN
 				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 
 END
+
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_CasinoStatisticsDetail] TO [bodbAdminNet]

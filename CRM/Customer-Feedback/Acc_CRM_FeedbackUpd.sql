@@ -394,17 +394,17 @@ BEGIN
 					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SubSettingID=p.SettingID AND p.SettingName='SubProduct'					
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @BettypeID_Old = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
+	SELECT @BettypeID_New = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
                  FROM  @tblFbSetting fs 
 					INNER JOIN crmBettype p WITH(NOLOCK) ON fs.SubSettingIDLevel3=p.BettypeID				
                  FOR XML PATH('')), 1, 1, '')
 	
-	SELECT @CommunicationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+	SELECT @CommunicationID_New = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
                  FROM  @tblFbSetting fs 
 					INNER JOIN crmCommunicationTool p WITH(NOLOCK) ON fs.SettingID=p.CommunicationID				
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @StationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+	SELECT @StationID_New = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
                 FROM  @tblFbSetting fs 
 				INNER JOIN crmStation p WITH(NOLOCK) ON fs.SettingID=p.StationID		
                 FOR XML PATH('')), 1, 1, '')

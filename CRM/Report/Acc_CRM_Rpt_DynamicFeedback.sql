@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_Rpt_DynamicFeedback
 					@FromDate			DATETIME
 				,	@ToDate				DATETIME
@@ -29,6 +25,7 @@ AS
 
 	Revisions:
 		- 20160318@Billy:	Integrate Sub-Product Setting - [Redmine: #52998]
+		- 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 		
 	Param's Explanation:
 		
@@ -41,11 +38,11 @@ DECLARE	@HandledID		INT
 	,	@ReviewedID		INT;
 
 SELECT	@HandledID = CustID 
-FROM	bodb02.dbo.Customer 
+FROM	DBACC.bodb02.dbo.Customer WITH (NOLOCK)
 WHERE	UserName = @HandledBy;
 
 SELECT	@ReviewedID = CustID
-FROM	bodb02.dbo.Customer
+FROM	DBACC.bodb02.dbo.Customer WITH (NOLOCK)
 WHERE	UserName = @ReviewedBy;
 
 
@@ -103,7 +100,3 @@ ORDER BY f.FeedbackDate DESC, f.FeedbackID DESC;
 DROP TABLE #Feedback;
 GO
 
-GRANT EXECUTE ON dbo.Acc_CRM_Rpt_DynamicFeedback TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_DynamicFeedback TO vnteam;
-GO 

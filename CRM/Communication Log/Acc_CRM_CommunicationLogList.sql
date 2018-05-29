@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROC Acc_CRM_CommunicationLogList
+ALTER PROCEDURE Acc_CRM_CommunicationLogList
 	@CustID INT,
 	@FromDate	DATETIME,
 	@ToDate		DATETIME,

@@ -1,4 +1,5 @@
-ALTER PROC Acc_CRM_CommunicationLogList
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE dbo.Acc_CRM_CommunicationLogList
 	@CustID INT,
 	@FromDate	DATETIME,
 	@ToDate		DATETIME,
@@ -7,18 +8,19 @@ ALTER PROC Acc_CRM_CommunicationLogList
 AS
 
 /*
-Created: Dom
-Date: 20140120
-Task : update customer basic info
-DB: DB052.bodb_CRM
-Original:
-
-Revisions:
+	Created: Dom
+	Date: 20140120
+	Task : update customer basic info
+	DB: DB052.bodb_CRM
+	Original:
+	
+    Revisions:
+            - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 */
 
-declare @handlerid int
-select @handlerid = CustID
-FROM bodb02.dbo.Customer(NOLOCK) WHERE UserName = @Handler
+DECLARE @handlerid int
+SELECT @handlerid = CustID
+FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 
 SELECT DISTINCT f.FeedbackID,
 		FeedbackDate,
@@ -45,14 +47,3 @@ ORDER BY f.FeedbackID DESC
 
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CommunicationLogList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CommunicationLogList] TO [vnteam]
-GO 

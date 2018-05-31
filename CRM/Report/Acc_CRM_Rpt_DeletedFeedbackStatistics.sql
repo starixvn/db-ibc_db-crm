@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_Rpt_DeletedFeedbackStatistics
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
@@ -13,6 +9,8 @@ AS
 	Created:	20151214@Billy
 	Task:		Deleted Feedback Statistics Report [Redmine: #49318]
 	Revisions:
+	           - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
+	           
 	Parameters' Explanation:
 */
 BEGIN
@@ -36,14 +34,14 @@ BEGIN
 		SELECT	@CreatorID = -1;
 	ELSE
 		SELECT	@CreatorID = c.custid
-		FROM	bodb02.dbo.Customer c WITH (NOLOCK)
+		FROM	DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
 		WHERE	c.username = @CreatorName;
 
 	IF	@DeletorName = '' OR @DeletorName IS NULL
 		SELECT	@DeletorID = -1;
 	ELSE
 		SELECT	@DeletorID = c.custid
-		FROM	bodb02.dbo.Customer c WITH (NOLOCK)
+		FROM	DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
 		WHERE	c.username = @DeletorName;
 	
 	IF	@CreatorID IS NOT NULL AND @DeletorID IS NOT NULL
@@ -145,8 +143,3 @@ BEGIN
 END;
 GO
 
-
-GRANT EXECUTE ON dbo.Acc_CRM_Rpt_DeletedFeedbackStatistics TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_DeletedFeedbackStatistics TO vnteam;
-GO

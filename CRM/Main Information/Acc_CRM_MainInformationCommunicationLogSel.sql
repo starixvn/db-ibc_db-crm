@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE dbo.Acc_CRM_MainInformationCommunicationLogSel
+ALTER PROCEDURE [dbo].[Acc_CRM_MainInformationCommunicationLogSel]
 	@CustID INT
 AS
 
@@ -15,9 +15,8 @@ Revisions:
 Param's Explanation:	
 */
 BEGIN
-	SET ROWCOUNT 10
 
-	SELECT  DISTINCT f.FeedbackID
+	SELECT DISTINCT TOP 10 f.FeedbackID
 	INTO #Feedback
 	FROM crmFeedback(nolock) f
 	LEFT JOIN  crmFeedbackCustomer(NOLOCK) cf ON cf.FeedbackID = f.FeedbackID
@@ -45,9 +44,11 @@ BEGIN
 			ON fs.FeedbackID=fp.FeedbackID	
 		INNER JOIN crmMainCategory m 
 			ON fs.SettingID=m.MainCategoryID
+	
 	DROP TABLE #Feedback
 
 END
+
 GO
  
  GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationCommunicationLogSel] TO [bodbAdminNet]

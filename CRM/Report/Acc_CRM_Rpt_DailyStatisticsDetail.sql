@@ -1,5 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
@@ -41,18 +40,9 @@ BEGIN
 		,	@RowStart		= @PageSize * @PageIndex + 1
 		,	@RowEnd			= @RowStart + @PageSize - 1;
 
-	DECLARE	@Product		TABLE (
-								ProductID		INT
-							,	Product			NVARCHAR(100)
-							);	
-	DECLARE	@MainCategory	TABLE (
-								MainCategoryID	INT
-							,	MainCategory	NVARCHAR(100)
-							);	
-	DECLARE	@Communication	TABLE (
-								CommunicationID	INT
-							,	Communication	NVARCHAR(100)
-							);		
+	CREATE TABLE	#Product	 (ProductID		INT PRIMARY KEY,	Product			NVARCHAR(100));	
+	CREATE TABLE	#MainCategory(MainCategoryID	INT PRIMARY KEY,MainCategory	NVARCHAR(100));	
+	CREATE TABLE	#Communication(CommunicationID	INT PRIMARY KEY,Communication	NVARCHAR(100));		
 
 	DECLARE	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)
@@ -62,8 +52,7 @@ BEGIN
 		,	@string			= @ProductID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	@Product
-		(	ProductID         , Product       )
+	INSERT INTO	#Product(ProductID,Product)
 	SELECT	r.value('.','INT'), s.SettingValue
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 	INNER JOIN	crmSetting s WITH (NOLOCK)
@@ -73,8 +62,7 @@ BEGIN
 	SELECT	@string			= @MainCategoryID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	@MainCategory
-		(MainCategoryID,MainCategory)
+	INSERT INTO	#MainCategory(MainCategoryID,MainCategory)
 	SELECT	r.value('.','INT'), s.SettingValue
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 	INNER JOIN	crmSetting s WITH (NOLOCK)
@@ -84,8 +72,7 @@ BEGIN
 	SELECT	@string			= @CommunicationID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	@Communication
-		(	CommunicationID   , Communication )
+	INSERT INTO	#Communication(CommunicationID,Communication)
 	SELECT	r.value('.','INT'), s.SettingValue
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 	INNER JOIN	crmSetting s WITH (NOLOCK)
@@ -103,11 +90,11 @@ BEGIN
 				ON fb.FeedbackID=fm.FeedbackID
 		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
 				ON fb.FeedbackID=fc.FeedbackID			
-		INNER JOIN	@Product p
+		INNER JOIN	#Product p
 				ON	fp.SettingID = p.ProductID
-		INNER JOIN	@MainCategory mc
+		INNER JOIN	#MainCategory mc
 				ON	fm.SettingID = mc.MainCategoryID	
-		INNER JOIN	@Communication cto
+		INNER JOIN	#Communication cto
 				ON	fc.SettingID = cto.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
@@ -239,11 +226,11 @@ BEGIN
 				ON fb.FeedbackID=fm.FeedbackID
 		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
 				ON fb.FeedbackID=fc.FeedbackID			
-		INNER JOIN	@Product p
+		INNER JOIN	#Product p
 				ON	fp.SettingID = p.ProductID
-		INNER JOIN	@MainCategory mc
+		INNER JOIN	#MainCategory mc
 				ON	fm.SettingID = mc.MainCategoryID	
-		INNER JOIN	@Communication cto
+		INNER JOIN	#Communication cto
 				ON	fc.SettingID = cto.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
@@ -429,6 +416,7 @@ BEGIN
 			LEFT JOIN crmSetting c
 				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END;
+
 
 
 GO

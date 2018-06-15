@@ -64,13 +64,7 @@ BEGIN
 		FeedbackID				INT PRIMARY KEY,
 		RelatedCustomer			NVARCHAR(200)
 	)
-	CREATE TABLE #tempFeedbackCategory
-	(
-		FeedbackID				INT, 
-		MainCategory			INT,
-		SubCategory				INT
-		PRIMARY KEY(FeedbackID,MainCategory,SubCategory)
-	)
+
 	INSERT INTO	@tmp(val)
 	SELECT	CONVERT(INT, val)
 	FROM	dbo.f_split(@FromDuration,':');
@@ -729,23 +723,21 @@ BEGIN
 		WHERE fc.IsRelated = 1
 		
 		UPDATE #tempRelated
-			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))
+			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))		
 		
-		INSERT INTO #tempFeedbackCategory 
-			(
-				FeedbackID,MainCategory,SubCategory
-			)					
-		SELECT t.FeedbackID,fm.SettingID ,fm.SubSettingID	
-		FROM #tempFeedback t
-			INNER JOIN dbo.f_GetFeedbackSetting(0,@MainCategoryID,@SubCategoryID,2) fm ON t.FeedbackID=fm.FeedbackID	
-				
-		SELECT t.*,r.RelatedCustomer
+		SELECT DISTINCT t.*,r.RelatedCustomer
 		FROM #tempFeedback t		
-		INNER JOIN #tempFeedbackCategory c ON t.FeedbackID=c.FeedbackID
-			LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 	
+		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID
+		LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 	
+		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
 		ORDER BY t.FeedbackDate	
-		
-		SELECT * FROM #tempFeedbackCategory	
+						
+		SELECT t.FeedbackID,fs.SettingID AS MainCategoryID, fs.SubSettingID AS SubCategoryID
+		FROM #tempFeedback t		
+		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID	 	
+		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
+		ORDER BY t.FeedbackDate	
+
 	END
 	ELSE
 	BEGIN

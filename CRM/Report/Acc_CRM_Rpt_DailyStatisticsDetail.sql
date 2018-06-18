@@ -40,9 +40,6 @@ BEGIN
 		,	@RowStart		= @PageSize * @PageIndex + 1
 		,	@RowEnd			= @RowStart + @PageSize - 1;
 	CREATE TABLE	#Setting	 (SettingID		INT PRIMARY KEY)
-	--CREATE TABLE	#Product	 (ProductID		INT PRIMARY KEY,	Product			NVARCHAR(100));	
-	--CREATE TABLE	#MainCategory(MainCategoryID	INT PRIMARY KEY,MainCategory	NVARCHAR(100));	
-	--CREATE TABLE	#Communication(CommunicationID	INT PRIMARY KEY,Communication	NVARCHAR(100));		
 
 	DECLARE	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)

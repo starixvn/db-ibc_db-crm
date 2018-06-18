@@ -1,5 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
@@ -40,10 +39,10 @@ BEGIN
 	SELECT	@PageIndex		= @PageIndex - 1
 		,	@RowStart		= @PageSize * @PageIndex + 1
 		,	@RowEnd			= @RowStart + @PageSize - 1;
-
-	CREATE TABLE	#Product	 (ProductID		INT PRIMARY KEY,	Product			NVARCHAR(100));	
-	CREATE TABLE	#MainCategory(MainCategoryID	INT PRIMARY KEY,MainCategory	NVARCHAR(100));	
-	CREATE TABLE	#Communication(CommunicationID	INT PRIMARY KEY,Communication	NVARCHAR(100));		
+	CREATE TABLE	#Setting	 (SettingID		INT PRIMARY KEY)
+	--CREATE TABLE	#Product	 (ProductID		INT PRIMARY KEY,	Product			NVARCHAR(100));	
+	--CREATE TABLE	#MainCategory(MainCategoryID	INT PRIMARY KEY,MainCategory	NVARCHAR(100));	
+	--CREATE TABLE	#Communication(CommunicationID	INT PRIMARY KEY,Communication	NVARCHAR(100));		
 
 	DECLARE	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)
@@ -53,32 +52,23 @@ BEGIN
 		,	@string			= @ProductID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	#Product(ProductID,Product)
-	SELECT	r.value('.','INT'), s.SettingValue
+	INSERT INTO	#Setting(SettingID)
+	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
-	INNER JOIN	crmSetting s WITH (NOLOCK)
-			ON	r.value('.', 'INT') = s.SettingID
-	WHERE	SettingName = 'Product';
 	
 	SELECT	@string			= @MainCategoryID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	#MainCategory(MainCategoryID,MainCategory)
-	SELECT	r.value('.','INT'), s.SettingValue
+	INSERT INTO	#Setting(SettingID)
+	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
-	INNER JOIN	crmSetting s WITH (NOLOCK)
-			ON	r.value('.', 'INT') = s.SettingID
-	WHERE	SettingName = 'Maincategory';
 
 	SELECT	@string			= @CommunicationID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	#Communication(CommunicationID,Communication)
-	SELECT	r.value('.','INT'), s.SettingValue
+	INSERT INTO	#Setting(SettingID)
+	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
-	INNER JOIN	crmSetting s WITH (NOLOCK)
-			ON	r.value('.', 'INT') = s.SettingID
-	WHERE	SettingName = 'Communication';
 			
 	IF	((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN		
@@ -86,17 +76,9 @@ BEGIN
 		SELECT DISTINCT fb.FeedbackID,c.UserName,s.SiteName
 		FROM crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
-				ON fb.FeedbackID=fp.FeedbackID	
-		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
-				ON fb.FeedbackID=fm.FeedbackID
-		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
-				ON fb.FeedbackID=fc.FeedbackID			
-		INNER JOIN	#Product p
-				ON	fp.SettingID = p.ProductID
-		INNER JOIN	#MainCategory mc
-				ON	fm.SettingID = mc.MainCategoryID	
-		INNER JOIN	#Communication cto
-				ON	fc.SettingID = cto.CommunicationID
+				ON fb.FeedbackID=fp.FeedbackID			
+		INNER JOIN	#Setting p
+				ON	fp.SettingID = p.SettingID		
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		INNER JOIN	crmCustomer c WITH (NOLOCK)
@@ -223,16 +205,7 @@ BEGIN
 	FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
 				ON fb.FeedbackID=fp.FeedbackID	
-		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
-				ON fb.FeedbackID=fm.FeedbackID
-		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
-				ON fb.FeedbackID=fc.FeedbackID			
-		INNER JOIN	#Product p
-				ON	fp.SettingID = p.ProductID
-		INNER JOIN	#MainCategory mc
-				ON	fm.SettingID = mc.MainCategoryID	
-		INNER JOIN	#Communication cto
-				ON	fc.SettingID = cto.CommunicationID
+		INNER JOIN #Setting p ON fp.SettingID=p.SettingID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		WHERE	fb.feedbackdate BETWEEN @fromdate AND @todate
@@ -417,7 +390,5 @@ BEGIN
 			LEFT JOIN crmSetting c
 				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END;
-
-
 
 GO

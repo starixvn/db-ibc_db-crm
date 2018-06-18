@@ -732,7 +732,7 @@ BEGIN
 		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
 		ORDER BY t.FeedbackDate	
 						
-		SELECT t.FeedbackID,fs.SettingID AS MainCategoryID, fs.SubSettingID AS SubCategoryID
+		SELECT t.FeedbackID,fs.SettingID AS MainCategory, fs.SubSettingID AS SubCategory
 		FROM #tempFeedback t		
 		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID	 	
 		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)

@@ -1,6 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-
-
 ALTER PROCEDURE	[dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
 					@Type			INT
 				,	@MainCategoryID	INT
@@ -444,7 +442,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -463,7 +461,7 @@ BEGIN
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
-						INNER JOIN dbo.f_GetFeedbackSetting(0,@ValueID,0,1) fm ON fb.FeedbackID=fm.FeedbackID	
+						INNER JOIN crmfeedbacksetting fs WITH(NOLOCK) ON fb.feedbackID=fs.feedbackID						
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
 					AND
@@ -473,7 +471,8 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
+					AND fs.settingID=@ValueID		
 	END;
 	ELSE IF @Type = 8 AND (@ValueID=0)   --- Category
 	BEGIN
@@ -556,7 +555,7 @@ BEGIN
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
-						INNER JOIN dbo.f_GetFeedbackSetting(0,@ValueID,0,1) fm ON fb.FeedbackID=fm.FeedbackID	
+						INNER JOIN crmfeedbacksetting fs WITH(NOLOCK) ON fb.feedbackID=fs.feedbackID						
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
 					AND 
@@ -566,7 +565,8 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
+					AND fs.settingID=@ValueID		
 	END;
 	ELSE IF @Type = 9    --- Licensee
 	BEGIN
@@ -652,7 +652,7 @@ BEGIN
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
-						INNER JOIN dbo.f_GetFeedbackSetting(0,@ValueID,0,1) fm ON fb.FeedbackID=fm.FeedbackID	
+						INNER JOIN crmfeedbacksetting fs WITH(NOLOCK) ON fb.feedbackID=fs.feedbackID						
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
 					AND		
@@ -663,6 +663,7 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+					AND fs.settingID=@ValueID		
 	END			
 	ELSE IF @Type = 10 AND (@ValueID=0)   --- communication
 	BEGIN
@@ -766,7 +767,6 @@ BEGIN
 			INNER JOIN crmMainCategory mc WITH(NOLOCK) ON fm.SettingID=mc.MainCategoryID	
 	END
 END;
-
 
 GO 
 

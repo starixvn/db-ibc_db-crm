@@ -94,7 +94,7 @@ BEGIN
 		
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT DISTINCT	fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -153,7 +153,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT DISTINCT	fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -204,7 +204,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '	
 						FROM (	
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -263,7 +263,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -314,7 +314,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -365,7 +365,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -474,7 +474,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -527,7 +527,7 @@ BEGIN
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -577,7 +577,7 @@ BEGIN
 		
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
-					  			SELECT	fb.FeedbackID, 
+					  			SELECT	DISTINCT fb.FeedbackID, 
 										fs.SettingID as ''MainCategoryID'',
 										m.SettingValue AS MainCategory, 
 										fs.SubSettingID as ''SubCategoryID'',
@@ -609,5 +609,6 @@ BEGIN
 		RETURN
 	END
 END
+
 
 GO

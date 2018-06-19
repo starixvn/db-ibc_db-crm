@@ -241,8 +241,7 @@ BEGIN
 		SELECT ISNULL(fb.SiteID,0)
 		FROM crmfeedback fb WITH(NOLOCK) 
 				LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
-		WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-				AND (r.IsLicensee=0 OR r.IsLicensee IS NULL) --fb.SiteID < 6200
+		WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
 				AND fb.StatusID NOT IN (11001,11004)
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
@@ -274,8 +273,7 @@ BEGIN
 										INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory''
 										INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory''
 										LEFT JOIN crmSite site WITH(NOLOCK) ON fb.SiteID = site.SiteID
-								WHERE fb.FeedbackDate BETWEEN @f AND @t
-										AND (site.IsLicensee = 0 OR site.IsLicensee IS NULL)
+								WHERE fb.FeedbackDate BETWEEN @f AND @t										
 										AND fb.StatusID NOT IN (11001,11004)
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 										AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
@@ -609,6 +607,5 @@ BEGIN
 		RETURN
 	END
 END
-
 
 GO

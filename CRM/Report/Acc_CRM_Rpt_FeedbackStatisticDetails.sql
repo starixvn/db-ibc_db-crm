@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 
+
 ALTER PROCEDURE	[dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
 					@Type			INT
 				,	@MainCategoryID	INT
@@ -177,7 +178,7 @@ BEGIN
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
-					AND (@ValueID=0 OR fb.CountryID = @ValueID)		
+					AND (fb.CountryID = @ValueID)		
 					AND
 					fbc.IsRelated = 0
 					AND 
@@ -275,7 +276,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
 					AND 				
-					(@ValueID=0 OR fb.SiteID = @ValueID)
+					(fb.SiteID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -765,6 +766,7 @@ BEGIN
 			INNER JOIN crmMainCategory mc WITH(NOLOCK) ON fm.SettingID=mc.MainCategoryID	
 	END
 END;
+
 
 GO 
 

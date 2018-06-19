@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	[dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
 					@Type			INT
 				,	@MainCategoryID	INT
 				,	@SubCategoryID	INT
@@ -129,7 +129,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
 					AND 			
-					(@ValueID=0 OR fb.CreatorID = @ValueID)
+					(@ValueID=-1 OR fb.CreatorID = @ValueID)
 					AND		
 					fbc.IsRelated = 0	
 					AND 
@@ -176,7 +176,7 @@ BEGIN
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
-					AND (fb.CountryID = @ValueID)		
+					AND (fb.CountryID = @ValueID OR @ValueID=-1)		
 					AND
 					fbc.IsRelated = 0
 					AND 
@@ -225,7 +225,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
 					AND
-					(@ValueID=0 OR fb.RoleID = @ValueID)
+					(@ValueID=-1 OR fb.RoleID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -274,7 +274,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
 					AND 				
-					(fb.SiteID = @ValueID)
+					(fb.SiteID = @ValueID OR @ValueID=-1)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -322,7 +322,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
 					AND
-					(@ValueID=0 OR fb.StatusID = @ValueID)
+					(@ValueID=-1 OR fb.StatusID = @ValueID)
 					AND		
 					fbc.IsRelated = 0	
 					AND 
@@ -380,7 +380,7 @@ BEGIN
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
-	ELSE IF @Type = 7 AND (@ValueID=0)   --- Product
+	ELSE IF @Type = 7 AND (@ValueID=-1)   --- Product
 	BEGIN
 		INSERT INTO #tempFeedback (
 					FeedbackID,	
@@ -426,7 +426,7 @@ BEGIN
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
-	ELSE IF @Type = 7 AND (@ValueID<>0)   --- Product
+	ELSE IF @Type = 7 AND (@ValueID<>-1)   --- Product
 	BEGIN
 		INSERT INTO #tempFeedback (
 					FeedbackID,	
@@ -474,7 +474,7 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
 					AND fs.settingID=@ValueID		
 	END;
-	ELSE IF @Type = 8 AND (@ValueID=0)   --- Category
+	ELSE IF @Type = 8 AND (@ValueID=-1)   --- Category
 	BEGIN
 		INSERT INTO #tempFeedback (
 					FeedbackID,	
@@ -520,7 +520,7 @@ BEGIN
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
-	ELSE IF @Type = 8 AND (@ValueID<>0)   --- Category
+	ELSE IF @Type = 8 AND (@ValueID<>-1)   --- Category
 	BEGIN
 		INSERT INTO #tempFeedback (
 					FeedbackID,	
@@ -606,7 +606,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
 					AND
-					(@ValueID=0 OR fb.siteID = @ValueID)
+					(@ValueID=-1 OR fb.siteID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -617,7 +617,7 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
 
 	END;
-	ELSE IF @Type = 10 AND @ValueID<>0   --- communication
+	ELSE IF @Type = 10 AND @ValueID<>-1   --- communication
 	BEGIN
 		INSERT INTO #tempFeedback (
 					FeedbackID,	
@@ -665,7 +665,7 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND fs.settingID=@ValueID		
 	END			
-	ELSE IF @Type = 10 AND (@ValueID=0)   --- communication
+	ELSE IF @Type = 10 AND (@ValueID=-1)   --- communication
 	BEGIN
 			INSERT INTO #tempFeedback (
 					FeedbackID,	

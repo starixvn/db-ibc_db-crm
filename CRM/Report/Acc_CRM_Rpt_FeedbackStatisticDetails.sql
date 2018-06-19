@@ -372,7 +372,7 @@ BEGIN
 					AND 
 					statusID <> 11004	
 					AND
-					fb.ResponseID = @ValueID
+					(fb.ResponseID = @ValueID OR @ValueID=-1)
 					AND		
 					fbc.IsRelated = 0					
 					AND 

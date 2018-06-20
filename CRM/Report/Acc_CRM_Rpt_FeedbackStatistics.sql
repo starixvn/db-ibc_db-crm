@@ -90,7 +90,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + c.UserName + ']','[' + c.UserName + ']')
 		FROM	@Items i INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON i.item = c.CustId
-		ORDER BY c.UserName ASC
+		--ORDER BY c.UserName ASC
 		
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
@@ -141,7 +141,7 @@ BEGIN
 
 		SELECT @cols = COALESCE(@cols + ',[' + ct.CountryName + ']','[' + ct.CountryName + ']')
 		FROM	@Items i INNER JOIN crmCountry ct WITH(NOLOCK) ON i.Item = ct.CountryID
-		ORDER BY ct.CountryName ASC
+		--ORDER BY ct.CountryName ASC
 		
 		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
 		BEGIN
@@ -200,7 +200,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingID ASC
+		--ORDER BY r.SettingID ASC
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '	
 						FROM (	
@@ -251,7 +251,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 	
 		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
 		BEGIN
@@ -308,7 +308,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (
@@ -358,7 +358,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
@@ -408,7 +408,7 @@ BEGIN
 	
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 		
 		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
 		BEGIN
@@ -467,7 +467,7 @@ BEGIN
 
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 
 
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
@@ -519,7 +519,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 	
 		
 
@@ -571,7 +571,7 @@ BEGIN
 		
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-		ORDER BY r.SettingValue ASC
+		--ORDER BY r.SettingValue ASC
 		
 		SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 						FROM (

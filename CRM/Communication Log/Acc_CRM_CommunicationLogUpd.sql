@@ -206,7 +206,7 @@ BEGIN
 	EXECUTE	sp_xml_preparedocument @iDoc2 OUTPUT, @xmlDoc;
 
 	SELECT	@AutoField_Old=ox.AutoField,@Remark_Old=ox.Remark
-	FROM OPENXML (@iDoc, '/ROOT/row', 1) 
+	FROM OPENXML (@iDoc2, '/ROOT/row', 1) 
 	WITH (
 		AutoField		NVARCHAR(MAX)
 	,	Remark			NVARCHAR(MAX)	

@@ -66,6 +66,9 @@ BEGIN
 			RETURN;
 	END;
 
+	DECLARE @Remark		NVARCHAR(MAX);
+	SELECT @Remark = @Description
+
 	DECLARE  @tblCategory TABLE(		
 			MainCategoryID		INT
 		,	SubCategoryID		INT 	
@@ -240,16 +243,9 @@ BEGIN
 				,	CreateDate
 				,	CreatorID
 				,	FeedbackDate
-				,	ResolutionDate
-				--,	CommunicationID
-				--,	StationID
-				--,	MainCategoryID
-				--,	SubCategoryID
+				,	ResolutionDate				
 				,	SiteID
-				,	RoleID
-				--,	ProductID
-				--,	SubProductID
-				--,	BetTypeID
+				,	RoleID			
 				,	ResponseID
 				,	StatusID
 				,	Description
@@ -311,16 +307,9 @@ BEGIN
 		,	GETDATE()
 		,	@UserID
 		,	@FeedbackDate
-		,	@ResolutionDate
-		--,	@CommunicationID
-		--,	@StationID
-		--,	@MainCategoryID
-		--,	@SubCategoryID
+		,	@ResolutionDate		
 		,	@SiteID
-		,	@RoleID
-		--,	@ProductID
-		--,	@SubProductID
-		--,	@BetTypeID
+		,	@RoleID		
 		,	@ResponseID
 		,	@StatusID
 		,	@Description
@@ -549,7 +538,8 @@ BEGIN
 						'<BankCity>'					+ ISNULL(dbo.f_EncodeXMLValue(@BankCity),'')					+ '</BankCity>' +
 						'<BankCode>'					+ ISNULL(dbo.f_EncodeXMLValue(@BankCode),'')					+ '</BankCode>' +
 						'<BankState>'					+ ISNULL(dbo.f_EncodeXMLValue(@BankState),'')					+ '</BankState>' +
-						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description),'')					+ '</Remark>' +
+						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark),'')						+ '</Remark>' +
+						'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')				+ '</AutoField>' +
 						'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution),'')					+ '</Solution>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 						'<WhatsApp>'					+ ISNULL(dbo.f_EncodeXMLValue(@WhatsApp),'')					+ '</WhatsApp>' +

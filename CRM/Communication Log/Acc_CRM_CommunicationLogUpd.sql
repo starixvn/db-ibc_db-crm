@@ -64,7 +64,8 @@ BEGIN
 		,SubSettingIDLevel3	INT 	
 	)
 
-	
+	DECLARE @Remark		NVARCHAR(MAX);
+	SELECT @Remark = @Description
 	-- Read XML
 	DECLARE	@iDoc			INT;
 	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category;
@@ -129,6 +130,8 @@ BEGIN
 		,	@ResponseID_Old				INT
 		,	@StatusID_Old				INT
 		,	@Description_Old			NVARCHAR(MAX)
+		,	@AutoField_Old				NVARCHAR(MAX)
+		,	@Remark_Old					NVARCHAR(MAX)
 		,	@Solution_Old				NVARCHAR(MAX)
 		,	@IsReviewed_Old				BIT
 		,	@Review_Old					NVARCHAR(4000)
@@ -195,6 +198,20 @@ BEGIN
 					  END
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
+
+	DECLARE	@xmlDoc		XML
+	DECLARE @iDoc2		INT
+	SELECT @xmlDoc=CAST(@Description_Old AS XML)
+
+	EXECUTE	sp_xml_preparedocument @iDoc2 OUTPUT, @xmlDoc;
+
+	SELECT	@AutoField_Old=ox.AutoField,@Remark_Old=ox.Remark
+	FROM OPENXML (@iDoc, '/ROOT/row', 1) 
+	WITH (
+		AutoField		NVARCHAR(MAX)
+	,	Remark			NVARCHAR(MAX)	
+	) AS ox;
+	
 
 	SELECT @MainCategoryID_Old = Stuff((SELECT ',' + CAST(SettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
@@ -339,7 +356,8 @@ BEGIN
 							'<LanguageID>'					+ ISNULL(CONVERT(VARCHAR(10),@LanguageID_Old),'')					+ '</LanguageID>' +
 							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')					+ '</CountryID>' +
 							'<Subject>'						+ ISNULL(dbo.f_EncodeXMLValue(@Subject_Old),'')						+ '</Subject>' +
-							'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description_Old),'')					+ '</Remark>' +
+							'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark_Old),'')						+ '</Remark>' +
+							'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField_Old),'')					+ '</AutoField>' +
 							'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution_Old),'')					+ '</Solution>' +
 							'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')						+ '</Review>' +
 							'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')				+ '</ResolutionDate>' +
@@ -367,7 +385,8 @@ BEGIN
 							'<LanguageID>'					+ ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')					+ '</LanguageID>' +
 							'<CountryID>'					+ ISNULL(CONVERT(VARCHAR(10),@CountryID),'')					+ '</CountryID>' +
 							'<Subject>'						+ ISNULL(dbo.f_EncodeXMLValue(@Subject),'')						+ '</Subject>' +
-							'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description),'')					+ '</Remark>' +
+							'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark),'')						+ '</Remark>' +
+							'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')					+ '</AutoField>' +
 							'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution),'')					+ '</Solution>' +
 							'<Review>'						+ ISNULL(dbo.f_EncodeXMLValue(@Review),'')						+ '</Review>' +
 							'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +

@@ -99,6 +99,8 @@ BEGIN
 	SET NOCOUNT ON;
 	
 	DECLARE @SolveDate	DATETIME;	
+	DECLARE @Remark		NVARCHAR(MAX);
+	SELECT @Remark = @Description
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 	
 	SELECT	@ErrCode	= 0
@@ -242,6 +244,8 @@ BEGIN
 		,	@BettypeID_New					VARCHAR(1000)
 		,	@ResponseID_Old					INT
 		,	@StatusID_Old					INT
+		,	@Remark_Old						NVARCHAR(MAX)
+		,	@AutoField_Old					NVARCHAR(MAX)
 		,	@Description_Old				NVARCHAR(MAX)
 		,	@Solution_Old					NVARCHAR(MAX)
 		,	@UpdateReviewedMode_Old			TINYINT			= 0
@@ -331,6 +335,19 @@ BEGIN
 		,	@BBM_Old						= BBM
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
+
+	DECLARE	@xmlDoc		XML
+	DECLARE @iDoc2		INT
+	SELECT @xmlDoc=CAST(@Description_Old AS XML)
+
+	EXECUTE	sp_xml_preparedocument @iDoc2 OUTPUT, @xmlDoc;
+
+	SELECT	@AutoField_Old=ox.AutoField,@Remark_Old=ox.Remark
+	FROM OPENXML (@iDoc, '/ROOT/row', 1) 
+	WITH (
+		AutoField		NVARCHAR(MAX)
+	,	Remark			NVARCHAR(MAX)	
+	) AS ox;
 	
 	SELECT @MainCategoryID_Old = Stuff((SELECT ',' + CAST(SettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
@@ -553,7 +570,8 @@ BEGIN
 						'<Pic3>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic3_Old),'')					+ '</Pic3>' +
 						'<Pic4>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic4_Old),'')					+ '</Pic4>' +
 						'<Passport>'					+ ISNULL(dbo.f_EncodeXMLValue(@Passport_Old),'')				+ '</Passport>' +
-						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description_Old),'')				+ '</Remark>' +
+						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark_Old),'')					+ '</Remark>' +
+						'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField_Old),'')				+ '</AutoField>' +
 						'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution_Old),'')				+ '</Solution>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')				+ '</LicenseeType>' +
 						'<WhatsApp>'					+ ISNULL(dbo.f_EncodeXMLValue(@WhatsApp_Old),'')				+ '</WhatsApp>' +
@@ -616,7 +634,8 @@ BEGIN
 						'<Pic3>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic3),'')						+ '</Pic3>' +
 						'<Pic4>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic4),'')						+ '</Pic4>' +
 						'<Passport>'					+ ISNULL(dbo.f_EncodeXMLValue(@Passport),'')					+ '</Passport>' +
-						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description),'')					+ '</Remark>' +
+						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark),'')						+ '</Remark>' +
+						'<AutoField'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')					+ '</AutoField>' +
 						'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution),'')					+ '</Solution>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 						'<WhatsApp>'					+ ISNULL(dbo.f_EncodeXMLValue(@WhatsApp),'')					+ '</WhatsApp>' +

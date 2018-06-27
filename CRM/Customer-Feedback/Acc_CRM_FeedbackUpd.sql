@@ -581,6 +581,7 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ_Old),'')						+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM_Old),'')						+ '</BBM>' +
 					'</Acc_CRM_FeedbackUpd>';
+
 	SELECT @NewValues = 				
 					'<Acc_CRM_FeedbackUpd>' + --SP Name
 						'<TitleID>'						+ ISNULL(CONVERT(VARCHAR(5),@TitleID),'')						+ '</TitleID>' +
@@ -635,7 +636,7 @@ BEGIN
 						'<Pic4>'						+ ISNULL(dbo.f_EncodeXMLValue(@Pic4),'')						+ '</Pic4>' +
 						'<Passport>'					+ ISNULL(dbo.f_EncodeXMLValue(@Passport),'')					+ '</Passport>' +
 						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark),'')						+ '</Remark>' +
-						'<AutoField'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')					+ '</AutoField>' +
+						'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')					+ '</AutoField>' +
 						'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution),'')					+ '</Solution>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 						'<WhatsApp>'					+ ISNULL(dbo.f_EncodeXMLValue(@WhatsApp),'')					+ '</WhatsApp>' +
@@ -645,7 +646,6 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 					'</Acc_CRM_FeedbackUpd>';
-
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
 				@UserID = @UserID
@@ -660,6 +660,7 @@ BEGIN
 			,	@OldValues = @OldValues;
 
 END;
+
 
 GO
 

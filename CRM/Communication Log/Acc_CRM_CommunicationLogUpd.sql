@@ -113,20 +113,20 @@ BEGIN
 		,	@CountryID_Old				INT
 		,	@ResolutionDate_Old			DATETIME
 		,	@FeedbackDate_Old			DATETIME
-		,	@CommunicationID_Old		VARCHAR(1000)
-		,	@StationID_Old				VARCHAR(1000)
-		,	@MainCategoryID_Old			VARCHAR(1000)
-		,	@SubCategoryID_Old			VARCHAR(1000)
-		,	@MainCategoryID_New			VARCHAR(1000)
-		,	@SubCategoryID_New			VARCHAR(1000)
+		,	@CommunicationID_Old		VARCHAR(MAX)
+		,	@StationID_Old				VARCHAR(MAX)
+		,	@MainCategoryID_Old			VARCHAR(MAX)
+		,	@SubCategoryID_Old			VARCHAR(MAX)
+		,	@MainCategoryID_New			VARCHAR(MAX)
+		,	@SubCategoryID_New			VARCHAR(MAX)
 		,	@SiteID_Old					INT
 		,	@RoleID_Old					INT
-		,	@ProductID_Old				VARCHAR(1000)
-		,	@SubProductID_Old			VARCHAR(1000)
-		,	@BetTypeID_Old				VARCHAR(1000)
-		,	@ProductID_New				VARCHAR(1000)
-		,	@SubProductID_New			VARCHAR(1000)
-		,	@BetTypeID_New				VARCHAR(1000)
+		,	@ProductID_Old				VARCHAR(MAX)
+		,	@SubProductID_Old			VARCHAR(MAX)
+		,	@BetTypeID_Old				VARCHAR(MAX)
+		,	@ProductID_New				VARCHAR(MAX)
+		,	@SubProductID_New			VARCHAR(MAX)
+		,	@BetTypeID_New				VARCHAR(MAX)
 		,	@ResponseID_Old				INT
 		,	@StatusID_Old				INT
 		,	@Description_Old			NVARCHAR(MAX)
@@ -213,69 +213,69 @@ BEGIN
 	) AS ox;
 	
 
-	SELECT @MainCategoryID_Old = Stuff((SELECT ',' + CAST(SettingID AS VARCHAR(50))
+	SELECT @MainCategoryID_Old = Stuff((SELECT DISTINCT ',' + CAST(SettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 					INNER JOIN crmMainCategory m WITH(NOLOCK) ON fs.SettingID=m.MainCategoryID
 					WHERE FeedbackID=@FeedbackID
                  FOR XML PATH('')), 1, 1, '')
 		
-	SELECT SubCategoryID_Old = Stuff((SELECT ',' + CAST(SubSettingID AS VARCHAR(50))
+	SELECT SubCategoryID_Old = Stuff((SELECT DISTINCT ',' + CAST(SubSettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 					INNER JOIN crmSubCategory m WITH(NOLOCK) ON fs.SubSettingID=m.SubCategoryID AND fs.SettingID=m.MainCategoryID
 					WHERE FeedbackID=@FeedbackID
                  FOR XML PATH('')), 1, 1, '')
 		
-	SELECT @ProductID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+	SELECT @ProductID_Old = Stuff((SELECT DISTINCT ',' + CAST(fs.SettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SettingID=p.SettingID AND p.SettingName='Product'
 					WHERE FeedbackID=@FeedbackID
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @SubProductID_Old = Stuff((SELECT ',' + CAST(fs.SubSettingID AS VARCHAR(50))
+	SELECT @SubProductID_Old = Stuff((SELECT DISTINCT ',' + CAST(fs.SubSettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SubSettingID=p.SettingID AND p.SettingName='SubProduct'
 					WHERE FeedbackID=@FeedbackID
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @BettypeID_Old = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
+	SELECT @BettypeID_Old = Stuff((SELECT DISTINCT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 					INNER JOIN crmBettype p WITH(NOLOCK) ON fs.SubSettingIDLevel3=p.BettypeID
 					WHERE FeedbackID=@FeedbackID
                  FOR XML PATH('')), 1, 1, '')
 	
-	SELECT @CommunicationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+	SELECT @CommunicationID_Old = Stuff((SELECT DISTINCT ',' + CAST(fs.SettingID AS VARCHAR(50))
                  FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 					INNER JOIN crmCommunicationTool p WITH(NOLOCK) ON fs.SettingID=p.CommunicationID
 					WHERE FeedbackID=@FeedbackID
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @StationID_Old = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+	SELECT @StationID_Old = Stuff((SELECT DISTINCT ',' + CAST(fs.SettingID AS VARCHAR(50))
                 FROM  crmFeedbackSetting fs WITH(NOLOCK) 
 				INNER JOIN crmStation p WITH(NOLOCK) ON fs.SettingID=p.StationID
 				WHERE FeedbackID=@FeedbackID
                 FOR XML PATH('')), 1, 1, '')
 	
-	SELECT @MainCategoryID_New = Stuff((SELECT ',' + CAST(SettingID AS VARCHAR(50))
+	SELECT @MainCategoryID_New = Stuff((SELECT DISTINCT ',' + CAST(SettingID AS VARCHAR(50))
                  FROM  @tblFbSetting fs
 					INNER JOIN crmMainCategory m WITH(NOLOCK) ON fs.SettingID=m.MainCategoryID					
                  FOR XML PATH('')), 1, 1, '')
 		
-	SELECT SubCategoryID_New = Stuff((SELECT ',' + CAST(SubSettingID AS VARCHAR(50))
+	SELECT SubCategoryID_New = Stuff((SELECT DISTINCT ',' + CAST(SubSettingID AS VARCHAR(50))
                  FROM  @tblFbSetting fs  
 					INNER JOIN crmSubCategory m WITH(NOLOCK) ON fs.SubSettingID=m.SubCategoryID AND fs.SettingID=m.MainCategoryID					
                  FOR XML PATH('')), 1, 1, '')
 		
-	SELECT @ProductID_New = Stuff((SELECT ',' + CAST(fs.SettingID AS VARCHAR(50))
+	SELECT @ProductID_New = Stuff((SELECT DISTINCT ',' + CAST(fs.SettingID AS VARCHAR(50))
                  FROM  @tblFbSetting fs
 					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SettingID=p.SettingID AND p.SettingName='Product'				
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @SubProductID_New = Stuff((SELECT ',' + CAST(fs.SubSettingID AS VARCHAR(50))
+	SELECT @SubProductID_New = Stuff((SELECT DISTINCT ',' + CAST(fs.SubSettingID AS VARCHAR(50))
                  FROM  @tblFbSetting fs
 					INNER JOIN crmSetting p WITH(NOLOCK) ON fs.SubSettingID=p.SettingID AND p.SettingName='SubProduct'					
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @BetTypeID_New = Stuff((SELECT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
+	SELECT @BetTypeID_New = Stuff((SELECT DISTINCT ',' + CAST(fs.SubSettingIDLevel3 AS VARCHAR(50))
                  FROM  @tblFbSetting fs 
 					INNER JOIN crmBettype p WITH(NOLOCK) ON fs.SubSettingIDLevel3=p.BettypeID				
                  FOR XML PATH('')), 1, 1, '')

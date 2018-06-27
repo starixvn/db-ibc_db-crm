@@ -114,11 +114,11 @@ BEGIN
 	DECLARE	@FeedbackID						INT
 		,	@SolveDate						DATETIME			
 		,	@Remark							NVARCHAR(MAX)
-		,	@MainCategoryID					VARCHAR(1000)
-		,	@SubCategoryID					VARCHAR(1000)		
-		,	@ProductID						VARCHAR(1000)
-		,	@SubProductID					VARCHAR(1000)
-		,	@BettypeID						VARCHAR(1000)
+		,	@MainCategoryID					VARCHAR(MAX)
+		,	@SubCategoryID					VARCHAR(MAX)		
+		,	@ProductID						VARCHAR(MAX)
+		,	@SubProductID					VARCHAR(MAX)
+		,	@BettypeID						VARCHAR(MAX)
 
 	SELECT @Remark = @Description		
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
@@ -205,23 +205,23 @@ BEGIN
 	-- get solve date
 	SELECT	@SolveDate = CASE WHEN @IsReviewed = 0 THEN NULL ELSE GETDATE() END;
 
-	SELECT @MainCategoryID	 = Stuff((SELECT ',' + CAST(MainCategoryID AS VARCHAR(50))
+	SELECT @MainCategoryID	 = Stuff((SELECT DISTINCT ',' + CAST(MainCategoryID AS VARCHAR(50))
                  FROM  @tblCategory fs									
                  FOR XML PATH('')), 1, 1, '')
 		
-	SELECT @SubCategoryID = Stuff((SELECT ',' + CAST(SubCategoryID AS VARCHAR(50))
+	SELECT @SubCategoryID = Stuff((SELECT DISTINCT ',' + CAST(SubCategoryID AS VARCHAR(50))
                  FROM  @tblCategory fs 				
                  FOR XML PATH('')), 1, 1, '')
 		
-	SELECT @ProductID = Stuff((SELECT ',' + CAST(fs.ProductID AS VARCHAR(50))
+	SELECT @ProductID = Stuff((SELECT DISTINCT ',' + CAST(fs.ProductID AS VARCHAR(50))
                  FROM  @tblProduct fs							
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @SubProductID = Stuff((SELECT ',' + CAST(fs.SubProductID AS VARCHAR(50))
+	SELECT @SubProductID = Stuff((SELECT DISTINCT ',' + CAST(fs.SubProductID AS VARCHAR(50))
                  FROM  @tblProduct fs				
                  FOR XML PATH('')), 1, 1, '')
 
-	SELECT @BettypeID = Stuff((SELECT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
+	SELECT @BettypeID = Stuff((SELECT DISTINCT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
                  FROM  @tblProduct fs 								
                  FOR XML PATH('')), 1, 1, '')
 

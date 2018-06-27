@@ -66,7 +66,12 @@ BEGIN
 			RETURN;
 	END;
 
-	DECLARE @Remark		NVARCHAR(MAX);
+	DECLARE @Remark		NVARCHAR(MAX)
+		,	@MainCategoryID					VARCHAR(1000)
+		,	@SubCategoryID					VARCHAR(1000)		
+		,	@ProductID						VARCHAR(1000)
+		,	@SubProductID					VARCHAR(1000)
+		,	@BettypeID						VARCHAR(1000)
 	SELECT @Remark = @Description
 
 	DECLARE  @tblCategory TABLE(		
@@ -126,6 +131,26 @@ BEGIN
 	FROM dbo.strSplit(@CommunicationID,',')
 
 	DECLARE	@FeedbackID INT;
+
+	SELECT @MainCategoryID	 = Stuff((SELECT ',' + CAST(MainCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs									
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @SubCategoryID = Stuff((SELECT ',' + CAST(SubCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs 				
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @ProductID = Stuff((SELECT ',' + CAST(fs.ProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs							
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @SubProductID = Stuff((SELECT ',' + CAST(fs.SubProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs				
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @BettypeID = Stuff((SELECT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
+                 FROM  @tblProduct fs 								
+                 FOR XML PATH('')), 1, 1, '')
 
 	DECLARE	@TitleID				INT
 		,	@FirstName				NVARCHAR(100)
@@ -514,8 +539,11 @@ BEGIN
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
 						'<CommunicationID>'				+ ISNULL(@CommunicationID,'')									+ '</CommunicationID>' +
 						'<StationID>'					+ ISNULL(@StationID,'')											+ '</StationID>' +
-						'<Category>'					+ ISNULL(@Category,'')											+ '</Category>' +
-						'<Product>'						+ ISNULL(@Product,'')											+ '</Product>' +
+						'<MainCategoryID>'				+ ISNULL(@MainCategoryID,'')									+ '</MainCategoryID>' +		
+						'<SubCategoryID>'				+ ISNULL(@SubCategoryID,'')										+ '</SubCategoryID>' +		
+						'<ProductID>'					+ ISNULL(@ProductID,'')											+ '</ProductID>' +		
+						'<SubProductID>'				+ ISNULL(@SubProductID,'')										+ '</SubProductID>' +		
+						'<BettypeID>'					+ ISNULL(@BettypeID,'')											+ '</BettypeID>' +		
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
 						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +						
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +

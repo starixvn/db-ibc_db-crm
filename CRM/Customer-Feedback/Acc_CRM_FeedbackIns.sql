@@ -111,9 +111,15 @@ AS
 BEGIN	
 	SET NOCOUNT ON;
 
-	DECLARE	@FeedbackID		INT
-		,	@SolveDate		DATETIME			
-		,	@Remark			NVARCHAR(MAX);
+	DECLARE	@FeedbackID						INT
+		,	@SolveDate						DATETIME			
+		,	@Remark							NVARCHAR(MAX)
+		,	@MainCategoryID					VARCHAR(1000)
+		,	@SubCategoryID					VARCHAR(1000)		
+		,	@ProductID						VARCHAR(1000)
+		,	@SubProductID					VARCHAR(1000)
+		,	@BettypeID						VARCHAR(1000)
+
 	SELECT @Remark = @Description		
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
@@ -198,6 +204,26 @@ BEGIN
 
 	-- get solve date
 	SELECT	@SolveDate = CASE WHEN @IsReviewed = 0 THEN NULL ELSE GETDATE() END;
+
+	SELECT @MainCategoryID	 = Stuff((SELECT ',' + CAST(MainCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs									
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @SubCategoryID = Stuff((SELECT ',' + CAST(SubCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs 				
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @ProductID = Stuff((SELECT ',' + CAST(fs.ProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs							
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @SubProductID = Stuff((SELECT ',' + CAST(fs.SubProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs				
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @BettypeID = Stuff((SELECT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
+                 FROM  @tblProduct fs 								
+                 FOR XML PATH('')), 1, 1, '')
 
 	-- insert feedback
 	INSERT INTO	crmFeedback (
@@ -474,8 +500,11 @@ BEGIN
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
 						'<CommunicationID>'				+ ISNULL(@CommunicationID,'')									+ '</CommunicationID>' +
 						'<StationID>'					+ ISNULL(@StationID,'')											+ '</StationID>' +
-						'<Category>'					+ ISNULL(@Category,'')											+ '</Category>' +		
-						'<Product>'						+ ISNULL(@Product,'')											+ '</Product>' +										
+						'<MainCategoryID>'				+ ISNULL(@MainCategoryID,'')									+ '</MainCategoryID>' +		
+						'<SubCategoryID>'				+ ISNULL(@SubCategoryID,'')										+ '</SubCategoryID>' +		
+						'<ProductID>'					+ ISNULL(@ProductID,'')											+ '</ProductID>' +		
+						'<SubProductID>'				+ ISNULL(@SubProductID,'')										+ '</SubProductID>' +		
+						'<BettypeID>'					+ ISNULL(@BettypeID,'')											+ '</BettypeID>' +										
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
 						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +						
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +

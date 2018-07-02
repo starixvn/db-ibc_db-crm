@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackGetLatest] (
+ALTER PROCEDURE	dbo.Acc_CRM_FeedbackGetLatest (
 					@UserName			NVARCHAR(50)	= NULL
 				,	@IsGuest			BIT				= NULL
 				,	@FromDate			DATETIME
@@ -31,7 +31,6 @@ AS
 		- 20140528@Dom:		Fix bug duplicated data
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
-		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 	
 */
@@ -75,62 +74,19 @@ BEGIN
 					,	FeedbackDate DATETIME
 					,	ResolutionDate DATETIME
 					,	CreateDate DATETIME
-					,	SolveDate DATETIME				
+					,	SolveDate DATETIME
+					,	CommunicationID INT
+					,	StationID INT
+					,	MainCategoryID INT
+					,	SubCategoryID INT
 					,	SiteID INT
-					,	RoleID INT					
+					,	RoleID INT
+					,	ProductID INT
+					,	SubProductID INT
+					,	BetTypeID INT
 					,	ResponseID INT
 					,	StatusID INT
 					,	Description XML
-					,	Solution NVARCHAR(MAX)
-					,	IsReviewed BIT
-					,	Review NVARCHAR(MAX)
-					,	ReviewerID INT
-					,	ReviewerName NVARCHAR(50)
-					,	IsRelated BIT
-					,	Subject NVARCHAR(MAX)
-					,	RefCode1 NVARCHAR(100)
-					,	RefCode2 NVARCHAR(100)
-					,	relatedCustomer	NVARCHAR(MAX)
-				)		
-	DECLARE @result2 TABLE
-				(
-						FeedbackID INT
-					,	CustID INT
-					,	UserName NVARCHAR(50)
-					,	TitleID INT
-					,	FirstName NVARCHAR(50)
-					,	LastName NVARCHAR(50)
-					,	Phone NVARCHAR(100)
-					,	PhoneAreaCode NVARCHAR(20)
-					,	PhoneCountryCode NVARCHAR(20)
-					,	Phone2 NVARCHAR(100)
-					,	Phone2AreaCode NVARCHAR(20)
-					,	Phone2CountryCode NVARCHAR(20)
-					,	Phone3 NVARCHAR(100)
-					,	Phone3AreaCode NVARCHAR(20)
-					,	Phone3CountryCode NVARCHAR(20)
-					,	MobilePhone NVARCHAR(100)
-					,	MobilePhoneAreaCode NVARCHAR(20)
-					,	MobilePhoneCountryCode NVARCHAR(20)
-					,	Fax  NVARCHAR(50)
-					,	FaxAreaCode NVARCHAR(20)
-					,	FaxCountryCode NVARCHAR(20)
-					,	Email  NVARCHAR(254)
-					,	Skype NVARCHAR(100)
-					,	msn NVARCHAR(100)
-					,	LanguageID INT
-					,	CountryID INT
-					,	CreatorID INT
-					,	CreatorName NVARCHAR(50)
-					,	FeedbackDate DATETIME
-					,	ResolutionDate DATETIME
-					,	CreateDate DATETIME
-					,	SolveDate DATETIME				
-					,	SiteID INT
-					,	RoleID INT					
-					,	ResponseID INT
-					,	StatusID INT
-					,	Description NVARCHAR(MAX)
 					,	Solution NVARCHAR(MAX)
 					,	IsReviewed BIT
 					,	Review NVARCHAR(MAX)
@@ -184,9 +140,16 @@ BEGIN
 					,	FeedbackDate 
 					,	ResolutionDate 
 					,	CreateDate 
-					,	SolveDate 					
+					,	SolveDate 
+					,	CommunicationID 
+					,	StationID 
+					,	MainCategoryID 
+					,	SubCategoryID 
 					,	SiteID 
-					,	RoleID 					
+					,	RoleID 
+					,	ProductID 
+					,	SubProductID 
+					,	BetTypeID 
 					,	ResponseID 
 					,	StatusID 
 					,	Description 
@@ -201,7 +164,7 @@ BEGIN
 					,	RefCode2 
 					,	relatedCustomer	
 				)	
-		SELECT			fb.FeedbackID
+		SELECT DISTINCT	fb.FeedbackID
 					,	fb.CustID
 					,	ctm.UserName
 					,	fb.TitleID
@@ -232,12 +195,19 @@ BEGIN
 					,	fb.FeedbackDate
 					,	fb.ResolutionDate
 					,	fb.CreateDate
-					,	fb.SolveDate				
+					,	fb.SolveDate
+					,	fb.CommunicationID
+					,	fb.StationID
+					,	fb.MainCategoryID
+					,	fb.SubCategoryID
 					,	fb.SiteID
-					,	fb.RoleID					
+					,	fb.RoleID
+					,	fb.ProductID
+					,	fb.SubProductID
+					,	fb.BetTypeID
 					,	fb.ResponseID
 					,	fb.StatusID
-					,	CAST(fb.Description AS XML) AS Description
+					,	fb.Description
 					,	fb.Solution
 					,	fb.IsReviewed
 					,	fb.Review
@@ -258,74 +228,7 @@ BEGIN
 		CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 		WHERE	fb.FeedbackID = @FeedbackID
 		ORDER BY FeedbackDate DESC;
-		
-		SELECT
-				fb.FeedbackID
-				,	fb.CustID
-				,	fb.UserName
-				,	fb.TitleID
-				,	fb.FirstName
-				,	fb.LastName
-				,	fb.Phone
-				,	fb.PhoneAreaCode
-				,	fb.PhoneCountryCode
-				,	fb.Phone2
-				,	fb.Phone2AreaCode
-				,	fb.Phone2CountryCode
-				,	fb.Phone3
-				,	fb.Phone3AreaCode
-				,	fb.Phone3CountryCode
-				,	fb.MobilePhone
-				,	fb.MobilePhoneAreaCode
-				,	fb.MobilePhoneCountryCode
-				,	fb.Fax
-				,	fb.FaxAreaCode
-				,	fb.FaxCountryCode
-				,	fb.Email
-				,	fb.Skype
-				,	fb.MSN
-				,	fb.LanguageID
-				,	fb.CountryID
-				,	fb.CreatorID
-				,	fb.CreatorName
-				,	fb.FeedbackDate
-				,	fb.ResolutionDate
-				,	fb.CreateDate
-				,	fb.SolveDate				
-				,	fb.SiteID
-				,	fb.RoleID				
-				,	fb.ResponseID
-				,	fb.StatusID				
-				,	fb.Solution
-				,	fb.IsReviewed
-				,	fb.Review
-				,	fb.ReviewerID
-				,	fb.ReviewerName
-				,	fb.IsRelated 
-				,	fb.Subject
-				,	fb.RefCode1
-				,	fb.RefCode2
-				,	fb.relatedCustomer
-				, nr.value(N'@Remark',N'nvarchar(max)') AS Description
-	FROM @result fb
-		OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
-		
-	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
-	CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
-			WHEN s.StationID		IS NOT NULL THEN 'Station' 
-			WHEN p.SettingID		IS NOT NULL THEN 'Product' 
-			WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
-			END AS SettingType
-	FROM dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fs
-	LEFT JOIN crmMainCategory m 
-		ON fs.SettingID=m.MainCategoryID
-	LEFT JOIN crmStation s 
-		ON fs.SettingID=s.StationID
-	LEFT JOIN crmSetting p
-		ON fs.SettingID=p.SettingID AND p.SettingName='Product'
-	LEFT JOIN crmSetting c
-		ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
-			
+
 		RETURN;
 	END;
 		
@@ -393,9 +296,16 @@ BEGIN
 					,	FeedbackDate 
 					,	ResolutionDate 
 					,	CreateDate 
-					,	SolveDate 				
+					,	SolveDate 
+					,	CommunicationID 
+					,	StationID 
+					,	MainCategoryID 
+					,	SubCategoryID 
 					,	SiteID 
-					,	RoleID 					
+					,	RoleID 
+					,	ProductID 
+					,	SubProductID 
+					,	BetTypeID 
 					,	ResponseID 
 					,	StatusID 
 					,	Description 
@@ -441,9 +351,16 @@ BEGIN
 			,	fb.FeedbackDate
 			,	fb.ResolutionDate
 			,	fb.CreateDate
-			,	fb.SolveDate			
+			,	fb.SolveDate
+			,	fb.CommunicationID
+			,	fb.StationID
+			,	fb.MainCategoryID
+			,	fb.SubCategoryID
 			,	fb.SiteID
-			,	fb.RoleID			
+			,	fb.RoleID
+			,	fb.ProductID
+			,	fb.SubProductID
+			,	fb.BetTypeID
 			,	fb.ResponseID
 			,	fb.StatusID
 			,	CAST(fb.Description AS XML) AS Description
@@ -459,15 +376,7 @@ BEGIN
 			,	l.list AS relatedCustomer			
 		FROM	crmFeedbackCustomer fbc WITH (NOLOCK)
 		INNER JOIN	crmFeedback fb WITH (NOLOCK)
-				ON	fb.FeedbackID = fbc.FeedbackID		
-		INNER JOIN  crmFeedbackSetting fm WITH(NOLOCK)
-					ON fb.FeedbackID=fm.FeedbackID
-		INNER JOIN crmMainCategory m WITH(NOLOCK)
-				ON fm.SettingID=m.MainCategoryID				
-		INNER JOIN  crmFeedbackSetting fc WITH(NOLOCK)
-				ON fb.FeedbackID=fc.FeedbackID	
-		INNER JOIN crmSetting co WITH(NOLOCK)
-				ON fc.SettingID=co.SettingID AND co.SettingName='Communication'	
+				ON	fb.FeedbackID = fbc.FeedbackID						
 		INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 				ON	ctm.CustID = fb.CustID
 		INNER JOIN	bodb02.dbo.custinfo c WITH (NOLOCK)
@@ -476,10 +385,10 @@ BEGIN
 				ON	fb.ReviewerID = rv.custID
 		CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 		WHERE	(fbc.CustID = @CustID OR fbc.CustID = @GuestID)
-			AND	FeedbackDate BETWEEN @FromDate AND @ToDate 		
-			AND m.MainCategoryID = ISNULL(@MainCategoryID,m.MainCategoryID)
-			AND co.SettingID = ISNULL(@CommunicationID,co.SettingID)
-			AND fm.SubSettingID =  ISNULL(@SubCategoryID, fm.SubSettingID ) 			
+			AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
+			AND	CommunicationID = ISNULL(@CommunicationID, CommunicationID) 
+			AND	MainCategoryID = ISNULL(@MainCategoryID, MainCategoryID) 
+			AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 			AND	StatusID = ISNULL(@StatusID, StatusID) 
 			AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
 			AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
@@ -525,9 +434,16 @@ BEGIN
 					,	FeedbackDate 
 					,	ResolutionDate 
 					,	CreateDate 
-					,	SolveDate 					
+					,	SolveDate 
+					,	CommunicationID 
+					,	StationID 
+					,	MainCategoryID 
+					,	SubCategoryID 
 					,	SiteID 
-					,	RoleID 					
+					,	RoleID 
+					,	ProductID 
+					,	SubProductID 
+					,	BetTypeID 
 					,	ResponseID 
 					,	StatusID 
 					,	Description 
@@ -573,9 +489,16 @@ BEGIN
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate
-				,	fb.SolveDate				
+				,	fb.SolveDate
+				,	fb.CommunicationID
+				,	fb.StationID
+				,	fb.MainCategoryID
+				,	fb.SubCategoryID
 				,	fb.SiteID
-				,	fb.RoleID				
+				,	fb.RoleID
+				,	fb.ProductID
+				,	fb.SubProductID
+				,	fb.BetTypeID
 				,	fb.ResponseID
 				,	fb.StatusID
 				,	CAST(fb.Description AS XML) AS Description
@@ -591,15 +514,7 @@ BEGIN
 				,	l.list AS relatedCustomer			
 			FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
 			INNER JOIN	crmFeedback fb WITH (NOLOCK)
-					ON	fb.FeedbackID = fbc.FeedbackID		
-			INNER JOIN  crmFeedbackSetting fm WITH(NOLOCK)
-					ON fb.FeedbackID=fm.FeedbackID
-			INNER JOIN crmMainCategory m WITH(NOLOCK)
-					ON fm.SettingID=m.MainCategoryID				
-			INNER JOIN  crmFeedbackSetting fc WITH(NOLOCK)
-					ON fb.FeedbackID=fc.FeedbackID	
-			INNER JOIN crmSetting co WITH(NOLOCK)
-					ON fc.SettingID=co.SettingID AND co.SettingName='Communication'	
+					ON	fb.FeedbackID = fbc.FeedbackID							
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 					ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custinfo c WITH (NOLOCK)
@@ -607,10 +522,10 @@ BEGIN
 			LEFT JOIN	bodb02.dbo.custinfo rv WITH (NOLOCK)
 					ON	fb.ReviewerID = rv.custID
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
-			WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate 		
-				AND m.MainCategoryID = ISNULL(@MainCategoryID,m.MainCategoryID)
-				AND co.SettingID = ISNULL(@CommunicationID,co.SettingID)
-				AND fm.SubSettingID =  ISNULL(@SubCategoryID, fm.SubSettingID ) 		
+			WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate 
+				AND	CommunicationID = ISNULL(@CommunicationID, CommunicationID) 
+				AND	MainCategoryID = ISNULL(@MainCategoryID, MainCategoryID) 
+				AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 				AND	StatusID = ISNULL(@StatusID, StatusID) 
 				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
@@ -654,9 +569,16 @@ BEGIN
 					,	FeedbackDate 
 					,	ResolutionDate 
 					,	CreateDate 
-					,	SolveDate 				
+					,	SolveDate 
+					,	CommunicationID 
+					,	StationID 
+					,	MainCategoryID 
+					,	SubCategoryID 
 					,	SiteID 
-					,	RoleID 				
+					,	RoleID 
+					,	ProductID 
+					,	SubProductID 
+					,	BetTypeID 
 					,	ResponseID 
 					,	StatusID 
 					,	Description 
@@ -702,9 +624,16 @@ BEGIN
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate
-				,	fb.SolveDate				
+				,	fb.SolveDate
+				,	fb.CommunicationID
+				,	fb.StationID
+				,	fb.MainCategoryID
+				,	fb.SubCategoryID
 				,	fb.SiteID
-				,	fb.RoleID				
+				,	fb.RoleID
+				,	fb.ProductID
+				,	fb.SubProductID
+				,	fb.BetTypeID
 				,	fb.ResponseID
 				,	fb.StatusID
 				,	CAST(fb.Description AS XML) AS Description
@@ -720,15 +649,7 @@ BEGIN
 				,	l.list AS relatedCustomer
 			FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
 			INNER JOIN	crmFeedback fb WITH (NOLOCK)
-					ON	fb.FeedbackID = fbc.FeedbackID	
-			INNER JOIN  crmFeedbackSetting fm WITH(NOLOCK)
-					ON fb.FeedbackID=fm.FeedbackID
-			INNER JOIN crmMainCategory m WITH(NOLOCK)
-					ON fm.SettingID=m.MainCategoryID				
-			INNER JOIN  crmFeedbackSetting fc WITH(NOLOCK)
-					ON fb.FeedbackID=fc.FeedbackID	
-			INNER JOIN crmSetting co WITH(NOLOCK)
-					ON fc.SettingID=co.SettingID AND co.SettingName='Communication'							
+					ON	fb.FeedbackID = fbc.FeedbackID							
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 					ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custinfo c WITH (NOLOCK)
@@ -737,10 +658,10 @@ BEGIN
 					ON	fb.ReviewerID = rv.custID
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			WHERE	fbc.CustID > 0
-				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 		
-				AND m.MainCategoryID = ISNULL(@MainCategoryID,m.MainCategoryID)
-				AND co.SettingID = ISNULL(@CommunicationID,co.SettingID)
-				AND fm.SubSettingID =  ISNULL(@SubCategoryID, fm.SubSettingID ) 			
+				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
+				AND	CommunicationID = ISNULL(@CommunicationID, CommunicationID) 
+				AND	MainCategoryID = ISNULL(@MainCategoryID, MainCategoryID) 
+				AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 				AND	StatusID = ISNULL(@StatusID, StatusID) 
 				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
@@ -784,9 +705,16 @@ BEGIN
 					,	FeedbackDate 
 					,	ResolutionDate 
 					,	CreateDate 
-					,	SolveDate 				
+					,	SolveDate 
+					,	CommunicationID 
+					,	StationID 
+					,	MainCategoryID 
+					,	SubCategoryID 
 					,	SiteID 
-					,	RoleID 				
+					,	RoleID 
+					,	ProductID 
+					,	SubProductID 
+					,	BetTypeID 
 					,	ResponseID 
 					,	StatusID 
 					,	Description 
@@ -832,9 +760,16 @@ BEGIN
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate
-				,	fb.SolveDate			
+				,	fb.SolveDate
+				,	fb.CommunicationID
+				,	fb.StationID
+				,	fb.MainCategoryID
+				,	fb.SubCategoryID
 				,	fb.SiteID
-				,	fb.RoleID			
+				,	fb.RoleID
+				,	fb.ProductID
+				,	fb.SubProductID
+				,	fb.BetTypeID
 				,	fb.ResponseID
 				,	fb.StatusID
 				,	CAST(fb.Description AS XML) AS Description
@@ -850,15 +785,7 @@ BEGIN
 				,	l.list relatedCustomer
 			FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
 			INNER JOIN	crmFeedback fb WITH (NOLOCK)
-					ON	fb.FeedbackID = fbc.FeedbackID	
-			INNER JOIN  crmFeedbackSetting fm WITH(NOLOCK)
-					ON fb.FeedbackID=fm.FeedbackID
-			INNER JOIN crmMainCategory m WITH(NOLOCK)
-					ON fm.SettingID=m.MainCategoryID				
-			INNER JOIN  crmFeedbackSetting fc WITH(NOLOCK)
-					ON fb.FeedbackID=fc.FeedbackID	
-			INNER JOIN crmSetting co WITH(NOLOCK)
-					ON fc.SettingID=co.SettingID AND co.SettingName='Communication'							
+					ON	fb.FeedbackID = fbc.FeedbackID							
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 					ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custinfo c WITH (NOLOCK)
@@ -867,10 +794,10 @@ BEGIN
 					ON	fb.ReviewerID = rv.custID
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			WHERE	fbc.CustID < 0
-				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 	
-				AND m.MainCategoryID = ISNULL(@MainCategoryID,m.MainCategoryID)
-				AND co.SettingID = ISNULL(@CommunicationID,co.SettingID)
-				AND fm.SubSettingID =  ISNULL(@SubCategoryID, fm.SubSettingID ) 					
+				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
+				AND	CommunicationID = ISNULL(@CommunicationID, CommunicationID) 
+				AND	MainCategoryID = ISNULL(@MainCategoryID, MainCategoryID) 
+				AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 				AND	StatusID = ISNULL(@StatusID, StatusID) 
 				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
@@ -881,76 +808,65 @@ BEGIN
 		END; -- end: get feedback for guest
 	END;
 
-		SELECT
-					fb.FeedbackID
-					,	fb.CustID
-					,	fb.UserName
-					,	fb.TitleID
-					,	fb.FirstName
-					,	fb.LastName
-					,	fb.Phone
-					,	fb.PhoneAreaCode
-					,	fb.PhoneCountryCode
-					,	fb.Phone2
-					,	fb.Phone2AreaCode
-					,	fb.Phone2CountryCode
-					,	fb.Phone3
-					,	fb.Phone3AreaCode
-					,	fb.Phone3CountryCode
-					,	fb.MobilePhone
-					,	fb.MobilePhoneAreaCode
-					,	fb.MobilePhoneCountryCode
-					,	fb.Fax
-					,	fb.FaxAreaCode
-					,	fb.FaxCountryCode
-					,	fb.Email
-					,	fb.Skype
-					,	fb.MSN
-					,	fb.LanguageID
-					,	fb.CountryID
-					,	fb.CreatorID
-					,	fb.CreatorName
-					,	fb.FeedbackDate
-					,	fb.ResolutionDate
-					,	fb.CreateDate
-					,	fb.SolveDate					
-					,	fb.SiteID
-					,	fb.RoleID				
-					,	fb.ResponseID
-					,	fb.StatusID				
-					,	fb.Solution
-					,	fb.IsReviewed
-					,	fb.Review
-					,	fb.ReviewerID
-					,	fb.ReviewerName
-					,	fb.IsRelated 
-					,	fb.Subject
-					,	fb.RefCode1
-					,	fb.RefCode2
-					,	fb.relatedCustomer
-					, nr.value(N'@Remark',N'nvarchar(max)') AS Description
-		FROM @result fb
-			OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
-
-		SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
-		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
-				WHEN s.StationID		IS NOT NULL THEN 'Station' 
-				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
-				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
-				END AS SettingType
-		FROM @result fp
-			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
-				ON fs.FeedbackID=fp.FeedbackID	
-			LEFT JOIN crmMainCategory m 
-				ON fs.SettingID=m.MainCategoryID
-			LEFT JOIN crmStation s 
-				ON fs.SettingID=s.StationID
-			LEFT JOIN crmSetting p
-				ON fs.SettingID=p.SettingID AND p.SettingName='Product'
-			LEFT JOIN crmSetting c
-				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
+	SELECT
+				fb.FeedbackID
+				,	fb.CustID
+				,	fb.UserName
+				,	fb.TitleID
+				,	fb.FirstName
+				,	fb.LastName
+				,	fb.Phone
+				,	fb.PhoneAreaCode
+				,	fb.PhoneCountryCode
+				,	fb.Phone2
+				,	fb.Phone2AreaCode
+				,	fb.Phone2CountryCode
+				,	fb.Phone3
+				,	fb.Phone3AreaCode
+				,	fb.Phone3CountryCode
+				,	fb.MobilePhone
+				,	fb.MobilePhoneAreaCode
+				,	fb.MobilePhoneCountryCode
+				,	fb.Fax
+				,	fb.FaxAreaCode
+				,	fb.FaxCountryCode
+				,	fb.Email
+				,	fb.Skype
+				,	fb.MSN
+				,	fb.LanguageID
+				,	fb.CountryID
+				,	fb.CreatorID
+				,	fb.CreatorName
+				,	fb.FeedbackDate
+				,	fb.ResolutionDate
+				,	fb.CreateDate
+				,	fb.SolveDate
+				,	fb.CommunicationID
+				,	fb.StationID
+				,	fb.MainCategoryID
+				,	fb.SubCategoryID
+				,	fb.SiteID
+				,	fb.RoleID
+				,	fb.ProductID
+				,	fb.SubProductID
+				,	fb.BetTypeID
+				,	fb.ResponseID
+				,	fb.StatusID				
+				,	fb.Solution
+				,	fb.IsReviewed
+				,	fb.Review
+				,	fb.ReviewerID
+				,	fb.ReviewerName
+				,	fb.IsRelated 
+				,	fb.Subject
+				,	fb.RefCode1
+				,	fb.RefCode2
+				,	fb.relatedCustomer
+				, nr.value(N'@Remark',N'nvarchar(max)') AS Description
+	FROM @result fb
+		OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
+		
 END;
-
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackGetLatest TO bodbAdminNet;

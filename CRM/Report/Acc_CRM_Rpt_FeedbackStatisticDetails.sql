@@ -61,7 +61,7 @@ BEGIN
 	CREATE TABLE #tempRelated 
 	(
 		FeedbackID				INT PRIMARY KEY,
-		RelatedCustomer			NVARCHAR(200)
+		RelatedCustomer			NVARCHAR(MAX)
 	)
 
 	INSERT INTO	@tmp(val)
@@ -107,7 +107,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 			)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -155,7 +155,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 			)	
-				SELECT 			
+				SELECT DISTINCT			
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -202,7 +202,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 			)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -252,7 +252,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT DISTINCT			
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -300,7 +300,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -348,7 +348,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 				
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -396,7 +396,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -472,7 +472,8 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
-					AND fs.settingID=@ValueID		
+					AND fs.settingID=@ValueID
+					
 	END;
 	ELSE IF @Type = 8 AND (@ValueID=-1)   --- Category
 	BEGIN
@@ -490,7 +491,8 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	
+					DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -536,7 +538,8 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	
+					DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -585,6 +588,7 @@ BEGIN
 					Subject		
 				)	
 				SELECT 			
+					DISTINCT
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -633,7 +637,8 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 		
+					DISTINCT	
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,
@@ -681,7 +686,7 @@ BEGIN
 					ReviewerName,	
 					Subject		
 				)	
-				SELECT 			
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
 					ctm.Username AS Username,
 					fb.FirstName,

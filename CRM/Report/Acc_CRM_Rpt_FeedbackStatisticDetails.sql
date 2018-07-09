@@ -737,7 +737,7 @@ BEGIN
 		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID
 		LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 	
 		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
-		ORDER BY t.FeedbackDate	
+		ORDER BY t.FeedbackDate	DESC
 						
 		SELECT t.FeedbackID,fs.SettingID AS MainCategory, fs.SubSettingID AS SubCategory
 		FROM #tempFeedback t		
@@ -764,7 +764,7 @@ BEGIN
 		SELECT t.*,r.RelatedCustomer
 		FROM #tempFeedback t 
 			LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 		
-		ORDER BY t.FeedbackDate	
+		ORDER BY t.FeedbackDate	DESC
 		
 		SELECT t.FeedbackID,fm.SettingID AS MainCategory,fm.SubSettingID AS SubCategory
 		FROM #tempFeedback t

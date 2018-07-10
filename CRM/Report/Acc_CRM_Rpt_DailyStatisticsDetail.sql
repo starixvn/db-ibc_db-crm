@@ -31,39 +31,41 @@ BEGIN
 		
 	DECLARE	@RowStart		INT
 		,	@RowEnd			INT;
-
-	SELECT	@TotalRows		= 0;	
-	CREATE TABLE #tempFB(FeedbackID INT PRIMARY KEY,Description XML,Username NVARCHAR(50),SiteName NVARCHAR(100))	
-	CREATE TABLE #tempFB2(FeedbackID INT PRIMARY KEY,FeedbackDate DATETIME,SiteName NVARCHAR(100))	
-	
-	SELECT	@PageIndex		= @PageIndex - 1
-		,	@RowStart		= @PageSize * @PageIndex + 1
-		,	@RowEnd			= @RowStart + @PageSize - 1;
-	CREATE TABLE	#Setting	 (SettingID		INT PRIMARY KEY)
-
 	DECLARE	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)
 		,	@xml			XML;
+
+	CREATE TABLE #tempFB(FeedbackID INT PRIMARY KEY,Description XML,Username NVARCHAR(50),SiteName NVARCHAR(100))	
+	CREATE TABLE #tempFB2(FeedbackID INT PRIMARY KEY,FeedbackDate DATETIME,SiteName NVARCHAR(100))	
+	CREATE TABLE	#Product		 (ProductID		INT PRIMARY KEY)
+	CREATE TABLE	#Category		 (CategoryID	INT PRIMARY KEY)
+	CREATE TABLE	#Communication	 (CommunicationID	INT PRIMARY KEY)
+	
+	SELECT	@TotalRows		= 0;	
+	SELECT	@PageIndex		= @PageIndex - 1
+		,	@RowStart		= @PageSize * @PageIndex + 1
+		,	@RowEnd			= @RowStart + @PageSize - 1;
+	
 
 	SELECT	@splitter		= ','
 		,	@string			= @ProductID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	#Setting(SettingID)
+	INSERT INTO	#Product(ProductID)
 	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 	
 	SELECT	@string			= @MainCategoryID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	#Setting(SettingID)
+	INSERT INTO	#Category(CategoryID)
 	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 
 	SELECT	@string			= @CommunicationID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
 
-	INSERT INTO	#Setting(SettingID)
+	INSERT INTO	#Communication(CommunicationID)
 	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
 			
@@ -72,14 +74,22 @@ BEGIN
 		INSERT INTO #tempFB(FeedbackID,Username,SiteName)
 		SELECT DISTINCT fb.FeedbackID,c.UserName,s.SiteName
 		FROM crmFeedback fb WITH (NOLOCK) 
-		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
-				ON fb.FeedbackID=fp.FeedbackID			
-		INNER JOIN	#Setting p
-				ON	fp.SettingID = p.SettingID		
-		LEFT JOIN	crmSite s WITH (NOLOCK)
-				ON	s.SiteID = fb.SiteID
-		INNER JOIN	crmCustomer c WITH (NOLOCK)
-			ON	fb.CustID = c.CustID
+			INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
+					ON fb.FeedbackID=fp.FeedbackID			
+			INNER JOIN	#Product p
+					ON	fp.SettingID = p.ProductID	
+			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+					ON fb.FeedbackID=fm.FeedbackID			
+			INNER JOIN	#Category m
+					ON	fm.SettingID = m.CategoryID
+			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
+					ON fb.FeedbackID=fc.FeedbackID			
+			INNER JOIN	#Communication co
+					ON	fc.SettingID = co.CommunicationID
+			LEFT JOIN	crmSite s WITH (NOLOCK)
+					ON	s.SiteID = fb.SiteID
+			INNER JOIN	crmCustomer c WITH (NOLOCK)
+				ON	fb.CustID = c.CustID
 		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 		AND	fb.StatusID <> 11004
 		AND	(	@SiteType = 0
@@ -98,7 +108,7 @@ BEGIN
 		SELECT	FeedbackID				=	fb.FeedbackID
 			,	CustID					=	fb.CustID
 			,	TitleID					=	fb.TitleID
-			,	UserName				=	c.UserName
+			,	UserName				=	t.UserName
 			,	FirstName				=	fb.FirstName
 			,	LastName				=	fb.LastName
 			,	Email					=	fb.Email
@@ -155,9 +165,7 @@ BEGIN
 			,	nr.value(N'@Remark',N'nvarchar(max)') AS Remark	
 		FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN #tempFB t ON fb.FeedbackID=t.FeedbackID
-		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
-		INNER JOIN	crmCustomer c WITH (NOLOCK)
-				ON	fb.CustID = c.CustID	
+		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)		
 		LEFT JOIN	crmLanguage l WITH (NOLOCK)
 				ON	l.LanguageID = fb.languageid
 		LEFT JOIN	crmCountry ct WITH (NOLOCK)
@@ -201,8 +209,17 @@ BEGIN
 	SELECT DISTINCT fb.FeedbackID,fb.FeedbackDate,s.SiteName
 	FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
-				ON fb.FeedbackID=fp.FeedbackID	
-		INNER JOIN #Setting p ON fp.SettingID=p.SettingID
+				ON fb.FeedbackID=fp.FeedbackID			
+		INNER JOIN	#Product p
+				ON	fp.SettingID = p.ProductID	
+		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
+				ON fb.FeedbackID=fm.FeedbackID			
+		INNER JOIN	#Category m
+				ON	fm.SettingID = m.CategoryID
+		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
+				ON fb.FeedbackID=fc.FeedbackID			
+		INNER JOIN	#Communication co
+					ON	fc.SettingID = co.CommunicationID
 		LEFT JOIN	crmSite s WITH (NOLOCK)
 				ON	s.SiteID = fb.SiteID
 		WHERE	fb.feedbackdate BETWEEN @fromdate AND @todate

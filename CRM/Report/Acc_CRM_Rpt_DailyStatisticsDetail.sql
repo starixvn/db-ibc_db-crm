@@ -95,6 +95,7 @@ BEGIN
 		AND	(	@SiteType = 0
 			AND	(	s.IsLicensee = 0
 				OR	ISNULL(fb.SiteID, 0) = 0
+				OR	ISNULL(s.SiteID, 0) = 0
 				)
 			OR	(	@SiteType = 1
 				AND	s.IsLicensee = 1
@@ -227,6 +228,7 @@ BEGIN
 			AND	(	@SiteType = 0
 				AND	(	s.IsLicensee = 0
 					OR	ISNULL(fb.SiteID, 0) = 0
+					OR	ISNULL(s.SiteID, 0) = 0
 					)
 				OR	(	@SiteType = 1
 					AND	s.IsLicensee = 1

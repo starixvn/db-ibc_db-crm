@@ -748,7 +748,12 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-	
+		CREATE TABLE	#Category		 (CategoryID		INT PRIMARY KEY)
+		INSERT INTO #Category(CategoryID)		
+		SELECT MainCategoryID
+		FROM crmMainCategory
+		WHERE IsActive=1
+		
 		INSERT INTO #tempRelated 
 			(
 				FeedbackID
@@ -761,15 +766,17 @@ BEGIN
 		UPDATE #tempRelated
 			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))
 		
-		SELECT t.*,r.RelatedCustomer
+		SELECT DISTINCT t.*,r.RelatedCustomer
 		FROM #tempFeedback t 
-			LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 		
+			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON t.FeedbackID=fs.FeedbackID
+			LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 
+		WHERE fs.SettingID IN(SELECT CategoryID FROM #Category)		
 		ORDER BY t.FeedbackDate	DESC
 		
 		SELECT t.FeedbackID,fm.SettingID AS MainCategory,fm.SubSettingID AS SubCategory
 		FROM #tempFeedback t
-			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON t.FeedbackID=fm.FeedbackID
-			INNER JOIN crmMainCategory mc WITH(NOLOCK) ON fm.SettingID=mc.MainCategoryID	
+			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON t.FeedbackID=fm.FeedbackID			
+		WHERE fm.SettingID IN(SELECT CategoryID FROM #Category)	
 	END
 END;
 

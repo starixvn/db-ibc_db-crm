@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE dbo.Acc_CRM_Rpt_DeletedFeedbackStatistics
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
 				,	@FromDate		DATETIME
@@ -144,9 +144,7 @@ BEGIN
 		LEFT JOIN crmSetting p
 			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
 		LEFT JOIN crmSetting c
-			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
-
-	DROP TABLE #feedback;
+			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'	
 	DROP TABLE #ResultTable;
 
 END;

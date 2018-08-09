@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_Rpt_FeedbackStatisticDetails (
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
 					@Type			INT
 				,	@MainCategoryID	INT
 				,	@SubCategoryID	INT
@@ -22,7 +22,7 @@ AS
 		- 20111011@Lukas:	Add filter duration
 		- 20120425@Sophia:	remove converting @FromDate, @Todate
 		- 20140303@Dom:		Modify for new structure
-		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
 	Param's Explanation:
 		@Type:	- 1		Creator
 				- 2		Country
@@ -43,6 +43,26 @@ BEGIN
 
 
 	DECLARE	@tmp TABLE (ID INT IDENTITY PRIMARY KEY, val INT);
+	CREATE TABLE #tempFeedback (
+					FeedbackID				INT, 
+					UserName				NVARCHAR(50),				
+					FirstName				NVARCHAR(50), 
+					LastName				NVARCHAR(50), 				
+					Creator					NVARCHAR(50),
+					FeedbackDate			DATETIME,
+					ResolutionDate			DATETIME,
+					CreateDate				DATETIME,
+					SolveDate				DATETIME,	
+					StatusID				INT, 
+					ReviewerName			NVARCHAR(50),	
+					Subject					NVARCHAR(200),
+					PRIMARY KEY(FeedbackID)					
+	)
+	CREATE TABLE #tempRelated 
+	(
+		FeedbackID				INT PRIMARY KEY,
+		RelatedCustomer			NVARCHAR(MAX)
+	)
 
 	INSERT INTO	@tmp(val)
 	SELECT	CONVERT(INT, val)
@@ -73,73 +93,43 @@ BEGIN
 
 	IF @Type = 1	--- creator
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+			INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+			)	
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode, 
-					fb.Email, 
-					fb.Skype,
-					fb.msn,
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID,
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
-					rv.username AS ReviewerName,			
-					fbc.IsRelated,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
 					fb.Subject
 				FROM
 					crmFeedbackCustomer fbc WITH(NOLOCK)
-						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
+						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
-					AND
-					(@ValueID=0 OR fb.CreatorID = @ValueID)
+					AND 			
+					(@ValueID=-1 OR fb.CreatorID = @ValueID)
 					AND		
 					fbc.IsRelated = 0	
 					AND 
@@ -148,79 +138,46 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
 	END;
 	ELSE IF @Type = 2    --- Country
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+				INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,
+					FirstName,
+					LastName,	
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+			)	
+				SELECT DISTINCT			
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode, 
-					fb.Email, 
-					fb.Skype,
-					fb.msn,
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
-					rv.username AS ReviewerName,			
-					fbc.IsRelated,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
 					fb.Subject
-				FROM
-					crmFeedbackCustomer fbc WITH(NOLOCK)
-						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
-						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+				FROM	
+						crmFeedback fb WITH(NOLOCK)	
+						INNER JOIN crmFeedbackCustomer fbc WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
+						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID								
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
+					AND (fb.CountryID = @ValueID OR @ValueID=-1)		
 					AND
-					(@ValueID=0 OR fb.CountryID = @ValueID)
-					AND		
 					fbc.IsRelated = 0
 					AND 
 					statusID <> 11004
@@ -228,79 +185,47 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
 	END;
 	ELSE IF @Type = 3    --- Role
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+				INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+			)	
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode, 
-					fb.Email,
-					fb.Skype,
-					fb.msn, 
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
-					rv.username AS ReviewerName,			
-					fbc.IsRelated,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
 					fb.Subject
-				FROM
-					crmFeedbackCustomer fbc WITH(NOLOCK)
-						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
-						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+				FROM					
+						crmFeedback fb WITH(NOLOCK)		
+						INNER JOIN crmFeedbackCustomer fbc WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
+						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON  fb.CustID=ctm.CustID								
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
-						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
 						
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
 					AND
-					(@ValueID=0 OR fb.RoleID = @ValueID)
+					(@ValueID=-1 OR fb.RoleID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -309,65 +234,38 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+
 	END;
 	ELSE IF @Type = 4    --- Site
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+				INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT DISTINCT			
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode, 
-					fb.Email, 
-					fb.Skype,
-					fb.msn,
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
+					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fbc.IsRelated,
 					fb.Subject
-				FROM 
+				FROM					
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
@@ -375,12 +273,8 @@ BEGIN
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
-					AND
-					(@ValueID=0 OR fb.SiteID = @ValueID)
+					AND 				
+					(fb.SiteID = @ValueID OR @ValueID=-1)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -388,79 +282,47 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
 	ELSE IF @Type = 5    --- Status
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+				INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode, 
-					fb.Email, 
-					fb.Skype,
-					fb.msn,
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
-					rv.username AS ReviewerName,			
-					fbc.IsRelated,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
 					fb.Subject
-				FROM 
+				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
 					AND
-					(@ValueID=0 OR fb.StatusID = @ValueID)
+					(@ValueID=-1 OR fb.StatusID = @ValueID)
 					AND		
 					fbc.IsRelated = 0	
 					AND 
@@ -468,160 +330,93 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
 	ELSE IF @Type = 6    --- Customer Response
 	BEGIN
-		SELECT t.*, l.list relatedCustomer
-		FROM (
-				SELECT 			
-					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode,  
-					fb.Email, 
-					fb.Skype,
-					fb.msn,
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+		INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	DISTINCT		
+					fb.FeedbackID, 				
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
+					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fbc.IsRelated,
 					fb.Subject
-				FROM 
+				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate			
 					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
+					statusID <> 11004	
 					AND
-					fb.ResponseID = @ValueID
+					(fb.ResponseID = @ValueID OR @ValueID=-1)
 					AND		
-					fbc.IsRelated = 0
-					AND 
-					statusID <> 11004
+					fbc.IsRelated = 0					
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t	CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
-	ELSE IF @Type = 7    --- Product
+	ELSE IF @Type = 7 AND (@ValueID=-1)   --- Product
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+		INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode,  
-					fb.Email,
-					fb.Skype,
-					fb.msn, 
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
+					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fbc.IsRelated,
 					fb.Subject
-				FROM 
+				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
-						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
-						
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID						
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
-					AND
-					(@ValueID=0 OR fb.ProductID = @ValueID)
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate					
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -629,158 +424,193 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
 	END;
-	ELSE IF @Type = 8    --- Category
+	ELSE IF @Type = 7 AND (@ValueID<>-1)   --- Product
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+		INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	DISTINCT		
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode,  
-					fb.Email,
-					fb.Skype,
-					fb.msn, 
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
-					rv.username AS ReviewerName,			
-					fbc.IsRelated,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
 					fb.Subject
-				FROM 
+				FROM	
+					crmFeedbackCustomer fbc WITH(NOLOCK)
+						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
+						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
+						INNER JOIN crmfeedbacksetting fs WITH(NOLOCK) ON fb.feedbackID=fs.feedbackID						
+				WHERE					
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+					AND
+					fbc.IsRelated = 0
+					AND 
+					statusID <> 11004		
+					AND 
+					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+					AND
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
+					AND fs.settingID=@ValueID
+					
+	END;
+	ELSE IF @Type = 8 AND (@ValueID=-1)   --- Category
+	BEGIN
+		INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	
+					DISTINCT		
+					fb.FeedbackID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
+					c.username AS CreatorName,
+					fb.FeedbackDate,
+					fb.ResolutionDate,
+					fb.CreateDate,
+					fb.SolveDate,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
+					fb.Subject
+				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
-						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
-						
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID						
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate					
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate		
 					AND
-					(@ValueID=0 OR fb.MainCategoryID = @ValueID)
-					AND		
 					fbc.IsRelated = 0
 					AND 
 					statusID <> 11004	
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+	END;
+	ELSE IF @Type = 8 AND (@ValueID<>-1)   --- Category
+	BEGIN
+		INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	
+					DISTINCT		
+					fb.FeedbackID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
+					c.username AS CreatorName,
+					fb.FeedbackDate,
+					fb.ResolutionDate,
+					fb.CreateDate,
+					fb.SolveDate,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
+					fb.Subject
+				FROM	
+					crmFeedbackCustomer fbc WITH(NOLOCK)
+						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
+						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
+						INNER JOIN crmfeedbacksetting fs WITH(NOLOCK) ON fb.feedbackID=fs.feedbackID						
+				WHERE					
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
+					AND 
+					fbc.IsRelated = 0
+					AND 
+					statusID <> 11004	
+					AND 
+					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+					AND
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
+					AND fs.settingID=@ValueID		
 	END;
 	ELSE IF @Type = 9    --- Licensee
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
+			INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
 				SELECT 			
+					DISTINCT
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode,  
-					fb.Email,
-					fb.Skype,
-					fb.msn, 
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
+					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fbc.IsRelated,
 					fb.Subject
-				FROM 
+				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
 					AND
-					(@ValueID=0 OR fb.siteID = @ValueID)
+					(@ValueID=-1 OR fb.siteID = @ValueID)
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -788,80 +618,48 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
 
 	END;
-	ELSE IF @Type = 10    --- communication
+	ELSE IF @Type = 10 AND @ValueID<>-1   --- communication
 	BEGIN
-		SELECT t.*, l.list AS relatedCustomer
-		FROM (
-				SELECT 			
+		INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 		
+					DISTINCT	
 					fb.FeedbackID, 
-					fb.CustID, 
-					ctm.UserName,
-					fb.TitleID, 
-					fb.FirstName, 
-					fb.LastName, 
-					fb.Phone, 
-					fb.PhoneAreaCode,
-					fb.PhoneCountryCode,
-					fb.Phone2, 
-					fb.Phone2AreaCode,
-					fb.Phone2CountryCode,
-					fb.Phone3, 
-					fb.Phone3AreaCode,
-					fb.Phone3CountryCode,
-					fb.MobilePhone, 
-					fb.MobilePhoneAreaCode, 
-					fb.MobilePhoneCountryCode, 
-					fb.Fax, 
-					fb.FaxAreaCode, 
-					fb.FaxCountryCode,  
-					fb.Email,
-					fb.Skype,
-					fb.msn, 
-					fb.LanguageID, 
-					fb.CountryID,
-					fb.CreatorID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
 					c.username AS CreatorName,
 					fb.FeedbackDate,
 					fb.ResolutionDate,
 					fb.CreateDate,
 					fb.SolveDate,
-					fb.CommunicationID, 
-					fb.StationID, 
-					fb.MainCategoryID,
-					fb.SubCategoryID, 
-					fb.SiteID, 
-					fb.RoleID, 
-					fb.ProductID, 
-					fb.SubProductID, 
-					fb.BetTypeID, 
-					fb.ResponseID, 
-					fb.StatusID, 					
-					fb.Solution, 
-					fb.IsReviewed, 
-					fb.Review, 
-					fb.ReviewerID,
+					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fbc.IsRelated,
 					fb.Subject
-				FROM 
+				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
+						INNER JOIN crmfeedbacksetting fs WITH(NOLOCK) ON fb.feedbackID=fs.feedbackID						
 				WHERE					
-					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND 
-					MainCategoryID	= CASE WHEN @MainCategoryID = 0 THEN fb.MainCategoryID ELSE @MainCategoryID END
-					AND 
-					SubCategoryID	= CASE WHEN @SubCategoryID = 0 THEN fb.SubCategoryID ELSE @SubCategoryID END 
-					AND
-					(@ValueID=0 OR fb.CommunicationID = @ValueID)
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
 					AND		
 					fbc.IsRelated = 0
 					AND 
@@ -870,10 +668,112 @@ BEGIN
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			) t CROSS APPLY dbo.f_GetRelatedCustomer(t.FeedbackID) l
-		ORDER BY t.feedbackdate DESC;
+					AND fs.settingID=@ValueID		
+	END			
+	ELSE IF @Type = 10 AND (@ValueID=-1)   --- communication
+	BEGIN
+			INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject		
+				)	
+				SELECT 	DISTINCT		
+					fb.FeedbackID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
+					c.username AS CreatorName,
+					fb.FeedbackDate,
+					fb.ResolutionDate,
+					fb.CreateDate,
+					fb.SolveDate,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
+					fb.Subject
+				FROM	
+					crmFeedbackCustomer fbc WITH(NOLOCK)
+						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
+						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
+				WHERE					
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate	
+					AND		
+					fbc.IsRelated = 0
+					AND 
+					statusID <> 11004		
+					AND 
+					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+					AND
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
 	END; 
+	
+	
+	IF (@MainCategoryID<>0)
+	BEGIN
+		INSERT INTO #tempRelated 
+			(
+				FeedbackID
+			)		
+		SELECT DISTINCT t.FeedbackID
+		FROM #tempFeedback t 
+			INNER JOIN crmFeedbackCustomer fc WITH(NOLOCK)  ON t.FeedbackID=fc.FeedbackID
+		WHERE fc.IsRelated = 1
+		
+		UPDATE #tempRelated
+			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))		
+		
+		SELECT DISTINCT t.*,r.RelatedCustomer
+		FROM #tempFeedback t		
+		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID
+		LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 	
+		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
+		ORDER BY t.FeedbackDate	DESC
+						
+		SELECT t.FeedbackID,fs.SettingID AS MainCategory, fs.SubSettingID AS SubCategory
+		FROM #tempFeedback t		
+		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID	 	
+		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
+		ORDER BY t.FeedbackDate	
+
+	END
+	ELSE
+	BEGIN
+		
+		INSERT INTO #tempRelated 
+			(
+				FeedbackID
+			)		
+		SELECT DISTINCT t.FeedbackID
+		FROM #tempFeedback t 
+			INNER JOIN crmFeedbackCustomer fc WITH(NOLOCK)  ON t.FeedbackID=fc.FeedbackID
+		WHERE fc.IsRelated = 1
+		
+		UPDATE #tempRelated
+			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))
+		
+		SELECT DISTINCT t.*,r.RelatedCustomer
+		FROM #tempFeedback t 		
+			LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 		
+		ORDER BY t.FeedbackDate	DESC
+		
+		SELECT t.FeedbackID,fm.SettingID AS MainCategory,fm.SubSettingID AS SubCategory
+		FROM #tempFeedback t
+			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON t.FeedbackID=fm.FeedbackID
+			INNER JOIN crmMainCategory mc WITH(NOLOCK) ON fm.SettingID=mc.MainCategoryID	
+		
+	END
 END;
+
 GO 
 
  GRANT EXECUTE ON dbo.Acc_CRM_Rpt_FeedbackStatisticDetails TO bodbAdminNet;

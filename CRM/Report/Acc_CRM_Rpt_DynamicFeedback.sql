@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_Rpt_DynamicFeedback
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DynamicFeedback]
 					@FromDate			DATETIME
 				,	@ToDate				DATETIME
 				,	@ProductID			INT				= NULL
@@ -26,7 +26,7 @@ AS
 	Revisions:
 		- 20160318@Billy:	Integrate Sub-Product Setting - [Redmine: #52998]
 		- 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
-		
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
 	Param's Explanation:
 		
 */
@@ -70,8 +70,6 @@ WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate
 
 SELECT	f.FeedbackID
 	,	f.FeedbackDate
-	,	mc.Name MainCategory
-	,	sc.Name SubCategory
 	,	CAST(DATEPART(HOUR, ResolutionDate - FeedbackDate) AS VARCHAR)
 	+	' : ' + CAST(DATEPART(MINUTE, ResolutionDate - FeedbackDate) AS VARCHAR)
 	+	' : ' + CAST(DATEPART(SECOND, ResolutionDate - FeedbackDate) AS VARCHAR) Duration
@@ -81,11 +79,6 @@ SELECT	f.FeedbackID
 	,	rv.username ReviewedBy
 	,	cust.UserName
 FROM		crmFeedback f WITH (NOLOCK) 
-LEFT JOIN	crmMainCategory mc WITH (NOLOCK)
-		ON	mc.MainCategoryID = f.MainCategoryID
-LEFT JOIN	crmSubCategory sc WITH (NOLOCK)
-		ON	sc.MainCategoryID= mc.MainCategoryID
-		AND	sc.SubCategoryID = f.SubCategoryID
 LEFT JOIN	crmStatus st WITH (NOLOCK)
 		ON	st.StatusID = f.StatusID
 INNER JOIN	bodb02.dbo.Customer c WITH (NOLOCK)
@@ -97,6 +90,13 @@ INNER JOIN	crmCustomer cust WITH(NOLOCK)
 WHERE	f.FeedbackID IN (SELECT feedbackid FROM #Feedback)
 ORDER BY f.FeedbackDate DESC, f.FeedbackID DESC;
 
-DROP TABLE #Feedback;
-GO
+SELECT fs.FeedbackID,fs.SettingID AS MainCategoryID,fs.SubSettingID AS SubCategoryID
+FROM #Feedback fp
+INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+	ON fs.FeedbackID=fp.FeedbackID	
+INNER JOIN crmMainCategory m 
+	ON fs.SettingID=m.MainCategoryID
 
+DROP TABLE #Feedback;
+
+GO

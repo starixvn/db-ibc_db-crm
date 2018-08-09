@@ -6,15 +6,12 @@ ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 				,	@CountryID			INT
 				,	@FeedbackDate		DATETIME
 				,	@ResolutionDate		DATETIME
-				,	@CommunicationID	INT
-				,	@StationID			INT
-				,	@MainCategoryID		INT 
-				,	@SubCategoryID		INT
+				,	@CommunicationID	VARCHAR(MAX)	
+				,	@StationID			VARCHAR(MAX)	
+				,	@Category			VARCHAR(MAX)		
+				,	@Product			VARCHAR(MAX)
 				,	@SiteID				INT
-				,	@RoleID				INT
-				,	@ProductID			INT
-				,	@SubProductID		INT
-				,	@BetTypeID			INT
+				,	@RoleID				INT			
 				,	@ResponseID			INT
 				,	@StatusID			INT
 				,	@AutoField			NVARCHAR(MAX)	= NULL
@@ -37,17 +34,18 @@ AS
 		- 20141118@Dom:		add more fields of communication tool
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 	Param's Explanation:
 */
 BEGIN
-	IF	ISNULL(@CommunicationID, 0) = 0 
-	OR	ISNULL(@MainCategoryID, 0) = 0 
-	OR	ISNULL(@SubCategoryID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = ''
+	OR	ISNULL(@Product, '') = ''
+	OR	ISNULL(@Category,'') = '' 
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@LanguageID, 0) = 0
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
@@ -68,7 +66,91 @@ BEGIN
 			RETURN;
 	END;
 
+	DECLARE @Remark							NVARCHAR(MAX)
+		,	@MainCategoryID					VARCHAR(MAX)
+		,	@SubCategoryID					VARCHAR(MAX)		
+		,	@ProductID						VARCHAR(MAX)
+		,	@SubProductID					VARCHAR(MAX)
+		,	@BettypeID						VARCHAR(MAX)
+	SELECT @Remark = @Description
+
+	DECLARE  @tblCategory TABLE(		
+			MainCategoryID		INT
+		,	SubCategoryID		INT 	
+		)
+
+	DECLARE  @tblProduct TABLE(		
+			ProductID		INT
+		,	SubProductID	INT 
+		,	BetTypeID		INT	
+	)
+
+	DECLARE  @tblStation TABLE(		
+			StationID	INT		
+	)
+
+	DECLARE  @tblComm TABLE(		
+			CommID	INT		
+	)
+
+	-- Read XML
+	DECLARE	@iDoc			INT;
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category;
+
+	INSERT INTO	@tblCategory
+		( MainCategoryID,SubCategoryID)
+	SELECT	ox.MainCategoryID, ox.SubCategoryID
+	FROM	OPENXML(@iDoc, '/ROOT/Category', 1)
+			WITH (		
+				MainCategoryID				INT
+			,	SubCategoryID				INT					
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;	
+
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Product;
+
+	INSERT INTO	@tblProduct
+		( ProductID,SubProductID,BetTypeID)
+	SELECT	ox.ProductID, ox.SubProductID,ox.BetTypeID
+	FROM	OPENXML(@iDoc, '/ROOT/Product', 1)
+			WITH (		
+				ProductID				INT
+			,	SubProductID			INT	
+			,	BetTypeID				INT
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;
+
+	INSERT INTO	@tblStation(StationID)
+	SELECT SettingID
+	FROM dbo.strSplit(@StationID,',')
+
+	INSERT INTO	@tblComm(CommID)
+	SELECT SettingID
+	FROM dbo.strSplit(@CommunicationID,',')
+
 	DECLARE	@FeedbackID INT;
+
+	SELECT @MainCategoryID	 = Stuff((SELECT DISTINCT ',' + CAST(MainCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs									
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @SubCategoryID = Stuff((SELECT DISTINCT ',' + CAST(SubCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs 				
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @ProductID = Stuff((SELECT DISTINCT ',' + CAST(fs.ProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs							
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @SubProductID = Stuff((SELECT DISTINCT ',' + CAST(fs.SubProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs				
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @BettypeID = Stuff((SELECT DISTINCT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
+                 FROM  @tblProduct fs 								
+                 FOR XML PATH('')), 1, 1, '')
 
 	DECLARE	@TitleID				INT
 		,	@FirstName				NVARCHAR(100)
@@ -186,16 +268,9 @@ BEGIN
 				,	CreateDate
 				,	CreatorID
 				,	FeedbackDate
-				,	ResolutionDate
-				,	CommunicationID
-				,	StationID
-				,	MainCategoryID
-				,	SubCategoryID
+				,	ResolutionDate				
 				,	SiteID
-				,	RoleID
-				,	ProductID
-				,	SubProductID
-				,	BetTypeID
+				,	RoleID			
 				,	ResponseID
 				,	StatusID
 				,	Description
@@ -257,16 +332,9 @@ BEGIN
 		,	GETDATE()
 		,	@UserID
 		,	@FeedbackDate
-		,	@ResolutionDate
-		,	@CommunicationID
-		,	@StationID
-		,	@MainCategoryID
-		,	@SubCategoryID
+		,	@ResolutionDate		
 		,	@SiteID
-		,	@RoleID
-		,	@ProductID
-		,	@SubProductID
-		,	@BetTypeID
+		,	@RoleID		
 		,	@ResponseID
 		,	@StatusID
 		,	@Description
@@ -341,6 +409,67 @@ BEGIN
 		RETURN;
 	END;
 
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,MainCategoryID,ISNULL(SubCategoryID,0),0
+	FROM @tblCategory
+
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,ProductID,ISNULL(SubProductID,0),ISNULL(BetTypeID,0)
+	FROM @tblProduct
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,StationID,0,0
+	FROM @tblStation
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,CommID,0,0
+	FROM @tblComm
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+	
+
 	IF	@RelatedCustID IS NOT NULL AND @RelatedCustID <> ''
 	BEGIN
 		DECLARE	@relatedCustomer TABLE(CustID INT);
@@ -408,15 +537,15 @@ BEGIN
 						'<Creator>'						+ ISNULL(CONVERT(VARCHAR(10),@UserID),'')						+ '</Creator>' +
 						'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
-						'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID),'')				+ '</CommunicationID>' +
-						'<StationID>'					+ ISNULL(CONVERT(VARCHAR(10),@StationID),'')					+ '</StationID>' +
-						'<MainCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@MainCategoryID),'')				+ '</MainCategoryID>' +
-						'<SubCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubCategoryID),'')				+ '</SubCategoryID>' +
+						'<CommunicationID>'				+ ISNULL(@CommunicationID,'')									+ '</CommunicationID>' +
+						'<StationID>'					+ ISNULL(@StationID,'')											+ '</StationID>' +
+						'<MainCategoryID>'				+ ISNULL(@MainCategoryID,'')									+ '</MainCategoryID>' +		
+						'<SubCategoryID>'				+ ISNULL(@SubCategoryID,'')										+ '</SubCategoryID>' +		
+						'<ProductID>'					+ ISNULL(@ProductID,'')											+ '</ProductID>' +		
+						'<SubProductID>'				+ ISNULL(@SubProductID,'')										+ '</SubProductID>' +		
+						'<BettypeID>'					+ ISNULL(@BettypeID,'')											+ '</BettypeID>' +		
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
-						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +
-						'<ProductID>'					+ ISNULL(CONVERT(VARCHAR(10),@ProductID),'')					+ '</ProductID>' +
-						'<SubProductID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubProductID),'')					+ '</SubProductID>' +
-						'<BettypeID>'					+ ISNULL(CONVERT(VARCHAR(10),@BettypeID),'')					+ '</BettypeID>' +
+						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +						
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +				
@@ -437,7 +566,8 @@ BEGIN
 						'<BankCity>'					+ ISNULL(dbo.f_EncodeXMLValue(@BankCity),'')					+ '</BankCity>' +
 						'<BankCode>'					+ ISNULL(dbo.f_EncodeXMLValue(@BankCode),'')					+ '</BankCode>' +
 						'<BankState>'					+ ISNULL(dbo.f_EncodeXMLValue(@BankState),'')					+ '</BankState>' +
-						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description),'')					+ '</Remark>' +
+						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark),'')						+ '</Remark>' +
+						'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')				+ '</AutoField>' +
 						'<Solution>'					+ ISNULL(dbo.f_EncodeXMLValue(@Solution),'')					+ '</Solution>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 						'<WhatsApp>'					+ ISNULL(dbo.f_EncodeXMLValue(@WhatsApp),'')					+ '</WhatsApp>' +

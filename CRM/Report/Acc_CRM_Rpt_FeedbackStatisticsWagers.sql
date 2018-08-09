@@ -1,4 +1,5 @@
-﻿ALTER PROC [dbo].[Acc_CRM_Rpt_FeedbackStatisticsWagers]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticsWagers
 (
 	@Year INT,
 	@TimeSpan INT
@@ -12,7 +13,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-		
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
 		
 Param's Explanation:
 	
@@ -28,10 +29,12 @@ BEGIN
 	SELECT MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ) m,
 			LEFT(DATENAME(mm,DATEADD(hour,-@TimeSpan,f.FeedbackDate)),3) [Month],
 			s.Name SubCategory,
-			COUNT(f.FeedbackID) NoOfIssues FROM crmFeedback f WITH(NOLOCK) 
-	INNER JOIN crmSubCategory s WITH(NOLOCK)  ON f.MainCategoryID = s.MainCategoryID and f.SubCategoryID = s.SubCategoryID
+			COUNT(f.FeedbackID) NoOfIssues
+	FROM crmFeedback f WITH(NOLOCK)
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON f.FeedbackID=fs.FeedbackID
+		INNER JOIN crmSubCategory s WITH(NOLOCK)  ON fs.SettingID = s.MainCategoryID and fs.SubSettingID = s.SubCategoryID
 	WHERE f.StatusID <> 11004
-		AND f.MainCategoryID = 3010
+		AND fs.SettingID = 3010
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ), 
 			LEFT(DATENAME(mm,DATEADD(hour,-@TimeSpan,f.FeedbackDate)),3),

@@ -9,7 +9,6 @@ AS
 	Task:		get feedback info
 	DB:			DB052.bodb_CRM
 	Original:
-
 	Revisions:
 		- 20110629@Lukas:	support get multipe related customer
 		- 20120307@Elodie:	get more 3 values Pic1, Pic2, Pic3
@@ -19,6 +18,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20160531@Winnie:  Add more cust info
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	Param's Explanation:
 		
 */
@@ -45,7 +45,7 @@ BEGIN
 
 		
 	--- get feedback info
-	SELECT	fb.FeedbackID
+	SELECT	fb.FeedbackID		
 		,	fb.CustID
 		,	ctm.UserName
 		,	ISNULL(fb.TitleID, 0) TitleID
@@ -82,16 +82,9 @@ BEGIN
 		,	fb.ResolutionDate
 		,	fb.CreateDate
 		,	fb.SolveDate
-		,	fb.LanguageID
-		,	ISNULL(fb.CommunicationID, 0) CommunicationID
-		,	ISNULL(fb.StationID, 0) StationID
-		,	ISNULL(fb.MainCategoryID, 0) MainCategoryID
-		,	ISNULL(fb.SubCategoryID, 0) SubCategoryID
+		,	fb.LanguageID	
 		,	ISNULL(fb.SiteID, 0) SiteID
-		,	ISNULL(fb.RoleID, 0) RoleID
-		,	ISNULL(fb.ProductID, 0) ProductID
-		,	ISNULL(fb.SubProductID, 0) SubProductID
-		,	ISNULL(fb.BetTypeID, 0) BettypeID
+		,	ISNULL(fb.RoleID, 0) RoleID		
 		,	ISNULL(fb.ResponseID, 0) ResponseID
 		,	ISNULL(fb.StatusID, 0) StatusID
 		,	@AutoField AS AutoField
@@ -126,7 +119,7 @@ BEGIN
 			ON	fb.ReviewerID = rv.custid
 	WHERE	fb.FeedbackID = @FeedbackID;	
 	
-		SELECT	cf.CustID
+	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
 	FROM		dbo.crmFeedbackCustomer AS cf WITH (NOLOCK)
 	LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
@@ -135,7 +128,25 @@ BEGIN
 			ON	c1.custid = cf.CustID
 	WHERE	cf.FeedbackID = @FeedbackID 
 		AND	cf.IsRelated = 1;
+		
+			
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
+		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
+				WHEN s.StationID		IS NOT NULL THEN 'Station' 
+				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
+				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
+				END AS SettingType
+	FROM dbo.f_GetFeedbackSetting(@FeedbackID,0,0,3) fs
+		LEFT JOIN crmMainCategory m 
+			ON fs.SettingID=m.MainCategoryID
+		LEFT JOIN crmStation s 
+			ON fs.SettingID=s.StationID
+		LEFT JOIN crmSetting p
+			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+		LEFT JOIN crmSetting c
+			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END;
+
 
 GO
 

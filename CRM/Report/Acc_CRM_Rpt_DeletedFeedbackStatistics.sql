@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE dbo.Acc_CRM_Rpt_DeletedFeedbackStatistics
+ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
 				,	@FromDate		DATETIME
@@ -10,6 +10,7 @@ AS
 	Task:		Deleted Feedback Statistics Report [Redmine: #49318]
 	Revisions:
 	           - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	           
 	Parameters' Explanation:
 */
@@ -24,9 +25,7 @@ BEGIN
 					,	CreatorID		INT
 					,	DeletorID		INT
 					,	FeedbackID		INT
-					,	Subject			NVARCHAR(200)
-					,	MainCategoryID	INT
-					,	SubCategoryID	INT
+					,	Subject			NVARCHAR(200)				
 					,	CustID			INT
 					);
 
@@ -52,7 +51,7 @@ BEGIN
 		IF @DeletorID = -1
 			SELECT @DeletorID = NULL;
 
-		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, cf.MainCategoryID, cf.SubCategoryID, cf.CustID
+		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, cf.CustID
 		INTO	#feedback
 		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
 		WHERE	cf.StatusID = 11004
@@ -60,8 +59,8 @@ BEGIN
 			AND	cf.CreateDate >= @FromDate AND cf.CreateDate <= @ToDate;
 			
 		INSERT INTO #ResultTable
-			(	CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , MainCategoryID  , SubCategoryID  , CustID)
-		SELECT	f.CreateDate, f.CreatorID, lf.UserID, f.FeedbackID, f.Subject, f.MainCategoryID, f.SubCategoryID, f.CustID
+			(	CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , CustID)
+		SELECT	f.CreateDate, f.CreatorID, lf.UserID, f.FeedbackID, f.Subject, f.CustID
 		FROM		#feedback f WITH (NOLOCK)
 		CROSS APPLY	(
 			SELECT	TOP 1 *
@@ -72,8 +71,7 @@ BEGIN
 					,	ilf.CustID
 					,	ilf.UserID
 					,	ilf.ActionID
-					,	ilf.IP
-					,	ilf.Description
+					,	ilf.IP				
 					,	ilf.Solution
 					,	ilf.Review
 					,	ISNULL(ilf.Doing.value('(/Acc_CRM_FeedbackUpd/StatusID)[1]', 'INT'), 0) newStatus
@@ -92,8 +90,7 @@ BEGIN
 					,	ilf.CustID
 					,	ilf.UserID
 					,	ilf.ActionID
-					,	ilf.IP
-					,	ilf.Description
+					,	ilf.IP				
 					,	ilf.Solution
 					,	ilf.Review
 					,	ISNULL(ilf.Doing.value('(/Acc_CRM_CommunicationLogUpd/StatusID)[1]', 'INT'), 0) newStatus
@@ -116,17 +113,10 @@ BEGIN
 		,	creator.username	Handler
 		,	deletor.username	Deletor
 		,	rt.FeedbackID		FeedbackID
-		,	rt.Subject			Subject
-		,	mc.Name				MainCategory
-		,	sc.Name				SubCategory
+		,	rt.Subject			Subject	
 		,	c.UserName			Customer
 		,	fgrc.list			RelatedCustomer
 	FROM		#ResultTable rt
-	INNER JOIN	crmMainCategory mc WITH (NOLOCK)
-			ON	rt.MainCategoryID = mc.MainCategoryID
-	INNER JOIN	crmSubCategory sc WITH (NOLOCK)
-			ON	rt.MainCategoryID = sc.MainCategoryID
-			AND	rt.SubCategoryID = sc.SubCategoryID
 	INNER JOIN	bodb02.dbo.Customer creator
 			ON	rt.CreatorID = creator.custid
 	INNER JOIN	bodb02.dbo.Customer deletor
@@ -137,7 +127,24 @@ BEGIN
 	ORDER BY	rt.CreatorID
 			,	rt.CreateDate DESC;
 
-	DROP TABLE #feedback;
+	
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
+	CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
+			WHEN s.StationID		IS NOT NULL THEN 'Station' 
+			WHEN p.SettingID		IS NOT NULL THEN 'Product' 
+			WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
+			END AS SettingType
+	FROM #ResultTable fp
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+			ON fs.FeedbackID=fp.FeedbackID	
+		LEFT JOIN crmMainCategory m 
+			ON fs.SettingID=m.MainCategoryID
+		LEFT JOIN crmStation s 
+			ON fs.SettingID=s.StationID
+		LEFT JOIN crmSetting p
+			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+		LEFT JOIN crmSetting c
+			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'	
 	DROP TABLE #ResultTable;
 
 END;

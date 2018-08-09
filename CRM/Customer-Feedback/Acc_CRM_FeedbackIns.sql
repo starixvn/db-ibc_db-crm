@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
+ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 					@UserID						INT
 				,	@CustID						INT
 				,	@UserName					NVARCHAR(50)
@@ -44,14 +44,11 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackIns (
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@FeedbackDate				DATETIME
 				,	@ResolutionDate				DATETIME
-				,	@CommunicationID			INT
-				,	@StationID					INT
-				,	@MainCategoryID				INT
-				,	@SubCategoryID				INT
-				,	@RoleID						INT
-				,	@ProductID					INT
-				,	@SubProductID				INT
-				,	@BettypeID					INT
+				,	@CommunicationID			VARCHAR(MAX)	
+				,	@StationID					VARCHAR(MAX)	
+				,	@Category					VARCHAR(MAX)		
+				,	@Product					VARCHAR(MAX)						
+				,	@RoleID						INT											
 				,	@ResponseID					INT
 				,	@StatusID					INT
 				,	@RelatedCustID				VARCHAR(500)	= NULL
@@ -88,20 +85,42 @@ AS
 		- 20120327@Elodie:	change data type of @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 		- 20120418@Elodie:	change default value of @RelatedCustID param to NULL value
 		- 20120529@Elodie:	encode some parameters to write log in XML format, such as Pic1, Pic2, Pic3
-		- 20131108@Kathy:	check required fields update to zero [Redmine:#7206]
+		- 20131108@Kathy:	check required fields update to zero Redmine:#7206
 		- 20140303@Dom:		Modify for new structure
 		- 20141118@Dom:		get more fields of communication tool
-		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
+		- 20160308@Billy:	Integrate Sub-Product field - Redmine: #52998
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 	Param's Explanation:
-	
+	@Product:
+		<ROOT>
+		<Product       
+			ProductID="212" 
+			SubProductID="2401" 
+			BettypeID="1,2,3,4,5"
+		/>
+		</ROOT>
+	@Category:
+		<ROOT>
+			<Category       
+			  MainCategoryID="212" 
+			  SubCategoryID="2401"      
+			/>
+		</ROOT>
 */
 BEGIN	
 	SET NOCOUNT ON;
 
-	DECLARE	@FeedbackID		INT
-		,	@SolveDate		DATETIME;				
+	DECLARE	@FeedbackID						INT
+		,	@SolveDate						DATETIME			
+		,	@Remark							NVARCHAR(MAX)
+		,	@MainCategoryID					VARCHAR(MAX)
+		,	@SubCategoryID					VARCHAR(MAX)		
+		,	@ProductID						VARCHAR(MAX)
+		,	@SubProductID					VARCHAR(MAX)
+		,	@BettypeID						VARCHAR(MAX)
 
+	SELECT @Remark = @Description		
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
 	SELECT	@ErrCode	= 0
@@ -115,22 +134,96 @@ BEGIN
 		RETURN;
 	END;	
 
-	IF	ISNULL(@CommunicationID, 0) = 0 
-	OR	ISNULL(@MainCategoryID, 0) = 0 
-	OR	ISNULL(@SubCategoryID, 0) = 0 
+	IF	ISNULL(@CommunicationID, '') = ''
+	OR	ISNULL(@Category, '') = '' 	
 	OR	ISNULL(@StatusID, 0) = 0 
 	OR	ISNULL(@RoleID, 0) = 0
 	OR	ISNULL(@ResponseID, 0) = 0
-	OR	ISNULL(@StationID, 0) = 0
+	OR	ISNULL(@StationID, '') = ''
 	BEGIN
 		SELECT	@ErrCode = 100
 			,	@ErrMsg = 'Incorrect Data.';
 		RETURN;
 	END;
 
+	DECLARE  @tblCategory TABLE(		
+			MainCategoryID		INT
+		,	SubCategoryID		INT 	
+		)
+
+	DECLARE  @tblProduct TABLE(		
+			ProductID		INT
+		,	SubProductID	INT 
+		,	BetTypeID		INT	
+	)
+
+	DECLARE  @tblStation TABLE(		
+			StationID	INT		
+	)
+
+	DECLARE  @tblComm TABLE(		
+			CommID	INT		
+	)
+
+	-- Read XML
+	DECLARE	@iDoc			INT;
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category;
+
+	INSERT INTO	@tblCategory
+		( MainCategoryID,SubCategoryID)
+	SELECT	ox.MainCategoryID, ox.SubCategoryID
+	FROM	OPENXML(@iDoc, '/ROOT/Category', 1)
+			WITH (		
+				MainCategoryID				INT
+			,	SubCategoryID				INT					
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;	
+
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Product;
+
+	INSERT INTO	@tblProduct
+		( ProductID,SubProductID,BetTypeID)
+	SELECT	ox.ProductID, ox.SubProductID,ox.BetTypeID
+	FROM	OPENXML(@iDoc, '/ROOT/Product', 1)
+			WITH (		
+				ProductID				INT
+			,	SubProductID			INT	
+			,	BetTypeID				INT
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;
+
+	INSERT INTO	@tblStation(StationID)
+	SELECT SettingID
+	FROM dbo.strSplit(@StationID,',')
+
+	INSERT INTO	@tblComm(CommID)
+	SELECT SettingID
+	FROM dbo.strSplit(@CommunicationID,',')
+
 	-- get solve date
 	SELECT	@SolveDate = CASE WHEN @IsReviewed = 0 THEN NULL ELSE GETDATE() END;
 
+	SELECT @MainCategoryID	 = Stuff((SELECT DISTINCT ',' + CAST(MainCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs									
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @SubCategoryID = Stuff((SELECT DISTINCT ',' + CAST(SubCategoryID AS VARCHAR(50))
+                 FROM  @tblCategory fs 				
+                 FOR XML PATH('')), 1, 1, '')
+		
+	SELECT @ProductID = Stuff((SELECT DISTINCT ',' + CAST(fs.ProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs							
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @SubProductID = Stuff((SELECT DISTINCT ',' + CAST(fs.SubProductID AS VARCHAR(50))
+                 FROM  @tblProduct fs				
+                 FOR XML PATH('')), 1, 1, '')
+
+	SELECT @BettypeID = Stuff((SELECT DISTINCT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
+                 FROM  @tblProduct fs 								
+                 FOR XML PATH('')), 1, 1, '')
 
 	-- insert feedback
 	INSERT INTO	crmFeedback (
@@ -175,15 +268,8 @@ BEGIN
 				,	CreateDate
 				,	Subject
 				,	FeedbackDate
-				,	ResolutionDate
-				,	CommunicationID
-				,	StationID
-				,	MainCategoryID
-				,	SubCategoryID
-				,	RoleID
-				,	ProductID
-				,	SubProductID
-				,	BetTypeID
+				,	ResolutionDate		
+				,	RoleID			
 				,	ResponseID
 				,	StatusID
 				,	Description
@@ -241,15 +327,8 @@ BEGIN
 			,	GETDATE()
 			,	@Subject
 			,	@FeedbackDate
-			,	@ResolutionDate
-			,	@CommunicationID
-			,	@StationID
-			,	@MainCategoryID
-			,	@SubCategoryID
+			,	@ResolutionDate			
 			,	@RoleID
-			,	@ProductID
-			,	@SubProductID
-			,	@BettypeID
 			,	@ResponseID
 			,	@StatusID
 			,	@Description
@@ -294,6 +373,66 @@ BEGIN
 
 		RETURN;
 	END;
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,MainCategoryID,ISNULL(SubCategoryID,0),0
+	FROM @tblCategory
+
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,ProductID,ISNULL(SubProductID,0),ISNULL(BetTypeID,0)
+	FROM @tblProduct
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,StationID,0,0
+	FROM @tblStation
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+	INSERT INTO dbo.crmFeedbackSetting(FeedbackID,SettingID,SubSettingID,SubSettingIDLevel3)
+	SELECT @FeedbackID,CommID,0,0
+	FROM @tblComm
+	IF	@@ERROR <> 0
+	BEGIN
+		-- rollback
+		DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+		DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+		SELECT	@ErrCode = 103
+			,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+		RETURN;
+	END;
+	
 
 	IF	@RelatedCustID IS NOT NULL AND @RelatedCustID <> ''
 	BEGIN
@@ -315,7 +454,7 @@ BEGIN
 			-- rollback
 			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
 			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
-
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
 			SELECT	@ErrCode = 105
 				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
 
@@ -359,15 +498,15 @@ BEGIN
 						'<Creator>'						+ ISNULL(CONVERT(VARCHAR(10),@UserID),'')						+ '</Creator>' +
 						'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
-						'<CommunicationID>'				+ ISNULL(CONVERT(VARCHAR(10),@CommunicationID),'')				+ '</CommunicationID>' +
-						'<StationID>'					+ ISNULL(CONVERT(VARCHAR(10),@StationID),'')					+ '</StationID>' +
-						'<MainCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@MainCategoryID),'')				+ '</MainCategoryID>' +
-						'<SubCategoryID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubCategoryID),'')				+ '</SubCategoryID>' +
+						'<CommunicationID>'				+ ISNULL(@CommunicationID,'')									+ '</CommunicationID>' +
+						'<StationID>'					+ ISNULL(@StationID,'')											+ '</StationID>' +
+						'<MainCategoryID>'				+ ISNULL(@MainCategoryID,'')									+ '</MainCategoryID>' +		
+						'<SubCategoryID>'				+ ISNULL(@SubCategoryID,'')										+ '</SubCategoryID>' +		
+						'<ProductID>'					+ ISNULL(@ProductID,'')											+ '</ProductID>' +		
+						'<SubProductID>'				+ ISNULL(@SubProductID,'')										+ '</SubProductID>' +		
+						'<BettypeID>'					+ ISNULL(@BettypeID,'')											+ '</BettypeID>' +										
 						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(10),@SiteID),'')						+ '</SiteID>' +
-						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +
-						'<ProductID>'					+ ISNULL(CONVERT(VARCHAR(10),@ProductID),'')					+ '</ProductID>' +
-						'<SubProductID>'				+ ISNULL(CONVERT(VARCHAR(10),@SubProductID),'')					+ '</SubProductID>' +
-						'<BettypeID>'					+ ISNULL(CONVERT(VARCHAR(10),@BettypeID),'')					+ '</BettypeID>' +
+						'<RoleID>'						+ ISNULL(CONVERT(VARCHAR(10),@RoleID),'')						+ '</RoleID>' +						
 						'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')					+ '</ResponseID>' +
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID),'')						+ '</StatusID>' +
 						'<RelatedCustID>'				+ ISNULL(@RelatedCustID,'')										+ '</RelatedCustID>' +
@@ -382,7 +521,8 @@ BEGIN
 						'<Pic3Name>'					+ ISNULL(dbo.f_EncodeXMLValue(@Pic3Name),'')					+ '</Pic3Name>' +
 						'<Pic4Name>'					+ ISNULL(dbo.f_EncodeXMLValue(@Pic4Name),'')					+ '</Pic4Name>' +
 						'<Passport>'					+ ISNULL(dbo.f_EncodeXMLValue(@Passport),'')					+ '</Passport>' +
-						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Description),'')					+ '</Remark>' +
+						'<Remark>'						+ ISNULL(dbo.f_EncodeXMLValue(@Remark),'')						+ '</Remark>' +
+						'<AutoField>'					+ ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')					+ '</AutoField>' +
 						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 						'<WhatsApp>'					+ ISNULL(dbo.f_EncodeXMLValue(@WhatsApp),'')					+ '</WhatsApp>' +
 						'<Line>'						+ ISNULL(dbo.f_EncodeXMLValue(@Line),'')						+ '</Line>' +
@@ -404,6 +544,7 @@ BEGIN
 			,	@Review =  @Review
 			,	@NewValues = @LogElement;
 END;
+
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackIns TO bodbAdminNet;

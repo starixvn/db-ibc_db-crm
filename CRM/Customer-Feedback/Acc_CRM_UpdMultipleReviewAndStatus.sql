@@ -1,0 +1,84 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE	dbo.Acc_CRM_UpdMultipleReviewAndStatus
+					@ListFeedbackID		VARCHAR(MAX)	
+				,	@StatusID			INT
+				,	@IsReviewed			BIT	
+				,	@ReviewNote			VARCHAR(MAX)				
+				,	@ReviewerID			INT
+				,	@UserID				INT
+				,	@IP					VARCHAR(15)
+				,	@ErrCode			INT				= 0		OUTPUT
+				,	@ErrMsg				NVARCHAR(4000)	= ''	OUTPUT
+AS
+/*
+	Created:	20180810@Winnie
+	Task :		Update Multiple review and Status
+	DB:			DBCRM.bodb_CRM
+	Original:
+
+	Revisions:
+		- 20180810@Winnie:  Create SP - Redmine: #99604
+	Param's Explanation:
+*/
+BEGIN
+	IF	ISNULL(@ListFeedbackID, '') = ''	
+	OR	ISNULL(@StatusID, 0) = 0 
+
+	BEGIN
+		SELECT	@ErrCode = 100
+			,	@ErrMsg = 'Incorrect Data.';
+		RETURN;
+	END;
+
+	CREATE TABLE #tempFb(FeedbackID INT PRIMARY KEY)
+	DECLARE @FeedbackID INT 
+	DECLARE @CustID		INT 
+	INSERT INTO #tempFb(FeedbackID)	
+	SELECT val
+	FROM dbo.f_CRM_strSplit(@ListFeedbackID,',')
+
+	UPDATE c
+		SET c.IsReviewed=@IsReviewed,		
+			c.ReviewerID=@ReviewerID,
+			c.StatusID=@StatusID,
+			c.Review=@ReviewNote
+	FROM	crmFeedback c WITH(ROWLOCK)
+		INNER JOIN #tempFb t ON c.FeedbackID=t.FeedbackID
+
+	IF	@@ERROR <> 0
+	BEGIN
+		SELECT	@ErrCode = 102
+			,	@ErrMsg = 'Update Multiple review unsuccessfuly.';
+
+		RETURN;
+	END;
+
+-- Write Log
+DECLARE	@LogElement XML;
+
+WHILE EXISTS (SELECT 1 FROM #tempFb)
+	BEGIN
+		SELECT TOP 1 @FeedbackID=FeedbackID FROM #tempFb	
+		SELECT @CustID=Custid FROM crmFeedback WITH(NOLOCK) WHERE FeedbackID=@FeedbackID
+																																																																											SELECT	@LogElement =
+					'<Acc_CRM_UpdMultipleReviewAndStatus>' + 
+						'<FeedbackID>'					+ ISNULL(CONVERT(VARCHAR(5),@FeedbackID),'')					+ '</FeedbackID>' +
+						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
+						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(5),@StatusID),'')						+ '</StatusID>' +
+						'<ReviewerID>'					+ ISNULL(CONVERT(VARCHAR(5),@ReviewerID),'')					+ '</ReviewerID>' +
+						'<ReviewNote>'					+ ISNULL(@ReviewNote,'')										+ '</ReviewNote>' +						
+					'</Acc_CRM_UpdMultipleReviewAndStatus>';
+		DELETE FROM #tempFb WHERE FeedbackID=@FeedbackID
+		EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
+					@UserID = @UserID
+				,	@FeedbackID = @FeedbackID
+				,	@CustID = @CustID
+				,	@ActionID = 204
+				,	@IP = @IP
+				,	@Description = NULL
+				,	@Solution = NULL
+				,	@Review =  @ReviewNote
+				,	@NewValues = @LogElement;
+	END
+END;					
+GO

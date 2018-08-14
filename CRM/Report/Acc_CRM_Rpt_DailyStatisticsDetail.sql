@@ -397,6 +397,7 @@ BEGIN
 			,	PIC2Name				
 			,	PIC3Name				
 			,	PIC4Name	
+			,	ProductID
 			,   SubProductID			
 			,   CategoryID				
 			,   SubCategoryID			

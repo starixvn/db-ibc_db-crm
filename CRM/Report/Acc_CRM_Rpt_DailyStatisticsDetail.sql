@@ -8,7 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 				,	@CommunicationID	VARCHAR(500)
 				,	@PageSize			INT				= 0
 				,	@PageIndex			INT				= 0
-				,	@TotalRows			BIGINT			= 0		OUTPUT
+				,	@TotalRows			INT				= 0		OUTPUT
 				,	@ErrorCode			INT				= 0		OUTPUT
 				,	@ErrorMsg			VARCHAR(200)	= ''	OUTPUT
 				)

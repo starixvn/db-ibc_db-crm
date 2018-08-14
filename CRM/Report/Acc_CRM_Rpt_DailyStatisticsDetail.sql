@@ -23,6 +23,7 @@ AS
 		- 20160505@Billy:	Add Sub-Product in Detail Reports - [Redmine: #57052]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20180814@Winnie: Enhancement made for Excel. [RedmineID: #99811]
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee

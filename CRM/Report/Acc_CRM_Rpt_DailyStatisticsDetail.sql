@@ -311,7 +311,7 @@ BEGIN
 		,   ProductID				=	pag.ProductID
 		,   SubProductID			=	pag.SubProductID
 		,   CategoryID				=	pag.CategoryID
-		,   SubCategoryID			=	pag.CategoryID
+		,   SubCategoryID			=	pag.SubCategoryID
 		,   CommunicationID			=	pag.CommunicationID
 		,   StationID			    =	pag.StationID
 	INTO #temp

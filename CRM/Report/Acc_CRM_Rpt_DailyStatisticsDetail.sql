@@ -9,6 +9,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 				,	@PageSize			INT				= 0
 				,	@PageIndex			INT				= 0
 				,	@TotalRows			INT				= 0		OUTPUT
+				,	@ErrorCode			INT				= 0		OUTPUT
+				,	@ErrorMsg			VARCHAR(200)	= ''	OUTPUT
 				)
 AS
 /*
@@ -21,6 +23,7 @@ AS
 		- 20160505@Billy:	Add Sub-Product in Detail Reports - [Redmine: #57052]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20180814@Winnie: Enhancement made for Excel. [RedmineID: #99811]
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -30,22 +33,23 @@ BEGIN
 	SET NOCOUNT ON;
 		
 	DECLARE	@RowStart		INT
-		,	@RowEnd			INT;
-	DECLARE	@string			VARCHAR(MAX)
+		,	@RowEnd			INT
+		,	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)
-		,	@xml			XML;
-
-	CREATE TABLE #tempFB(FeedbackID INT PRIMARY KEY,Description XML,Username NVARCHAR(50),SiteName NVARCHAR(100))	
-	CREATE TABLE #tempFB2(FeedbackID INT PRIMARY KEY,FeedbackDate DATETIME,SiteName NVARCHAR(100))	
-	CREATE TABLE	#Product		 (ProductID		INT PRIMARY KEY)
-	CREATE TABLE	#Category		 (CategoryID	INT PRIMARY KEY)
+		,	@xml			XML
+		
+	CREATE TABLE	#Product		 (ProductID			INT PRIMARY KEY)
+	CREATE TABLE	#Category		 (CategoryID		INT PRIMARY KEY)
 	CREATE TABLE	#Communication	 (CommunicationID	INT PRIMARY KEY)
+	CREATE TABLE	#FBProduct		 (ProductID			INT ,SubProductID	INT ,FeedbackID		INT,PRIMARY KEY(FeedbackID,ProductID,SubProductID))
+	CREATE TABLE	#FBCategory		 (CategoryID		INT ,SubCategoryID	INT	,FeedbackID		INT,PRIMARY KEY(FeedbackID,CategoryID,SubCategoryID))
+	CREATE TABLE	#FBCommunication (CommunicationID	INT ,FeedbackID		INT,SiteName NVARCHAR(100),Description XML,PRIMARY KEY(FeedbackID,CommunicationID))
+	CREATE TABLE	#FBStation		 (StationID			INT ,FeedbackID		INT,SiteName NVARCHAR(100),PRIMARY KEY(FeedbackID,StationID))
 	
 	SELECT	@TotalRows		= 0;	
 	SELECT	@PageIndex		= @PageIndex - 1
 		,	@RowStart		= @PageSize * @PageIndex + 1
 		,	@RowEnd			= @RowStart + @PageSize - 1;
-	
 
 	SELECT	@splitter		= ','
 		,	@string			= @ProductID
@@ -68,48 +72,86 @@ BEGIN
 	INSERT INTO	#Communication(CommunicationID)
 	SELECT	r.value('.','INT')
 	FROM		@xml.nodes('//root/r') AS RECORDS(r)
+	
+				
+	INSERT INTO #FBProduct(FeedbackID,ProductID,SubProductID)
+	SELECT DISTINCT fs.FeedbackID,fs.SettingID,fs.SubSettingID
+	FROM crmFeedback fb WITH (NOLOCK) 
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+			ON fs.FeedbackID=fb.FeedbackID	
+		INNER JOIN #Product p
+			ON fs.SettingID=p.ProductID		
+	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
+		AND	fb.StatusID <> 11004
+				
+	INSERT INTO #FBCategory(FeedbackID,CategoryID,SubCategoryID)
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID
+	FROM crmFeedback fb WITH (NOLOCK)
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+			ON fs.FeedbackID=fb.FeedbackID	
+		INNER JOIN #Category p
+			ON fs.SettingID=p.CategoryID 			
+	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
+	AND	fb.StatusID <> 11004	
+						
+	INSERT INTO #FBCommunication(FeedbackID,CommunicationID,SiteName)
+	SELECT fs.FeedbackID,fs.SettingID,s.SiteName
+	FROM crmFeedback fb WITH (NOLOCK) 
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+			ON fs.FeedbackID=fb.FeedbackID	
+		INNER JOIN #Communication c
+			ON fs.SettingID=c.CommunicationID 
+		LEFT JOIN	crmSite s WITH (NOLOCK)
+				ON	s.SiteID = fb.SiteID 
+	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
+	AND	fb.StatusID <> 11004
+	AND (	@SiteType = 0
+		AND	(	s.IsLicensee = 0
+			OR	ISNULL(fb.SiteID, 0) = 0
+			OR	ISNULL(s.SiteID, 0) = 0
+			)
+		OR	(	@SiteType = 1
+			AND	s.IsLicensee = 1
+			)
+		)
+		
+	INSERT INTO #FBStation(FeedbackID,StationID)
+	SELECT DISTINCT fs.FeedbackID,fs.SettingID
+	FROM #FBCommunication fp
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+			ON fs.FeedbackID=fp.FeedbackID	
+		INNER JOIN crmSetting c
+			ON fs.SettingID=c.SettingID AND c.SettingName='Station'				
+		
+	IF(	@TotalRows=0)
+	BEGIN
+		SELECT @TotalRows = COUNT(1) 	
+		FROM		crmFeedback fb WITH (NOLOCK)
+		INNER JOIN #FBProduct p ON fb.FeedbackID=p.FeedbackID
+		INNER JOIN #FBCategory ca ON fb.FeedbackID=ca.FeedbackID
+		INNER JOIN #FBCommunication com ON fb.FeedbackID=com.FeedbackID
+		INNER JOIN crmCustomer c WITH (NOLOCK)	ON	fb.CustID = c.CustID
+		INNER JOIN #FBStation sta ON fb.FeedbackID=sta.FeedbackID
+	END	
 			
 	IF	((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN		
-		INSERT INTO #tempFB(FeedbackID,Username,SiteName)
-		SELECT DISTINCT fb.FeedbackID,c.UserName,s.SiteName
-		FROM crmFeedback fb WITH (NOLOCK) 
-			INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
-					ON fb.FeedbackID=fp.FeedbackID			
-			INNER JOIN	#Product p
-					ON	fp.SettingID = p.ProductID	
-			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
-					ON fb.FeedbackID=fm.FeedbackID			
-			INNER JOIN	#Category m
-					ON	fm.SettingID = m.CategoryID
-			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
-					ON fb.FeedbackID=fc.FeedbackID			
-			INNER JOIN	#Communication co
-					ON	fc.SettingID = co.CommunicationID
-			LEFT JOIN	crmSite s WITH (NOLOCK)
-					ON	s.SiteID = fb.SiteID
-			INNER JOIN	crmCustomer c WITH (NOLOCK)
-				ON	fb.CustID = c.CustID
-		WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
-		AND	fb.StatusID <> 11004
-		AND	(	@SiteType = 0
-			AND	(	s.IsLicensee = 0
-				OR	ISNULL(fb.SiteID, 0) = 0
-				OR	ISNULL(s.SiteID, 0) = 0
-				)
-			OR	(	@SiteType = 1
-				AND	s.IsLicensee = 1
-				)
-			)			
+		IF(@TotalRows>1000000)
+		BEGIN		
+			SELECT @ErrorCode=100;
+			SELECT @ErrorMsg='That''s more than a million data, So we can not export excel.Pls choice another range date.'
+			RETURN
+		END	
+		
 		UPDATE  t
 			SET t.Description=fb.Description
-			FROM #tempFB t
-			INNER JOIN crmFeedback fb ON t.FeedbackID=fb.FeedbackID
-
+			FROM #FBCommunication t
+			INNER JOIN crmFeedback fb ON t.FeedbackID=fb.FeedbackID		
+			
 		SELECT	FeedbackID				=	fb.FeedbackID
 			,	CustID					=	fb.CustID
 			,	TitleID					=	fb.TitleID
-			,	UserName				=	t.UserName
+			,	UserName				=	c.UserName
 			,	FirstName				=	fb.FirstName
 			,	LastName				=	fb.LastName
 			,	Email					=	fb.Email
@@ -123,11 +165,10 @@ BEGIN
 			,	FeedbackDate			=	fb.FeedbackDate
 			,	ResolutionDate			=	fb.ResolutionDate
 			,	SolveDate				=	fb.SolveDate
-			,	SiteName				=	ISNULL(t.SiteName, 'N/A')
+			,	SiteName				=	ISNULL(com.SiteName, 'N/A')
 			,	Role					=	Role.Role
 			,	Response				=	ISNULL(Response.Response, 'N/A')
-			,	Status					=	ISNULL(st.Name, 'N/A')
-			,	Description				=	CAST(fb.Description AS XML)
+			,	Status					=	ISNULL(st.Name, 'N/A')			
 			,	Solution				=	fb.Solution
 			,	IsReviewed				=	fb.IsReviewed
 			,	Review					=	fb.Review
@@ -164,9 +205,20 @@ BEGIN
 			,	PIC4Name				=	ISNULL(fb.PIC4Name, '')	
 			,	nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
 			,	nr.value(N'@Remark',N'nvarchar(max)') AS Remark	
+			,p.ProductID
+			,p.SubProductID
+			,ca.CategoryID
+			,ca.SubCategoryID
+			,com.CommunicationID
+			,sta.StationID
 		FROM		crmFeedback fb WITH (NOLOCK) 
-		INNER JOIN #tempFB t ON fb.FeedbackID=t.FeedbackID
-		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)		
+		INNER JOIN #FBProduct p ON fb.FeedbackID=p.FeedbackID
+		INNER JOIN #FBCategory ca ON fb.FeedbackID=ca.FeedbackID
+		INNER JOIN #FBCommunication com ON fb.FeedbackID=com.FeedbackID
+		INNER JOIN crmCustomer c WITH (NOLOCK)
+				ON	fb.CustID = c.CustID
+		INNER JOIN #FBStation sta ON fb.FeedbackID=sta.FeedbackID
+		OUTER APPLY com.Description.nodes(N'//row') AS A(nr)		
 		LEFT JOIN	crmLanguage l WITH (NOLOCK)
 				ON	l.LanguageID = fb.languageid
 		LEFT JOIN	crmCountry ct WITH (NOLOCK)
@@ -185,226 +237,173 @@ BEGIN
 						WHERE	SettingName = 'Role'
 					) Role
 				ON	Role.RoleID = fb.RoleID
-		ORDER BY	fb.feedbackdate DESC
+		ORDER BY	fb.feedbackdate DESC		
 
-		SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
-		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
-				WHEN s.StationID		IS NOT NULL THEN 'Station' 
-				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
-				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
-				END AS SettingType
-		FROM #tempFB fp
-			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
-				ON fs.FeedbackID=fp.FeedbackID	
-			LEFT JOIN crmMainCategory m 
-				ON fs.SettingID=m.MainCategoryID
-			LEFT JOIN crmStation s 
-				ON fs.SettingID=s.StationID
-			LEFT JOIN crmSetting p
-				ON fs.SettingID=p.SettingID AND p.SettingName='Product'
-			LEFT JOIN crmSetting c
-				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 		RETURN;
 	END;
-	INSERT INTO #tempFB2(FeedbackID ,FeedbackDate,SiteName)	
-	SELECT DISTINCT fb.FeedbackID,fb.FeedbackDate,s.SiteName
+	
+	;WITH Pag AS (	
+		SELECT fb.feedbackid,fb.FeedbackDate,com.sitename,p.ProductID,p.SubProductID,ca.CategoryID,ca.SubCategoryID,com.CommunicationID,sta.StationID,c.Username,RowNum=ROW_NUMBER() OVER(ORDER BY feedbackdate DESC)		
+		FROM	crmFeedback fb WITH (NOLOCK)
+			INNER JOIN #FBProduct p ON fb.FeedbackID=p.FeedbackID
+			INNER JOIN #FBCategory ca ON fb.FeedbackID=ca.FeedbackID
+			INNER JOIN #FBCommunication com ON fb.FeedbackID=com.FeedbackID
+			INNER JOIN crmCustomer c WITH (NOLOCK)	ON	fb.CustID = c.CustID
+			INNER JOIN #FBStation sta ON fb.FeedbackID=sta.FeedbackID
+	)
+	
+	SELECT	FeedbackID				=	fb.FeedbackID
+		,	CustID					=	fb.CustID
+		,	TitleID					=	fb.TitleID
+		,	UserName				=	c.UserName
+		,	FirstName				=	fb.FirstName
+		,	LastName				=	fb.LastName
+		,	Email					=	fb.Email
+		,	Skype					=	fb.Skype
+		,	MSN						=	fb.MSN		
+		,	Language				=	ISNULL(l.Name, 'N/A')
+		,	CountryName				=	ISNULL(ct.CountryName, 'N/A')
+		,	CreateDate				=	fb.CreateDate
+		,	CreatorID				=	fb.CreatorID
+		,	CreatorName				=	ci.UserName
+		,	FeedbackDate			=	fb.FeedbackDate
+		,	ResolutionDate			=	fb.ResolutionDate
+		,	SolveDate				=	fb.SolveDate			
+		,	SiteName				=	ISNULL(pag.SiteName, 'N/A')
+		,	Role					=	Role.Role		
+		,	Response				=	ISNULL(Response.Response, 'N/A')
+		,	Status					=	ISNULL(st.Name, 'N/A')
+		,	Description				=	CAST(fb.Description AS XML)
+		,	Solution				=	fb.Solution
+		,	IsReviewed				=	fb.IsReviewed
+		,	Review					=	fb.Review
+		,	ReviewerID				=	fb.ReviewerID
+		,	Subject					=	fb.Subject
+		,	FaxCountryCode			=	ISNULL(fb.FaxCountryCode, '')
+		,	FaxAreaCode				=	ISNULL(fb.FaxAreaCode, '')
+		,	Fax						=	ISNULL(fb.Fax, '')
+		,	PhoneCountryCode		=	ISNULL(fb.PhoneCountryCode, '')
+		,	PhoneAreaCode			=	ISNULL(fb.PhoneAreaCode, '')
+		,	Phone					=	ISNULL(fb.Phone, '')
+		,	Phone2CountryCode		=	ISNULL(fb.Phone2CountryCode, '')
+		,	Phone2AreaCode			=	ISNULL(fb.Phone2AreaCode, '')
+		,	Phone2					=	ISNULL(fb.Phone2, '')
+		,	Phone3CountryCode		=	ISNULL(fb.Phone3CountryCode, '')
+		,	Phone3AreaCode			=	ISNULL(fb.Phone3AreaCode, '')
+		,	Phone3					=	ISNULL(fb.Phone3, '')
+		,	WhatsApp				=	ISNULL(fb.WhatsApp, '')
+		,	Line					=	ISNULL(fb.Line, '')
+		,	WeChat					=	ISNULL(fb.WeChat, '')
+		,	Yahoo					=	ISNULL(fb.Yahoo, '')
+		,	QQ						=	ISNULL(fb.QQ, '')
+		,	BBM						=	ISNULL(fb.BBM, '')
+		,	MobilePhoneCountryCode	=	ISNULL(fb.MobilePhoneCountryCode, '')
+		,	MobilePhoneAreaCode		=	ISNULL(fb.MobilePhoneAreaCode, '')
+		,	MobilePhone				=	ISNULL(fb.MobilePhone, '')
+		,	PIC1					=	ISNULL(fb.PIC1, '')
+		,	PIC2					=	ISNULL(fb.PIC2, '')
+		,	PIC3					=	ISNULL(fb.PIC3, '')
+		,	PIC4					=	ISNULL(fb.PIC4, '')
+		,	PIC1Name				=	ISNULL(fb.PIC1Name, '')
+		,	PIC2Name				=	ISNULL(fb.PIC2Name, '')
+		,	PIC3Name				=	ISNULL(fb.PIC3Name, '')
+		,	PIC4Name				=	ISNULL(fb.PIC4Name, '')
+		,   ProductID				=	pag.ProductID
+		,   SubProductID			=	pag.SubProductID
+		,   CategoryID				=	pag.CategoryID
+		,   SubCategoryID			=	pag.SubCategoryID
+		,   CommunicationID			=	pag.CommunicationID
+		,   StationID			    =	pag.StationID
+	INTO #temp
 	FROM		crmFeedback fb WITH (NOLOCK) 
-		INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) 
-				ON fb.FeedbackID=fp.FeedbackID			
-		INNER JOIN	#Product p
-				ON	fp.SettingID = p.ProductID	
-		INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) 
-				ON fb.FeedbackID=fm.FeedbackID			
-		INNER JOIN	#Category m
-				ON	fm.SettingID = m.CategoryID
-		INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) 
-				ON fb.FeedbackID=fc.FeedbackID			
-		INNER JOIN	#Communication co
-					ON	fc.SettingID = co.CommunicationID
-		LEFT JOIN	crmSite s WITH (NOLOCK)
-				ON	s.SiteID = fb.SiteID
-		WHERE	fb.feedbackdate BETWEEN @fromdate AND @todate
-			AND	fb.StatusID <> 11004
-			AND	(	@SiteType = 0
-				AND	(	s.IsLicensee = 0
-					OR	ISNULL(fb.SiteID, 0) = 0
-					OR	ISNULL(s.SiteID, 0) = 0
-					)
-				OR	(	@SiteType = 1
-					AND	s.IsLicensee = 1
-					)
-				);
-	IF	@TotalRows = 0  
-	BEGIN  
-		SELECT	@TotalRows = COUNT(1)
-		FROM #tempFB2	
-	END;
+	INNER JOIN	Pag
+			ON	fb.FeedbackID = pag.FeedbackID
+	INNER JOIN	crmCustomer c WITH (NOLOCK)
+			ON	fb.CustID = c.CustID	
+	LEFT JOIN	crmLanguage l WITH (NOLOCK)
+			ON	l.LanguageID = fb.languageid
+	LEFT JOIN	crmCountry ct WITH (NOLOCK)
+			ON	ct.CountryID = fb.CountryID
+	LEFT JOIN	bodb02.dbo.custinfo ci WITH (NOLOCK)
+			ON	fb.CreatorID = ci.custID		
+	LEFT JOIN	crmStatus st WITH (NOLOCK)
+			ON	st.StatusID = fb.StatusID	
+	LEFT JOIN	(	SELECT	SettingID ResponseID, SettingValue Response
+					FROM	crmSetting WITH (NOLOCK)
+					WHERE	SettingName = 'Response'
+				) Response
+			ON	Response.ResponseID = fb.ResponseID
+	LEFT JOIN	(	SELECT	SettingID RoleID, SettingValue Role
+					FROM	crmSetting WITH (NOLOCK)
+					WHERE	SettingName = 'Role'
+			) Role 
+			ON	Role.RoleID = fb.RoleID	
+	WHERE	pag.RowNum BETWEEN @RowStart AND @RowEnd
 	
-	WITH Pag AS (
-		SELECT	RowNum		=	ROW_NUMBER() OVER(ORDER BY feedbackdate DESC)
-			,	FeedbackID	=	fb.FeedbackID
-			,	SiteName
-		FROM #tempFB2 fb
-			)
-		SELECT	FeedbackID				=	fb.FeedbackID
-			,	CustID					=	fb.CustID
-			,	TitleID					=	fb.TitleID
-			,	UserName				=	c.UserName
-			,	FirstName				=	fb.FirstName
-			,	LastName				=	fb.LastName
-			,	Email					=	fb.Email
-			,	Skype					=	fb.Skype
-			,	MSN						=	fb.MSN		
-			,	Language				=	ISNULL(l.Name, 'N/A')
-			,	CountryName				=	ISNULL(ct.CountryName, 'N/A')
-			,	CreateDate				=	fb.CreateDate
-			,	CreatorID				=	fb.CreatorID
-			,	CreatorName				=	ci.UserName
-			,	FeedbackDate			=	fb.FeedbackDate
-			,	ResolutionDate			=	fb.ResolutionDate
-			,	SolveDate				=	fb.SolveDate			
-			,	SiteName				=	ISNULL(pag.SiteName, 'N/A')
-			,	Role					=	Role.Role		
-			,	Response				=	ISNULL(Response.Response, 'N/A')
-			,	Status					=	ISNULL(st.Name, 'N/A')
-			,	Description				=	CAST(fb.Description AS XML)
-			,	Solution				=	fb.Solution
-			,	IsReviewed				=	fb.IsReviewed
-			,	Review					=	fb.Review
-			,	ReviewerID				=	fb.ReviewerID
-			,	Subject					=	fb.Subject
-			,	FaxCountryCode			=	ISNULL(fb.FaxCountryCode, '')
-			,	FaxAreaCode				=	ISNULL(fb.FaxAreaCode, '')
-			,	Fax						=	ISNULL(fb.Fax, '')
-			,	PhoneCountryCode		=	ISNULL(fb.PhoneCountryCode, '')
-			,	PhoneAreaCode			=	ISNULL(fb.PhoneAreaCode, '')
-			,	Phone					=	ISNULL(fb.Phone, '')
-			,	Phone2CountryCode		=	ISNULL(fb.Phone2CountryCode, '')
-			,	Phone2AreaCode			=	ISNULL(fb.Phone2AreaCode, '')
-			,	Phone2					=	ISNULL(fb.Phone2, '')
-			,	Phone3CountryCode		=	ISNULL(fb.Phone3CountryCode, '')
-			,	Phone3AreaCode			=	ISNULL(fb.Phone3AreaCode, '')
-			,	Phone3					=	ISNULL(fb.Phone3, '')
-			,	WhatsApp				=	ISNULL(fb.WhatsApp, '')
-			,	Line					=	ISNULL(fb.Line, '')
-			,	WeChat					=	ISNULL(fb.WeChat, '')
-			,	Yahoo					=	ISNULL(fb.Yahoo, '')
-			,	QQ						=	ISNULL(fb.QQ, '')
-			,	BBM						=	ISNULL(fb.BBM, '')
-			,	MobilePhoneCountryCode	=	ISNULL(fb.MobilePhoneCountryCode, '')
-			,	MobilePhoneAreaCode		=	ISNULL(fb.MobilePhoneAreaCode, '')
-			,	MobilePhone				=	ISNULL(fb.MobilePhone, '')
-			,	PIC1					=	ISNULL(fb.PIC1, '')
-			,	PIC2					=	ISNULL(fb.PIC2, '')
-			,	PIC3					=	ISNULL(fb.PIC3, '')
-			,	PIC4					=	ISNULL(fb.PIC4, '')
-			,	PIC1Name				=	ISNULL(fb.PIC1Name, '')
-			,	PIC2Name				=	ISNULL(fb.PIC2Name, '')
-			,	PIC3Name				=	ISNULL(fb.PIC3Name, '')
-			,	PIC4Name				=	ISNULL(fb.PIC4Name, '')
-		INTO #temp
-		FROM		crmFeedback fb WITH (NOLOCK) 
-		INNER JOIN	Pag
-				ON	fb.FeedbackID = pag.FeedbackID
-		INNER JOIN	crmCustomer c WITH (NOLOCK)
-				ON	fb.CustID = c.CustID	
-		LEFT JOIN	crmLanguage l WITH (NOLOCK)
-				ON	l.LanguageID = fb.languageid
-		LEFT JOIN	crmCountry ct WITH (NOLOCK)
-				ON	ct.CountryID = fb.CountryID
-		LEFT JOIN	bodb02.dbo.custinfo ci WITH (NOLOCK)
-				ON	fb.CreatorID = ci.custID		
-		LEFT JOIN	crmStatus st WITH (NOLOCK)
-				ON	st.StatusID = fb.StatusID	
-		LEFT JOIN	(	SELECT	SettingID ResponseID, SettingValue Response
-						FROM	crmSetting WITH (NOLOCK)
-						WHERE	SettingName = 'Response'
-					) Response
-				ON	Response.ResponseID = fb.ResponseID
-		LEFT JOIN	(	SELECT	SettingID RoleID, SettingValue Role
-						FROM	crmSetting WITH (NOLOCK)
-						WHERE	SettingName = 'Role'
-				) Role 
-				ON	Role.RoleID = fb.RoleID	
-		WHERE	pag.RowNum BETWEEN @RowStart AND @RowEnd
-	
-		SELECT c.FeedbackID
-				,nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
-				,nr.value(N'@Remark',N'nvarchar(max)') AS Remark
-				,	CustID		
-				,	TitleID			
-				,	UserName			
-				,	FirstName			
-				,	LastName				
-				,	Email				
-				,	Skype					
-				,	MSN		
-				,	Language				
-				,	CountryName				
-				,	CreateDate				
-				,	CreatorID				
-				,	CreatorName				
-				,	FeedbackDate			
-				,	ResolutionDate			
-				,	SolveDate	
-				,	SiteName				
-				,	Role	
-				,	Response				
-				,	Status			
-				,	Solution				
-				,	IsReviewed				
-				,	Review					
-				,	ReviewerID				
-				,	Subject					
-				,	FaxCountryCode			
-				,	FaxAreaCode				
-				,	Fax						
-				,	PhoneCountryCode		
-				,	PhoneAreaCode			
-				,	Phone					
-				,	Phone2CountryCode		
-				,	Phone2AreaCode			
-				,	Phone2					
-				,	Phone3CountryCode		
-				,	Phone3AreaCode			
-				,	Phone3					
-				,	WhatsApp				
-				,	Line					
-				,	WeChat					
-				,	Yahoo					
-				,	QQ						
-				,	BBM						
-				,	MobilePhoneCountryCode	
-				,	MobilePhoneAreaCode		
-				,	MobilePhone				
-				,	PIC1					
-				,	PIC2					
-				,	PIC3					
-				,	PIC4					
-				,	PIC1Name				
-				,	PIC2Name				
-				,	PIC3Name				
-				,	PIC4Name				
-		 from #temp AS c
-		 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)
-		 
-		SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
-		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
-				WHEN s.StationID		IS NOT NULL THEN 'Station' 
-				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
-				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
-				END AS SettingType
-		FROM #temp fp
-			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
-				ON fs.FeedbackID=fp.FeedbackID	
-			LEFT JOIN crmMainCategory m 
-				ON fs.SettingID=m.MainCategoryID
-			LEFT JOIN crmStation s 
-				ON fs.SettingID=s.StationID
-			LEFT JOIN crmSetting p
-				ON fs.SettingID=p.SettingID AND p.SettingName='Product'
-			LEFT JOIN crmSetting c
-				ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
+	SELECT c.FeedbackID
+			,nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
+			,nr.value(N'@Remark',N'nvarchar(max)') AS Remark
+			,	CustID		
+			,	TitleID			
+			,	UserName			
+			,	FirstName			
+			,	LastName				
+			,	Email				
+			,	Skype					
+			,	MSN		
+			,	Language				
+			,	CountryName				
+			,	CreateDate				
+			,	CreatorID				
+			,	CreatorName				
+			,	FeedbackDate			
+			,	ResolutionDate			
+			,	SolveDate	
+			,	SiteName				
+			,	Role	
+			,	Response				
+			,	Status			
+			,	Solution				
+			,	IsReviewed				
+			,	Review					
+			,	ReviewerID				
+			,	Subject					
+			,	FaxCountryCode			
+			,	FaxAreaCode				
+			,	Fax						
+			,	PhoneCountryCode		
+			,	PhoneAreaCode			
+			,	Phone					
+			,	Phone2CountryCode		
+			,	Phone2AreaCode			
+			,	Phone2					
+			,	Phone3CountryCode		
+			,	Phone3AreaCode			
+			,	Phone3					
+			,	WhatsApp				
+			,	Line					
+			,	WeChat					
+			,	Yahoo					
+			,	QQ						
+			,	BBM						
+			,	MobilePhoneCountryCode	
+			,	MobilePhoneAreaCode		
+			,	MobilePhone				
+			,	PIC1					
+			,	PIC2					
+			,	PIC3					
+			,	PIC4					
+			,	PIC1Name				
+			,	PIC2Name				
+			,	PIC3Name				
+			,	PIC4Name	
+			,	ProductID
+			,   SubProductID			
+			,   CategoryID				
+			,   SubCategoryID			
+			,   CommunicationID			
+			,   StationID			   		
+	 from #temp AS c
+	 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)	
 END;
-
 GO

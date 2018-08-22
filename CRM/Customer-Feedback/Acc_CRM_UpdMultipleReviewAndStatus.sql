@@ -41,7 +41,8 @@ BEGIN
 		SET c.IsReviewed=@IsReviewed,		
 			c.ReviewerID=@ReviewerID,
 			c.StatusID=@StatusID,
-			c.Review=@ReviewNote
+			c.Review=@ReviewNote,
+			c.SolveDate=GETDATE()
 	FROM	crmFeedback c WITH(ROWLOCK)
 		INNER JOIN #tempFb t ON c.FeedbackID=t.FeedbackID
 

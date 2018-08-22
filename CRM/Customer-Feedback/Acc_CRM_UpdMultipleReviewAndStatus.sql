@@ -3,7 +3,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_UpdMultipleReviewAndStatus
 					@ListFeedbackID		VARCHAR(MAX)	
 				,	@StatusID			INT
 				,	@IsReviewed			BIT	
-				,	@ReviewNote			VARCHAR(MAX)				
+				,	@ReviewNote			VARCHAR(MAX)=NULL				
 				,	@ReviewerID			INT
 				,	@UserID				INT
 				,	@IP					VARCHAR(15)

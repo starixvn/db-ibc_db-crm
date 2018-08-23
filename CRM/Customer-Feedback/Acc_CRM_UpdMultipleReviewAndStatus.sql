@@ -1,9 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_UpdMultipleReviewAndStatus
+ALTER PROCEDURE	[dbo].[Acc_CRM_UpdMultipleReviewAndStatus]
 					@ListFeedbackID		VARCHAR(MAX)	
 				,	@StatusID			INT
 				,	@IsReviewed			BIT	
-				,	@ReviewNote			VARCHAR(MAX)=NULL				
+				,	@ReviewNote			NVARCHAR(MAX)=NULL				
 				,	@ReviewerID			INT
 				,	@UserID				INT
 				,	@IP					VARCHAR(15)
@@ -53,7 +53,7 @@ BEGIN
 
 		RETURN;
 	END;
-
+	
 -- Write Log
 DECLARE	@LogElement XML;
 
@@ -67,7 +67,7 @@ WHILE EXISTS (SELECT 1 FROM #tempFb)
 						'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')					+ '</IsReviewed>' +
 						'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(5),@StatusID),'')						+ '</StatusID>' +
 						'<ReviewerID>'					+ ISNULL(CONVERT(VARCHAR(5),@ReviewerID),'')					+ '</ReviewerID>' +
-						'<ReviewNote>'					+ ISNULL(@ReviewNote,'')										+ '</ReviewNote>' +						
+						'<ReviewNote>'					+ ISNULL(dbo.f_EncodeXMLValue(@ReviewNote),'')					+ '</ReviewNote>' +						
 					'</Acc_CRM_UpdMultipleReviewAndStatus>';
 		DELETE FROM #tempFb WHERE FeedbackID=@FeedbackID
 		EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
@@ -82,4 +82,5 @@ WHILE EXISTS (SELECT 1 FROM #tempFb)
 				,	@NewValues = @LogElement;
 	END
 END;					
+
 GO

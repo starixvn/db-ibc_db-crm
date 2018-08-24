@@ -3,6 +3,7 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_UpdMultipleReviewAndStatus]
 					@ListFeedbackID		VARCHAR(MAX)	
 				,	@StatusID			INT
 				,	@IsReviewed			BIT	
+				,	@UpdateReviewedMode	TINYINT			= 0
 				,	@ReviewNote			NVARCHAR(MAX)=NULL				
 				,	@ReviewerID			INT
 				,	@UserID				INT
@@ -19,6 +20,10 @@ AS
 	Revisions:
 		- 20180810@Winnie:  Create SP - Redmine: #99604
 	Param's Explanation:
+		- @UpdateReviewedMode: Kind of update review
+			0	Do nothing
+			1	Update review
+			2	remove review
 */
 BEGIN
 	IF	ISNULL(@ListFeedbackID, '') = ''	
@@ -30,6 +35,8 @@ BEGIN
 		RETURN;
 	END;
 
+
+
 	CREATE TABLE #tempFb(FeedbackID INT PRIMARY KEY)
 	DECLARE @FeedbackID INT 
 	DECLARE @CustID		INT 
@@ -38,11 +45,23 @@ BEGIN
 	FROM dbo.f_CRM_strSplit(@ListFeedbackID,',')
 
 	UPDATE c
-		SET c.IsReviewed=@IsReviewed,		
-			c.ReviewerID=@ReviewerID,
+		SET c.IsReviewed=CASE	WHEN @UpdateReviewedMode = 0 THEN IsReviewed 
+								WHEN @UpdateReviewedMode = 1 THEN 1
+								WHEN @UpdateReviewedMode = 2 THEN 0
+								ELSE IsReviewed END,		
+			c.ReviewerID=CASE	WHEN @UpdateReviewedMode = 0 THEN ReviewerID 
+								WHEN @UpdateReviewedMode = 1 THEN @ReviewerID
+								WHEN @UpdateReviewedMode = 2 THEN NULL
+								ELSE ReviewerID END,
 			c.StatusID=@StatusID,
-			c.Review=@ReviewNote,
-			c.SolveDate=GETDATE()
+			c.Review=	CASE	WHEN @UpdateReviewedMode = 0 THEN Review 
+								WHEN @UpdateReviewedMode = 1 THEN @ReviewNote 
+								WHEN @UpdateReviewedMode = 2 THEN NULL
+								ELSE Review END ,
+			c.SolveDate=CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate 
+								WHEN @UpdateReviewedMode = 1 THEN GETDATE() 
+								WHEN @UpdateReviewedMode = 2 THEN NULL 
+								ELSE SolveDate END
 	FROM	crmFeedback c WITH(ROWLOCK)
 		INNER JOIN #tempFb t ON c.FeedbackID=t.FeedbackID
 

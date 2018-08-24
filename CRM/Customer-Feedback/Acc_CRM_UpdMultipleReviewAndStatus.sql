@@ -2,8 +2,7 @@
 ALTER PROCEDURE	[dbo].[Acc_CRM_UpdMultipleReviewAndStatus]
 					@ListFeedbackID		VARCHAR(MAX)	
 				,	@StatusID			INT
-				,	@IsReviewed			BIT	
-				,	@UpdateReviewedMode	TINYINT			= 0
+				,	@IsReviewed			BIT					
 				,	@ReviewNote			NVARCHAR(MAX)=NULL				
 				,	@ReviewerID			INT
 				,	@UserID				INT
@@ -35,8 +34,6 @@ BEGIN
 		RETURN;
 	END;
 
-
-
 	CREATE TABLE #tempFb(FeedbackID INT PRIMARY KEY)
 	DECLARE @FeedbackID INT 
 	DECLARE @CustID		INT 
@@ -45,22 +42,21 @@ BEGIN
 	FROM dbo.f_CRM_strSplit(@ListFeedbackID,',')
 
 	UPDATE c
-		SET c.IsReviewed=CASE	WHEN @UpdateReviewedMode = 0 THEN IsReviewed 
-								WHEN @UpdateReviewedMode = 1 THEN 1
-								WHEN @UpdateReviewedMode = 2 THEN 0
+		SET c.IsReviewed=CASE	
+								WHEN @IsReviewed = 1 AND c.IsReviewed=0 THEN 1
+								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN 0
 								ELSE IsReviewed END,		
-			c.ReviewerID=CASE	WHEN @UpdateReviewedMode = 0 THEN ReviewerID 
-								WHEN @UpdateReviewedMode = 1 THEN @ReviewerID
-								WHEN @UpdateReviewedMode = 2 THEN NULL
+			c.ReviewerID=CASE	WHEN @IsReviewed = 1 AND c.IsReviewed=0 THEN @ReviewerID
+								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN NULL
 								ELSE ReviewerID END,
 			c.StatusID=@StatusID,
-			c.Review=	CASE	WHEN @UpdateReviewedMode = 0 THEN Review 
-								WHEN @UpdateReviewedMode = 1 THEN @ReviewNote 
-								WHEN @UpdateReviewedMode = 2 THEN NULL
+			c.Review=	CASE	
+								WHEN @IsReviewed = 1 AND c.IsReviewed=0  THEN @ReviewNote 
+								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN NULL
 								ELSE Review END ,
-			c.SolveDate=CASE	WHEN @UpdateReviewedMode = 0 THEN SolveDate 
-								WHEN @UpdateReviewedMode = 1 THEN GETDATE() 
-								WHEN @UpdateReviewedMode = 2 THEN NULL 
+			c.SolveDate=CASE	
+								WHEN @IsReviewed = 1 AND c.IsReviewed=0  THEN GETDATE() 
+								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN NULL 
 								ELSE SolveDate END
 	FROM	crmFeedback c WITH(ROWLOCK)
 		INNER JOIN #tempFb t ON c.FeedbackID=t.FeedbackID

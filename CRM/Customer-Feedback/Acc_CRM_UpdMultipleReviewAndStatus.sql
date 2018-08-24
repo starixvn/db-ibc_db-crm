@@ -42,21 +42,21 @@ BEGIN
 	FROM dbo.f_CRM_strSplit(@ListFeedbackID,',')
 
 	UPDATE c
-		SET c.IsReviewed=CASE	WHEN @IsReviewed = 1 AND c.IsReviewed=1 THEN IsReviewed 
-								WHEN @IsReviewed = 1 AND c.IsReviewed=0 THEN 1
+		SET c.IsReviewed=CASE	
+								WHEN @IsReviewed = 1 THEN 1
 								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN 0
 								ELSE IsReviewed END,		
-			c.ReviewerID=CASE	WHEN @IsReviewed = 1 AND c.IsReviewed=1 THEN ReviewerID 
-								WHEN @IsReviewed = 1 AND c.IsReviewed=0 THEN @ReviewerID
+			c.ReviewerID=CASE	
+								WHEN @IsReviewed = 1 THEN @ReviewerID
 								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN NULL
 								ELSE ReviewerID END,
 			c.StatusID=@StatusID,
-			c.Review=	CASE	WHEN @IsReviewed = 1 AND c.IsReviewed=1 THEN Review 
-								WHEN @IsReviewed = 1 AND c.IsReviewed=0  THEN @ReviewNote 
+			c.Review=	CASE	
+								WHEN @IsReviewed = 1 THEN @ReviewNote 
 								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN NULL
 								ELSE Review END ,
-			c.SolveDate=CASE	WHEN @IsReviewed = 1 AND c.IsReviewed=1 THEN SolveDate 
-								WHEN @IsReviewed = 1 AND c.IsReviewed=0  THEN GETDATE() 
+			c.SolveDate=CASE	
+								WHEN @IsReviewed = 1 THEN GETDATE() 
 								WHEN @IsReviewed = 0 AND c.IsReviewed=1 THEN NULL 
 								ELSE SolveDate END
 	FROM	crmFeedback c WITH(ROWLOCK)

@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerGetUplineList    Script Date: 3/26/2014 6:06:04 PM ******/
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
 (
 	@CustID		INT				= NULL,

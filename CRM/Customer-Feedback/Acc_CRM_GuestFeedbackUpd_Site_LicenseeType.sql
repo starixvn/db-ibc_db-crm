@@ -1,12 +1,6 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 USE [bodb_CRM]
 GO
-/****** Object:  StoredProcedure [dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType]    Script Date: 6/8/2017 1:00:44 PM ******/
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-/****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns_Multiple    Script Date: 2/21/2017 2:17:13 PM ******/
-/****** Object:  Stored Procedure dbo.Acc_CRM_GuestFeedbackIns    Script Date: 4/26/2016 8:58:07 AM ******/
 
 ALTER PROCEDURE	[dbo].[Acc_CRM_GuestFeedbackUpd_Site_LicenseeType] (
 					@UserID						INT
@@ -24,7 +18,8 @@ AS
 	Original:
 
 	Revisions:
-	- 20170607@Winnie: Create new [RedmineID: #77820]
+	- 20170607@Winnie: Create new		[RedmineID: #77820]
+	- 20180910@Winnie: Update RoleID	[RedmineID: #99982]
 	Param's Explanation:
 		
 */
@@ -33,7 +28,12 @@ BEGIN
 
 				
 
-DECLARE @Old_SiteID INT,@Old_LicenseeType INT,@New_SiteID INT,@New_LicenseeType INT
+DECLARE @Old_SiteID			INT,
+		@Old_LicenseeType	INT,
+		@Old_RoleID			INT,
+		@New_SiteID			INT,
+		@New_LicenseeType	INT,
+		@New_RoleID			INT
 
 DECLARE @tmpFeedbackID TABLE (FeedbackID INT)
 
@@ -55,15 +55,29 @@ BEGIN
 	SELECT	@ErrCode = 0
 		,	@ErrMsg	 = '';
 
-	SELECT TOP 1 @Custid=Custid,@Old_SiteID=SiteID,@Old_LicenseeType=LicenseeType,@FeedbackID=cb.FeedbackID
+	SELECT TOP 1 @Custid			=	Custid,
+				@Old_SiteID			=	SiteID,
+				@Old_LicenseeType	=	LicenseeType,
+				@FeedbackID			=	cb.FeedbackID,
+				@Old_RoleID			=	cb.RoleID
 	FROM  [dbo].[crmFeedback] cb WITH(NOLOCK) 
 	INNER JOIN @tmpFeedbackID t ON cb.FeedbackID=t.FeedbackID	
 	
-	SELECT @New_SiteID=SiteID,@New_LicenseeType=LicenseeType
-	FROM crmCustomer c WITH(NOLOCK) WHERE CustID=@CustID 
+	SELECT	@New_SiteID			=	SiteID,
+			@New_LicenseeType	=	LicenseeType
+	FROM crmCustomer c WITH(NOLOCK) 
+	WHERE CustID=@CustID 
 
-	UPDATE cb SET cb.SiteID=@New_SiteID,cb.LicenseeType=@New_LicenseeType
-	FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) WHERE Feedbackid=@FeedbackID
+	SELECT @New_RoleID	=	roleid
+	FROM DBACC.bodb02.dbo.Customer c WITH(NOLOCK) 
+	WHERE CustID=@CustID 
+
+	UPDATE cb 
+		SET cb.SiteID		=	@New_SiteID,
+			cb.LicenseeType	=	@New_LicenseeType,
+			cb.RoleID		=	@New_RoleID
+	FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) 
+		WHERE Feedbackid=@FeedbackID
 	  
 	IF	@ErrCode <> 0
 	BEGIN
@@ -76,17 +90,18 @@ BEGIN
 	DECLARE	@OldValues	XML
 		,	@NewValues	XML;
 	SELECT	@OldValues = 				
-					'<Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>' + --SP Name
-						'<FeedbackID>'						+ ISNULL(CONVERT(VARCHAR(30),@FeedbackID),'')				+ '</FeedbackID>' +
-						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(5),@Old_SiteID),'')					+ '</SiteID>' +
-						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(5),@Old_LicenseeType),'')				+ '</LicenseeType>' +
-						
+					'<Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>'	+ --SP Name
+						'<FeedbackID>'								+ ISNULL(CONVERT(VARCHAR(30),@FeedbackID),'')					+ '</FeedbackID>' +
+						'<SiteID>'									+ ISNULL(CONVERT(VARCHAR(5),@Old_SiteID),'')					+ '</SiteID>' +
+						'<LicenseeType>'							+ ISNULL(CONVERT(VARCHAR(5),@Old_LicenseeType),'')				+ '</LicenseeType>' +
+						'<RoleID>'									+ ISNULL(CONVERT(VARCHAR(5),@Old_RoleID),'')					+ '</RoleID>' +
 					'</Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>';
 	SELECT @NewValues = 				
-					'<Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>' + --SP Name
-						'<FeedbackID>'						+ ISNULL(CONVERT(VARCHAR(30),@FeedbackID),'')				+ '</FeedbackID>' +
-						'<SiteID>'						+ ISNULL(CONVERT(VARCHAR(5),@New_SiteID),'')					+ '</SiteID>' +
-						'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(5),@New_LicenseeType),'')				+ '</LicenseeType>' +
+					'<Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>'	+ --SP Name
+						'<FeedbackID>'								+ ISNULL(CONVERT(VARCHAR(30),@FeedbackID),'')					+ '</FeedbackID>' +
+						'<SiteID>'									+ ISNULL(CONVERT(VARCHAR(5),@New_SiteID),'')					+ '</SiteID>' +
+						'<LicenseeType>'							+ ISNULL(CONVERT(VARCHAR(5),@New_LicenseeType),'')				+ '</LicenseeType>' +
+						'<RoleID>'									+ ISNULL(CONVERT(VARCHAR(5),@New_RoleID),'')					+ '</RoleID>' +
 					'</Acc_CRM_GuestFeedbackUpd_Site_LicenseeType>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

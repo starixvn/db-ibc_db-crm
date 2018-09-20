@@ -77,7 +77,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@BBM						NVARCHAR(100)	= NULL,
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
-	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
+	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT,
+	@IsUpdateHeadlineInfo		BIT				=1
 )
 AS
 
@@ -172,7 +173,7 @@ BEGIN
 			@AccountHolderName				= @AccountHolderName,
 			@SpecialRemark					= @SpecialRemark,	
 			@Remark							= @Remark,
-			@IntroducedBy						= @IntroducedBy,
+			@IntroducedBy					= @IntroducedBy,
 			@Ignored 						= @Ignored,	
 			@CreatorID						= @UserID,
 			@LicenseeType					= @LicenseeType,
@@ -371,74 +372,136 @@ BEGIN
 	IF ISNULL(@LanguageID_Old,'')<> ''
 	SELECT @LanguageID_Old = LEFT(@LanguageID_Old,LEN(@LanguageID_Old)-1)
 
-	
-	UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
-	SET 
-		FirstName					= @FirstName,
-		LastName					= @LastName,
-		TitleID						= @TitleID,
-		Birthday					= @Birthday,
-		IsVIP						= @IsVip,
-		RefCode1					= @BettingCode,
-		RefCode2					= @RefCode2,
-		Phone						= @Phone,
-		PhoneCountryCode			= @PhoneCountryCode,
-		PhoneAreaCode				= @PhoneAreaCode,
-		Phone2						= @Phone2,	
-		Phone2CountryCode			= @Phone2CountryCode,
-		Phone2AreaCode				= @Phone2AreaCode,
-		Phone3						= @Phone3,
-		Phone3CountryCode			= @Phone3CountryCode,
-		Phone3AreaCode				= @Phone3AreaCode,	
-		Passport					= @Passport,
-		MobilePhone					= @MobilePhone,
-		MobilePhoneCountryCode		= @MobilePhoneCountryCode,
-		MobilePhoneAreaCode			= @MobilePhoneAreaCode,
-		Fax							= @Fax,
-		FaxCountryCode				= @FaxCountryCode,
-		FaxAreaCode					= @FaxAreaCode,
-		Email						= @Email,
-		Skype						= @Skype,
-		msn							= @MSN,
-		Pic1						= @Pic1,
-		Pic2						= @Pic2,
-		Pic3						= @Pic3,
-		Pic4						= @Pic4,	
-		Pic1Name					= @Pic1Name,
-		Pic2Name					= @Pic2Name,
-		Pic3Name					= @Pic3Name,
-		Pic4Name					= @Pic4Name,
-		Line1						= @Line1,
-		Line2						= @Line2,
-		Line3						= @Line3,
-		City						= @City,
-		Postcode					= @Postcode,
-		State						= @State,
-		CountryID					= @CountryID,
-		SiteID						= @SiteID,
-		BankCountryID				= @BankCountryID,
-		Wire_BankName				= @Wire_BankName,
-		Wire_SwiftCode				= @Wire_SwiftCode,
-		Wire_AccountNo				= @Wire_AccountNo,
-		AccountHolderName			= @AccountHolderName,
-		BankLine1					= @BankLine1,
-		BankLine2					= @BankLine2,
-		BankLine3					= @BankLine3,
-		BankCity					= @BankCity,
-		BankCode					= @BankCode,
-		BankState					= @BankState,
-		LicenseeType				= @LicenseeType,
-		WhatsApp					= @WhatsApp,
-		Line						= @Line,
-		WeChat						= @WeChat,
-		Yahoo						= @Yahoo,
-		QQ							= @QQ,
-		BBM							= @BBM,
-		Ignored						= @Ignored,
-		IntroducedBy				= @IntroducedBy
-	WHERE CustID = @CustID
-	
-	select @birthday
+	IF(@IsUpdateHeadlineInfo=1)
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
+		SET 
+			FirstName					= @FirstName,
+			LastName					= @LastName,
+			TitleID						= @TitleID,
+			Birthday					= @Birthday,
+			IsVIP						= @IsVip,
+			RefCode1					= @BettingCode,
+			RefCode2					= @RefCode2,
+			Phone						= @Phone,
+			PhoneCountryCode			= @PhoneCountryCode,
+			PhoneAreaCode				= @PhoneAreaCode,
+			Phone2						= @Phone2,	
+			Phone2CountryCode			= @Phone2CountryCode,
+			Phone2AreaCode				= @Phone2AreaCode,
+			Phone3						= @Phone3,
+			Phone3CountryCode			= @Phone3CountryCode,
+			Phone3AreaCode				= @Phone3AreaCode,	
+			Passport					= @Passport,
+			MobilePhone					= @MobilePhone,
+			MobilePhoneCountryCode		= @MobilePhoneCountryCode,
+			MobilePhoneAreaCode			= @MobilePhoneAreaCode,
+			Fax							= @Fax,
+			FaxCountryCode				= @FaxCountryCode,
+			FaxAreaCode					= @FaxAreaCode,
+			Email						= @Email,
+			Skype						= @Skype,
+			msn							= @MSN,
+			Pic1						= @Pic1,
+			Pic2						= @Pic2,
+			Pic3						= @Pic3,
+			Pic4						= @Pic4,	
+			Pic1Name					= @Pic1Name,
+			Pic2Name					= @Pic2Name,
+			Pic3Name					= @Pic3Name,
+			Pic4Name					= @Pic4Name,
+			Line1						= @Line1,
+			Line2						= @Line2,
+			Line3						= @Line3,
+			City						= @City,
+			Postcode					= @Postcode,
+			State						= @State,
+			CountryID					= @CountryID,
+			SiteID						= @SiteID,
+			BankCountryID				= @BankCountryID,
+			Wire_BankName				= @Wire_BankName,
+			Wire_SwiftCode				= @Wire_SwiftCode,
+			Wire_AccountNo				= @Wire_AccountNo,
+			AccountHolderName			= @AccountHolderName,
+			BankLine1					= @BankLine1,
+			BankLine2					= @BankLine2,
+			BankLine3					= @BankLine3,
+			BankCity					= @BankCity,
+			BankCode					= @BankCode,
+			BankState					= @BankState,
+			LicenseeType				= @LicenseeType,
+			WhatsApp					= @WhatsApp,
+			Line						= @Line,
+			WeChat						= @WeChat,
+			Yahoo						= @Yahoo,
+			QQ							= @QQ,
+			BBM							= @BBM,
+			Ignored						= @Ignored,
+			IntroducedBy				= @IntroducedBy
+		WHERE CustID = @CustID
+	ELSE
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
+		SET 
+			FirstName					= @FirstName,
+			LastName					= @LastName,
+			TitleID						= @TitleID,
+			Birthday					= @Birthday,
+			IsVIP						= @IsVip,
+			RefCode1					= @BettingCode,
+			RefCode2					= @RefCode2,
+			Phone						= @Phone,
+			PhoneCountryCode			= @PhoneCountryCode,
+			PhoneAreaCode				= @PhoneAreaCode,
+			Phone2						= @Phone2,	
+			Phone2CountryCode			= @Phone2CountryCode,
+			Phone2AreaCode				= @Phone2AreaCode,
+			Phone3						= @Phone3,
+			Phone3CountryCode			= @Phone3CountryCode,
+			Phone3AreaCode				= @Phone3AreaCode,	
+			Passport					= @Passport,
+			MobilePhone					= @MobilePhone,
+			MobilePhoneCountryCode		= @MobilePhoneCountryCode,
+			MobilePhoneAreaCode			= @MobilePhoneAreaCode,
+			Fax							= @Fax,
+			FaxCountryCode				= @FaxCountryCode,
+			FaxAreaCode					= @FaxAreaCode,
+			Email						= @Email,
+			Skype						= @Skype,
+			msn							= @MSN,
+			Pic1						= @Pic1,
+			Pic2						= @Pic2,
+			Pic3						= @Pic3,
+			Pic4						= @Pic4,	
+			Pic1Name					= @Pic1Name,
+			Pic2Name					= @Pic2Name,
+			Pic3Name					= @Pic3Name,
+			Pic4Name					= @Pic4Name,
+			Line1						= @Line1,
+			Line2						= @Line2,
+			Line3						= @Line3,
+			City						= @City,
+			Postcode					= @Postcode,
+			State						= @State,
+			CountryID					= @CountryID,
+			SiteID						= @SiteID,
+			BankCountryID				= @BankCountryID,
+			Wire_BankName				= @Wire_BankName,
+			Wire_SwiftCode				= @Wire_SwiftCode,
+			Wire_AccountNo				= @Wire_AccountNo,
+			AccountHolderName			= @AccountHolderName,
+			BankLine1					= @BankLine1,
+			BankLine2					= @BankLine2,
+			BankLine3					= @BankLine3,
+			BankCity					= @BankCity,
+			BankCode					= @BankCode,
+			BankState					= @BankState,
+			LicenseeType				= @LicenseeType,
+			WhatsApp					= @WhatsApp,
+			Line						= @Line,
+			WeChat						= @WeChat,
+			Yahoo						= @Yahoo,
+			QQ							= @QQ,
+			BBM							= @BBM
+		WHERE CustID = @CustID
 
 	IF @@error <> 0
 	BEGIN
@@ -548,7 +611,8 @@ BEGIN
 							'<QQ>'							+ ISNULL([dbo].[f_EncodeXMLValue](@QQ_Old),'')									+ '</QQ>' +
 							'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM_Old),'')									+ '</BBM>' +
 							'<IntroducedBy>'				+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy_Old),'')						+ '</IntroducedBy>' +
-							'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored_Old),'')								+ '</Ignored>' +
+							'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored_Old),'')									+ '</Ignored>' +
+							'<IsUpdateHeadlineInfo>'		+ ISNULL(CONVERT(VARCHAR(10),@IsUpdateHeadlineInfo),'')							+ '</IsUpdateHeadlineInfo>' +
 				'</Acc_CRM_CustomerUpd_New>'
 
 	SELECT @NewValues =
@@ -616,6 +680,7 @@ BEGIN
 						'<BBM>'							+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')											+ '</BBM>' +
 						'<IntroducedBy>'				+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')								+ '</IntroducedBy>' +
 						'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')											+ '</Ignored>' +
+						'<IsUpdateHeadlineInfo>'		+ ISNULL(CONVERT(VARCHAR(10),@IsUpdateHeadlineInfo),'')								+ '</IsUpdateHeadlineInfo>' +
 			'</Acc_CRM_CustomerUpd_New>'
 				
 

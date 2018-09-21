@@ -3,9 +3,8 @@ USE [bodb_CRM]
 GO
 
 CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackDoubleCheck]
-	@Category		INT,
-	@SubCategory	INT,
-	@StartDate		DATETIME,	
+	@Category		VARCHAR(MAX),	
+	@StartTime		DATETIME,	
 	@FeedbackID		INT	= 0	OUTPUT
 AS	
 /*
@@ -19,11 +18,28 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
+	DECLARE  @tblCategory TABLE(MainCategoryID		INT,SubCategoryID		INT	)
 
-	SELECT @FeedbackID=FeedbackID 
+		-- Read XML
+	DECLARE	@iDoc			INT;
+	EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category;
+
+	INSERT INTO	@tblCategory
+		( MainCategoryID,SubCategoryID)
+	SELECT	ox.MainCategoryID, ox.SubCategoryID
+	FROM	OPENXML(@iDoc, '/ROOT/Category', 1)
+			WITH (		
+				MainCategoryID				INT
+			,	SubCategoryID				INT					
+			) AS ox;
+
+	EXECUTE sys.sp_xml_removedocument @iDoc;	
+
+	SELECT @FeedbackID=fb.FeedbackID 
 	FROM crmFeedback fb WITH(NOLOCK) 
-	WHERE fb.FeedbackDate		=	@StartDate 
-		AND fb.MainCategoryID	=	@Category 
-		AND fb.SubCategoryID	=	@SubCategory	
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
+		INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
+	WHERE fb.FeedbackDate		=	@StartTime 
+		AND fb.MainCategoryID	=	@Category 	
 END
 GO

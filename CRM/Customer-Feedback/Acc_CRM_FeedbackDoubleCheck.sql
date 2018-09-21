@@ -40,6 +40,6 @@ BEGIN
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
 		INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
 	WHERE fb.FeedbackDate		=	@StartTime 
-		AND fb.MainCategoryID	=	@Category 	
+		
 END
 GO

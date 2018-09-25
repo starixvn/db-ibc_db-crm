@@ -1,4 +1,4 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch]
+﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch_xest]
 	@userid int,
 	@username nvarchar(50),
 	@IsGuest	BIT = 0
@@ -13,6 +13,7 @@ Revisions:
 	- 20120423@Elodie: not search by guest
 	- 20130121@Johnson: change link server DB06 to DBACC
 	- 20140807@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
+	- 20180924@Winnie: Search Chinese RedmineID: #99982
 Param's Explanation:
 	• @userid: User who are logging in.
 	• @username: the search term.
@@ -20,7 +21,7 @@ Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON	
-	DECLARE @UserNameTable TABLE (UserName varchar(50), SearchCount int)
+	DECLARE @UserNameTable TABLE (UserName nvarchar(50), SearchCount int)
 	Declare @Rows int
 
 	IF @IsGuest = 0

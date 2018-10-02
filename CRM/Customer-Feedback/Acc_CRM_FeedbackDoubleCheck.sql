@@ -39,7 +39,7 @@ BEGIN
 	FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
 		INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
-	WHERE fb.FeedbackDate		=	@StartTime 
+	WHERE CONVERT(DATE,fb.FeedbackDate)		=	CONVERT(DATE,@StartTime)
 		
 END
 GO

@@ -79,11 +79,14 @@ BEGIN
 		WHERE Feedbackid=@FeedbackID
 
 	IF(@New_RoleID IS NOT NULL)
+	BEGIN
+		SELECT @New_RoleID=@New_RoleID+7000-1
+
 		UPDATE cb 
 			SET cb.RoleID		=	@New_RoleID
 		FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) 
 			WHERE Feedbackid=@FeedbackID
-	  
+	END 
 	IF	@ErrCode <> 0
 	BEGIN
 		SELECT	@ErrCode = 102;

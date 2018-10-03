@@ -1,7 +1,7 @@
 ﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUserSearch]	
 	@UserID int,
 	@CustID int,
-	@UserName varchar(50)
+	@UserName nvarchar(50)
 AS
 /*
 Created: 20120403@Elodie
@@ -13,6 +13,7 @@ Revisions:
 	- 20120423@Elodie: not update crmCustSearch table if @CustID < 0
 	- 20130121@Johnson: change linked server DB06 to DBACC
 	- 20140811@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
+	- 20181003@Winnie: Search Thai[RedmineID: #99982]
 Param's Explanation:
 	• @UserID: User who are logging in.	
 */

@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUserSearch]	
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUserSearch]	
 	@UserID int,
 	@CustID int,
 	@UserName nvarchar(50)

@@ -1,4 +1,5 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch_xest]
+﻿﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch]
 	@userid int,
 	@username nvarchar(50),
 	@IsGuest	BIT = 0

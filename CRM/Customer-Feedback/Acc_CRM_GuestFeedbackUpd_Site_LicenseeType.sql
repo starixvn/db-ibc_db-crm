@@ -73,23 +73,19 @@ BEGIN
 	FROM DBACC.bodb02.dbo.Customer c WITH(NOLOCK) 
 	WHERE CustID=@CustID 
 
-	UPDATE cb 
-		SET cb.SiteID		=	@New_SiteID,
-			cb.LicenseeType	=	@New_LicenseeType
-	FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) 
-		WHERE Feedbackid=@FeedbackID
 
 	IF(@New_RoleID IS NOT NULL)
 	BEGIN
 		SELECT @New_RoleID=@New_RoleID+7000-1		
 	END 
-	ELSE
-		SELECT @New_RoleID	=	roleid
-		FROM crmCustomer c WITH(NOLOCK) 
-		WHERE CustID=@CustID 
-
+	ELSE IF @CustID<0
+		SELECT @New_RoleID = 7004
+	
+	
 	UPDATE cb 
-			SET cb.RoleID		=	@New_RoleID
+		SET cb.SiteID		=	@New_SiteID,
+			cb.LicenseeType	=	@New_LicenseeType,
+			cb.RoleID		=	@New_RoleID
 	FROM [dbo].[crmFeedback] cb WITH(ROWLOCK,UPDLOCK) 
 		WHERE Feedbackid=@FeedbackID
 

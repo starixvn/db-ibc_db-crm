@@ -74,10 +74,14 @@ BEGIN
 	WHERE CustID=@CustID 
 
 
-	IF(@New_RoleID IS NOT NULL)
-	BEGIN
-		SELECT @New_RoleID=@New_RoleID+7000-1		
-	END 
+	IF(@New_RoleID =1)	
+		SELECT @New_RoleID=7000
+	ELSE IF (@New_RoleID =2)
+		SELECT @New_RoleID = 7001
+	ELSE IF (@New_RoleID =3)
+		SELECT @New_RoleID = 7002
+	ELSE IF (@New_RoleID =4)
+		SELECT @New_RoleID = 7003
 	ELSE IF @CustID<0
 		SELECT @New_RoleID = 7004
 	

@@ -1,6 +1,7 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
-	@Username	VARCHAR(50) = '',
+	@Username	NVARCHAR(50) = '',
 	@IsGuest	BIT = 0
 )
 AS
@@ -21,6 +22,7 @@ Revisions:
 	- 20140303@Dom: Modify for new structure
 	- 20141118@Dom: Return PIC Name
 	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+	- 20180924@Winnie: Search Chinese RedmineID: #99982
 Param's Explanation:	
 */
 BEGIN

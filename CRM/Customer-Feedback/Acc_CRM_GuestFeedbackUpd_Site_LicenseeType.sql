@@ -84,6 +84,8 @@ BEGIN
 		SELECT @New_RoleID = 7003
 	ELSE IF @CustID<0
 		SELECT @New_RoleID = 7004
+	ELSE 
+		SELECT @New_RoleID=@Old_RoleID
 	
 	
 	UPDATE cb 

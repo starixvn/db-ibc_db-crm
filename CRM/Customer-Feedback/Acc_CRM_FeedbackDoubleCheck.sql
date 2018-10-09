@@ -5,7 +5,9 @@ GO
 CREATE PROCEDURE [dbo].[Acc_CRM_FeedbackDoubleCheck]
 	@Category		VARCHAR(MAX),	
 	@StartTime		DATETIME,	
-	@FeedbackID		INT	= 0	OUTPUT
+	@CustID			INT,
+	@FeedbackID		INT	= 0	OUTPUT,
+	@TimeSpan		INT
 AS	
 /*
 	Created: Winnie
@@ -14,6 +16,7 @@ AS
 	DB: DBCRM/bodb_CRM		
 	Revisions:	
 		- 20180911@Winnie: Check double Feedback RedmineID #99982
+		- 20181004@Winnie: Message warnings are still displayed although user create customer feedback for the other users RedmineID #102672
 	Parameter's Explanation:
 */
 BEGIN
@@ -39,7 +42,8 @@ BEGIN
 	FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
 		INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
-	WHERE CONVERT(DATE,fb.FeedbackDate)		=	CONVERT(DATE,@StartTime)
+	WHERE CONVERT(DATE,DATEADD(HOUR, @TimeSpan,  fb.FeedbackDate))		=	CONVERT(DATE,@StartTime)
+		AND fb.CustID=@CustID
 		
 END
 GO

@@ -95,6 +95,7 @@ Revisions:
 	- 20150121@Dom: Remove Sync code for Old system
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
+	- 20171011@Winnie: Move "VIP" into Headline Info RedmineID #102925
 Param's Explanation:
 	
 */
@@ -444,8 +445,7 @@ BEGIN
 			FirstName					= @FirstName,
 			LastName					= @LastName,
 			TitleID						= @TitleID,
-			Birthday					= @Birthday,
-			IsVIP						= @IsVip,
+			Birthday					= @Birthday,		
 			RefCode1					= @BettingCode,
 			RefCode2					= @RefCode2,
 			Phone						= @Phone,

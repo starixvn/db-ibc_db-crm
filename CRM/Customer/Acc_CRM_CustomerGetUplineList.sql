@@ -15,10 +15,17 @@ Original:
 Revisions:
 	- 20140303@Dom: Modify for new structure
 	- 20180910@Winnie: Show headline [RedmineID: #99982]
+	- 201810107@Winnie: Fix bug Show headline [RedmineID: #102925]
 Param's Explanation:	
 */
 BEGIN	
 	SET NOCOUNT ON
+
+	DECLARE @srecommend INT,@mrecommend INT,@recommend INT
+
+	SELECT @srecommend=srecommend,@mrecommend=mrecommend,@recommend=recommend
+	FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
+	WHERE	c.CustID = @CustID
 
 	SELECT s.UserName, s.CustID, s.roleid,
 			CASE WHEN s.Closed = 0 and ISNULL(s.reject,0) = 0 THEN 1 ELSE 0 END Active,
@@ -63,7 +70,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
 			INNER JOIN bodb02.dbo.custInfo c WITH(NOLOCK) ON h.custid=c.custid
 	WHERE
-		a.CustID = @CustID
+		a.CustID IN(@srecommend,@mrecommend,@recommend,@CustID)
 END
 
 

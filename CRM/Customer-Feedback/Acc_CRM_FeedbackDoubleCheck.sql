@@ -17,6 +17,7 @@ AS
 	Revisions:	
 		- 20180911@Winnie: Check double Feedback RedmineID #99982
 		- 20181004@Winnie: Message warnings are still displayed although user create customer feedback for the other users RedmineID #102672
+		- 20181009@Winnie: Include time in checking duplicated entry RedmineID #102923
 	Parameter's Explanation:
 */
 BEGIN
@@ -42,7 +43,7 @@ BEGIN
 	FROM crmFeedback fb WITH(NOLOCK) 
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
 		INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
-	WHERE CONVERT(DATE,DATEADD(HOUR, @TimeSpan,  fb.FeedbackDate))		=	CONVERT(DATE,@StartTime)
+	WHERE CONVERT(SMALLDATETIME,DATEADD(HOUR, @TimeSpan,  fb.FeedbackDate))		=	CONVERT(SMALLDATETIME,@StartTime)
 		AND fb.CustID=@CustID
 		
 END

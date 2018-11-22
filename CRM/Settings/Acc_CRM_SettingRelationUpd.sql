@@ -103,6 +103,12 @@ BEGIN
 
 	-- write log
 	DECLARE @LogElement XML
+	DECLARE @LogElement_OLD XML
+
+	SELECT @LogElement_OLD = 				
+					'<Acc_CRM_SettingRelationUpd>' + --SP Name
+						'<SettingID> ' + ISNULL(@OldValue,'') + '</SettingID>' + 
+					'</Acc_CRM_SettingRelationUpd>'		
 
 	SELECT @LogElement = 				
 					'<Acc_CRM_SettingRelationUpd>' + --SP Name
@@ -116,7 +122,7 @@ BEGIN
 					@ActionID = 303, 
 					@IP = @IP, 
 					@NewValues = @LogElement,
-					@OldValues = @OldValue
+					@OldValues = @LogElement_OLD
 
 END
 

@@ -19,8 +19,7 @@ AS
 
 	Revisions:
 		- 20120329@Lukas: fix bug - wrong SP name & ActionID when write log
-		- 20130121@Johnson: change linked server DB03 to DBPOLICY
-		- 20140303@Dom: Modify for new structure
+		- 20130121@Johnson: change linked server DB03 to DBPOLICY		
 		- 20181113@Winnie: Fix bug log RedmineID: #103259
 	Param's Explanation:
 		

@@ -1,11 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_SettingRelationUpd    Script Date: 3/26/2014 6:06:09 PM ******/
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_SettingRelationUpd]
 (
 	@UserID			INT,
@@ -26,8 +19,8 @@ AS
 
 	Revisions:
 		- 20120329@Lukas: fix bug - wrong SP name & ActionID when write log
-		- 20130121@Johnson: change linked server DB03 to DBPOLICY
-		- 20140303@Dom: Modify for new structure
+		- 20130121@Johnson: change linked server DB03 to DBPOLICY		
+		- 20181113@Winnie: Fix bug log RedmineID: #103259
 	Param's Explanation:
 		
 */
@@ -35,6 +28,18 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @SubSetting TABLE(ID INT PRIMARY KEY IDENTITY, SettingID INT, DisplayOrder INT)
+	DECLARE @OldValue NVARCHAR(MAX)
+
+	SELECT @OldValue = STUFF(
+						(   SELECT ',' + CONVERT(NVARCHAR(20), SettingID) 
+							FROM crmSettingRelation WITH(NOLOCK)
+							WHERE ParentID = @ParentID
+							FOR xml path('')
+						)
+						, 1
+						, 1
+						, '')
+
 
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''
@@ -97,6 +102,12 @@ BEGIN
 
 	-- write log
 	DECLARE @LogElement XML
+	DECLARE @LogElement_OLD XML
+
+	SELECT @LogElement_OLD = 				
+					'<Acc_CRM_SettingRelationUpd>' + --SP Name
+						'<SettingID> ' + ISNULL(@OldValue,'') + '</SettingID>' + 
+					'</Acc_CRM_SettingRelationUpd>'		
 
 	SELECT @LogElement = 				
 					'<Acc_CRM_SettingRelationUpd>' + --SP Name
@@ -109,20 +120,9 @@ BEGIN
 					@UserID = @UserID, 
 					@ActionID = 303, 
 					@IP = @IP, 
-					@NewValues = @LogElement
+					@NewValues = @LogElement,
+					@OldValues = @LogElement_OLD
 
 END
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationUpd] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationUpd] TO [vnteam]
-GO 

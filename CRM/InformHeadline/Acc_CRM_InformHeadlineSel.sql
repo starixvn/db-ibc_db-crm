@@ -44,7 +44,7 @@ BEGIN
 
 	INSERT INTO @tmpCurrency
 	SELECT val
-	FROM strSplit (@Currency,',')
+	FROM f_CRM_strSplit (@Currency,',')
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)

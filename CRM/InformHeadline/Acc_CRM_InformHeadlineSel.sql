@@ -37,6 +37,14 @@ BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'At least 1 option is selected.'
 		RETURN
 	END	
+	DECLARE @tmpCurrency TABLE (currency INT)	
+	DECLARE @CustID INT=2512
+	DECLARE @CurrencyID INT
+	SELECT @CurrencyID=Currency FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
+
+	INSERT INTO @tmpCurrency
+	SELECT val
+	FROM strSplit (@Currency,',')
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	INSERT INTO #DirectAcc (CustID, GroupID)
@@ -44,8 +52,12 @@ BEGIN
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND (@IsVip IS NULL OR @IsVip=IsVIP)
-	UNION
-	SELECT 2512,134
+
+	IF @Site=(SELECT Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID) AND @Level IN(1,3) AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID)
+	BEGIN
+		INSERT INTO #DirectAcc (CustID, GroupID)
+		SELECT 2512,134
+	END
 
 	IF @ItemsPerPage = -1 -- Export excel purpose
 		SELECT	ID, HeadlineID, username, GroupID,

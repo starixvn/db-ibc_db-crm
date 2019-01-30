@@ -40,7 +40,10 @@ BEGIN
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @CustID INT=2512
 	DECLARE @CurrencyID INT
-	SELECT @CurrencyID=Currency FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
+	DECLARE @Site1 VARCHAR(10)
+	DECLARE @RoleID INT
+
+	SELECT @CurrencyID=Currency,@Site1=site,@RoleID=@RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
 	INSERT INTO @tmpCurrency
 	SELECT val
@@ -53,7 +56,7 @@ BEGIN
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND (@IsVip IS NULL OR @IsVip=IsVIP)
 
-	IF @Site=(SELECT Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID) AND @Level IN(1,3) AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID)
+	IF @Site=@Site1 AND @TypeAccount IN(1,3) AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) AND @Level=@RoleID
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID)
 		SELECT 2512,134

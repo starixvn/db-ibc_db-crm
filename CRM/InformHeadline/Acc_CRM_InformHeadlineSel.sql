@@ -42,8 +42,18 @@ BEGIN
 	DECLARE @CurrencyID INT
 	DECLARE @Site1 VARCHAR(10)
 	DECLARE @RoleID INT
+	DECLARE @TypeAccount1 INT=3
 
 	SELECT @CurrencyID=Currency,@Site1=site,@RoleID=@RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
+
+	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID and IsGroupHeadLine=1)
+	BEGIN
+		SELECT @TypeAccount1=1
+	END
+	ELSE IF  EXISTS(SELECT 1 FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK) WHERE custid=@CustID)
+	BEGIN
+		SELECT @TypeAccount1=2
+	END
 
 	INSERT INTO @tmpCurrency
 	SELECT val
@@ -56,10 +66,12 @@ BEGIN
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND (@IsVip IS NULL OR @IsVip=IsVIP)
 
-	IF @Site=@Site1 AND @TypeAccount IN(1,3) AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) AND @Level=@RoleID
+	IF @Site=@Site1 AND @TypeAccount =@TypeAccount1 AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) AND @Level=@RoleID
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID)
-		SELECT 2512,134
+		SELECT 2512,groupID
+		FROM bodb02.dbo.custAccount WITH(NOLOCK)
+		WHERE custid=2512
 	END
 
 	IF @ItemsPerPage = -1 -- Export excel purpose

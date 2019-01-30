@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 USE [bodb_CRM]
 GO
 
@@ -23,6 +23,7 @@ AS
 	Revisions:
 		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 		- 20180911@Winnie: Add IsVip RedmineID #99982
+		- 20190130@Winnie: Hardcode for this account BA03RM headline RedmineID #108504
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -43,6 +44,8 @@ BEGIN
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND (@IsVip IS NULL OR @IsVip=IsVIP)
+	UNION
+	SELECT 2512,134
 
 	IF @ItemsPerPage = -1 -- Export excel purpose
 		SELECT	ID, HeadlineID, username, GroupID,
@@ -72,5 +75,4 @@ BEGIN
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSel] TO [bodbAdminNet]
-GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineSel] TO [vnteam]
+GO

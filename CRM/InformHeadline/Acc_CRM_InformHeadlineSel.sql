@@ -47,7 +47,7 @@ BEGIN
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
-	SELECT @Site=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+	SELECT @Site1=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
 
 	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID and IsGroupHeadLine=1)
 	BEGIN

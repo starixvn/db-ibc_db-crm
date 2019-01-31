@@ -48,7 +48,7 @@ BEGIN
 
 	INSERT INTO @tmpSite
 	SELECT s.SiteName
-	FROM strSplit (@Site,',') v
+	FROM f_CRM_strSplit (@Site,',') v
 		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID

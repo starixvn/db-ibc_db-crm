@@ -72,9 +72,9 @@ BEGIN
 	IF @Site=@Site1 AND (@TypeAccount =@TypeAccount1 OR @TypeAccount=3) AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) AND @Level=@RoleID
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID)
-		SELECT 2512,groupID
+		SELECT @CustID,groupID
 		FROM bodb02.dbo.custAccount WITH(NOLOCK)
-		WHERE custid=2512
+		WHERE custid=@CustID
 	END
 
 	IF @ItemsPerPage = -1 -- Export excel purpose

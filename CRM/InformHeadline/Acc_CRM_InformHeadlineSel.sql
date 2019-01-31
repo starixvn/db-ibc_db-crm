@@ -39,12 +39,15 @@ BEGIN
 	END	
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @CustID INT=2512
+	DECLARE @UplineID INT
 	DECLARE @CurrencyID INT
 	DECLARE @Site1 VARCHAR(10)
 	DECLARE @RoleID INT
 	DECLARE @TypeAccount1 INT
 
-	SELECT @CurrencyID=Currency,@Site1=site,@RoleID=@RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
+	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
+
+	SELECT @Site=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
 
 	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID and IsGroupHeadLine=1)
 	BEGIN

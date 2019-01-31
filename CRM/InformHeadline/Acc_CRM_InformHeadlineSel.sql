@@ -41,9 +41,9 @@ BEGIN
 	DECLARE @CustID INT=2512
 	DECLARE @UplineID INT
 	DECLARE @CurrencyID INT
-	DECLARE @Site1 VARCHAR(10)
+	DECLARE @SiteHardcode VARCHAR(10)
 	DECLARE @RoleID INT
-	DECLARE @TypeAccount1 INT
+	DECLARE @TypeAccountHardcode INT
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
 
 	INSERT INTO @tmpSite
@@ -53,15 +53,15 @@ BEGIN
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
-	SELECT @Site1=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
 
 	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID and IsGroupHeadLine=1)
 	BEGIN
-		SELECT @TypeAccount1=1
+		SELECT @TypeAccountHardcode=1
 	END
 	ELSE IF  EXISTS(SELECT 1 FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK) WHERE custid=@CustID)
 	BEGIN
-		SELECT @TypeAccount1=2
+		SELECT @TypeAccountHardcode=2
 	END
 
 	INSERT INTO @tmpCurrency
@@ -75,8 +75,8 @@ BEGIN
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND (@IsVip IS NULL OR @IsVip=IsVIP)
 
-	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@Site1) 
-		AND (@TypeAccount =@TypeAccount1 OR @TypeAccount=3) 
+	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@SiteHardcode) 
+		AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 
 		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
 		AND @Level=@RoleID
 	BEGIN

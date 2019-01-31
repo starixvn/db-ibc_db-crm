@@ -44,6 +44,12 @@ BEGIN
 	DECLARE @Site1 VARCHAR(10)
 	DECLARE @RoleID INT
 	DECLARE @TypeAccount1 INT
+	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
+
+	INSERT INTO @tmpSite
+	SELECT s.SiteName
+	FROM strSplit (@Site,',') v
+		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
@@ -69,7 +75,10 @@ BEGIN
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND (@IsVip IS NULL OR @IsVip=IsVIP)
 
-	IF @Site=@Site1 AND (@TypeAccount =@TypeAccount1 OR @TypeAccount=3) AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) AND @Level=@RoleID
+	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@Site1) 
+		AND (@TypeAccount =@TypeAccount1 OR @TypeAccount=3) 
+		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
+		AND @Level=@RoleID
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID)
 		SELECT @CustID,groupID

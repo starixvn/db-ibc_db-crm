@@ -45,6 +45,8 @@ BEGIN
 	DECLARE @RoleID INT
 	DECLARE @TypeAccountHardcode INT
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
+	DECLARE @IgnoredHardCode BIT
+	DECLARE @IsVipHardCode BIT
 
 	INSERT INTO @tmpSite
 	SELECT s.SiteName
@@ -54,6 +56,8 @@ BEGIN
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustIDHardcode
 
 	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+
+	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0) FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustIDHardcode
 
 	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustIDHardcode and IsGroupHeadLine=1)
 	BEGIN
@@ -78,6 +82,8 @@ BEGIN
 		AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 
 		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
 		AND @Level=@RoleID
+		AND (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @ExcludeIgnored)
+		AND (@IsVip IS NULL OR @IsVip=@IsVipHardCode)
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID)
 		SELECT @CustIDHardcode,groupID

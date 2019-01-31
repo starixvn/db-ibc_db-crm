@@ -48,11 +48,16 @@ BEGIN
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
 	DECLARE @IgnoredHardCode BIT
 	DECLARE @IsVipHardCode BIT
+	DECLARE @tmpLevel TABLE (roleID TINYINT)	
 
 	INSERT INTO @tmpSite
 	SELECT s.SiteName
 	FROM f_CRM_strSplit (@Site,',') v
 		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
+
+	INSERT INTO @tmpLevel
+	SELECT val
+	FROM f_CRM_strSplit (@Level,',')
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustIDHardcode
 
@@ -82,7 +87,7 @@ BEGIN
 	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@SiteHardcode) 
 		AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 
 		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
-		AND @Level=@RoleID
+		AND EXISTS(SELECT 1 FROM @tmpLevel WHERE roleID=@RoleID) 
 		AND (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @ExcludeIgnored)
 		AND (@IsVip IS NULL OR @IsVip=@IsVipHardCode)
 	BEGIN

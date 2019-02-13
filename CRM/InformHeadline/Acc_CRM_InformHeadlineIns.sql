@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@Title			NVARCHAR(2000),
 	@Currency		VARCHAR(1000) = '',
@@ -8,6 +9,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@IP				VARCHAR(40),
 	@TitleID		INT OUTPUT, 
 	@ExcludeIgnored	BIT=0,
+	@IsVip			BIT=0,
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(200) = '' OUTPUT
 AS	
@@ -18,6 +20,7 @@ AS
 	DB: DBCRM/bodb_CRM		
 	Revisions:
 	- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+	- 20190131@Winnie: Check headline RedmineID #108504
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -34,11 +37,65 @@ BEGIN
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
 	DECLARE @Filter VARCHAR(4000)
+	--
+	DECLARE @tmpCurrency TABLE (currency INT)	
+	DECLARE @CustIDHardcode INT=2512
+	DECLARE @UplineID INT
+	DECLARE @CurrencyID INT
+	DECLARE @SiteHardcode VARCHAR(10)
+	DECLARE @RoleID INT
+	DECLARE @TypeAccountHardcode INT
+	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
+	DECLARE @IgnoredHardCode BIT
+	DECLARE @IsVipHardCode BIT
+	DECLARE @tmpLevel TABLE (roleID TINYINT)	
+
+	INSERT INTO @tmpSite
+	SELECT s.SiteName
+	FROM f_CRM_strSplit (@Site,',') v
+		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
+
+	INSERT INTO @tmpLevel
+	SELECT val
+	FROM f_CRM_strSplit (@Level,',')
+
+	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustIDHardcode
+
+	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+
+	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0) FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustIDHardcode
+
+	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustIDHardcode and IsGroupHeadLine=1)
+	BEGIN
+		SELECT @TypeAccountHardcode=1
+	END
+	ELSE IF  EXISTS(SELECT 1 FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK) WHERE custid=@CustIDHardcode)
+	BEGIN
+		SELECT @TypeAccountHardcode=2
+	END
+
+	INSERT INTO @tmpCurrency
+	SELECT val
+	FROM f_CRM_strSplit (@Currency,',')
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
 	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)
+		AND (@IsVip IS NULL OR @IsVip=IsVIP)
+
+	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@SiteHardcode) 
+		AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 
+		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
+		AND EXISTS(SELECT 1 FROM @tmpLevel WHERE roleID=@RoleID) 
+		AND (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @ExcludeIgnored)
+		AND (@IsVip IS NULL OR @IsVip=@IsVipHardCode)
+	BEGIN
+		INSERT INTO #DirectAcc (CustID, GroupID)
+		SELECT @CustIDHardcode,groupID
+		FROM bodb02.dbo.custAccount WITH(NOLOCK)
+		WHERE custid=@CustIDHardcode
+	END
 
 	--DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT)
 	--INSERT INTO @HeadlineData
@@ -118,4 +175,3 @@ END
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineIns] TO [bodbAdminNet]
 GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineIns] TO [vnteam]

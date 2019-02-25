@@ -22,6 +22,7 @@ Original:
 
 Revisions:	
 	- 20170912@Winnie: Direct Customer Report RedmineID: #82040
+	- 20190225@Winnie: CRM - Check data Direct Customer, Headline list between CSD reported and CRM site RedmineID: #108504
 */
 DECLARE @RowStart INT, @RowEnd INT 
 	SELECT @TotalRows = 0		
@@ -183,6 +184,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+			AND c.currency<>20 AND ci.enabled=1
 	UNION ALL
 	SELECT  c.Username, c.custid,c.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -197,6 +199,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.roleid=3 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+			AND c.currency<>20 AND ci.enabled=1
 	UNION ALL
 	SELECT  c.Username, c.custid,c.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -212,6 +215,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND ci.roleid=2 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+			AND c.currency<>20 AND ci.enabled=1
 	UNION ALL
 	SELECT  c.Username, c.custid,ca.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -228,6 +232,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.roleid=1 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
+			AND c.currency<>20 AND ci.enabled=1
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)
@@ -247,9 +252,10 @@ FROM temp2 t
 	LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 	LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID	
 	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
-	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
-		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)		
+	LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
+	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )	
+		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NOT NULL AND crm.ignored<>1) OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NULL AND cc.ignored<>1))
+		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)			
 
 IF @TotalRows = 0  
 BEGIN  

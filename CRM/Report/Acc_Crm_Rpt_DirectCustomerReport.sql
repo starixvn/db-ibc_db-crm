@@ -75,6 +75,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+				AND c.currency<>20 AND ci.enabled=1
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -89,6 +90,7 @@ BEGIN
 				AND c.roleid=3 		
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+				AND c.currency<>20 AND ci.enabled=1
 		UNION ALL
 		SELECT c.Username, c.custid,c.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -104,6 +106,7 @@ BEGIN
 				AND ci.roleid=2 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+				AND c.currency<>20 AND ci.enabled=1
 		UNION ALL
 		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -120,6 +123,7 @@ BEGIN
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
+				AND c.currency<>20 AND ci.enabled=1
 
 	)
 
@@ -146,6 +150,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.CustAccount cahed WITH(NOLOCK) ON hed.CustID=cahed.custid
 		LEFT JOIN bodb02.dbo.Customer checkerhed WITH(NOLOCK) ON checkerhed.CustID= cahed.Checker
 		INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
+		LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  dbo.crmCustomerLanguage(nolock) clang
@@ -154,7 +159,7 @@ BEGIN
 						 FOR XML PATH('')), 1, 1, '')
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
+			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NOT NULL AND crm.ignored<>1) OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NULL AND cc.ignored<>1))
 			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
 			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN

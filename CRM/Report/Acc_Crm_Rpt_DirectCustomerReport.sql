@@ -30,7 +30,7 @@ DECLARE @RowStart INT, @RowEnd INT
 			,@RowStart = @PageSize * @PageIndex + 1
 			,@RowEnd = @RowStart + @PageSize - 1			
 
-CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT)
+CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Enabled BIT)
 CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY)
 CREATE TABLE #tempSite(Site VARCHAR(10)  PRIMARY KEY)
 INSERT INTO #tempSite(Site)
@@ -54,10 +54,10 @@ WHERE (GroupID
 					FROM bodb02.dbo.custAccount WITH(NOLOCK) 
 					WHERE IsGroupHeadline=1 AND custid NOT IN(SELECT custid FROM bodb02.dbo.Customer WITH(NOLOCK)))
 
-INSERT INTO #tempHeadline(Custid,Username,groupID)
-SELECT hed.custid,username,groupID
+INSERT INTO #tempHeadline(Custid,Username,groupID,Enabled)
+SELECT hed.custid,username,groupID,Enabled
 FROM  bodb02.dbo.CustAccount hed WITH(NOLOCK) 
-	INNER JOIN bodb02.dbo.Customer hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
+	INNER JOIN bodb02.dbo.custInfo hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
 	WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
 
 IF ((@PageSize <= 0) AND (@PageIndex <= 0))
@@ -75,7 +75,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 			WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
-				AND c.currency<>20 AND ci.enabled=1
+				AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -90,7 +90,7 @@ BEGIN
 				AND c.roleid=3 		
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
-				AND c.currency<>20 AND ci.enabled=1
+				AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 		UNION ALL
 		SELECT c.Username, c.custid,c.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -106,7 +106,7 @@ BEGIN
 				AND ci.roleid=2 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
-				AND c.currency<>20 AND ci.enabled=1
+				AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 		UNION ALL
 		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -123,7 +123,7 @@ BEGIN
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 				AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
-				AND c.currency<>20 AND ci.enabled=1
+				AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 
 	)
 
@@ -161,6 +161,7 @@ BEGIN
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NOT NULL AND crm.ignored<>1) OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NULL AND cc.ignored<>1))
 			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
+			AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))
 			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN
 END
@@ -189,7 +190,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
 		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
-			AND c.currency<>20 AND ci.enabled=1
+			AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 	UNION ALL
 	SELECT  c.Username, c.custid,c.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -204,7 +205,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.roleid=3 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
-			AND c.currency<>20 AND ci.enabled=1
+			AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 	UNION ALL
 	SELECT  c.Username, c.custid,c.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -220,7 +221,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND ci.roleid=2 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
-			AND c.currency<>20 AND ci.enabled=1
+			AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 	UNION ALL
 	SELECT  c.Username, c.custid,ca.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -237,7 +238,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			AND c.roleid=1 	
 			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
 			AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
-			AND c.currency<>20 AND ci.enabled=1
+			AND c.currency<>20 AND (ci.enabled=1 OR ci.custid IN (SELECT custid FROM #tempHeadline))
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)
@@ -260,7 +261,8 @@ FROM temp2 t
 	LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )	
 		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NOT NULL AND crm.ignored<>1) OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NULL AND cc.ignored<>1))
-		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)			
+		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)		
+		AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp2 ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))	
 
 IF @TotalRows = 0  
 BEGIN  
@@ -289,10 +291,4 @@ FROM #Cust_tmp t
 		)A (language_name)
 	WHERE t.RowNum BETWEEN @RowStart AND @RowEnd
 	ORDER BY t.headline ASC, t.Username  ASC
-
-
-
-
-
-
 GO

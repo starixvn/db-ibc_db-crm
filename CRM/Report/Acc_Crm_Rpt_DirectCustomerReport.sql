@@ -30,7 +30,7 @@ DECLARE @RowStart INT, @RowEnd INT
 			,@RowStart = @PageSize * @PageIndex + 1
 			,@RowEnd = @RowStart + @PageSize - 1			
 
-CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Enabled BIT)
+CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Enabled BIT,Ignored BIT)
 CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY)
 CREATE TABLE #tempSite(Site VARCHAR(10)  PRIMARY KEY)
 INSERT INTO #tempSite(Site)
@@ -54,10 +54,11 @@ WHERE (GroupID
 					FROM bodb02.dbo.custAccount WITH(NOLOCK) 
 					WHERE IsGroupHeadline=1 AND custid NOT IN(SELECT custid FROM bodb02.dbo.Customer WITH(NOLOCK)))
 
-INSERT INTO #tempHeadline(Custid,Username,groupID,Enabled)
-SELECT hed.custid,username,groupID,Enabled
+INSERT INTO #tempHeadline(Custid,Username,groupID,Enabled,Ignored)
+SELECT hed.custid,hedinfo.username,groupID,Enabled,c.Ignored
 FROM  bodb02.dbo.CustAccount hed WITH(NOLOCK) 
 	INNER JOIN bodb02.dbo.custInfo hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
+	LEFT JOIN crmCustomer c WITH(NOLOCK) ON hed.custid=c.CustID
 	WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
 
 IF ((@PageSize <= 0) AND (@PageIndex <= 0))
@@ -159,7 +160,8 @@ BEGIN
 						 FOR XML PATH('')), 1, 1, '')
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NOT NULL AND crm.ignored<>1) OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NULL AND cc.ignored<>1))
+			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
+			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND cc.Ignored=0))			
 			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
 			AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))
 			ORDER BY hed.Username ASC, t.Username  ASC
@@ -260,7 +262,8 @@ FROM temp2 t
 	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
 	LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )	
-		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NOT NULL AND crm.ignored<>1) OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Username IS NULL AND cc.ignored<>1))
+		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
+		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND cc.Ignored=0))		
 		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)		
 		AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp2 ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))	
 

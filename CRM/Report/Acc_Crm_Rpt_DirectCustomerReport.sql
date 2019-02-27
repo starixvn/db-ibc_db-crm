@@ -160,7 +160,7 @@ BEGIN
 						 FOR XML PATH('')), 1, 1, '')
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
+			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR hed.Custid IS NULL OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
 			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND cc.Ignored=0))			
 			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
 			AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))
@@ -262,7 +262,7 @@ FROM temp2 t
 	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
 	LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
 	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )	
-		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
+		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR hed.Custid IS NULL OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
 		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND cc.Ignored=0))		
 		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)		
 		AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp2 ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))	

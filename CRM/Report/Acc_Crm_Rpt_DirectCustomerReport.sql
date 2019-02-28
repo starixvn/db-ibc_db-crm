@@ -77,7 +77,7 @@ BEGIN
 					ELSE 'Active' END AS Status,Enabled,
 				 'Super' AS Position
 		FROM bodb02.dbo.custInfo ci WITH(NOLOCK) 
-			INNER JOIN #tempSrecommend s ON ci.srecommend=s.CustID		
+			INNER JOIN #tempSrecommend s ON ci.CustID=s.CustID		
 			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)				
 			WHERE (@Username IS NULL OR( ci.username LIKE @Username+'%'))				
 		UNION ALL
@@ -185,7 +185,7 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 				ELSE 'Active' END AS Status,Enabled,
 			'Super'	AS Position	
 	FROM bodb02.dbo.custInfo c WITH(NOLOCK) 
-		INNER JOIN #tempSrecommend s ON c.srecommend=s.CustID
+		INNER JOIN #tempSrecommend s ON c.CustID=s.CustID
 		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)		
 		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))		
 	UNION ALL

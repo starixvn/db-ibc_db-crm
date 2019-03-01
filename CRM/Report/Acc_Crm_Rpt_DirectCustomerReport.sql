@@ -76,10 +76,10 @@ BEGIN
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 					ELSE 'Active' END AS Status,Enabled,
 				 'Super' AS Position
-		FROM bodb02.dbo.custInfo ci WITH(NOLOCK) 
-			INNER JOIN #tempSrecommend s ON ci.CustID=s.CustID		
-			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)				
-			WHERE (@Username IS NULL OR( ci.username LIKE @Username+'%'))				
+		FROM #tempSrecommend s 
+			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)	
+			INNER JOIN 	bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.CustID=s.CustID							
+			WHERE (@Username IS NULL OR( ci.username LIKE @Username+'%')) AND ci.roleid=4				
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
@@ -184,10 +184,10 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 				WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 				ELSE 'Active' END AS Status,Enabled,
 			'Super'	AS Position	
-	FROM bodb02.dbo.custInfo c WITH(NOLOCK) 
-		INNER JOIN #tempSrecommend s ON c.CustID=s.CustID
-		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)		
-		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))		
+	FROM #tempSrecommend s 
+		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)	
+		INNER JOIN 	bodb02.dbo.custInfo c WITH(NOLOCK) ON c.CustID=s.CustID	
+		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%')) AND c.roleid=4								
 	UNION ALL
 	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 

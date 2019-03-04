@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 
 USE [bodb_CRM]
 GO
@@ -22,6 +22,7 @@ Original:
 
 Revisions:	
 	- 20170912@Winnie: Direct Customer Report RedmineID: #82040
+	- 20190225@Winnie: CRM - Check data Direct Customer, Headline list between CSD reported and CRM site RedmineID: #108504
 */
 DECLARE @RowStart INT, @RowEnd INT 
 	SELECT @TotalRows = 0		
@@ -29,11 +30,16 @@ DECLARE @RowStart INT, @RowEnd INT
 			,@RowStart = @PageSize * @PageIndex + 1
 			,@RowEnd = @RowStart + @PageSize - 1			
 
-CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT)
+CREATE table #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Enabled BIT,Ignored BIT)
 CREATE TABLE #tempcustAccount(CustID INT PRIMARY KEY)
-CREATE TABLE #tempSite(Site VARCHAR(10)  PRIMARY KEY)
-INSERT INTO #tempSite(Site)
-select [site] from bodb02.dbo.[site]  where islicensee = 0  AND isactive=1
+
+CREATE TABLE #tempSrecommend(CustID INT PRIMARY KEY,Site NVARCHAR(50))
+INSERT INTO #tempSrecommend(CustID,Site)
+SELECT d.custid,s.site
+FROM bodb02.dbo.[site] s WITH(NOLOCK)
+	INNER JOIN bodb02.dbo.Customer d WITH(NOLOCK) ON s.site=d.site
+WHERE islicensee = 0  AND isactive=1 AND d.roleid=4
+
 
 CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline 
 	(
@@ -53,73 +59,69 @@ WHERE (GroupID
 					FROM bodb02.dbo.custAccount WITH(NOLOCK) 
 					WHERE IsGroupHeadline=1 AND custid NOT IN(SELECT custid FROM bodb02.dbo.Customer WITH(NOLOCK)))
 
-INSERT INTO #tempHeadline(Custid,Username,groupID)
-SELECT hed.custid,username,groupID
+INSERT INTO #tempHeadline(Custid,Username,groupID,Enabled,Ignored)
+SELECT hed.custid,hedinfo.username,groupID,Enabled,c.Ignored
 FROM  bodb02.dbo.CustAccount hed WITH(NOLOCK) 
-	INNER JOIN bodb02.dbo.Customer hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
+	INNER JOIN bodb02.dbo.custInfo hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
+	LEFT JOIN crmCustomer c WITH(NOLOCK) ON hed.custid=c.CustID
 	WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
 
 IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 BEGIN
 	;WITH temp AS
 	(
-		SELECT c.Username, c.custid,site,c.Currency,
+		SELECT ci.Username, ci.custid,site,ci.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				 'Super' AS Position
-		FROM bodb02.dbo.Customer c WITH(NOLOCK) 
-			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
-			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-			WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
-				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+		FROM #tempSrecommend s 
+			INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)	
+			INNER JOIN 	bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.CustID=s.CustID							
+			WHERE (@Username IS NULL OR( ci.username LIKE @Username+'%')) AND ci.roleid=4				
 		UNION ALL
 		SELECT c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				'Master' AS Position
-		FROM bodb02.dbo.Customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+		FROM bodb02.dbo.custInfo c WITH(NOLOCK)
+			INNER JOIN #tempSrecommend s ON c.srecommend=s.CustID			
 			WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.roleid=3 		
-				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))			
 		UNION ALL
-		SELECT c.Username, c.custid,c.site,c.CurrencY,	
+		SELECT ci.Username, ci.custid,s.site,ci.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				'Agent'	AS Position					
-		FROM  bodb02.dbo.Customer c WITH(NOLOCK)
-			INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-			INNER JOIN  bodb02.dbo.CustAgent ca WITH(NOLOCK) ON ca.custid = c.custid AND ca.IsInternal = 0  
+		FROM  bodb02.dbo.custInfo ci WITH(NOLOCK)
+			INNER JOIN #tempSrecommend s ON ci.srecommend=s.CustID		
+			INNER JOIN  bodb02.dbo.CustAgent ca WITH(NOLOCK) ON ca.custid = ci.custid AND ca.IsInternal = 0  
 			WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND ci.roleid=2 	
-				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-				AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+				AND (@Username IS NULL OR( ci.username LIKE @Username+'%'))			
 		UNION ALL
-		SELECT c.Username, c.custid,CA.site,c.CurrencY,	
+		SELECT c.Username, c.custid,site,c.CurrencY,	
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				'Member' AS Position
-		FROM bodb02.dbo.Customer c WITH(NOLOCK)
-			INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
-			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+		FROM bodb02.dbo.custInfo c WITH(NOLOCK)		
+			INNER JOIN #tempSrecommend s ON c.srecommend=s.CustID		
 			WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 				AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 				AND c.roleid=1 	
 				AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-				AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
-
+			
 	)
 
 	SELECT ROW_NUMBER() OVER(ORDER BY hed.Username ASC, t.Username  ASC) AS RowNum,
@@ -145,6 +147,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.CustAccount cahed WITH(NOLOCK) ON hed.CustID=cahed.custid
 		LEFT JOIN bodb02.dbo.Customer checkerhed WITH(NOLOCK) ON checkerhed.CustID= cahed.Checker
 		INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON t.Currency=e.ExchangeID
+		LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
 		OUTER APPLY(
 			SELECT Stuff((SELECT ',' + lang.Name
 						 FROM  dbo.crmCustomerLanguage(nolock) clang
@@ -153,8 +156,11 @@ BEGIN
 						 FOR XML PATH('')), 1, 1, '')
 			)A (language_name)
 		WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
+			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR hed.Custid IS NULL OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
+			AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND ISNULL(cc.Ignored,0)=0))		
 			AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)
+			AND t.currency<>20 AND (t.enabled=1 OR t.custid IN (SELECT custid FROM #tempHeadline))
+			AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))
 			ORDER BY hed.Username ASC, t.Username  ASC
 	RETURN
 END
@@ -176,58 +182,53 @@ CREATE NONCLUSTERED INDEX [IX_RowNum] ON [dbo].#Cust_tmp
 			CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 				WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 				WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-				ELSE 'Active' END AS Status,
+				ELSE 'Active' END AS Status,Enabled,
 			'Super'	AS Position	
-	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
-		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(c.custid = cs.custid AND cs.IsInternal = 0 AND c.roleid = 4)
-		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
-		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%'))
-			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+	FROM #tempSrecommend s 
+		INNER JOIN bodb02.dbo.CustSuper cs WITH(NOLOCK) ON	(s.custid = cs.custid AND cs.IsInternal = 0)	
+		INNER JOIN 	bodb02.dbo.custInfo c WITH(NOLOCK) ON c.CustID=s.CustID	
+		WHERE (@Username IS NULL OR( c.username LIKE @Username+'%')) AND c.roleid=4								
 	UNION ALL
-	SELECT  c.Username, c.custid,c.site,c.Currency,
+	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				'Master'	AS Position
-	FROM bodb02.dbo.Customer c WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid			
+	FROM bodb02.dbo.custInfo c WITH(NOLOCK)
+		INNER JOIN #tempSrecommend s ON c.srecommend=s.CustID		
 		WHERE c.custid NOT IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.srecommend IN (SELECT custid FROM bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.roleid=3 	
-			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))			
 	UNION ALL
-	SELECT  c.Username, c.custid,c.site,c.Currency,
+	SELECT  c.Username, c.custid,s.site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				'Agent'	AS Position	
-	FROM  bodb02.dbo.Customer c WITH(NOLOCK)
-		INNER JOIN  bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+	FROM  bodb02.dbo.custInfo c WITH(NOLOCK)		
+		INNER JOIN #tempSrecommend s ON c.srecommend=s.CustID
 		INNER JOIN  bodb02.dbo.CustAgent ca WITH(NOLOCK) ON ca.custid = c.custid AND ca.IsInternal = 0  
-		WHERE ci.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))		
-			AND ci.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
-			AND ci.roleid=2 	
-			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-			AND (c.site IN (select [site] from #tempSite) OR c.site IS NULL)
+		WHERE c.custid NOT IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))		
+			AND c.mrecommend IN (SELECT custid from  bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
+			AND c.roleid=2 	
+			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))		
 	UNION ALL
-	SELECT  c.Username, c.custid,ca.site,c.Currency,
+	SELECT  c.Username, c.custid,site,c.Currency,
 				CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+					ELSE 'Active' END AS Status,Enabled,
 				'Member'	  AS Position
-	FROM bodb02.dbo.Customer c WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.Customer ca (nolock) on c.recommend=ca.custid 
-		INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON ci.custid=c.custid	
+	FROM bodb02.dbo.custInfo c WITH(NOLOCK)
+		INNER JOIN #tempSrecommend s ON c.srecommend=s.CustID		
 		WHERE c.custid NOT IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.recommend IN (SELECT custid from bodb02.dbo.Acc_CustDirect WITH(NOLOCK))
 			AND c.recommend NOT IN  (SELECT custid  FROM bodb02.dbo.CustAgent WITH(NOLOCK)  WHERE IsInternal = 1)
 			AND c.roleid=1 	
-			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))
-			AND (ca.site IN (select [site] from #tempSite) OR ca.site IS NULL)
+			AND (@Username IS NULL OR( c.username LIKE @Username+'%'))			
 )	
 INSERT INTO #Cust_tmp(UserName,CustID,Position,Site,Status,Currency,RowNum,IntroducedBy,Checker,IsVIP,FirstName,LastName,Phone,Phone2,
 						Phone3,Pic1,Pic2,Pic3,Pic4,MobilePhone,Email,Skype,MSN,WhatsApp,Line,WeChat,Yahoo,BBM,QQ,CountryID,Headline,HeadlineCustid	)
@@ -243,13 +244,17 @@ SELECT t.Username, t.custid, t.Position,t.site,t.Status,t.Currency,ROW_NUMBER() 
 		crm.MobilePhoneCountryCode+'-'+ crm.MobilePhoneAreaCode +'-'+crm.MobilePhone AS MobilePhone,
 		crm.Email,crm.Skype,crm.MSN,crm.WhatsApp,
 		crm.Line,crm.WeChat,crm.Yahoo,crm.BBM,crm.QQ,crm.CountryID,hed.Username,hed.Custid
-FROM temp2 t	
+FROM temp2 t		
 	LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON t.CustID=cus.custid
 	LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID	
 	LEFT JOIN dbo.crmCustomer crm WITH(NOLOCK) ON crm.CustID =  CASE WHEN hed.Username IS NULL THEN t.custid ELSE hed.CustID END	
-	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-		AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(crm.ignored,0) <> @ExcludeIgnoredAcc)
-		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)		
+	LEFT JOIN dbo.crmCustomer cc WITH(NOLOCK) ON cc.CustID=t.CustID
+	WHERE  (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )	
+		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR hed.Custid IS NULL OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND hed.Ignored=0))
+		AND  (ISNULL(@ExcludeIgnoredAcc,0)=0 OR (ISNULL(@ExcludeIgnoredAcc,0)=1 AND ISNULL(cc.Ignored,0)=0))			
+		AND t.CustID NOT IN(SELECT CustID FROM #tempcustAccount)	
+		AND t.currency<>20 	AND  (t.enabled=1 OR t.custid IN (SELECT custid FROM #tempHeadline))
+		AND (hed.Custid IS NULL OR hed.Enabled=1 OR(hed.Enabled=0 AND EXISTS(SELECT TOP 1 1 FROM temp2 ggg INNER JOIN bodb02.dbo.CustAccount cuss WITH(NOLOCK) ON ggg.custid=cuss.custid  WHERE cuss.groupID=hed.groupID )))	
 
 IF @TotalRows = 0  
 BEGIN  
@@ -278,10 +283,4 @@ FROM #Cust_tmp t
 		)A (language_name)
 	WHERE t.RowNum BETWEEN @RowStart AND @RowEnd
 	ORDER BY t.headline ASC, t.Username  ASC
-
-
-
-
-
-
 GO

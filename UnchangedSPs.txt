@@ -1,2 +1,0 @@
-CRM\InformHeadline\Acc_CRM_InformHeadlineSearchUpd.sql
-CRM\InformHeadline\Acc_CRM_InformHeadlineSearchSel.sql

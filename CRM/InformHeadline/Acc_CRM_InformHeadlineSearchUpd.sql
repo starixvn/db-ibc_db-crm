@@ -427,5 +427,3 @@ END
 
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSearchUpd] TO [bodbAdminNet]
-GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineSearchUpd] TO [vnteam]

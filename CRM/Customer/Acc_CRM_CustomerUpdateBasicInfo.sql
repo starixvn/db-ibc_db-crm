@@ -87,7 +87,7 @@ BEGIN
 		FROM bodb02.dbo.Customer(NOLOCK)
 		WHERE custid = @CustID
 
-		EXEC Acc_CRM_CustomerIns_New_xtest
+		EXEC Acc_CRM_CustomerIns_New
 			@UserID							= @UserID,				
 			@CustID							= @CustID,						
 			@UserName						= @UserName,

@@ -26,7 +26,7 @@ AS
 		- @TypeAccount =1: Headline
 						2: Direct account
 						3: Both
-	Example: EXEC Acc_CRM_InformHeadlineIns_xtest @Title = 'aa', @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @UserID = 8, @IP = '10.19.1.15'
+	Example: EXEC Acc_CRM_InformHeadlineIns @Title = 'aa', @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @UserID = 8, @IP = '10.19.1.15'
 */
 BEGIN
 	SET NOCOUNT ON
@@ -80,7 +80,7 @@ BEGIN
 	FROM f_CRM_strSplit (@Currency,',')
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList_xtest (@Currency, @Level, @Site, @TypeAccount) a
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)
 		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)

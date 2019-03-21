@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" selectors="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" selectors="bodbAdminNet" viewers="" isFunction="1"></info>*/
 ALTER FUNCTION [dbo].[f_InformHeadlineList] (@Currency VARCHAR(1000), @Level VARCHAR(10), @Site VARCHAR(4000), @TypeAccount TINYINT)
 RETURNS @DirectAcc TABLE (
 	[CustID] [INT],

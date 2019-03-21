@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchSel]
 	@TitleID		INT,
 	@Currency		VARCHAR(1000) = '',
@@ -18,6 +19,7 @@ AS
 	Revisions:
 		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
 		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
+		- 20190307@Winnie: Remove vnteam, add metadata RedmineID: #109775
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -212,5 +214,3 @@ END
 
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSearchSel] TO [bodbAdminNet]
-GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_InformHeadlineSearchSel] TO [vnteam]

@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchUpd]
 	@TitleID		INT,
 	@Title			NVARCHAR(2000) = '',
@@ -22,6 +23,7 @@ AS
 	Revisions:
 		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
 		- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+		- 20190307@Winnie: Remove vnteam, add metadata RedmineID: #109775
 
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline

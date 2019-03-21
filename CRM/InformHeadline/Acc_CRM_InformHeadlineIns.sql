@@ -9,7 +9,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@IP				VARCHAR(40),
 	@TitleID		INT OUTPUT, 
 	@ExcludeIgnored	BIT=0,
-	@IsVip			BIT=0,
+	@IsVip			TINYINT=2,
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(200) = '' OUTPUT
 AS	
@@ -21,11 +21,12 @@ AS
 	Revisions:
 	- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20190131@Winnie: Check headline RedmineID #108504
+	- 20190311@Winnie: CRM - Enhance Inform Headline RedmineID:#109775	
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
 						3: Both
-	Example: EXEC Acc_CRM_InformHeadlineIns @Title = 'aa', @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @UserID = 8, @IP = '10.19.1.15'
+	Example: EXEC Acc_CRM_InformHeadlineIns_xtest @Title = 'aa', @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @UserID = 8, @IP = '10.19.1.15'
 */
 BEGIN
 	SET NOCOUNT ON
@@ -79,17 +80,17 @@ BEGIN
 	FROM f_CRM_strSplit (@Currency,',')
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList_xtest (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)
-		AND (@IsVip IS NULL OR @IsVip=IsVIP)
+		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)
 
 	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@SiteHardcode) 
 		AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 
 		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
 		AND EXISTS(SELECT 1 FROM @tmpLevel WHERE roleID=@RoleID) 
 		AND (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @ExcludeIgnored)
-		AND (@IsVip IS NULL OR @IsVip=@IsVipHardCode)
+		AND (@IsVip =2 OR @IsVip=@IsVipHardCode)
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID)
 		SELECT @CustIDHardcode,groupID
@@ -107,7 +108,7 @@ BEGIN
 	--		ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus
 	--FROM @Content.nodes('//content/headline') xmlData(Col)
 
-	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored)+ '''></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount) + ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored) + ''' IsVip  = ''' + CONVERT(VARCHAR(1),@IsVip)+ '''></Filters>'
 
 	INSERT INTO crmInformTitle_New (Title, CreatedDate, Creator, StatusID, Filter) VALUES (@Title, GETDATE(), @UserID, 11009, @Filter)
       
@@ -171,6 +172,7 @@ BEGIN
 	
 	DROP TABLE #DirectAcc 	
 END
+
 
 GO 
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineIns] TO [bodbAdminNet]

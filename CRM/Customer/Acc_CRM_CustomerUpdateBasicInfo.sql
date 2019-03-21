@@ -47,6 +47,7 @@ Revisions:
 	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
 	- 20141118@Dom: Add new PIC name
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190307@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 */
 	SET NOCOUNT ON
 
@@ -86,7 +87,7 @@ BEGIN
 		FROM bodb02.dbo.Customer(NOLOCK)
 		WHERE custid = @CustID
 
-		EXEC Acc_CRM_CustomerIns_New
+		EXEC Acc_CRM_CustomerIns_New_xtest
 			@UserID							= @UserID,				
 			@CustID							= @CustID,						
 			@UserName						= @UserName,
@@ -139,7 +140,7 @@ BEGIN
 			@Question						= NULL,
 			@Answer							= NULL,
 			@CountryID						= NULL,
-			@IsVIP							= NULL,
+			@IsVIP							= 0,
 			@SiteID							= @Site,
 			@Wire_BankName					= NULL,
 			@Wire_BankAddress				= NULL,
@@ -423,4 +424,3 @@ BEGIN
 END
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpdateBasicInfo] TO [bodbAdminNet]
-GO 

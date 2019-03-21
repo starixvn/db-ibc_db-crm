@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns]
 (
 	@UserID				INT,
@@ -22,7 +23,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns]
 	@Question			NVARCHAR(300)	= NULL,
 	@Answer				NVARCHAR(300)	= NULL,
 	@CountryID			INT				= NULL,
-	@IsVIP				BIT				= NULL,
+	@IsVIP				BIT				= 0,
 	@SiteID				INT				= NULL,
 	@Wire_BankName		NVARCHAR(100)	= NULL,
 	@Wire_BankAddress	NVARCHAR(200)	= NULL,
@@ -30,8 +31,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns]
 	@Wire_AccountNo		NVARCHAR(50)	= NULL,
 	@Wire_SwiftCode		NVARCHAR(50)	= NULL,
 	@AccountHolderName	NVARCHAR(100)	= NULL,
-	@SpecialRemark		NVARCHAR(1000)	= NULL,	
-	@Remark				NVARCHAR(1000)	= NULL,	
+	@SpecialRemark		NVARCHAR(3000)	= NULL,	
+	@Remark				NVARCHAR(3000)	= NULL,	
 	@CreatorID			INT,
 	@IP					VARCHAR(15),
 	@ErrCode			INT				= 0 OUTPUT,
@@ -51,7 +52,8 @@ Revisions:
 					   change DB06 to DB052
 	- 20120404@Elodie: change data type of @Skype, @MSN, @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 	- 20120529@Elodie: encode some parameters to write log in XML format, such as Question, Answer, Pic1, ...
-	- 20140303@Dom: Modify for new structure
+	- 20140602@Lukas: expand remark & remark2 to nvarchar(3000)
+	- 20190307@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 Param's Explanation:
 	
 */
@@ -202,17 +204,6 @@ BEGIN
 					@NewValues = @LogElement
 END
 
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerIns] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerIns] TO [vnteam]
 GO 

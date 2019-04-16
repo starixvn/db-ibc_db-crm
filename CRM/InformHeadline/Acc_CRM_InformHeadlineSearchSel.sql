@@ -19,7 +19,8 @@ AS
 	Revisions:
 		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
 		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
-		- 20190307@Winnie: Remove vnteam, add metadata RedmineID: #109775
+		- 20190416@Winnie:Change function edit inform headline RedmineID: #109775
+
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -42,7 +43,7 @@ BEGIN
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 	
-	CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
+	/*CREATE TABLE #NewDirectAcc (CustID_New INT, GroupID_New INT, CustID_Old INT, GroupID_Old INT, Cases TINYINT)		
 
 	--IF @ChangeFilter = 1 --if filter is changed
 	--BEGIN
@@ -207,6 +208,21 @@ BEGIN
 		ORDER BY Cases DESC, CASE WHEN GroupID > 0 THEN 1 ELSE 0 END DESC, UserName_New		
 
 	DROP TABLE #NewDirectAcc
+	*/
+	SELECT	ac.CustID, cinew.Username AS UserName,
+					ISNULL(ih.GroupID,ac.GroupID) AS GroupID,
+					ih.InformHeadlineStatusID, 
+					ih.UpdatedTime,
+					ISNULL(ih.Remark,'') Remark,
+					ISNULL(handler.username, '') AS Handler,
+					ih.Extension,
+					ih.ProductStatus			
+			FROM #DirectAcc ac
+				LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID = ih.HeadlineID
+				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID = cinew.custid				
+				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid	
+	ORDER BY  CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, UserName			
+
 	DROP TABLE #DirectAcc 	
 	
 END

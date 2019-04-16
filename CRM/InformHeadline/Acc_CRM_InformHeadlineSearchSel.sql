@@ -218,7 +218,7 @@ BEGIN
 					ih.Extension,
 					ih.ProductStatus			
 			FROM #DirectAcc ac
-				LEFT JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID = ih.HeadlineID
+				INNER JOIN crmInformHeadline_New ih WITH (NOLOCK) ON ac.CustID = ih.HeadlineID
 				LEFT JOIN bodb02.dbo.CustInfo cinew WITH (NOLOCK) ON ac.CustID = cinew.custid				
 				LEFT JOIN bodb02.dbo.CustInfo handler WITH (NOLOCK) ON ih.Handler = handler.custid	
 	ORDER BY  CASE WHEN ih.GroupID > 0 THEN 1 ELSE 0 END DESC, UserName			

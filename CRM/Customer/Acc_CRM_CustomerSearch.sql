@@ -325,6 +325,9 @@ BEGIN
 					OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 			) 
 			AND custID < 0
+			AND ((@UserRole=2 AND SiteID<>33002) 
+				OR (@UserRole=1 AND SiteID=33002) 
+				OR @UserRole=0)
 
 		IF(@custID IS NULL) RETURN;
 

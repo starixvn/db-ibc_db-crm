@@ -1,12 +1,7 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_BettypeList    Script Date: 3/26/2014 6:06:10 PM ******/
-CREATE procedure [dbo].[Acc_CRM_BettypeList]
-	@ProductID int = null
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+CREATE PROCEDURE [dbo].[Acc_CRM_BettypeList]
+	@ProductID	INT = null,
+	@UserRole   TINYINT
 as
 
 /*
@@ -17,25 +12,15 @@ as
 	Original:
 
 	Revisions:
-	
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	
 */
 
 select * from crmBettype(nolock) 
 where IsActive = 1 and (ISNULL(@ProductID,0)=0 OR ProductID = @ProductID)
-
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
+	AND (SiteOffer=0 OR SiteOffer=@UserRole OR @UserRole=0)
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_BettypeList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_BettypeList] TO [vnteam]
 GO 

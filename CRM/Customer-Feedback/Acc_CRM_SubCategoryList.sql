@@ -1,12 +1,7 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_SubCategoryList    Script Date: 3/26/2014 6:06:10 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE procedure Acc_CRM_SubCategoryList
-	@MainCategoryID int = null
+	@MainCategoryID int = null,
+	@UserRole		TINYINT
 as
 
 /*
@@ -17,25 +12,16 @@ as
 	Original:
 
 	Revisions:
-	
+		- 20190507@Winnie:	CN88 	[RedmineID:#112637]
 	Param's Explanation:
 	
 */
 
 select * from crmSubCategory(nolock) 
 where IsActive = 1 and (ISNULL(@MainCategoryID,0)=0 OR MainCategoryID = @MainCategoryID)
-
+	AND siteoffer=@UserRole
 
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_SubCategoryList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SubCategoryList] TO [vnteam]
 GO 

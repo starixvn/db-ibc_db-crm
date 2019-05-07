@@ -1,8 +1,9 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
 (
 	@CustID		INT				= NULL,
-	@UserName	NVARCHAR(50)	= NULL
+	@UserName	NVARCHAR(50)	= NULL,
+	@UserRole   TINYINT
 )
 AS
 /*
@@ -16,6 +17,7 @@ Revisions:
 	- 20140303@Dom: Modify for new structure
 	- 20180910@Winnie: Show headline [RedmineID: #99982]
 	- 201810107@Winnie: Fix bug Show headline [RedmineID: #102925]
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN	
@@ -26,6 +28,10 @@ BEGIN
 	SELECT @srecommend=srecommend,@mrecommend=mrecommend,@recommend=recommend
 	FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
 	WHERE	c.CustID = @CustID
+
+	IF(@UserRole=1 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
+		OR (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
+		RETURN
 
 	SELECT s.UserName, s.CustID, s.roleid,
 			CASE WHEN s.Closed = 0 and ISNULL(s.reject,0) = 0 THEN 1 ELSE 0 END Active,
@@ -87,6 +93,4 @@ GO
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerGetUplineList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerGetUplineList] TO [vnteam]
 GO 

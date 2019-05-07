@@ -1,8 +1,9 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
 	@Username	NVARCHAR(50) = '',
-	@IsGuest	BIT = 0
+	@IsGuest	BIT = 0,
+	@UserRole   TINYINT
 )
 AS
 /*
@@ -23,6 +24,7 @@ Revisions:
 	- 20141118@Dom: Return PIC Name
 	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20180924@Winnie: Search Chinese RedmineID: #99982
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN
@@ -62,7 +64,13 @@ BEGIN
 			FROM bodb02.dbo.Customer(NOLOCK) c
 			WHERE c.phone = @UserName OR c.mobilephone = @username		
 		END					
-		
+		IF @custID IS NOT NULL
+		BEGIN
+			IF(@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.Customer(NOLOCK) c WHERE custid=@custID AND srecommend IN(SELECT custid FROM bodb02.dbo.cs_custsuper(NOLOCK))))
+				SELECT @custID=NULL
+			ELSE IF (@UserRole=1 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.Customer(NOLOCK) c WHERE custid=@custID AND srecommend NOT IN(SELECT custid FROM bodb02.dbo.cs_custsuper(NOLOCK))))
+				SELECT @custID=NULL
+		END
 		IF @custID IS NULL    --- search by phone in CRM
 		BEGIN
 			PRINT 'search by phone in CRM';	
@@ -76,6 +84,9 @@ BEGIN
 						OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 				) 
 				AND CustID > 0
+				AND ((@UserRole=2 AND SiteID<>33002) 
+					OR (@UserRole=1 AND SiteID=33002) 
+					OR @UserRole=0)
 		END
 
 		IF @custID IS NULL    --search all system but cannot find Customer -> Quit Execution
@@ -83,6 +94,8 @@ BEGIN
 			PRINT 'No Customer' ;
 			RETURN;
 		END
+		
+	
 --=====================END SEARCH CROSS SYSTEM===================================================
 
 --=====================RETURN RESULT=============================================================
@@ -406,7 +419,3 @@ GO
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSearch] TO [bodbAdminNet]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSearch] TO [vnteam]
-GO 
-
-exec Acc_CRM_CustomerSearch @Username='test',@IsGuest=0

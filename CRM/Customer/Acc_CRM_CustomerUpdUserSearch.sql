@@ -1,8 +1,9 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUserSearch]	
-	@UserID int,
-	@CustID int,
-	@UserName nvarchar(50)
+	@UserID		int,
+	@CustID		int,
+	@UserName	nvarchar(50),
+	@UserRole   TINYINT
 AS
 /*
 Created: 20120403@Elodie
@@ -15,6 +16,7 @@ Revisions:
 	- 20130121@Johnson: change linked server DB06 to DBACC
 	- 20140811@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
 	- 20181003@Winnie: Search Thai[RedmineID: #99982]
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	• @UserID: User who are logging in.	
 */
@@ -23,8 +25,11 @@ BEGIN
 	SET NOCOUNT ON
 	--IF @CustID > 0
 	--BEGIN
-
-	IF(NOT EXISTS (SELECT TOP 1 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID))
+	
+	IF(NOT EXISTS (SELECT TOP 1 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID
+																		AND ((@UserRole=2 AND SiteID<>33002) 
+																			OR (@UserRole=1 AND SiteID=33002) 
+																			OR @UserRole=0)))
 		RETURN;
 
 	DECLARE @PhoneNumber1 NVARCHAR(200) = '',
@@ -63,4 +68,5 @@ BEGIN
 	END
 	--END
 END
+GO
 

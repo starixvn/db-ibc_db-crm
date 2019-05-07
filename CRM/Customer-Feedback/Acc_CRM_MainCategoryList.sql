@@ -1,23 +1,14 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_MainCategoryList    Script Date: 3/26/2014 6:06:07 PM ******/
-create procedure Acc_CRM_MainCategoryList
-as
-select * from crmMainCategory(nolock) where IsActive = 1
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+CREATE PROCEDURE Acc_CRM_MainCategoryList
+(
+@UserRole		TINYINT
+)
+AS
+BEGIN
+SELECT * FROM crmMainCategory(nolock) where IsActive = 1
+	AND siteOffer=@UserRole
+END
 GO
 
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_MainCategoryList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_MainCategoryList] TO [vnteam]
 GO 

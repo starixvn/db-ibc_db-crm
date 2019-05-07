@@ -16,7 +16,7 @@ AS
 	Param's Explanation:
 	
 */
-SELECT * FROM crmLanguage WHERE IsActive = 1 AND SiteOffer=@UserRole
+SELECT * FROM crmLanguage WHERE IsActive = 1 AND (SiteOffer=0 OR (SiteOffer=@UserRole) OR @UserRole=0)
 GO
 
  GRANT EXECUTE ON [dbo].[Acc_CRM_LanguageList] TO [bodbAdminNet]

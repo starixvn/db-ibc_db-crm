@@ -1,10 +1,7 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_SiteSel
-					@LicenseeType TINYINT = 0
+					@LicenseeType	TINYINT = 0,
+					@UserRole		TINYINT
 AS
 /*
 	Created:	20140522@Dom
@@ -15,7 +12,7 @@ AS
 	Revisions:
 		- 20150403@Elodie:	Filter by licensee type		
 		- 20160328@Billy:	Integrate Sub-Product Setting - [Redmine: #50691]
-			
+		- 20190507@Winnie:	CN88 	[RedmineID:#112637]	
 	Param's Explanation:
 		- @LicenseeType =	0: Both
 							1: Credit
@@ -39,8 +36,9 @@ BEGIN
 		INNER JOIN	crmSetting s WITH(NOLOCK)
 				ON	sr.SettingID = s.SettingID
 				AND	s.SettingName = 'Site'
-		WHERE	ParentID IN (33000, 33001)
+		WHERE	(ParentID IN (33000, 33001) OR s.SettingID=33002) AND s.SiteOffer=@UserRole
 	) s
-	WHERE	s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+	WHERE	s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END	
 	ORDER BY s.IsActive DESC, s.IsLicensee, s.DisplayOrder
 END
+GO

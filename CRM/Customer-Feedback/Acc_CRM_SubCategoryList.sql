@@ -19,7 +19,7 @@ as
 
 select * from crmSubCategory(nolock) 
 where IsActive = 1 and (ISNULL(@MainCategoryID,0)=0 OR MainCategoryID = @MainCategoryID)
-	AND siteoffer=@UserRole
+	AND (siteoffer=@UserRole OR siteOffer=0 OR @UserRole=0)
 
 GO
 

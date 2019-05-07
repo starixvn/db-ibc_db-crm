@@ -18,7 +18,7 @@ AS
 */
 BEGIN
 SELECT * FROM crmMainCategory(nolock) where IsActive = 1
-	AND siteOffer=@UserRole
+	AND (siteOffer=@UserRole OR SiteOffer=0 OR @UserRole=0)
 END
 GO
 

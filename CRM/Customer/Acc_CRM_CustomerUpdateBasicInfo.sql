@@ -73,7 +73,7 @@ BEGIN
 END
 ELSE
 BEGIN
-	SELECT @Site=SiteID FROM crmCustomer WITH(NOLOCK) WHERE CustID=@CustID
+	SELECT @SiteID=SiteID FROM crmCustomer WITH(NOLOCK) WHERE CustID=@CustID
 END
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
@@ -409,19 +409,7 @@ BEGIN
 				@OldValues = @OldValues
 	
 	END
-	
-
-	
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
+END
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpdateBasicInfo] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpdateBasicInfo] TO [vnteam]
 GO 

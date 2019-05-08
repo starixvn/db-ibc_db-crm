@@ -44,7 +44,8 @@ BEGIN
 			@Username = @Username,	
 			@IsNickName = 0,	
 			@UserID = @custID OUTPUT,
-			@RoleID = @RoleID OUTPUT		
+			@RoleID = @RoleID OUTPUT,
+			@Username=@UserRole		
 		
 		IF @custID IS NULL    --- search by nickname
 		BEGIN
@@ -53,7 +54,8 @@ BEGIN
 			@Username = @Username,	
 			@IsNickName = 1,	
 			@UserID = @custID OUTPUT,
-			@RoleID = @RoleID OUTPUT		
+			@RoleID = @RoleID OUTPUT,
+			@Username=@UserRole				
 		END
 		
 		IF @custID IS NULL    --- search by phone in IBC
@@ -62,15 +64,13 @@ BEGIN
 			SELECT @custID = c.custID ,
 			@RoleID = RoleID 
 			FROM bodb02.dbo.Customer(NOLOCK) c
-			WHERE c.phone = @UserName OR c.mobilephone = @username		
+			WHERE c.phone = @UserName OR c.mobilephone = @username	
+				AND (@UserRole=0 
+				OR(@UserRole=1 AND EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
+				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
+				)	
 		END					
-		IF @custID IS NOT NULL
-		BEGIN
-			IF(@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.Customer(NOLOCK) c WHERE custid=@custID AND srecommend IN(SELECT custid FROM bodb02.dbo.cs_custsuper(NOLOCK))))
-				SELECT @custID=NULL
-			ELSE IF (@UserRole=1 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.Customer(NOLOCK) c WHERE custid=@custID AND srecommend NOT IN(SELECT custid FROM bodb02.dbo.cs_custsuper(NOLOCK))))
-				SELECT @custID=NULL
-		END
+		
 		IF @custID IS NULL    --- search by phone in CRM
 		BEGIN
 			PRINT 'search by phone in CRM';	
@@ -189,6 +189,7 @@ BEGIN
 							WHEN 2 THEN 7001
 							WHEN 3 THEN 7002
 							WHEN 4 THEN 7003
+							WHEN 0 THEN 7006
 							ELSE 7004 
 			END AS RoleID,
 			c.danger,
@@ -280,6 +281,7 @@ BEGIN
 							WHEN 2 THEN 7001
 							WHEN 3 THEN 7002
 							WHEN 4 THEN 7003
+							WHEN 0 THEN 7006
 							ELSE 7004 
 			END AS RoleID,
 			c.danger,

@@ -1,12 +1,7 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_MainInformationSpecialRemarkSel    Script Date: 3/26/2014 6:06:08 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROC Acc_CRM_MainInformationSpecialRemarkSel
-	@CustID INT
+	@CustID		INT,
+	@UserRole   TINYINT
 AS
 
 /*
@@ -17,23 +12,15 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
-SELECT TOP 5 Remark FROM crmCustomerRemark(NOLOCK) 
-WHERE CustID = @CustID AND IsSpecial = 1
-
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
+SELECT TOP 5 a.Remark 
+FROM crmCustomerRemark a WITH(NOLOCK) 
+	INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
+WHERE a.CustID = @CustID AND IsSpecial = 1
+	AND(@UserRole=0 OR(@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationSpecialRemarkSel] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_MainInformationSpecialRemarkSel] TO [vnteam]
 GO 

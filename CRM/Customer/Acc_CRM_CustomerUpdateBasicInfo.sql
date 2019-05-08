@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@Site					INT,
 	@FirstName				NVARCHAR(100),
@@ -31,7 +32,8 @@ ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@UserID					INT,
 	@IP						VARCHAR(15),
 	@ErrCode				INT				= 0 OUTPUT,
-	@ErrMsg					NVARCHAR(4000)	= '' OUTPUT	
+	@ErrMsg					NVARCHAR(4000)	= '' OUTPUT,
+	@UserRole				TINYINT
 AS
 /*
 Created: Dom
@@ -43,18 +45,37 @@ Original:
 Revisions:
 	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
 	- 20141118@Dom: Add new PIC name
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 */
 	SET NOCOUNT ON
 
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''
 
-DECLARE @UserName NVARCHAR(100)
+DECLARE @UserName	NVARCHAR(100),
+		@srecommend INT,
+		@SiteID		INT
 
-SELECT @UserName = username
+SELECT @UserName = username,@srecommend=srecommend
 FROM bodb02.dbo.Customer(NOLOCK)
 WHERE custid = @CustID
 
+IF @srecommend IS NOT NULL
+BEGIN
+	IF (@UserRole=1 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
+		OR  (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
+	BEGIN
+		SELECT @ErrCode=100
+		SELECT @ErrMsg='You need permission'
+		RETURN
+	END
+
+END
+ELSE
+BEGIN
+	SELECT @Site=SiteID FROM crmCustomer WITH(NOLOCK) WHERE CustID=@CustID
+END
+BEGIN
 	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
 		DECLARE @Birthday DATETIME

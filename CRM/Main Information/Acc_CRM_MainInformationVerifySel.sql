@@ -1,12 +1,7 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_MainInformationVerifySel    Script Date: 3/26/2014 6:06:08 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROC Acc_CRM_MainInformationVerifySel
-	@CustID INT
+	@CustID		INT,
+	@UserRole   TINYINT
 AS
 
 /*
@@ -17,7 +12,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 
@@ -54,12 +49,16 @@ BEGIN
 							WHEN 2 THEN 7001
 							WHEN 3 THEN 7002
 							WHEN 4 THEN 7003
+							WHEN 0 THEN 7006
 							ELSE 7004 
 			END AS RoleID,
 			@IsCredit		IsCredit
 	FROM bodb02.dbo.Customer(NOLOCK)c
 	INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
-	WHERE c.custid = @CustID
+	WHERE c.custid = @CustID 
+		AND(@UserRole=0 
+			OR(@UserRole=1 AND c.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) 
+			OR(@UserRole=2 AND c.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) )
 END
 ELSE
 BEGIN
@@ -79,25 +78,21 @@ BEGIN
 							WHEN 2 THEN 7001
 							WHEN 3 THEN 7002
 							WHEN 4 THEN 7003
+							WHEN 0 THEN 7006
 							ELSE 7004 
 			END AS RoleID,
 			@IsCredit		IsCredit
 	FROM crmCustomer(NOLOCK) c
 	INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
 	WHERE c.custid = @CustID
+		AND(@UserRole=0 
+			OR (@UserRole=1 AND c.SiteID=33002)
+			OR (@UserRole=2 AND c.SiteID<>33002)
+			)
 END
 
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
+ 
  GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationVerifySel] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_MainInformationVerifySel] TO [vnteam]
 GO 

@@ -1,6 +1,7 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_MainInformationCommunicationLogSel]
-	@CustID INT
+	@CustID		INT,
+	@UserRole   TINYINT
 AS
 
 /*
@@ -12,9 +13,15 @@ Original:
 
 Revisions:	
 	- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN
+
+	SELECT @CustID=b.CustID
+	FROM  crmCustomer b WITH(NOLOCK) 
+	WHERE b.CustID = @CustID
+		AND(@UserRole=0 OR(@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
 	SELECT DISTINCT TOP 10 f.FeedbackID
 	INTO #Feedback
@@ -52,6 +59,4 @@ END
 GO
  
  GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationCommunicationLogSel] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_MainInformationCommunicationLogSel] TO [vnteam]
 GO 

@@ -1,10 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CountryList    Script Date: 3/26/2014 6:06:10 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 create procedure Acc_CRM_CountryList
 as
 select * from crmCountry(nolock) where IsActive = 1

@@ -1,10 +1,11 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 USE bodb_CRM
 GO 
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
 (
-	@CustID	INT,
-	@DefaultLanguage INT = 0 OUTPUT
+	@CustID				INT,
+	@DefaultLanguage	INT = 0 OUTPUT,
+	@UserRole			TINYINT
 )
 AS
 /*
@@ -24,6 +25,7 @@ Revisions:
 	- 20141118@Dom: Return PIC Name
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170911@Winnie: Get Introduced By RedmineID #82040
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN	
@@ -128,7 +130,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			c.CustID = @CustID
-
+			AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage1
@@ -283,7 +285,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
-
+			AND ((@UserRole=1 AND ci.srecommend IN(SELECT custid FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND ci.srecommend IN(SELECT custid FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage

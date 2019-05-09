@@ -1,8 +1,9 @@
-﻿
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingGetRelationBySettingName]
 (
 	@SettingName	VARCHAR(50),
-	@ParentID		INT
+	@ParentID		INT,
+	@UserRole		TINYINT
 )
 AS
 /*
@@ -14,7 +15,7 @@ Original:
 
 Revisions:
 	- 20120424@Sophia: Modify DisplayOrder and IsSub
-	
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	
 */
@@ -33,12 +34,9 @@ BEGIN
 		st.SettingName = @SettingName
 		AND
 		st.IsActive = 1
+		AND (st.SiteOffer=0 OR st.SiteOffer=@UserRole)
 	ORDER BY IsSub DESC, DisplayOrder ASC, st.SettingID ASC
 END
 
-
-
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_SettingGetRelationBySettingName] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingGetRelationBySettingName] TO [vnteam]

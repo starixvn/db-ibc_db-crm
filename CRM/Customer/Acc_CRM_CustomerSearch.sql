@@ -45,7 +45,7 @@ BEGIN
 			@IsNickName = 0,	
 			@UserID = @custID OUTPUT,
 			@RoleID = @RoleID OUTPUT,
-			@Username=@UserRole		
+			@UserRole=@UserRole		
 		
 		IF @custID IS NULL    --- search by nickname
 		BEGIN
@@ -55,7 +55,7 @@ BEGIN
 			@IsNickName = 1,	
 			@UserID = @custID OUTPUT,
 			@RoleID = @RoleID OUTPUT,
-			@Username=@UserRole				
+			@UserRole=@UserRole				
 		END
 		
 		IF @custID IS NULL    --- search by phone in IBC

@@ -1,4 +1,3 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 create procedure Acc_CRM_CountryList
 as
 select * from crmCountry(nolock) where IsActive = 1

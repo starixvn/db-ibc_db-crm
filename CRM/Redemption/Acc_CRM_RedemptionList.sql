@@ -1,9 +1,11 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE Acc_CRM_RedemptionList
 	@CustID		INT,
 	@FromDate	DATETIME,
 	@ToDate		DATETIME,
 	@StatusID	INT = 0,
-	@Handler	INT = 0
+	@Handler	INT = 0,
+	@UserRole	TINYINT
 AS
 
 /*
@@ -14,6 +16,7 @@ Original:
 
 Revisions:
 	- Dom@20141128: add more field
+	- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 Param's Explanation:
 */
 BEGIN
@@ -33,19 +36,12 @@ BEGIN
 	AND r.ClaimTime BETWEEN @FromDate AND @todate
 	AND (ISNULL(@StatusID,0) = 0 OR r.StatusID = @StatusID)
 	AND (ISNULL(@Handler,0) = 0 OR r.Creator = @Handler)
+	AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 	ORDER BY 1 DESC
 END
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_RedemptionList] TO [bodbAdminNet]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_RedemptionList] TO [vnteam]
-GO 
+
 

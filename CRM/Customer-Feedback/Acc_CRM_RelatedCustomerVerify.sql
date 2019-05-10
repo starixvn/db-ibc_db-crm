@@ -1,7 +1,8 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_RelatedCustomerVerify
 (
-	@UserName	NVARCHAR(MAX) = ''	
+	@UserName	NVARCHAR(MAX) = '',
+	@UserRole   TINYINT
 )
 AS
 /*
@@ -18,6 +19,7 @@ AS
 		- 20121115@Lukas: change the query to use index on DB06
 		- 20130121@Johnson: change linked server DB06 to DBACC
 		- 20180305@Winnie: Support long list of "Verify related customer" RedmineID: #91469
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:	
 */
 BEGIN
@@ -37,13 +39,13 @@ BEGIN
 	SELECT c.custid, c.username 
 	FROM DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
 	WHERE username IN ( SELECT username FROM @tmpCustomer)
-	
+		AND ((@UserRole=1 AND c.srecommend IN(SELECT custid FROM CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND c.srecommend NOT IN(SELECT custid FROM CS_CustSuper WITH(NOLOCK)))
 	
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 
 	FROM crmCustomer c WITH (NOLOCK) INNER JOIN @tmpCustomer tc on c.username = tc.UserName
 	WHERE c.CustID < 0	
-
+		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT 0, tc.username 
 	FROM @tmpCustomer tc 
@@ -58,4 +60,3 @@ END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_RelatedCustomerVerify] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_RelatedCustomerVerify] TO [vnteam]

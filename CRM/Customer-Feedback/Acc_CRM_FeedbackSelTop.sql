@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelTop] (
 					@top int = 10
 				)	
@@ -14,6 +14,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	
 */
@@ -66,6 +67,7 @@ BEGIN
 	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 	WHERE	fb.StatusID <> 11004
 		AND	fbc.IsRelated = 0	
+		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 	ORDER BY fb.FeedbackDate DESC
 
 	SELECT	t.FeedbackID
@@ -127,6 +129,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelTop TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackSelTop TO vnteam;
 GO

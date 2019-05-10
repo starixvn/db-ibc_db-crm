@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 					@UserID						INT
 				,	@UserName					NVARCHAR(50)
@@ -121,6 +121,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]	 
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - [Redmine: #84714]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	@Product:
 		<ROOT>

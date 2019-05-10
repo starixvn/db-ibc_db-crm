@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 (
 	@UserID						INT,
@@ -102,6 +102,7 @@ Revisions:
 	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20161215@Winnie: HotFix When adding new Guest Feedback, Guest is created but feedback is not RedmineID: RedmineID: #64067
 	- 20171204@Winnie: HotFix Record special characters included in feedback content RedmineID: RedmineID: #85858
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	
 */
@@ -111,7 +112,8 @@ BEGIN
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''
 
-	IF EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE UserName = @UserName AND CustID < 0)
+	IF (EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE UserName = @UserName AND CustID < 0 AND SiteID=33002) AND @SiteID=33002)
+		OR (EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE UserName = @UserName AND CustID < 0 AND SiteID<>33002) AND @SiteID<>33002)
 	BEGIN
 		PRINT @Username
 		SELECT @ErrCode = 100

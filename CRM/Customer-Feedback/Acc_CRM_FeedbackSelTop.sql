@@ -1,6 +1,7 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelTop] (
-					@top int = 10
+					@top		INT = 10,
+					@UserRole   TINYINT
 				)	
 AS
 /*

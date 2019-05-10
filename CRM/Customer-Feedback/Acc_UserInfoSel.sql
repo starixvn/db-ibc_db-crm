@@ -14,6 +14,7 @@ Original:
 
 Revisions:
 	- 20120309@Lukas: Get user info by nickname
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 */
 SET NOCOUNT ON

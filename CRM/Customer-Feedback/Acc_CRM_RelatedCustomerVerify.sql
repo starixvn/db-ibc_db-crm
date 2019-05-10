@@ -39,13 +39,13 @@ BEGIN
 	SELECT c.custid, c.username 
 	FROM DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
 	WHERE username IN ( SELECT username FROM @tmpCustomer)
-		AND ((@UserRole=1 AND c.srecommend IN(SELECT custid FROM CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND c.srecommend NOT IN(SELECT custid FROM CS_CustSuper WITH(NOLOCK)))
+		AND ((@UserRole=1 AND c.srecommend IN(SELECT custid FROM CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND c.srecommend NOT IN(SELECT custid FROM CS_CustSuper WITH(NOLOCK))))
 	
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 
 	FROM crmCustomer c WITH (NOLOCK) INNER JOIN @tmpCustomer tc on c.username = tc.UserName
 	WHERE c.CustID < 0	
-		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
+		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT 0, tc.username 
 	FROM @tmpCustomer tc 

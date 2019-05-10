@@ -17,7 +17,7 @@ BEGIN
 SELECT * 
 		FROM crmCustomerRemark a WITH(NOLOCK) 
 			INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
-		WHERE CustID = @CustID
+		WHERE a.CustID = @CustID
 			AND ((@UserRole=1 AND b.SiteID=33002) OR (@UserRole=2 AND b.SiteID<>33002))
 END
 GO

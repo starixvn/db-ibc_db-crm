@@ -1,7 +1,18 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE Acc_CRM_CustomerCommLogDefaultInfo_Sel
 	@CustID INT
 AS
 BEGIN	
+/*
+	Created: Winnie
+	Date: 20190510
+	Task : update customer basic info
+	DB: DB052.bodb_CRM
+	Original:
+	
+    Revisions:         
+			- 20190506@Winnie: CN88 Permission RedmineID: #112637
+*/
 	SET NOCOUNT ON
 
 	DECLARE @SiteID INT,
@@ -49,6 +60,7 @@ BEGIN
 					WHEN 2 THEN 7001
 					WHEN 3 THEN 7002
 					WHEN 4 THEN 7003
+					WHEN 0 THEN 7006
 					ELSE 7004 END as RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
@@ -130,6 +142,7 @@ BEGIN
 							WHEN 2 THEN 7001
 							WHEN 3 THEN 7002
 							WHEN 4 THEN 7003
+							WHEN 0 THEN 7006
 							ELSE 7004 
 			END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
@@ -146,18 +159,7 @@ BEGIN
 	END
 END
 
-
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerCommLogDefaultInfo_Sel] TO [bodbAdminNet]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerCommLogDefaultInfo_Sel] TO [vnteam]
-GO 
-

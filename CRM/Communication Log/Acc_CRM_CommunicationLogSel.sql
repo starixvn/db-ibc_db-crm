@@ -1,6 +1,7 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogSel
-					@FeedbackID INT
+					@FeedbackID			INT
+					,@UserRole			TINYINT
 AS
 /*
 	Created:	Dom
@@ -14,6 +15,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 */
 BEGIN
 	DECLARE   @AutoField       NVARCHAR(MAX)
@@ -58,7 +60,8 @@ BEGIN
 			ON	c.CustID = f.CustID
 		LEFT JOIN	bodb02.dbo.Customer AS review WITH (NOLOCK)
 			ON	f.ReviewerID = review.custid
-	WHERE	f.FeedbackID = @FeedbackID;
+	WHERE	f.FeedbackID = @FeedbackID
+		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 
 	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
@@ -68,6 +71,7 @@ BEGIN
 		LEFT JOIN	bodb02.dbo.Customer AS c1 WITH (NOLOCK)
 			ON	c1.custid = cf.CustID
 	WHERE	cf.FeedbackID = @FeedbackID 
+		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 		AND	cf.IsRelated = 1;
 		
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,

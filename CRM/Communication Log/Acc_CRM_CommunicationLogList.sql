@@ -1,10 +1,11 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogList]
 	@CustID INT,
 	@FromDate	DATETIME,
 	@ToDate		DATETIME,
 	@StatusID	INT = 0,
-	@Handler	VARCHAR(30) = ''
+	@Handler	VARCHAR(30) = '',
+	@UserRole	TINYINT
 AS
 BEGIN
 /*
@@ -16,7 +17,8 @@ BEGIN
 	
     Revisions:
             - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
-	- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+			- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+			- 20190506@Winnie: CN88 Permission RedmineID: #112637
 */
 
 DECLARE @handlerid int
@@ -31,7 +33,8 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 			Creator.username HandleBy,
 			Reviewer.username ReviewBy	
 	INTO #temp
-	FROM crmFeedback f WITH(NOLOCK) 		
+	FROM crmFeedback f WITH(NOLOCK) 	
+		INNER JOIN crmCustomer c WITH(NOLOCK) ON f.CustID=c.CustID	
 		INNER JOIN crmStatus st WITH(NOLOCK)  ON st.StatusID = f.StatusID
 		INNER JOIN bodb02.dbo.Customer Creator WITH(NOLOCK)  ON Creator.custid = f.CreatorID
 		LEFT JOIN bodb02.dbo.Customer Reviewer WITH(NOLOCK)  ON Reviewer.custid = f.ReviewerID
@@ -40,6 +43,7 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 		AND f.CreateDate BETWEEN @fromdate and @todate 
 		AND (isnull(@handler,'')='' OR f.CreatorID = @handlerid)
 		AND (isnull(@StatusID,0)=0 OR f.StatusID = @StatusID)
+		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 	UNION 
 	SELECT DISTINCT f.FeedbackID,
 			FeedbackDate,		
@@ -49,7 +53,8 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 			Creator.username HandleBy,
 			Reviewer.username ReviewBy
 
-	FROM crmFeedback f WITH(NOLOCK) 		
+	FROM crmFeedback f WITH(NOLOCK) 	
+		INNER JOIN crmCustomer c WITH(NOLOCK) ON f.CustID=c.CustID		
 		INNER JOIN crmStatus st WITH(NOLOCK)  ON st.StatusID = f.StatusID
 		INNER JOIN bodb02.dbo.Customer Creator WITH(NOLOCK)  ON Creator.custid = f.CreatorID
 		LEFT JOIN bodb02.dbo.Customer Reviewer WITH(NOLOCK)  ON Reviewer.custid = f.ReviewerID
@@ -59,6 +64,7 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 		AND f.CreateDate BETWEEN @fromdate and @todate 
 		AND (isnull(@handler,'')='' OR f.CreatorID = @handlerid)
 		AND (isnull(@StatusID,0)=0 OR f.StatusID = @StatusID)
+		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 	ORDER BY f.FeedbackID DESC	
 	
 	SELECT * FROM #temp

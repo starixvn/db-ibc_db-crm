@@ -137,7 +137,7 @@ BEGIN
 			@Answer							= NULL,
 			@CountryID						= NULL,
 			@IsVIP							= NULL,
-			@SiteID							= NULL,
+			@SiteID							= @Site,
 			@Wire_BankName					= NULL,
 			@Wire_BankAddress				= NULL,
 			@Wire_AccountName				= NULL,

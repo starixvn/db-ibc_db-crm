@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_SiteSel
+ALTER PROCEDURE	[dbo].[Acc_CRM_SiteSel]
 					@LicenseeType	TINYINT = 0,
 					@UserRole		TINYINT
 AS
@@ -18,10 +18,12 @@ AS
 							1: Credit
 							2: Licensee
 
-	Example: EXEC Acc_CRM_SiteSel @LicenseeType = 2
+	Example: EXEC Acc_CRM_SiteSel_xpre @LicenseeType = 2
 */
 BEGIN
 	SET NOCOUNT ON
+	IF @UserRole=2
+	BEGIN
 	SELECT	s.SiteID, s.SiteName, s.IsLicensee, s.IsActive
 	FROM (
 		SELECT	SiteID			=	s.SettingID
@@ -36,9 +38,16 @@ BEGIN
 		INNER JOIN	crmSetting s WITH(NOLOCK)
 				ON	sr.SettingID = s.SettingID
 				AND	s.SettingName = 'Site'
-		WHERE	(ParentID IN (33000, 33001) OR s.SettingID=33002) AND s.SiteOffer=@UserRole
+		WHERE	ParentID IN (33000, 33001) 
 	) s
 	WHERE	s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END	
 	ORDER BY s.IsActive DESC, s.IsLicensee, s.DisplayOrder
+	END
+	ELSE IF @UserRole=1
+	BEGIN
+		SELECT	s.SettingID AS SiteID, s.SettingValue AS SiteName, 0 IsLicensee, s.IsActive
+		FROM crmSetting s WITH(NOLOCK)
+		WHERE s.SettingID=33002
+	END
 END
 GO

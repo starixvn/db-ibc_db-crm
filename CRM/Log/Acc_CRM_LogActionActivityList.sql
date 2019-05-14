@@ -30,7 +30,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
+	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing  NewValues,la.ActionNameEN ActionName
 	from crmLogFeedback(nolock) lc
@@ -41,7 +41,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
+	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogRedemption(nolock) lc
@@ -52,7 +52,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
+	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogCustomerRemark(nolock) lc
@@ -63,7 +63,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
+	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
 	ORDER BY 1 DESC
 END
 GO 

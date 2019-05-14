@@ -57,7 +57,7 @@ BEGIN
 			WHERE username LIKE @Username +'%' 
 					and username not in (SELECT UserName from @UserNameTable)
 					AND ((@UserRole=2 AND srecommend NOT IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK))) 
-							OR (@UserRole=1 AND srecommend IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK)))
+							OR (@UserRole=1 AND (srecommend IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR roleid=0))
 							OR @UserRole=0)
 			ORDER BY Username
 			

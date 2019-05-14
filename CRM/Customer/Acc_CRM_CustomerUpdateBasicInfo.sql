@@ -62,7 +62,7 @@ WHERE custid = @CustID
 
 IF @srecommend IS NOT NULL AND @srecommend<>0
 BEGIN
-	IF (@UserRole=1 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
+	IF (@UserRole=1 AND @srecommend<>0 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
 		OR  (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
 	BEGIN
 		SELECT @ErrCode=100

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
 (
 	@CustID		INT				= NULL,
 	@UserName	NVARCHAR(50)	= NULL,
@@ -29,7 +29,7 @@ BEGIN
 	FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
 	WHERE	c.CustID = @CustID
 
-	IF(@UserRole=1 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
+	IF(@UserRole=1 AND @srecommend <>0 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
 		OR (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
 		RETURN
 

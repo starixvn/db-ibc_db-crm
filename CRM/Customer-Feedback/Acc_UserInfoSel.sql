@@ -26,6 +26,7 @@ BEGIN
 			AND (@UserRole=0 
 				OR(@UserRole=1 AND EXISTS (SELECT TOP 1 1 FROM CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
 				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
+				OR(@UserRole=1 AND roleID=0)
 				)
 	ELSE 
 		SELECT @UserID = CustID, @RoleID = roleid
@@ -34,6 +35,7 @@ BEGIN
 			AND (@UserRole=0 
 				OR(@UserRole=1 AND EXISTS (SELECT TOP 1 1 FROM CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
 				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
+				OR(@UserRole=1 AND roleID=0)
 				)
 END
 

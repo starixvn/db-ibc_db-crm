@@ -68,7 +68,7 @@ BEGIN
 		c.CustID = @CustID
 
 	UNION ALL
-	SELECT	c.UserName, c.CustID, 1000 AS RoleID,
+	SELECT	c.UserName, c.CustID, 7006 AS RoleID,
 			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
 			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
 			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended

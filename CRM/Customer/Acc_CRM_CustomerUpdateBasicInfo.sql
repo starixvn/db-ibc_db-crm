@@ -60,7 +60,7 @@ SELECT @UserName = username,@srecommend=srecommend
 FROM bodb02.dbo.Customer(NOLOCK)
 WHERE custid = @CustID
 
-IF @srecommend IS NOT NULL
+IF @srecommend IS NOT NULL AND @srecommend<>0
 BEGIN
 	IF (@UserRole=1 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
 		OR  (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
@@ -71,10 +71,7 @@ BEGIN
 	END
 
 END
-ELSE
-BEGIN
-	SELECT @SiteID=SiteID FROM crmCustomer WITH(NOLOCK) WHERE CustID=@CustID
-END
+
 BEGIN
 	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN

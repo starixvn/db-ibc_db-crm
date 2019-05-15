@@ -56,4 +56,3 @@ END;
 GO
 GRANT EXECUTE ON dbo.Acc_CRM_SubjectTemplateDel TO [bodbAdminNet];
 GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_SubjectTemplateDel TO [vnteam]; 

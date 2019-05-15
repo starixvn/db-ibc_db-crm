@@ -195,7 +195,7 @@ BEGIN
 				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
 				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
 				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006	
-				 WHEN cust.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010
+				 WHEN c.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,

@@ -45,12 +45,17 @@ BEGIN
 			IsVerifySecretCode	= cast (0 as bit),
 			IsVerifyBetCredit	= cast (0 as bit),
 			IsVerifyGivenCredit	= cast (0 as bit),
-			CASE c.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							WHEN 0 THEN 7006
-							ELSE 7004 
+			CASE WHEN c.roleid = 1 AND @UserRole=2 THEN 7000
+				 WHEN c.roleid = 2 AND @UserRole=2 THEN 7001
+				 WHEN c.roleid = 3 AND @UserRole=2 THEN 7002
+				 WHEN c.roleid = 4 AND @UserRole=2 THEN 7003
+				 WHEN c.roleid NOT IN(1,2,3,4) AND @UserRole=2 THEN 7004
+				 WHEN c.roleid = 1 AND @UserRole=1 THEN 7011
+				 WHEN c.roleid = 2 AND @UserRole=1 THEN 7007
+				 WHEN c.roleid = 3 AND @UserRole=1 THEN 7008
+				 WHEN c.roleid = 4 AND @UserRole=1 THEN 7009
+				 WHEN c.roleid = 0 AND @UserRole=1 THEN 7006
+				 WHEN c.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010		
 			END AS RoleID,
 			@IsCredit		IsCredit
 	FROM bodb02.dbo.Customer(NOLOCK)c
@@ -74,12 +79,17 @@ BEGIN
 			IsVerifySecretCode	= CAST(ISNULL(IsVerifySecretCode,0) AS BIT),
 			IsVerifyBetCredit	= CAST(ISNULL(IsVerifyBetCredit,0) AS BIT),
 			IsVerifyGivenCredit	= CAST(ISNULL(IsVerifyGivenCredit,0) AS BIT),
-			CASE ci.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							WHEN 0 THEN 7006
-							ELSE 7004 
+				CASE WHEN ci.roleid = 1 AND @UserRole=2 THEN 7000
+				 WHEN ci.roleid = 2 AND @UserRole=2 THEN 7001
+				 WHEN ci.roleid = 3 AND @UserRole=2 THEN 7002
+				 WHEN ci.roleid = 4 AND @UserRole=2 THEN 7003
+				 WHEN ci.roleid NOT IN(1,2,3,4) AND @UserRole=2 THEN 7004
+				 WHEN ci.roleid = 1 AND @UserRole=1 THEN 7011
+				 WHEN ci.roleid = 2 AND @UserRole=1 THEN 7007
+				 WHEN ci.roleid = 3 AND @UserRole=1 THEN 7008
+				 WHEN ci.roleid = 4 AND @UserRole=1 THEN 7009
+				 WHEN ci.roleid = 0 AND @UserRole=1 THEN 7006
+				 WHEN ci.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010					
 			END AS RoleID,
 			@IsCredit		IsCredit
 	FROM crmCustomer(NOLOCK) c

@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE Acc_CRM_CustomerCommLogDefaultInfo_Sel
-	@CustID INT
+	@CustID   INT,
+	@UserRole INT
 AS
 BEGIN	
 /*
@@ -55,13 +56,17 @@ BEGIN
 			c.CustID, 
 			c.CountryID, 
 			c.SiteID,
-			CASE cust.roleid	
-					WHEN 1 THEN 7000
-					WHEN 2 THEN 7001
-					WHEN 3 THEN 7002
-					WHEN 4 THEN 7003
-					WHEN 0 THEN 7006
-					ELSE 7004 END as RoleID,
+			CASE 	WHEN cust.roleid=1 AND @UserRole=2 THEN 7000
+					WHEN cust.roleid=2 AND @UserRole=2 THEN 7001
+					WHEN cust.roleid=3 AND @UserRole=2 THEN 7002
+					WHEN cust.roleid=4 AND @UserRole=2 THEN 7003
+					WHEN cust.roleid NOT IN(1,2,3,4) AND @UserRole=2 THEN 7004
+					WHEN cust.roleid=1 AND @UserRole=1 THEN 7011
+					WHEN cust.roleid=2 AND @UserRole=1 THEN 7007
+					WHEN cust.roleid=3 AND @UserRole=1 THEN 7008
+					WHEN cust.roleid=4 AND @UserRole=1 THEN 7009
+					WHEN cust.roleid=0 AND @UserRole=1 THEN 7006
+					WHEN cust.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7006 END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
 			c.LicenseeType LicenseeTypeId
@@ -69,7 +74,7 @@ BEGIN
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer cust WITH(NOLOCK) ON c.CustID = cust.custID
 		WHERE 
-			c.CustID = @CustID
+			c.CustID = @CustID AND((c.SiteID=33002 AND @UserRole=1) OR(c.siteID<>33002 AND @UserRole=2))
 
 
 
@@ -138,13 +143,17 @@ BEGIN
 			ci.CustID, 
 			ISNULL(c.CountryID,@CountryID) CountryID, 
 			ISNULL(c.SiteID,@SiteID) SiteID,
-			CASE ci.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							WHEN 0 THEN 7006
-							ELSE 7004 
-			END AS RoleID,
+			CASE 	WHEN ci.roleid=1 AND @UserRole=2 THEN 7000
+					WHEN ci.roleid=2 AND @UserRole=2 THEN 7001
+					WHEN ci.roleid=3 AND @UserRole=2 THEN 7002
+					WHEN ci.roleid=4 AND @UserRole=2 THEN 7003
+					WHEN ci.roleid NOT IN(1,2,3,4) AND @UserRole=2 THEN 7004
+					WHEN ci.roleid=1 AND @UserRole=1 THEN 7011
+					WHEN ci.roleid=2 AND @UserRole=1 THEN 7007
+					WHEN ci.roleid=3 AND @UserRole=1 THEN 7008
+					WHEN ci.roleid=4 AND @UserRole=1 THEN 7009
+					WHEN ci.roleid=0 AND @UserRole=1 THEN 7006
+					WHEN ci.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7006 END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
 			ISNULL(c.LicenseeType,0) LicenseeTypeId
@@ -153,6 +162,7 @@ BEGIN
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
 		WHERE 
 			ci.custid = @CustID
+			AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR ci.srecommend=0)) OR( @UserRole=2) AND ci.srecommend NOT IN(SELECT Custid FROM cs_Custsuper WITH(NOLOCK)))
 
 		
 

@@ -185,12 +185,17 @@ BEGIN
 			crm.Remark, 
 			crm.CreateDate, 			
 			ci.Username as CreatorName,
-			CASE c.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							WHEN 0 THEN 7006
-							ELSE 7004 
+			CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
+				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
+				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
+				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
+				 WHEN c.roleid NOT IN(1,2,3,4) AND @UserRole=2  THEN 7004
+				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
+				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
+				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
+				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
+				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006	
+				 WHEN cust.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,
@@ -277,12 +282,17 @@ BEGIN
 			crm.Remark, 
 			crm.CreateDate, 
 			ci.Username as CreatorName,
-			CASE cm.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							WHEN 0 THEN 7006
-							ELSE 7004 
+			CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
+				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
+				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
+				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
+				 WHEN c.roleid NOT IN(1,2,3,4) AND @UserRole=2  THEN 7004
+				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
+				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
+				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
+				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
+				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006
+				 WHEN cust.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,
@@ -382,7 +392,8 @@ BEGIN
 			crm.Remark, 
 			crm.CreateDate, 
 			ci.Username as CreatorName,
-			7004 as roleID,
+			CASE WHEN @UserRole=2 THEN 7004
+				 WHEN @UserRole=1 THEN 7006 END AS roleID,
 			danger = NULL,
 			danger2 = NULL,
 			danger3 = NULL,
@@ -411,15 +422,6 @@ BEGIN
 		SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
 	END	
 END
-
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSearch] TO [bodbAdminNet]

@@ -1,5 +1,6 @@
-﻿
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingRelationSel]
+	@UserRole		INT
 AS
 /*
 Created: Lukas
@@ -9,7 +10,7 @@ DB: DB06.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	
 */
@@ -27,13 +28,10 @@ BEGIN
 		s.IsActive = 1
 		AND
 		p.IsActive = 1
+		AND s.SiteOffer=@UserRole
 	ORDER BY 
 		SettingID, ParentID, DisplayOrder
 END
-
-
-
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationSel] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingRelationSel] TO [vnteam]

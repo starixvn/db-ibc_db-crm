@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingUpd]
 (
 	@UserID			INT,
@@ -12,7 +8,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingUpd]
 	@DisplayOrder	INT,
 	@IP				VARCHAR(15),
 	@ErrCode		INT = 0 OUTPUT,
-	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
+	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
+	@UserRole		INT
 )
 AS
 /*
@@ -25,6 +22,7 @@ Original:
 Revisions:
 	- 20130121@Johnson: change linked server DB03 to DBPOLICY
 	- 20140303@Dom: Modify for new structure
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	
 */
@@ -34,7 +32,7 @@ BEGIN
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''
 
-	IF	NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingID = @SettingID) 		
+	IF	NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingID = @SettingID AND siteOffer=@UserRole) 		
 	BEGIN
 		SELECT @ErrCode = 100, @ErrMsg = 'Setting does not exist.'
 		RETURN
@@ -50,7 +48,7 @@ BEGIN
 		@DisplayOrder_Old	= DisplayOrder
 	FROM crmSetting WITH(NOLOCK)
 	WHERE 
-		SettingID = @SettingID
+		SettingID = @SettingID AND siteOffer=@UserRole
 
 	--- update setting
 	UPDATE crmSetting WITH(ROWLOCK,UPDLOCK)
@@ -59,7 +57,7 @@ BEGIN
 		SettingName		= @SettingName,
 		DisplayOrder	= @DisplayOrder
 	WHERE 
-		SettingID = @SettingID
+		SettingID = @SettingID AND siteOffer=@UserRole
 	
 	IF @@ERROR <> 0
 	BEGIN
@@ -98,6 +96,4 @@ BEGIN
 		@@error
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_SettingUpd] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingUpd] TO [vnteam]
 GO 

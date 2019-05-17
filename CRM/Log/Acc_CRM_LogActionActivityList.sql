@@ -29,46 +29,50 @@ BEGIN
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing NewValues,la.ActionNameEN ActionName
 	from crmLogCustomer(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join bodb02.dbo.custInfo cc WITH (nolock)  on cc.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where (lc.actionid BETWEEN 100 and 199 OR lc.actionid BETWEEN 600 and 699)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM #Super) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND ((@UserRole=1 AND (cc.srecommend IN(SELECT CustID FROM #Super) OR cc.roleid=0)) OR (@UserRole=2 AND cc.srecommend NOT IN(SELECT CustID FROM #Super)))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing  NewValues,la.ActionNameEN ActionName
 	from crmLogFeedback(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join bodb02.dbo.custInfo(nolock) cust on cust.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where (lc.actionid BETWEEN 200 and 299 or lc.actionid BETWEEN 400 and 499 or lc.ActionID=704) AND lc.ActionID NOT IN(400,401,402)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM #Super) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND ((@UserRole=1 AND (cust.srecommend IN(SELECT CustID FROM #Super) OR cust.roleid=0)) OR (@UserRole=2 AND cust.srecommend NOT IN(SELECT CustID FROM #Super)))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogRedemption(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join bodb02.dbo.custInfo(nolock) cust on cust.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where lc.actionid BETWEEN 500 and 599
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM #Super)OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND ((@UserRole=1 AND (cust.srecommend IN(SELECT CustID FROM #Super) OR cust.roleid=0)) OR (@UserRole=2 AND cust.srecommend NOT IN(SELECT CustID FROM #Super)))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogCustomerRemark(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join bodb02.dbo.custInfo(nolock) cust on cust.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where (lc.actionid BETWEEN 600 and 699)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND (ci.srecommend IN(SELECT CustID FROM #Super) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND ((@UserRole=1 AND (cust.srecommend IN(SELECT CustID FROM #Super) OR cust.roleid=0)) OR (@UserRole=2 AND cust.srecommend NOT IN(SELECT CustID FROM #Super)))
 	ORDER BY 1 DESC
 END
 GO 

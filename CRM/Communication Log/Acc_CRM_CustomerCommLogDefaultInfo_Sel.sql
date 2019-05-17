@@ -139,6 +139,11 @@ BEGIN
 			SELECT @DefaultLanguage = (SELECT TOP 1 LanguageID FROM #CustomerLanguage)
 		END
 
+		CREATE TABLE #Super(CustID INT PRIMARY KEY)
+		INSERT INTO #Super(CustID)
+		SELECT Custid FROM bodb02.dbo.customer WITH(NOLOCK)
+		WHERE site='CN88' AND roleid=4
+
 		SELECT 
 			ci.CustID, 
 			ISNULL(c.CountryID,@CountryID) CountryID, 
@@ -162,7 +167,7 @@ BEGIN
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
 		WHERE 
 			ci.custid = @CustID
-			AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR ci.srecommend=0)) OR( @UserRole=2) AND ci.srecommend NOT IN(SELECT Custid FROM cs_Custsuper WITH(NOLOCK)))
+			AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM #Super) OR ci.srecommend=0)) OR( @UserRole=2) AND ci.srecommend NOT IN(SELECT Custid FROM #Super))
 
 		
 

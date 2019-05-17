@@ -142,7 +142,7 @@ BEGIN
 		CREATE TABLE #Super(CustID INT PRIMARY KEY)
 		INSERT INTO #Super(CustID)
 		SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
-		WHERE UplineId IS NULL
+		WHERE UplineId IS NOT NULL
 
 		SELECT 
 			ci.CustID, 

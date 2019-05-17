@@ -31,8 +31,8 @@ BEGIN
 
 	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
 	INSERT INTO #SuperCN88(CustID)
-	SELECT CustID FROM bodb02.dbo.Customer WITH(NOLOCK) 
-	WHERE site='CN88' AND roleid=4
+	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+	WHERE UplineId IS NOT NULL
 
 	IF(@UserRole=1 AND @srecommend <>0 AND NOT EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend)) 
 		OR (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend)) 

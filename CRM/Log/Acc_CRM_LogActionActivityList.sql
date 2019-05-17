@@ -24,8 +24,8 @@ BEGIN
 	CREATE TABLE #Super(CustID INT PRIMARY KEY)
 	INSERT INTO #Super(CustID)
 	SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
+	WHERE UplineId IS NOT NULL
 
-	WHERE UplineId IS NULL
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing NewValues,la.ActionNameEN ActionName
 	from crmLogCustomer(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID

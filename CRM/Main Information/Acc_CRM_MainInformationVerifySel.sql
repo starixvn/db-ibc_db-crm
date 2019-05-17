@@ -29,6 +29,7 @@ WHERE CustID = @CustID
 CREATE TABLE #Super(CustID INT PRIMARY KEY)
 INSERT INTO #Super(CustID)
 SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
+WHERE UplineId IS NOT NULL
 
 IF EXISTS(SELECT TOP 1 * FROM bodb02.dbo.Customer(NOLOCK) WHERE custid = @CustID AND srecommend IN(SELECT CustID FROM bodb02.dbo.Dep_CustSuper(NOLOCK)))
 	SELECT @IsCredit = 0 

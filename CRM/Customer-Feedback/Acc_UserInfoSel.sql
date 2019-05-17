@@ -22,7 +22,7 @@ BEGIN
 	CREATE TABLE #Super(CustID INT PRIMARY KEY)
 	INSERT INTO #Super(CustID)
 	SELECT Custid FROM CustSuper WITH(NOLOCK)
-	WHERE UplineId IS NULL
+	WHERE UplineId IS NOT NULL
 
 	IF @isNickName = 0 	
 		SELECT @UserID = CustID, @RoleID = roleid

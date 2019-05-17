@@ -29,6 +29,10 @@ BEGIN
 	SET NOCOUNT ON	
 	DECLARE @UserNameTable TABLE (UserName nvarchar(50), SearchCount int)
 	Declare @Rows int
+	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+	INSERT INTO #SuperCN88(CustID)
+	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+	WHERE UplineId IS NOT NULL
 
 	IF @IsGuest = 0
 	BEGIN		
@@ -56,9 +60,9 @@ BEGIN
 			FROM DBACC.bodb02.dbo.Custinfo WITH (NOLOCK) 
 			WHERE username LIKE @Username +'%' 
 					and username not in (SELECT UserName from @UserNameTable)
-					AND ((@UserRole=2 AND srecommend NOT IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK))) 
-							OR (@UserRole=1 AND (srecommend IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR roleid=0))
-							OR @UserRole=0)
+					AND ((@UserRole=2 AND srecommend NOT IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK))) 
+							OR (@UserRole=1 AND (srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR srecommend=0))
+					)
 			ORDER BY Username
 			
 		SELECT UserName FROM @UserNameTable ORDER BY SearchCount DESC, UserName

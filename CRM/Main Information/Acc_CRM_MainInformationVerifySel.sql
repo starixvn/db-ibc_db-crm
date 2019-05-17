@@ -26,6 +26,10 @@ SELECT @CashBalance = SUM(winlost - actual_stake + playercomm)
 FROM DBTXN.BODB02.dbo.Bettrans WITH(NOLOCK)
 WHERE CustID = @CustID
 
+CREATE TABLE #Super(CustID INT PRIMARY KEY)
+INSERT INTO #Super(CustID)
+SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
+
 IF EXISTS(SELECT TOP 1 * FROM bodb02.dbo.Customer(NOLOCK) WHERE custid = @CustID AND srecommend IN(SELECT CustID FROM bodb02.dbo.Dep_CustSuper(NOLOCK)))
 	SELECT @IsCredit = 0 
 ELSE
@@ -61,9 +65,8 @@ BEGIN
 	FROM bodb02.dbo.Customer(NOLOCK)c
 	INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
 	WHERE c.custid = @CustID 
-		AND(@UserRole=0 
-			OR(@UserRole=1 AND (c.srecommend IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR c.roleid=0)) 
-			OR(@UserRole=2 AND c.srecommend NOT IN(SELECT CustID FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))) )
+		AND((@UserRole=1 AND (c.srecommend IN(SELECT CustID FROM #Super) OR c.roleid=0)) 
+			OR(@UserRole=2 AND c.srecommend NOT IN(SELECT CustID FROM #Super)) )
 END
 ELSE
 BEGIN

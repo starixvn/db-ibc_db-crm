@@ -29,8 +29,13 @@ BEGIN
 	FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
 	WHERE	c.CustID = @CustID
 
-	IF(@UserRole=1 AND @srecommend <>0 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
-		OR (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend)) 
+	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+	INSERT INTO #SuperCN88(CustID)
+	SELECT CustID FROM bodb02.dbo.Customer WITH(NOLOCK) 
+	WHERE site='CN88' AND roleid=4
+
+	IF(@UserRole=1 AND @srecommend <>0 AND NOT EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend)) 
+		OR (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend)) 
 		RETURN
 
 	SELECT s.UserName, s.CustID, s.roleid,

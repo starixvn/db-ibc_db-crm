@@ -38,6 +38,11 @@ BEGIN
 
 	SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
 
+	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+	INSERT INTO #SuperCN88(CustID)
+	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+	WHERE UplineId IS NOT NULL
+
 	IF (@CustID < 0 OR EXISTS(SELECT 1 FROM crmCustomer(NOLOCK) WHERE CustID = @CustID))
 	BEGIN
 		SELECT  
@@ -298,7 +303,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
-			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK)) OR ci.roleid=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT custid FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
+			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR ci.srecommend=0)) OR (@UserRole=2 AND ci.srecommend NOT IN(SELECT custid FROM #SuperCN88)))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage

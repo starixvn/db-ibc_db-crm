@@ -66,7 +66,7 @@ BEGIN
 					WHEN cust.roleid=3 AND @UserRole=1 THEN 7008
 					WHEN cust.roleid=4 AND @UserRole=1 THEN 7009
 					WHEN cust.roleid=0 AND @UserRole=1 THEN 7006
-					WHEN cust.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7006 END AS RoleID,
+					WHEN cust.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7010 END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
 			c.LicenseeType LicenseeTypeId
@@ -141,8 +141,8 @@ BEGIN
 
 		CREATE TABLE #Super(CustID INT PRIMARY KEY)
 		INSERT INTO #Super(CustID)
-		SELECT Custid FROM bodb02.dbo.customer WITH(NOLOCK)
-		WHERE site='CN88' AND roleid=4
+		SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
+		WHERE UplineId IS NULL
 
 		SELECT 
 			ci.CustID, 
@@ -158,7 +158,7 @@ BEGIN
 					WHEN ci.roleid=3 AND @UserRole=1 THEN 7008
 					WHEN ci.roleid=4 AND @UserRole=1 THEN 7009
 					WHEN ci.roleid=0 AND @UserRole=1 THEN 7006
-					WHEN ci.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7006 END AS RoleID,
+					WHEN ci.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7010 END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
 			ISNULL(c.LicenseeType,0) LicenseeTypeId

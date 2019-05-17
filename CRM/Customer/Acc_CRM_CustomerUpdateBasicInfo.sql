@@ -60,10 +60,15 @@ SELECT @UserName = username,@srecommend=srecommend
 FROM bodb02.dbo.Customer(NOLOCK)
 WHERE custid = @CustID
 
+CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+INSERT INTO #SuperCN88(CustID)
+SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+WHERE UplineId IS NOT NULL
+
 IF @srecommend IS NOT NULL AND @srecommend<>0
 BEGIN
-	IF (@UserRole=1 AND @srecommend<>0 AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
-		OR  (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CS_CustSuper WITH(NOLOCK) WHERE CustId=@srecommend))
+	IF (@UserRole=1 AND @srecommend<>0 AND NOT EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend))
+		OR  (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend))
 	BEGIN
 		SELECT @ErrCode=100
 		SELECT @ErrMsg='You need permission'

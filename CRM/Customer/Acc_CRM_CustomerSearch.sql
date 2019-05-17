@@ -37,6 +37,11 @@ BEGIN
 			@CountryID int,
 			@IsGroupHeadLine BIT
 	
+	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+	INSERT INTO #SuperCN88(CustID)
+	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+	WHERE UplineId IS NOT NULL
+
 	IF @IsGuest = 0
 	BEGIN
 		PRINT 'search by username';
@@ -66,8 +71,8 @@ BEGIN
 			FROM bodb02.dbo.Customer(NOLOCK) c
 			WHERE c.phone = @UserName OR c.mobilephone = @username	
 				AND (@UserRole=0 
-				OR(@UserRole=1 AND EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
-				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.CS_Custsuper WITH(NOLOCK) WHERE CustId=srecommend))
+				OR(@UserRole=1 AND (c.srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=c.srecommend)))
+				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=srecommend))
 				)	
 		END					
 		
@@ -393,7 +398,7 @@ BEGIN
 			crm.CreateDate, 
 			ci.Username as CreatorName,
 			CASE WHEN @UserRole=2 THEN 7004
-				 WHEN @UserRole=1 THEN 7006 END AS roleID,
+				 WHEN @UserRole=1 THEN 7010 END AS roleID,
 			danger = NULL,
 			danger2 = NULL,
 			danger3 = NULL,

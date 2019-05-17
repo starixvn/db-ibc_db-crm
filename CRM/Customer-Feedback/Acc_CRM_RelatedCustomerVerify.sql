@@ -28,6 +28,11 @@ BEGIN
 	DECLARE @tmpCustomer TABLE(UserName VARCHAR(50))
 	DECLARE @Customer TABLE(CustID INT, UserName VARCHAR(50))
 
+	CREATE TABLE #Super(CustID INT PRIMARY KEY)
+	INSERT INTO #Super(CustID)
+	SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
+	WHERE UplineId IS NULL
+
 	INSERT INTO @tmpCustomer(UserName)
 	SELECT ltrim(rtrim(val)) UserName
 	FROM dbo.f_split(@UserName,',')		
@@ -39,7 +44,7 @@ BEGIN
 	SELECT c.custid, c.username 
 	FROM DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
 	WHERE username IN ( SELECT username FROM @tmpCustomer)
-		AND ((@UserRole=1 AND (c.srecommend IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK))) OR c.roleid=0) OR (@UserRole=2 AND c.srecommend NOT IN(SELECT custid FROM DBACC.bodb02.dbo.CS_CustSuper WITH(NOLOCK))))
+		AND ((@UserRole=1 AND (c.srecommend IN(SELECT custid FROM #Super)) OR c.roleid=0) OR (@UserRole=2 AND c.srecommend NOT IN(SELECT custid FROM #Super)))
 	
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 

@@ -116,18 +116,19 @@ BEGIN
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 
 			END
 			ELSE
 			BEGIN
+			
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
 									(SELECT site 
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')		
 			END
 			-----return customer
 			SELECT @CountryName = Country,
@@ -220,6 +221,8 @@ BEGIN
 			crm.Checker
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
+					--INNER JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.custid=ci.custid
+					--LEFT JOIN crmsetting s WITH(NOLOCK) ON ci.site=crmSeeting
 					LEFT JOIN crmCustomer crm WITH(NOLOCK) ON c.custID = crm.custID
 					LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 					LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID

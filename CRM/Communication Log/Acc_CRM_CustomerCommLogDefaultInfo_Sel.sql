@@ -92,7 +92,7 @@ BEGIN
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer s WITH(NOLOCK) ON c.srecommend = s.custid
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 			END
 			ELSE
 			BEGIN
@@ -102,7 +102,7 @@ BEGIN
 									(SELECT site 
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 
 			END
 

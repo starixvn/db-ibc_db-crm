@@ -112,6 +112,7 @@ BEGIN
 		,	ISNULL(fb.QQ, '') QQ
 		,	ISNULL(fb.BBM, '') BBM
 		,	fb.LicenseeType
+		,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID

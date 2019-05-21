@@ -166,6 +166,7 @@ BEGIN
       '<SettingName>'  + ISNULL(@SettingName,'')      + '</SettingName>'  +  
       '<SettingValue>' + ISNULL(@SettingValue,'')      + '</SettingValue>' +  
       '<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),@DisplayOrder),'') + '</DisplayOrder>' +  
+	  '<UserRole>' + ISNULL(CONVERT(VARCHAR(10),@UserRole),'') + '</UserRole>' +  
      '</Acc_CRM_SettingIns>'  
       
   

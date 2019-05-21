@@ -218,7 +218,8 @@ BEGIN
 			'' QQ,
 			'' BBM,
 			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker
+			crm.Checker,
+			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
 					--INNER JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.custid=ci.custid
@@ -317,7 +318,8 @@ BEGIN
 			ISNULL(crm.QQ,'') QQ,
 			ISNULL(crm.BBM,'') BBM,
 			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker
+			crm.Checker,
+			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
@@ -417,7 +419,8 @@ BEGIN
 			ISNULL(crm.QQ,'') QQ,
 			ISNULL(crm.BBM,'') BBM,
 			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker
+			crm.Checker,
+			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID

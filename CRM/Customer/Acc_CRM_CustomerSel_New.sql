@@ -133,7 +133,8 @@ BEGIN
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
 			ch.username AS Checker,
-			c.IntroducedBy
+			c.IntroducedBy,
+			CASE WHEN @UserRole=1 AND c.ProvinceID IS NULL THEN 1 ELSE c.ProvinceID END AS ProvinceID
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
@@ -186,7 +187,7 @@ BEGIN
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer s WITH(NOLOCK) ON c.srecommend = s.custid
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 			END
 			ELSE
 			BEGIN
@@ -196,7 +197,7 @@ BEGIN
 									(SELECT site 
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 
 			END
 
@@ -294,7 +295,8 @@ BEGIN
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
 			ch.Username AS Checker,
-			c.IntroducedBy
+			c.IntroducedBy,
+			CASE WHEN @UserRole=1 AND c.ProvinceID IS NULL THEN 1 ELSE c.ProvinceID END AS ProvinceID
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID

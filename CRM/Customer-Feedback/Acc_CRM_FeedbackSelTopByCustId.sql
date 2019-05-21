@@ -58,6 +58,7 @@ SET NOCOUNT ON;
 					,	fbc.IsRelated
 					,	fb.Subject
 					,	l.list AS relatedCustomer
+					,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 	INTO #temp
 	FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
 	INNER JOIN	crmFeedback fb WITH (NOLOCK)
@@ -109,6 +110,7 @@ SET NOCOUNT ON;
 		,	t.IsRelated
 		,	t.Subject
 		,	t.relatedCustomer
+		,	t.ProvinceID
 	FROM #temp t
 	OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 

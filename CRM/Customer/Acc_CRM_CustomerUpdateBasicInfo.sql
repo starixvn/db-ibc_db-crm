@@ -30,6 +30,7 @@ ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@Pic4Name				NVARCHAR(200)='',
 	@CustID					INT,
 	@UserID					INT,
+	@ProvinceID				INT=NULL,
 	@IP						VARCHAR(15),
 	@ErrCode				INT				= 0 OUTPUT,
 	@ErrMsg					NVARCHAR(4000)	= '' OUTPUT,
@@ -149,6 +150,7 @@ BEGIN
 			@SpecialRemark					= NULL,	
 			@Remark							= NULL,	
 			@CreatorID						= @UserID,
+			@ProvinceID						= @ProvinceID,
 			@IP								= @IP,
 			@ErrCode						= @ErrCode OUTPUT,
 			@ErrMsg							= @ErrMsg OUTPUT
@@ -204,6 +206,7 @@ BEGIN
 		@Pic2Name_Old				NVARCHAR(200),
 		@Pic3Name_Old				NVARCHAR(200),
 		@Pic4Name_Old				NVARCHAR(200),
+		@ProvinceID_Old				INT,
 		@CustID_Old					INT
 
 		SELECT 
@@ -233,7 +236,8 @@ BEGIN
 			@Pic1Name_Old					= Pic1Name,	
 			@Pic2Name_Old					= Pic2Name,	
 			@Pic3Name_Old					= Pic3Name,	
-			@Pic4Name_Old					= Pic4name	
+			@Pic4Name_Old					= Pic4name,
+			@ProvinceID_Old					= ProvinceID
 		FROM crmCustomer WITH(ROWLOCK,UPDLOCK)
 		WHERE CustID	= @CustID
 
@@ -270,7 +274,8 @@ BEGIN
 			Pic1Name					= @Pic1Name,	
 			Pic2Name					= @Pic2Name,	
 			Pic3Name					= @Pic3Name,	
-			Pic4Name					= @Pic4Name	
+			Pic4Name					= @Pic4Name,
+			ProvinceID					= @ProvinceID
 		WHERE CustID	= @CustID
 
 		-- UPDATE Customer Language
@@ -368,6 +373,8 @@ BEGIN
 						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name_Old),'')				+ '</Pic2Name>'		+
 						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name_Old),'')				+ '</Pic3Name>'		+
 						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name_Old),'')				+ '</Pic4Name>'		+
+						'<UserRole>'				+ ISNULL([dbo].[f_EncodeXMLValue](@UserRole),'')					+ '</UserRole>'		+
+						'<ProvinceID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@ProvinceID_Old),'')				+ '</ProvinceID>'		+
 					'</Acc_CRM_CustomerUpdateBasicInfo>'
 
 	SELECT @NewValues =
@@ -400,6 +407,8 @@ BEGIN
 						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')				+ '</Pic2Name>'		+
 						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')				+ '</Pic3Name>'		+
 						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')				+ '</Pic4Name>'		+
+						'<UserRole>'				+ ISNULL([dbo].[f_EncodeXMLValue](@UserRole),'')				+ '</UserRole>'		+
+						'<ProvinceID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@ProvinceID),'')				+ '</ProvinceID>'		+
 					'</Acc_CRM_CustomerUpdateBasicInfo>'
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]

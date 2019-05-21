@@ -58,6 +58,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@IsReviewed					BIT				= 0
 				,	@Review						NVARCHAR(MAX)	= NULL
 				,	@ReviewerID					INT				= NULL
+				,	@ProvinceID					INT				= NULL
 				,	@LicenseeType				INT				= 0
 				,	@WhatsApp					NVARCHAR(100)	= NULL
 				,	@Line						NVARCHAR(100)	= NULL
@@ -286,6 +287,7 @@ BEGIN
 				,	Yahoo
 				,	QQ
 				,	BBM
+				,	ProvinceID
 				)
 	VALUES	(	@CustID
 			,	@TitleID
@@ -345,6 +347,7 @@ BEGIN
 			,	@Yahoo
 			,	@QQ
 			,	@BBM
+			,   @ProvinceID
 			);
 	IF @@ERROR <> 0
 	BEGIN
@@ -531,6 +534,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo),'')						+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
+						'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +	
 					'</Acc_CRM_FeedbackIns>';
 
 

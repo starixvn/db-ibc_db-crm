@@ -55,6 +55,7 @@ BEGIN
 					,	fbc.IsRelated
 					,	fb.Subject
 					,	l.list AS relatedCustomer
+					,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 	INTO #temp
 	FROM	crmFeedbackCustomer fbc WITH (NOLOCK)
 	INNER JOIN	crmFeedback fb WITH (NOLOCK)
@@ -105,6 +106,7 @@ BEGIN
 		,	t.relatedCustomer
 		,	nr.value(N'@Remark',N'nvarchar(max)') AS Description
 		,	nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
+		,   t.ProvinceID
 	FROM #temp t
 		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 	

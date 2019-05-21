@@ -37,6 +37,7 @@ BEGIN
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
 	AND ((@UserRole=1 AND (cc.srecommend IN(SELECT CustID FROM #Super) OR cc.roleid=0)) OR (@UserRole=2 AND cc.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND (@UserRole=2 OR(@UserRole=1 AND ExcludedForCn88=1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing  NewValues,la.ActionNameEN ActionName
 	from crmLogFeedback(nolock) lc
@@ -49,6 +50,7 @@ BEGIN
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
 	AND ((@UserRole=1 AND (cust.srecommend IN(SELECT CustID FROM #Super) OR cust.roleid=0)) OR (@UserRole=2 AND cust.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND (@UserRole=2 OR(@UserRole=1 AND ExcludedForCn88=1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogRedemption(nolock) lc
@@ -61,6 +63,7 @@ BEGIN
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
 	AND ((@UserRole=1 AND (cust.srecommend IN(SELECT CustID FROM #Super) OR cust.roleid=0)) OR (@UserRole=2 AND cust.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND (@UserRole=2 OR(@UserRole=1 AND ExcludedForCn88=1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogCustomerRemark(nolock) lc
@@ -73,6 +76,7 @@ BEGIN
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
 	AND ((@UserRole=1 AND (cust.srecommend IN(SELECT CustID FROM #Super) OR cust.roleid=0)) OR (@UserRole=2 AND cust.srecommend NOT IN(SELECT CustID FROM #Super)))
+	AND (@UserRole=2 OR(@UserRole=1 AND ExcludedForCn88=1 ))
 	ORDER BY 1 DESC
 END
 GO 

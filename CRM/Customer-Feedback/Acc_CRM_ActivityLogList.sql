@@ -1,25 +1,28 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_ActivityLogList    Script Date: 3/26/2014 6:06:07 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_ActivityLogList]
+(
+@UserRole	INT=2
+)
 AS
-SELECT ActionID,SPName,ActionNameEN ActionName FROM crmLogAction(NOLOCK) WHERE ActionID NOT BETWEEN 300 and 399 AND ActionID NOT IN(400,401,402)
+/*
+Created: Winnie
+Date: 20101020
+Task : Get country list
+DB: DB06.bodb_CRM
+Original:
 
+Revisions:
+		- 20190521@Winnie: SiteOffer CN88
+Param's Explanation:
+	
+*/
+BEGIN
 
-GO
+SELECT ActionID,SPName,ActionNameEN ActionName FROM crmLogAction(NOLOCK) 
+WHERE ActionID NOT BETWEEN 300 and 399 AND ActionID NOT IN(400,401,402)
+	AND (@UserRole=2 OR(@UserRole=1 AND ExcludedForCn88=1 ))
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
+END
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_ActivityLogList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_ActivityLogList] TO [vnteam]
 GO 

@@ -580,7 +580,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo),'')						+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
-						'<ProvinceID>'					+ ISNULL(@ProvinceID,'')										+ '</ProvinceID>' +
+						'<ProvinceID>'				+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +
 					'</Acc_CRM_CommunicationLogIns>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

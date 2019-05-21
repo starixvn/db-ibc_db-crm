@@ -54,6 +54,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 	@Question					NVARCHAR(300)	= NULL,
 	@Answer						NVARCHAR(300)	= NULL,
 	@CountryID					INT				= NULL,
+	@ProvinceID					INT				= NULL,
 	@IsVIP						BIT				= NULL,
 	@SiteID						INT				= NULL,
 	@Wire_BankName				NVARCHAR(100)	= NULL,
@@ -200,7 +201,8 @@ BEGIN
 					QQ,
 					BBM,
 					Ignored,
-					Checker
+					Checker,
+					ProvinceID
 				)
 			VALUES 
 				( 
@@ -279,7 +281,8 @@ BEGIN
 					@QQ,
 					@BBM,
 					@Ignored,
-					@Checker
+					@Checker,
+					@ProvinceID
 				)
 	
 	IF @@ERROR <> 0
@@ -396,7 +399,8 @@ select CONVERT(VARCHAR(10),@Ignored)
 						'<QQ>'						+ ISNULL([dbo].[f_EncodeXMLValue](@QQ),'')						+ '</QQ>' +
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')						+ '</BBM>' +
 						'<Checker>'					+ ISNULL([dbo].[f_EncodeXMLValue](@Checker),'')					+ '</Checker>' +
-						'<Ignored>'				    + ISNULL(CONVERT(VARCHAR(10),@Ignored),'')						+ '</Ignored>' +					
+						'<Ignored>'				    + ISNULL(CONVERT(VARCHAR(10),@Ignored),'')						+ '</Ignored>' +		
+						'<ProvinceID>'				    + ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +						
 					'</Acc_CRM_CustomerGuestIns>'
 				
 

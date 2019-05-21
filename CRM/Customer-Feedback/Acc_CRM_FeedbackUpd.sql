@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 					@UserID						INT
 				,	@FeedbackID					INT
@@ -60,6 +60,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@Pic4Name					NVARCHAR(100)	= NULL
 				,	@RelatedCustID				NVARCHAR(MAX)	= NULL
 				,	@LicenseeType				INT				= 0
+				,	@ProvinceID					INT				= NULL
 				,	@WhatsApp					NVARCHAR(100)	= NULL
 				,	@Line						NVARCHAR(100)	= NULL
 				,	@WeChat						NVARCHAR(100)	= NULL
@@ -89,6 +90,7 @@ AS
 		- 20170614@Winnie: Write log for review - [Redmine: #77820]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -268,6 +270,7 @@ BEGIN
 		,	@Pic3Name_Old					NVARCHAR(100)	= NULL
 		,	@Pic4Name_Old					NVARCHAR(100)	= NULL
 		,	@LicenseeType_Old				INT				= 0
+		,	@ProvinceID_Old					INT				= NULL
 		,	@WhatsApp_Old					NVARCHAR(100)	= NULL
 		,	@Line_Old						NVARCHAR(100)	= NULL
 		,	@WeChat_Old						NVARCHAR(100)	= NULL
@@ -333,6 +336,7 @@ BEGIN
 		,	@Yahoo_Old						= Yahoo
 		,	@QQ_Old							= QQ
 		,	@BBM_Old						= BBM
+		,	@ProvinceID_Old					= ProvinceID
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -498,6 +502,7 @@ BEGIN
 	,	Yahoo						= @Yahoo
 	,	QQ							= @QQ
 	,	BBM							= @BBM
+	,	ProvinceID					= @ProvinceID
 	WHERE	FeedbackID = @FeedbackID;
 	
 	DELETE FROM crmfeedbackSetting WHERE FeedbackID=@FeedbackID
@@ -580,6 +585,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo_Old),'')					+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ_Old),'')						+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM_Old),'')						+ '</BBM>' +
+						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID_Old),'')				+ '</ProvinceID>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	SELECT @NewValues = 				
@@ -645,6 +651,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo),'')						+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
+						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID),'')					+ '</ProvinceID>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
@@ -665,6 +672,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackUpd TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackUpd TO vnteam;
 GO 

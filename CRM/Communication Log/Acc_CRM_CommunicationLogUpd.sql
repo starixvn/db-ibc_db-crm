@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 					@FeedbackID				INT
 				,	@CustID					INT
@@ -26,6 +26,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 				,	@LicenseeType			INT				= 0
 				,	@UserID					INT
 				,	@IP						VARCHAR(15)
+				,	@ProvinceID			INT=NULL
 				,	@ErrCode				INT				= 0			OUTPUT
 				,	@ErrMsg					NVARCHAR(4000)	= ''		OUTPUT
 AS
@@ -40,6 +41,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
+		- 20190506@Winnie: CN88 Province RedmineID: #112637
 	Param's Explanation:
 */
 BEGIN
@@ -138,7 +140,8 @@ BEGIN
 		,	@ReviewerID_Old				INT
 		,	@Subject_Old				NVARCHAR(200)
 		,	@SolveDate_Old				DATETIME
-		,	@LicenseeType_Old			INT;
+		,	@LicenseeType_Old			INT
+		,	@ProvinceID_Old				INT;
 
 	SELECT	@CustID_Old				= CustID		
 		,	@CountryID_Old			= CountryID
@@ -157,6 +160,7 @@ BEGIN
 		,	@Subject_Old			= Subject
 		,	@SolveDate_Old			= SolveDate
 		,	@LicenseeType_Old		= LicenseeType
+		,	@ProvinceID_Old			= ProvinceID
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -297,6 +301,7 @@ BEGIN
 	,	Subject				= @Subject
 	,	SolveDate			= @SolveDate
 	,	LicenseeType		= @LicenseeType
+	,	ProvinceID			= @ProvinceID
 	WHERE	FeedbackID = @FeedbackID;
 	IF	@@ERROR <> 0
 	BEGIN
@@ -377,7 +382,8 @@ BEGIN
 							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')					+ '</IsReviewed>' +
 							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')					+ '</Reviewer>' +	
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')					+ '</SolveDate>' +	
-							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')					+ '</LicenseeType>' +			
+							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')					+ '</LicenseeType>' +		
+							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID_Old),'')					+ '</ProvinceID>' +			
 					'</Acc_CRM_CommunicationLogUpd>';
 	 
 	SELECT	@NewValues =
@@ -407,6 +413,7 @@ BEGIN
 							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')					+ '</Reviewer>' +			
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')					+ '</SolveDate>' +			
 							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
+							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +		
 					'</Acc_CRM_CommunicationLogUpd>';
 			
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
@@ -424,6 +431,4 @@ END;
 GO 
 
 GRANT EXECUTE ON dbo.Acc_CRM_CommunicationLogUpd TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_CommunicationLogUpd TO vnteam;
 GO 

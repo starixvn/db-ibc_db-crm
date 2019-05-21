@@ -96,6 +96,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 				,	@IP							VARCHAR(15)
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
+				,	@ProvinceID					INT=NULL
 				)
 AS
 /*
@@ -202,6 +203,7 @@ BEGIN
 			,	@Question					= @Question
 			,	@Answer						= @Answer
 			,	@CountryID					= @CountryID
+			,	@ProvinceID					= @ProvinceID
 			,	@IsVIP						= @IsVIP
 			,	@SiteID						= @SiteID
 			,	@Wire_BankName				= @Wire_BankName
@@ -286,6 +288,7 @@ BEGIN
 			,	@Skype					= @Skype
 			,	@MSN					= @MSN
 			,	@CountryID				= @CountryID
+			,	@ProvinceID				= @ProvinceID
 			,	@Pic1					= @Pic1
 			,	@Pic2					= @Pic2
 			,	@Pic3					= @Pic3

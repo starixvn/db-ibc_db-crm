@@ -55,6 +55,7 @@ BEGIN
 		,	review.username reviewer
 		,	f.SolveDate
 		,	f.LicenseeType
+		,	CASE WHEN @UserRole=1 AND f.ProvinceID IS NULL THEN 1 ELSE f.ProvinceID END AS ProvinceID
 	FROM		dbo.crmFeedback AS f WITH (NOLOCK)
 		LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
 			ON	c.CustID = f.CustID

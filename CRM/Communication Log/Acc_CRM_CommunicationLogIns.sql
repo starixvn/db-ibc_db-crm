@@ -1,9 +1,10 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 					@CustID				INT
 				,	@RelatedCustID		VARCHAR(500)	= NULL
 				,	@LanguageID			INT
 				,	@CountryID			INT
+				,	@ProvinceID			INT=NULL
 				,	@FeedbackDate		DATETIME
 				,	@ResolutionDate		DATETIME
 				,	@CommunicationID	VARCHAR(MAX)	
@@ -35,6 +36,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
+		- 20190506@Winnie: CN88 Province RedmineID: #112637
 	Param's Explanation:
 */
 BEGIN
@@ -318,6 +320,7 @@ BEGIN
 				,	Yahoo			
 				,	QQ				
 				,	BBM
+				,	ProvinceID
 				)			
     SELECT	@CustID
 		,	@TitleID
@@ -381,7 +384,8 @@ BEGIN
 		,	@WeChat		
 		,	@Yahoo
 		,	@QQ
-		,	@BBM;
+		,	@BBM
+		,	@ProvinceID
 
 	IF	@@ERROR <> 0
 	BEGIN
@@ -576,6 +580,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo),'')						+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
+						'<ProvinceID>'					+ ISNULL(@ProvinceID,'')										+ '</ProvinceID>' +
 					'</Acc_CRM_CommunicationLogIns>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
@@ -592,6 +597,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_CommunicationLogIns TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_CommunicationLogIns TO vnteam;
 GO

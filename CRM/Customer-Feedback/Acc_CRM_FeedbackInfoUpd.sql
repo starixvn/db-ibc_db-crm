@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 					@UserID						INT
 				,	@FeedbackID					INT
@@ -66,6 +66,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@Yahoo						NVARCHAR(100)	= NULL
 				,	@QQ							NVARCHAR(100)	= NULL
 				,	@BBM						NVARCHAR(100)	= NULL
+				,	@ProvinceID					INT=NULL
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT
 				,	@IsOverWrite				BIT				= 0	
@@ -94,6 +95,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie:  CN88 Province RedmineID: #112637
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -213,6 +215,7 @@ BEGIN
 			,	@MSN					= @MSN
 			,	@LanguageID				= @LanguageID
 			,	@CountryID				= @CountryID
+			,	@ProvinceID				= @ProvinceID
 			,	@Subject				= @Subject
 			,	@FeedbackDate			= @FeedbackDate
 			,	@ResolutionDate			= @ResolutionDate
@@ -276,6 +279,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackInfoUpd TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackInfoUpd TO vnteam;
 GO 

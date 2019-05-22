@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 					@UserID						INT
 				,	@CustID						INT
@@ -68,7 +68,8 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@BBM						NVARCHAR(100)	= NULL
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
-				,	@IsOverWrite				BIT				= 0
+				,	@IsOverWrite				BIT				= 0,
+					@ProvinceID					INT
 				)
 AS
 /*
@@ -94,6 +95,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -167,6 +169,7 @@ BEGIN
 				,	@Pic2					= @Pic2
 				,	@Pic3					= @Pic3
 				,	@Pic4					= @Pic4
+				,	@ProvinceID				= @ProvinceID
 				,	@ErrCode				= @ErrCode OUTPUT
 				,	@ErrMsg					= @ErrMsg OUTPUT;
 		IF @ErrCode <> 0
@@ -226,6 +229,7 @@ BEGIN
 					,	@Yahoo					= @Yahoo
 					,	@QQ						= @QQ
 					,	@BBM					= @BBM
+					,	@ProvinceID				= @ProvinceID
 					,	@ErrCode				= @ErrCode OUTPUT
 					,	@ErrMsg					= @ErrMsg OUTPUT;
 		END;
@@ -299,6 +303,7 @@ BEGIN
 			,	@QQ						= @QQ
 			,	@BBM					= @BBM
 			,	@IP						= @IP
+			,	@ProvinceID				= @ProvinceID
 			,	@ErrCode				= @ErrCode OUTPUT
 			,	@ErrMsg					= @ErrMsg OUTPUT;
 	IF	@ErrCode <> 0

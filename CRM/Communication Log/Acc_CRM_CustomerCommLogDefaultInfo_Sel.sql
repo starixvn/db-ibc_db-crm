@@ -60,13 +60,13 @@ BEGIN
 					WHEN cust.roleid=2 AND @UserRole=2 THEN 7001
 					WHEN cust.roleid=3 AND @UserRole=2 THEN 7002
 					WHEN cust.roleid=4 AND @UserRole=2 THEN 7003
-					WHEN cust.roleid NOT IN(1,2,3,4) AND @UserRole=2 THEN 7004
+					WHEN (cust.roleid NOT IN(1,2,3,4) OR cust.roleid IS NULL) AND @UserRole=2 THEN 7004
 					WHEN cust.roleid=1 AND @UserRole=1 THEN 7011
 					WHEN cust.roleid=2 AND @UserRole=1 THEN 7007
 					WHEN cust.roleid=3 AND @UserRole=1 THEN 7008
 					WHEN cust.roleid=4 AND @UserRole=1 THEN 7009
 					WHEN cust.roleid=0 AND @UserRole=1 THEN 7006
-					WHEN cust.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7010 END AS RoleID,
+					WHEN (cust.roleid NOT IN(0,1,2,3,4) OR cust.roleid IS NULL) AND @UserRole=1 THEN 7010 END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
 			c.LicenseeType LicenseeTypeId
@@ -152,13 +152,13 @@ BEGIN
 					WHEN ci.roleid=2 AND @UserRole=2 THEN 7001
 					WHEN ci.roleid=3 AND @UserRole=2 THEN 7002
 					WHEN ci.roleid=4 AND @UserRole=2 THEN 7003
-					WHEN ci.roleid NOT IN(1,2,3,4) AND @UserRole=2 THEN 7004
+					WHEN (ci.roleid NOT IN(1,2,3,4) OR ci.roleid IS NULL) AND @UserRole=2 THEN 7004
 					WHEN ci.roleid=1 AND @UserRole=1 THEN 7011
 					WHEN ci.roleid=2 AND @UserRole=1 THEN 7007
 					WHEN ci.roleid=3 AND @UserRole=1 THEN 7008
 					WHEN ci.roleid=4 AND @UserRole=1 THEN 7009
 					WHEN ci.roleid=0 AND @UserRole=1 THEN 7006
-					WHEN ci.roleid NOT IN(0,1,2,3,4) AND @UserRole=1 THEN 7010 END AS RoleID,
+					WHEN (ci.roleid NOT IN(0,1,2,3,4) OR ci.roleid IS NULL) AND @UserRole=1 THEN 7010 END AS RoleID,
 			--@IsGroupHeadLine IsGroupHeadLine,
 			@DefaultLanguage DefaultLanguage,
 			ISNULL(c.LicenseeType,0) LicenseeTypeId

@@ -55,6 +55,7 @@ BEGIN
 		SELECT  
 			c.CustID, 
 			c.CountryID, 
+			CASE WHEN @UserRole=1 AND c.ProvinceID IS NULL THEN 1 ELSE c.ProvinceID END AS ProvinceID,
 			c.SiteID,
 			CASE 	WHEN cust.roleid=1 AND @UserRole=2 THEN 7000
 					WHEN cust.roleid=2 AND @UserRole=2 THEN 7001
@@ -147,6 +148,7 @@ BEGIN
 		SELECT 
 			ci.CustID, 
 			ISNULL(c.CountryID,@CountryID) CountryID, 
+			CASE WHEN @UserRole=1 AND c.ProvinceID IS NULL THEN 1 ELSE c.ProvinceID END AS ProvinceID,
 			ISNULL(c.SiteID,@SiteID) SiteID,
 			CASE 	WHEN ci.roleid=1 AND @UserRole=2 THEN 7000
 					WHEN ci.roleid=2 AND @UserRole=2 THEN 7001

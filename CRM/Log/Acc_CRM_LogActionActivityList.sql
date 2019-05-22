@@ -37,7 +37,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID=33002))
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
 	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing  NewValues,la.ActionNameEN ActionName
@@ -50,7 +50,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID=33002))
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
 	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
@@ -63,7 +63,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID=33002))
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
 	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
@@ -76,7 +76,7 @@ BEGIN
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
-	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID=33002))
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
 	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	ORDER BY 1 DESC
 END

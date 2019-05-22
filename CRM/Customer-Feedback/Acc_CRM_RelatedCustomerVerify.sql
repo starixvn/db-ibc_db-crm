@@ -44,7 +44,7 @@ BEGIN
 	SELECT c.custid, c.username 
 	FROM DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
 	WHERE username IN ( SELECT username FROM @tmpCustomer)
-		AND ((@UserRole=1 AND (c.srecommend IN(SELECT custid FROM #Super)) OR c.roleid=0) OR (@UserRole=2 AND c.srecommend NOT IN(SELECT custid FROM #Super)))
+		AND ((@UserRole=1 AND (c.srecommend IN(SELECT custid FROM #Super) OR c.srecommend=0) OR c.roleid=0) OR (@UserRole=2 AND c.srecommend<>0 AND c.srecommend NOT IN(SELECT custid FROM #Super)))
 	
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 

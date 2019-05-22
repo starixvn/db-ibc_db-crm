@@ -72,7 +72,7 @@ BEGIN
 			WHERE c.phone = @UserName OR c.mobilephone = @username	
 				AND (@UserRole=0 
 				OR(@UserRole=1 AND (c.srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=c.srecommend)))
-				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=srecommend))
+				OR(@UserRole=2 AND c.srecommend<>0 AND NOT EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=srecommend))
 				)	
 		END					
 		

@@ -29,16 +29,16 @@ BEGIN
 		FROM custinfo WITH(NOLOCK)
 		WHERE UserName = @UserName
 			AND (@UserRole=0 
-				OR(@UserRole=1 AND EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend))
-				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend))			
+				OR(@UserRole=1 AND (srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend)))
+				OR(@UserRole=2 AND srecommend<>0 AND NOT EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend))			
 				)
 	ELSE 
 		SELECT @UserID = CustID, @RoleID = roleid
 		FROM customer WITH(NOLOCK)
 		WHERE UserName2 = @UserName
 			AND (@UserRole=0 
-				OR(@UserRole=1 AND EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend))
-				OR(@UserRole=2 AND NOT EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend))			
+				OR(@UserRole=1 AND (srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend)))
+				OR(@UserRole=2 AND srecommend<>0 AND NOT EXISTS (SELECT TOP 1 1 FROM #Super WITH(NOLOCK) WHERE CustId=srecommend))		
 				)
 END
 

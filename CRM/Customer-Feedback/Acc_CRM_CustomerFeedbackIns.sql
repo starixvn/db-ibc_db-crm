@@ -69,7 +69,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
 				,	@IsOverWrite				BIT				= 0,
-					@ProvinceID					INT
+					@ProvinceID					INT				= NULL
 				)
 AS
 /*

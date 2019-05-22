@@ -66,8 +66,8 @@ BEGIN
 	FROM bodb02.dbo.Customer(NOLOCK)c
 	INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
 	WHERE c.custid = @CustID 
-		AND((@UserRole=1 AND (c.srecommend IN(SELECT CustID FROM #Super) OR c.roleid=0)) 
-			OR(@UserRole=2 AND c.srecommend NOT IN(SELECT CustID FROM #Super)) )
+		AND((@UserRole=1 AND (c.srecommend IN(SELECT CustID FROM #Super) OR c.srecommend=0)) 
+			OR(@UserRole=2 AND c.srecommend<>0 AND c.srecommend NOT IN(SELECT CustID FROM #Super)) )
 END
 ELSE
 BEGIN

@@ -167,7 +167,7 @@ BEGIN
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
 		WHERE 
 			ci.custid = @CustID
-			AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM #Super) OR ci.srecommend=0)) OR( @UserRole=2) AND ci.srecommend NOT IN(SELECT Custid FROM #Super))
+			AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM #Super) OR ci.srecommend=0)) OR( @UserRole=2) AND ci.srecommend<>0 AND ci.srecommend NOT IN(SELECT Custid FROM #Super))
 
 		
 

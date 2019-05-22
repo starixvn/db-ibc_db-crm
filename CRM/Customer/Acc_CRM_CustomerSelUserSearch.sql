@@ -60,7 +60,7 @@ BEGIN
 			FROM DBACC.bodb02.dbo.Custinfo WITH (NOLOCK) 
 			WHERE username LIKE @Username +'%' 
 					and username not in (SELECT UserName from @UserNameTable)
-					AND ((@UserRole=2 AND srecommend NOT IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK))) 
+					AND ((@UserRole=2 AND srecommend<>0 AND srecommend NOT IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK))) 
 							OR (@UserRole=1 AND (srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR srecommend=0))
 					)
 			ORDER BY Username

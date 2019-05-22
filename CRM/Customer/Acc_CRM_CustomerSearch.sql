@@ -195,13 +195,13 @@ BEGIN
 				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
 				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
 				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
-				 WHEN c.roleid NOT IN(1,2,3,4) AND @UserRole=2  THEN 7004
+				 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
 				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
 				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
 				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
 				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
 				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006	
-				 WHEN c.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010
+				 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,
@@ -295,13 +295,13 @@ BEGIN
 				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
 				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
 				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
-				 WHEN c.roleid NOT IN(1,2,3,4) AND @UserRole=2  THEN 7004
+				 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
 				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
 				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
 				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
 				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
 				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006
-				 WHEN c.roleid NOT IN(1,2,3,4,0) AND @UserRole=1 THEN 7010
+				 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,

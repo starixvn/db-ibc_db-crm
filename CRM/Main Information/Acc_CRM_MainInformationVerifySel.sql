@@ -97,7 +97,7 @@ BEGIN
 			END AS RoleID,
 			@IsCredit		IsCredit
 	FROM crmCustomer(NOLOCK) c
-	INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
+	LEFT JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
 	WHERE c.custid = @CustID
 		AND(@UserRole=0 
 			OR (@UserRole=1 AND c.SiteID=33002)

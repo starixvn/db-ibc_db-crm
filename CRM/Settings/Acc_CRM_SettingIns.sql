@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_SettingIns]  
+ALTER PROCEDURE [dbo].[Acc_CRM_SettingIns]  
 (  
  @UserID   INT,  
  @SettingName VARCHAR(50),  
@@ -88,27 +88,31 @@ BEGIN
   -- generate SettingID  
   IF NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingName = @SettingName AND SiteOffer=@UserRole)  
   BEGIN  
+	
    SELECT @MaxSettingID = MAX(SettingID)  
    FROM crmSetting WITH(NOLOCK)  
-   WHERE SiteOffer=@UserRole  
+   
    SELECT @SettingID = (@MaxSettingID/1000 + 1)*1000  
   END  
   ELSE  --- Setting name existed already  
+  BEGIN
+	
    IF @SettingName = 'Site' AND @SettingType = 1 --- for Credit Site  
    BEGIN  
     SELECT @SettingID = MAX(SettingID) + 1  
     FROM crmSetting WITH(NOLOCK)  
     WHERE SettingName = 'Site' AND SettingID < 6200  
-		AND SiteOffer=@UserRole
+		
    END  
    ELSE   
    BEGIN  
+	
     SELECT @SettingID = MAX(SettingID) + 1  
     FROM crmSetting WITH(NOLOCK)  
     WHERE SettingName = @SettingName  
-		AND SiteOffer=@UserRole
+		
    END  
-    
+  END 
   --- get display order in crmSettingRelation table  
   SELECT   
    @SettingRelation_DisplayOrder = CASE WHEN @ParentID <> 0 THEN ISNULL(MAX(DisplayOrder) + 1, 0) ELSE 0 END  

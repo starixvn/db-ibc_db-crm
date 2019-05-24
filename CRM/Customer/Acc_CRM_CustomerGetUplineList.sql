@@ -44,7 +44,7 @@ BEGIN
 	WHERE
 		c.CustID = @CustID
 			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND c.srecommend<>0 AND c.srecommend NOT IN(SELECT Custid FROM #SuperCN88))	
+				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
 
 	UNION ALL
 
@@ -58,7 +58,7 @@ BEGIN
 	WHERE
 		c.CustID = @CustID
 			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND c.srecommend<>0 AND c.srecommend NOT IN(SELECT Custid FROM #SuperCN88))	
+				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
 
 	UNION ALL
 
@@ -72,7 +72,7 @@ BEGIN
 	WHERE
 		c.CustID = @CustID
 			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND c.srecommend<>0 AND c.srecommend NOT IN(SELECT Custid FROM #SuperCN88))	
+				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
 
 	UNION ALL
 	SELECT	c.UserName, c.CustID, 7006 AS RoleID,
@@ -85,7 +85,7 @@ BEGIN
 	WHERE
 		a.CustID IN(@srecommend,@mrecommend,@recommend,@CustID)
 			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND c.srecommend<>0 AND c.srecommend NOT IN(SELECT Custid FROM #SuperCN88))	
+				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
 
 END
 

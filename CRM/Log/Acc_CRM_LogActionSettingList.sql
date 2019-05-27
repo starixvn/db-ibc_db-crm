@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE procedure [dbo].[Acc_CRM_LogActionSettingList]
+ALTER procedure [dbo].[Acc_CRM_LogActionSettingList]
 	@username	varchar(50) = NULL,
 	@fromdate	datetime,
 	@todate		datetime,
@@ -27,15 +27,16 @@ select lc.LogDate,lc.ActionID,la.ActionNameEN ActionName,ci.username,'Setting' E
 from crmLogSetting(nolock) lc
 inner join crmLogAction(NOLOCK) la on la.ActionID = lc.ActionID
 inner join bodb02.dbo.Customer (nolock) ci on ci.custid = lc.UserID
+inner join crmSetting s WITH(NOLOCK) ON lc.SettingID=s.SettingID
 where lc.actionid BETWEEN 300 and 399
 and (ISNULL(@username,'')='' OR ci.username = @username) 
 and (ISNULL(@actionid,0)=0  or lc.ActionID = @ActionID)
 and lc.LogDate BETWEEN @FromDate and @Todate
-AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM #SuperCN88) OR (ci.srecommend=0 AND ci.roleID=0))) 
-				OR( @UserRole=2) AND (ISNULL(ci.srecommend,-1)<>0 OR ci.roleID>4) AND ISNULL(ci.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))
+AND s.SiteOffer=@UserRole
 AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 order by lc.LogDate desc
 
-GO 
+
+GO
  GRANT EXECUTE ON [dbo].[Acc_CRM_LogActionSettingList] TO [bodbAdminNet]
 GO 

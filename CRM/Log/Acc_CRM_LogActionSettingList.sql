@@ -18,15 +18,21 @@ Revisions:
 Param's Explanation:
 */
 
+CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+INSERT INTO #SuperCN88(CustID)
+SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+WHERE UplineId IS NOT NULL
+
 select lc.LogDate,lc.ActionID,la.ActionNameEN ActionName,ci.username,'Setting' Entity, lc.SettingID ID, lc.OldValues,lc.Doing NewValues
 from crmLogSetting(nolock) lc
 inner join crmLogAction(NOLOCK) la on la.ActionID = lc.ActionID
-inner join crmcustomer(nolock) ci on ci.custid = lc.UserID
+inner join bodb02.dbo.Customer (nolock) ci on ci.custid = lc.UserID
 where lc.actionid BETWEEN 300 and 399
 and (ISNULL(@username,'')='' OR ci.username = @username) 
 and (ISNULL(@actionid,0)=0  or lc.ActionID = @ActionID)
 and lc.LogDate BETWEEN @FromDate and @Todate
-AND ((@UserRole=1 AND ci.SiteID=33002) OR (@UserRole=2 AND ci.SiteID<>33002))
+AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
+				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))
 AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 order by lc.LogDate desc
 

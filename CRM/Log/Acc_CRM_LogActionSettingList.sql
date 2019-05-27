@@ -31,8 +31,8 @@ where lc.actionid BETWEEN 300 and 399
 and (ISNULL(@username,'')='' OR ci.username = @username) 
 and (ISNULL(@actionid,0)=0  or lc.ActionID = @ActionID)
 and lc.LogDate BETWEEN @FromDate and @Todate
-AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))
+AND((@UserRole=1 AND (ci.srecommend IN(SELECT Custid FROM #SuperCN88) OR ci.srecommend=0)) 
+				OR( @UserRole=2) AND ISNULL(ci.srecommend,-1)<>0 AND ISNULL(ci.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))
 AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 order by lc.LogDate desc
 

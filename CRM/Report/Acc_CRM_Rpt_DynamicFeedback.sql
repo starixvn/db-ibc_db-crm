@@ -52,7 +52,7 @@ CREATE TABLE	#Feedback (
 					FeedbackID		INT 
 				);
 INSERT INTO #Feedback
-SELECT DISTINCT	FeedbackID
+SELECT DISTINCT	f.FeedbackID
 FROM		crmFeedback f WITH (NOLOCK)
 INNER JOIN	crmfeedbacksetting fm WITH(NOLOCK) ON f.feedbackID=fm.feedbackID
 INNER JOIN	crmfeedbacksetting fp WITH(NOLOCK) ON f.feedbackID=fp.feedbackID
@@ -64,7 +64,7 @@ WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate
 	AND	(ISNULL(@MainCategoryID, 0) = 0 OR fm.settingID = @MainCategoryID) 
 	AND	(ISNULL(@CommunicationID, 0) = 0 OR fc.settingID = @CommunicationID) 
 	AND	(ISNULL(@SubCategoryID, 0) = 0 OR fm.SubsettingID = @SubCategoryID) 
-	AND	(ISNULL(@Extension, 0) = 0 OR fs.StationID = @Extension ) 
+	AND	(ISNULL(@Extension, 0) = 0 OR fs.settingID = @Extension ) 
 	AND	(ISNULL(@StatusID, 0) = 0 OR f.StatusID = @StatusID) 
 	AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 	
 	AND	(ISNULL(@HandledBy, '') = '' OR f.CreatorID = @HandledID) 

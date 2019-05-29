@@ -54,13 +54,16 @@ CREATE TABLE	#Feedback (
 INSERT INTO #Feedback
 SELECT DISTINCT	FeedbackID
 FROM		crmFeedback f WITH (NOLOCK)
+INNER JOIN	crmfeedbacksetting fm WITH(NOLOCK) ON f.feedbackID=fm.feedbackID
+INNER JOIN	crmfeedbacksetting fp WITH(NOLOCK) ON f.feedbackID=fp.feedbackID
+INNER JOIN	crmfeedbacksetting fc WITH(NOLOCK) ON f.feedbackID=fc.feedbackID
 INNER JOIN	crmfeedbacksetting fs WITH(NOLOCK) ON f.feedbackID=fs.feedbackID
 WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate	
-	AND	(ISNULL(@ProductID, 0) = 0 OR fs.ProductID = @ProductID)
-	AND	(ISNULL(@SubProductID, 0) = 0 OR fs.SubProductID = @SubProductID)
-	AND	(ISNULL(@MainCategoryID, 0) = 0 OR fs.MainCategoryID = @MainCategoryID) 
-	AND	(ISNULL(@CommunicationID, 0) = 0 OR fs.CommunicationID = @CommunicationID) 
-	AND	(ISNULL(@SubCategoryID, 0) = 0 OR fs.SubCategoryID = @SubCategoryID) 
+	AND	(ISNULL(@ProductID, 0) = 0 OR fp.settingID = @ProductID)
+	AND	(ISNULL(@SubProductID, 0) = 0 OR fp.SubsettingID = @SubProductID)
+	AND	(ISNULL(@MainCategoryID, 0) = 0 OR fm.settingID = @MainCategoryID) 
+	AND	(ISNULL(@CommunicationID, 0) = 0 OR fc.settingID = @CommunicationID) 
+	AND	(ISNULL(@SubCategoryID, 0) = 0 OR fm.SubsettingID = @SubCategoryID) 
 	AND	(ISNULL(@Extension, 0) = 0 OR fs.StationID = @Extension ) 
 	AND	(ISNULL(@StatusID, 0) = 0 OR f.StatusID = @StatusID) 
 	AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 	

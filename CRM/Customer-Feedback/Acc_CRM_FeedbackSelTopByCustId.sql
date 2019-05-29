@@ -72,6 +72,7 @@ SET NOCOUNT ON;
 	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 	WHERE	fbc.CustID = @CustID
 		AND	fb.StatusID <> 11004
+		AND	fb.StatusID <> 11019
 		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 	ORDER BY FeedbackDate DESC
 	

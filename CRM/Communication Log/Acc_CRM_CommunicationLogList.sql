@@ -40,6 +40,7 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 		LEFT JOIN bodb02.dbo.Customer Reviewer WITH(NOLOCK)  ON Reviewer.custid = f.ReviewerID
 	WHERE (f.custid = @CustID )
 		AND f.StatusID <> 11004 -- exclude deleted
+		AND f.StatusID <> 11019 -- exclude deleted
 		AND f.CreateDate BETWEEN @fromdate and @todate 
 		AND (isnull(@handler,'')='' OR f.CreatorID = @handlerid)
 		AND (isnull(@StatusID,0)=0 OR f.StatusID = @StatusID)
@@ -61,6 +62,7 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 		LEFT JOIN crmFeedbackCustomer cf WITH(NOLOCK)  ON cf.FeedbackID = f.FeedbackID
 	WHERE cf.CustID = @CustID
 		AND f.StatusID <> 11004 -- exclude deleted
+		AND f.StatusID <> 11019 -- exclude deleted
 		AND f.CreateDate BETWEEN @fromdate and @todate 
 		AND (isnull(@handler,'')='' OR f.CreatorID = @handlerid)
 		AND (isnull(@StatusID,0)=0 OR f.StatusID = @StatusID)

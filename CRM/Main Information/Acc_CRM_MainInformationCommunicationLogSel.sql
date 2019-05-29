@@ -29,6 +29,7 @@ BEGIN
 	LEFT JOIN  crmFeedbackCustomer(NOLOCK) cf ON cf.FeedbackID = f.FeedbackID
 	WHERE (f.custid = @CustID OR cf.CustID = @CustID)
 	AND f.StatusID <> 11004 -- exclude deleted
+	AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
 	SELECT f.FeedbackID,

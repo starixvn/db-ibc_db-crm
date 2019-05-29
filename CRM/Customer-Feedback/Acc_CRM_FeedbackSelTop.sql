@@ -67,7 +67,7 @@ BEGIN
 	LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK)
 			ON	fb.ReviewerID = rv.custid
 	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
-	WHERE	fb.StatusID <> 11004
+	WHERE	fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
 		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 	ORDER BY fb.FeedbackDate DESC

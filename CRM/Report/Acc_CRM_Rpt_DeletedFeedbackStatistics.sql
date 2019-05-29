@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
@@ -9,9 +9,9 @@ AS
 	Created:	20151214@Billy
 	Task:		Deleted Feedback Statistics Report [Redmine: #49318]
 	Revisions:
-	           - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
+	    - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
-	           
+	    - 20190506@Winnie:  CN88 Permission RedmineID: #112637        
 	Parameters' Explanation:
 */
 BEGIN
@@ -54,7 +54,7 @@ BEGIN
 		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, cf.CustID
 		INTO	#feedback
 		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
-		WHERE	cf.StatusID = 11004
+		WHERE	cf.StatusID IN( 11004,11019)
 			AND	cf.CreatorID = ISNULL(@CreatorID, cf.CreatorID)
 			AND	cf.CreateDate >= @FromDate AND cf.CreateDate <= @ToDate;
 			
@@ -101,8 +101,8 @@ BEGIN
 				WHERE	ilf.FeedbackID = f.FeedbackID
 					AND	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
 			) iq
-			WHERE	iq.newStatus = 11004
-				AND	iq.oldStatus <> 11004
+			WHERE	iq.newStatus IN( 11004,11019)
+				AND	iq.oldStatus NOT IN( 11004,11019)
 				AND	iq.ActionID IN (201, 203)
 				AND	iq.UserID = ISNULL(@DeletorID, iq.UserID)
 			ORDER BY iq.LogDate

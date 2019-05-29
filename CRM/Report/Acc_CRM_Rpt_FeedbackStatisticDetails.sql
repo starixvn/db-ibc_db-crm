@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
 					@Type			INT
 				,	@MainCategoryID	INT
@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticDetails] (
 				,	@ToDate			DATETIME
 				,	@FromDuration	VARCHAR(100)
 				,	@ToDuration		VARCHAR(100)
+				,	@UserRole		TINYINT=2
 				)
 AS
 /*
@@ -23,6 +24,7 @@ AS
 		- 20120425@Sophia:	remove converting @FromDate, @Todate
 		- 20140303@Dom:		Modify for new structure
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637      
 	Param's Explanation:
 		@Type:	- 1		Creator
 				- 2		Country
@@ -133,11 +135,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0	
 					AND 
-					statusID <> 11004
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
 	END;
 	ELSE IF @Type = 2    --- Country
 	BEGIN
@@ -180,11 +183,12 @@ BEGIN
 					AND
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
 	END;
 	ELSE IF @Type = 3    --- Role
 	BEGIN
@@ -229,11 +233,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
 
 	END;
 	ELSE IF @Type = 4    --- Site
@@ -278,11 +283,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))		
 	END;
 	ELSE IF @Type = 5    --- Status
 	BEGIN
@@ -326,11 +332,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0	
 					AND 
-					statusID <> 11004	
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))		
 	END;
 	ELSE IF @Type = 6    --- Customer Response
 	BEGIN
@@ -370,7 +377,7 @@ BEGIN
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate			
 					AND 
-					statusID <> 11004	
+					statusID NOT IN( 11004,11019)
 					AND
 					(fb.ResponseID = @ValueID OR @ValueID=-1)
 					AND		
@@ -378,7 +385,8 @@ BEGIN
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))		
 	END;
 	ELSE IF @Type = 7 AND (@ValueID=-1)   --- Product
 	BEGIN
@@ -420,11 +428,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004		
+					statusID NOT IN( 11004,11019)		
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))	
 	END;
 	ELSE IF @Type = 7 AND (@ValueID<>-1)   --- Product
 	BEGIN
@@ -467,12 +476,13 @@ BEGIN
 					AND
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004		
+					statusID NOT IN( 11004,11019)		
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration	
 					AND fs.settingID=@ValueID
+					
 					
 	END;
 	ELSE IF @Type = 8 AND (@ValueID=-1)   --- Category
@@ -516,11 +526,12 @@ BEGIN
 					AND
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004	
+					statusID NOT IN( 11004,11019)	
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
-					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration			
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))			
 	END;
 	ELSE IF @Type = 8 AND (@ValueID<>-1)   --- Category
 	BEGIN
@@ -564,12 +575,12 @@ BEGIN
 					AND 
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004	
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
-					AND fs.settingID=@ValueID		
+					AND fs.settingID=@ValueID						
 	END;
 	ELSE IF @Type = 9    --- Licensee
 	BEGIN
@@ -614,11 +625,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004		
+					statusID NOT IN( 11004,11019)	
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
 
 	END;
 	ELSE IF @Type = 10 AND @ValueID<>-1   --- communication
@@ -663,7 +675,7 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004		
+					statusID NOT IN( 11004,11019)	
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
@@ -710,11 +722,12 @@ BEGIN
 					AND		
 					fbc.IsRelated = 0
 					AND 
-					statusID <> 11004		
+					statusID NOT IN( 11004,11019)
 					AND 
 					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
 	END; 
 	
 	
@@ -777,6 +790,4 @@ END;
 GO 
 
  GRANT EXECUTE ON dbo.Acc_CRM_Rpt_FeedbackStatisticDetails TO bodbAdminNet;
-GO 
- GRANT VIEW DEFINITION ON dbo.Acc_CRM_Rpt_FeedbackStatisticDetails TO vnteam;
 GO 

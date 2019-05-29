@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
@@ -24,6 +24,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20180814@Winnie: Enhancement made for Excel. [RedmineID: #99811]
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -83,6 +84,7 @@ BEGIN
 			ON fs.SettingID=p.ProductID		
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 		AND	fb.StatusID <> 11004
+		AND	fb.StatusID <> 11019
 				
 	INSERT INTO #FBCategory(FeedbackID,CategoryID,SubCategoryID)
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID
@@ -93,6 +95,7 @@ BEGIN
 			ON fs.SettingID=p.CategoryID 			
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 	AND	fb.StatusID <> 11004	
+	AND	fb.StatusID <> 11019
 						
 	INSERT INTO #FBCommunication(FeedbackID,CommunicationID,SiteName)
 	SELECT fs.FeedbackID,fs.SettingID,s.SiteName
@@ -105,6 +108,7 @@ BEGIN
 				ON	s.SiteID = fb.SiteID 
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 	AND	fb.StatusID <> 11004
+	AND	fb.StatusID <> 11019
 	AND (	@SiteType = 0
 		AND	(	s.IsLicensee = 0
 			OR	ISNULL(fb.SiteID, 0) = 0

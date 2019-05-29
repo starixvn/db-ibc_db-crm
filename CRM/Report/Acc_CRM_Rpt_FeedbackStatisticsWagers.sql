@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticsWagers
 (
 	@Year INT,
@@ -14,7 +14,7 @@ Original:
 
 Revisions:
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
-		
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637     	
 Param's Explanation:
 	
 */
@@ -33,7 +33,7 @@ BEGIN
 	FROM crmFeedback f WITH(NOLOCK)
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON f.FeedbackID=fs.FeedbackID
 		INNER JOIN crmSubCategory s WITH(NOLOCK)  ON fs.SettingID = s.MainCategoryID and fs.SubSettingID = s.SubCategoryID
-	WHERE f.StatusID <> 11004
+	WHERE f.StatusID NOT IN( 11004,11019)
 		AND fs.SettingID = 3010
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ), 
@@ -45,7 +45,3 @@ END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsWagers] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsWagers] TO [vnteam] 
-GO
---[Acc_CRM_Rpt_FeedbackStatisticsWagers] 2012
-

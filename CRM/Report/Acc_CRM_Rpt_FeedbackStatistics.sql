@@ -425,8 +425,7 @@ BEGIN
 		RETURN
 	END
 	IF @Type = 5	-- status
-	BEGIN
-
+	BEGIN	
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -439,9 +438,12 @@ BEGIN
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingValue ASC
 		--
+	
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
 			WHERE r.siteoffer=@UserRole
+			
+				print @cols
 		--ORDER BY r.SettingValue ASC
 		IF @UserRole=2
 		BEGIN
@@ -470,8 +472,9 @@ BEGIN
 									FOR [status] IN (' + @cols + ')
 								) AS pvt
 							ORDER BY MainCategory, SubCategory
-							'
+							'						
 		END
+		ELSE
 		BEGIN
 			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
 							FROM (
@@ -937,5 +940,6 @@ BEGIN
 		RETURN
 	END
 END
+
 
 GO

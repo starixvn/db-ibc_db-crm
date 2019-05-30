@@ -443,7 +443,6 @@ BEGIN
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
 			WHERE r.siteoffer=@UserRole
 			
-				print @cols
 		--ORDER BY r.SettingValue ASC
 		IF @UserRole=2
 		BEGIN

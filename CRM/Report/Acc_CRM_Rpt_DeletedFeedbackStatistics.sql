@@ -4,6 +4,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 				,	@DeletorName	VARCHAR(30) = NULL
 				,	@FromDate		DATETIME
 				,	@ToDate			DATETIME
+				,	@Userrole		TINYINT=2
 AS
 /*
 	Created:	20151214@Billy
@@ -26,7 +27,7 @@ BEGIN
 					,	DeletorID		INT
 					,	FeedbackID		INT
 					,	Subject			NVARCHAR(200)				
-					,	CustID			INT
+					,	Username		NVARCHAR(50)
 					);
 
 	IF	@CreatorName = '' OR @CreatorName IS NULL
@@ -51,17 +52,19 @@ BEGIN
 		IF @DeletorID = -1
 			SELECT @DeletorID = NULL;
 
-		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, cf.CustID
+		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, c.UserName
 		INTO	#feedback
 		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
+			INNER JOIN crmCustomer c WITH(NOLOCK) ON cf.custID=c.CustID
 		WHERE	cf.StatusID IN( 11004,11019)
 			AND	cf.CreatorID = ISNULL(@CreatorID, cf.CreatorID)
-			AND	cf.CreateDate >= @FromDate AND cf.CreateDate <= @ToDate;
+			AND	cf.CreateDate >= @FromDate AND cf.CreateDate <= @ToDate
+			AND ((@Userrole=1 AND c.siteID=33002) OR (@Userrole=2 AND c.siteID<>33002))
 			
 		INSERT INTO #ResultTable
-			(	CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , CustID)
-		SELECT	f.CreateDate, f.CreatorID, lf.UserID, f.FeedbackID, f.Subject, f.CustID
-		FROM		#feedback f WITH (NOLOCK)
+			(	CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , Username)
+		SELECT	f.CreateDate, f.CreatorID, lf.UserID, f.FeedbackID, f.Subject, f.Username
+		FROM		#feedback f WITH (NOLOCK)			
 		CROSS APPLY	(
 			SELECT	TOP 1 *
 			FROM (
@@ -77,7 +80,7 @@ BEGIN
 					,	ISNULL(ilf.Doing.value('(/Acc_CRM_FeedbackUpd/StatusID)[1]', 'INT'), 0) newStatus
 					,	ISNULL(ilf.OldValues.value('(/Acc_CRM_FeedbackUpd/StatusID)[1]', 'INT'), 0)	oldStatus
 				FROM		crmLogFeedback ilf WITH(NOLOCK)
-				INNER JOIN	crmLogAction la WITH(NOLOCK)
+				INNER JOIN	crmLogAction la WITH(NOLOCK)				
 				ON		ilf.ActionID = la.ActionID
 				WHERE	ilf.FeedbackID = f.FeedbackID
 					AND	CONVERT(NVARCHAR(MAX), ilf.Doing) <> CONVERT(NVARCHAR(MAX), ilf.OldValues)
@@ -114,15 +117,13 @@ BEGIN
 		,	deletor.username	Deletor
 		,	rt.FeedbackID		FeedbackID
 		,	rt.Subject			Subject	
-		,	c.UserName			Customer
+		,	rt.UserName			Customer
 		,	fgrc.list			RelatedCustomer
 	FROM		#ResultTable rt
 	INNER JOIN	bodb02.dbo.Customer creator
 			ON	rt.CreatorID = creator.custid
 	INNER JOIN	bodb02.dbo.Customer deletor
-			ON	rt.DeletorID = deletor.custid
-	INNER JOIN	crmCustomer c WITH (NOLOCK)
-			ON	rt.CustID = c.CustID
+			ON	rt.DeletorID = deletor.custid	
 	CROSS APPLY	dbo.f_GetRelatedCustomer(rt.FeedbackID) fgrc
 	ORDER BY	rt.CreatorID
 			,	rt.CreateDate DESC;

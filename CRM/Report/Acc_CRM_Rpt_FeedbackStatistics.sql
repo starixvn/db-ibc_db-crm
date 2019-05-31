@@ -431,7 +431,7 @@ BEGIN
 			FROM crmfeedback fb WITH(NOLOCK) 
 					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.StatusID = r.SettingID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004)
+					AND fb.StatusID NOT IN (11001,11004,11019,11016)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole

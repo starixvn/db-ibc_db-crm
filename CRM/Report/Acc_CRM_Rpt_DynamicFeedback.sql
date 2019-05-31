@@ -15,6 +15,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DynamicFeedback]
 				,	@SubCategoryID		INT				= NULL
 				,	@ReviewedBy			NVARCHAR(30)	= NULL
 				,	@Subject			NVARCHAR(1000)	= NULL
+				,	@Userrole			TINYINT			= 2
 AS 
 /*
 	Created:	DOM
@@ -26,7 +27,8 @@ AS
 	Revisions:
 		- 20160318@Billy:	Integrate Sub-Product Setting - [Redmine: #52998]
 		- 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
-		
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637        
 	Param's Explanation:
 		
 */
@@ -46,32 +48,53 @@ FROM	DBACC.bodb02.dbo.Customer WITH (NOLOCK)
 WHERE	UserName = @ReviewedBy;
 
 
-CREATE TABLE	#Feedback (
-					FeedbackID		INT 
-				);
+CREATE TABLE	#Feedback (FeedbackID		INT PRIMARY KEY);
+CREATE TABLE	#Feedbackm (FeedbackID		INT PRIMARY KEY);
+CREATE TABLE	#Feedbackp (FeedbackID		INT PRIMARY KEY);
+CREATE TABLE	#Feedbackc (FeedbackID		INT PRIMARY KEY);
+CREATE TABLE	#Feedbacks (FeedbackID		INT PRIMARY KEY);
+
 INSERT INTO #Feedback
-SELECT DISTINCT	FeedbackID
-FROM	crmFeedback f WITH (NOLOCK)
-WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate
-	AND	(ISNULL(@ProductID, 0) = 0 OR f.ProductID = @ProductID)
-	AND	(ISNULL(@SubProductID, 0) = 0 OR f.SubProductID = @SubProductID)
+SELECT DISTINCT	f.FeedbackID
+FROM		crmFeedback f WITH (NOLOCK)
+WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate	
 	AND	(ISNULL(@StatusID, 0) = 0 OR f.StatusID = @StatusID) 
-	AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 
-	AND	(ISNULL(@MainCategoryID, 0) = 0 OR f.MainCategoryID = @MainCategoryID) 
+	AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 	
 	AND	(ISNULL(@HandledBy, '') = '' OR f.CreatorID = @HandledID) 
 	AND	(ISNULL(@SiteID, 0) = 0 OR f.SiteID = @SiteID) 
-	AND	(ISNULL(@ResponseID, 0) = 0 OR f.ResponseID = @ResponseID) 
-	AND	(ISNULL(@CommunicationID, 0) = 0 OR f.CommunicationID = @CommunicationID) 
-	AND	(ISNULL(@SubCategoryID, 0) = 0 OR f.SubCategoryID = @SubCategoryID) 
+	AND	(ISNULL(@ResponseID, 0) = 0 OR f.ResponseID = @ResponseID) 	
 	AND	(ISNULL(@ReviewedBy, '') = '' OR f.ReviewerID = @ReviewedID) 
-	AND	(ISNULL(@Extension, 0) = 0 OR f.StationID = @Extension ) 
 	AND	(ISNULL(@Subject, '') = '' OR f.Subject LIKE '%' + @Subject + '%') 
-	AND	f.StatusID <> 11004; 
+	AND	f.StatusID NOT IN( 11004,11019); 
+
+INSERT INTO #Feedbackm
+SELECT DISTINCT	f.FeedbackID
+FROM #Feedback f
+	INNER JOIN	crmfeedbacksetting fm WITH(NOLOCK) ON f.feedbackID=fm.feedbackID
+WHERE (ISNULL(@MainCategoryID, 0) = 0 OR fm.settingID = @MainCategoryID) 
+	AND (ISNULL(@SubCategoryID, 0) = 0 OR fm.SubsettingID = @SubCategoryID) 
+
+INSERT INTO #Feedbackp
+SELECT DISTINCT	f.FeedbackID
+FROM #Feedbackm f
+	INNER JOIN	crmfeedbacksetting fp WITH(NOLOCK) ON f.feedbackID=fp.feedbackID
+WHERE (ISNULL(@ProductID, 0) = 0 OR fp.settingID = @ProductID)
+	AND	(ISNULL(@SubProductID, 0) = 0 OR fp.SubsettingID = @SubProductID)
+
+INSERT INTO #Feedbackc
+SELECT DISTINCT	f.FeedbackID
+FROM #Feedbackp f
+	INNER JOIN	crmfeedbacksetting fc WITH(NOLOCK) ON f.feedbackID=fc.feedbackID
+WHERE (ISNULL(@CommunicationID, 0) = 0 OR fc.settingID = @CommunicationID) 
+
+INSERT INTO #Feedbacks
+SELECT DISTINCT	f.FeedbackID
+FROM #Feedbackc f
+	INNER JOIN	crmfeedbacksetting fs WITH(NOLOCK) ON f.feedbackID=fs.feedbackID
+WHERE (ISNULL(@Extension, 0) = 0 OR fs.settingID = @Extension ) 		
 
 SELECT	f.FeedbackID
 	,	f.FeedbackDate
-	,	mc.Name MainCategory
-	,	sc.Name SubCategory
 	,	CAST(DATEPART(HOUR, ResolutionDate - FeedbackDate) AS VARCHAR)
 	+	' : ' + CAST(DATEPART(MINUTE, ResolutionDate - FeedbackDate) AS VARCHAR)
 	+	' : ' + CAST(DATEPART(SECOND, ResolutionDate - FeedbackDate) AS VARCHAR) Duration
@@ -81,11 +104,6 @@ SELECT	f.FeedbackID
 	,	rv.username ReviewedBy
 	,	cust.UserName
 FROM		crmFeedback f WITH (NOLOCK) 
-LEFT JOIN	crmMainCategory mc WITH (NOLOCK)
-		ON	mc.MainCategoryID = f.MainCategoryID
-LEFT JOIN	crmSubCategory sc WITH (NOLOCK)
-		ON	sc.MainCategoryID= mc.MainCategoryID
-		AND	sc.SubCategoryID = f.SubCategoryID
 LEFT JOIN	crmStatus st WITH (NOLOCK)
 		ON	st.StatusID = f.StatusID
 INNER JOIN	bodb02.dbo.Customer c WITH (NOLOCK)
@@ -94,8 +112,17 @@ LEFT JOIN	bodb02.dbo.Customer rv WITH (NOLOCK)
 		ON	rv.custid = f.ReviewerID
 INNER JOIN	crmCustomer cust WITH(NOLOCK)
 		ON	cust.CustID = f.CustID
-WHERE	f.FeedbackID IN (SELECT feedbackid FROM #Feedback)
+WHERE	f.FeedbackID IN (SELECT feedbackid FROM #Feedbacks)
+	AND ((@userrole=1 AND cust.siteID=33002)OR(@userrole=2 AND cust.siteID<>33002))
 ORDER BY f.FeedbackDate DESC, f.FeedbackID DESC;
+
+SELECT fs.FeedbackID,fs.SettingID AS MainCategoryID,fs.SubSettingID AS SubCategoryID
+FROM #Feedbacks fp
+INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
+	ON fs.FeedbackID=fp.FeedbackID	
+INNER JOIN crmMainCategory m 
+	ON fs.SettingID=m.MainCategoryID
+WHERE m.siteoffer=@Userrole
 
 DROP TABLE #Feedback;
 

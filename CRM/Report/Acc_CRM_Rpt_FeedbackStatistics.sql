@@ -92,7 +92,7 @@ BEGIN
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + c.UserName + ']','[' + c.UserName + ']')
 		FROM	@Items i INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON i.item = c.CustId
-		--ORDER BY c.UserName ASC
+		ORDER BY c.UserName ASC
 		IF(@UserRole=2)
 		BEGIN
 			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '

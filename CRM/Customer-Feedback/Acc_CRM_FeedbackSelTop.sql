@@ -70,6 +70,7 @@ BEGIN
 	WHERE	fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
 		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
+		AND fbc.FeedbackDate>'2013-01-01'
 	ORDER BY fb.FeedbackDate DESC
 
 	SELECT	t.FeedbackID

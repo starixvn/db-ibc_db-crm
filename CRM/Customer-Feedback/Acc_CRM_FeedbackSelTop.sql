@@ -22,94 +22,93 @@ AS
 BEGIN		
 	SET NOCOUNT ON;	
 
-	SELECT TOP (@top)	fb.FeedbackID
-					,	fb.CustID
-					,	ctm.UserName
-					,	fb.TitleID
-					,	fb.FirstName
-					,	fb.LastName
-					,	fb.Phone
-					,	fb.MobilePhone
-					,	fb.Fax
-					,	fb.Email
-					,	fb.Skype
-					,	fb.MSN
-					,	fb.LanguageID
-					,	fb.CountryID
-					,	fb.CreatorID
-					,	c.username AS CreatorName
-					,	fb.FeedbackDate
-					,	fb.ResolutionDate
-					,	fb.CreateDate
-					,	fb.SolveDate					
-					,	fb.SiteID
-					,	fb.RoleID	
-					,	fb.ResponseID
-					,	fb.StatusID
-					,	CAST(fb.Description AS XML) AS Description
-					,	fb.Solution
-					,	fb.IsReviewed
-					,	fb.Review
-					,	fb.ReviewerID
-					,	rv.username AS ReviewerName
-					,	fbc.IsRelated
-					,	fb.Subject
-					,	l.list AS relatedCustomer
-					,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
-	INTO #temp
-	FROM	crmFeedbackCustomer fbc WITH (NOLOCK)
-	INNER JOIN	crmFeedback fb WITH (NOLOCK)
-			ON	fb.FeedbackID = fbc.FeedbackID
-	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
-			ON	ctm.CustID = fb.CustID
-	INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)
-			ON	fb.CreatorID = c.custid
-	LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK)
-			ON	fb.ReviewerID = rv.custid
-	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
-	WHERE	fb.StatusID NOT IN( 11004,11019)
+	SELECT TOP (@top) fb.FeedbackID, ctm.UserName INTO #temp
+	FROM crmFeedbackCustomer fbc WITH (NOLOCK)
+		INNER JOIN crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID = fbc.FeedbackID
+		INNER JOIN crmCustomer ctm WITH (NOLOCK) ON ctm.CustID = fb.CustID	
+	WHERE fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
 		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
-		AND fb.FeedbackDate>'2013-01-01'
 	ORDER BY fb.FeedbackDate DESC
-
-	SELECT	t.FeedbackID
-		,	t.CustID
+	
+	;WITH CTE AS (
+		SELECT	fb.FeedbackID
+		,	fb.CustID
 		,	t.UserName
-		,	t.TitleID
-		,	t.FirstName
-		,	t.LastName
-		,	t.Phone
-		,	t.MobilePhone
-		,	t.Fax
-		,	t.Email
-		,	t.Skype
-		,	t.MSN
-		,	t.LanguageID
-		,	t.CountryID
-		,	t.CreatorID
-		,	t.CreatorName
-		,	t.FeedbackDate
-		,	t.ResolutionDate
-		,	t.CreateDate
-		,	t.SolveDate					
-		,	t.SiteID
-		,	t.RoleID						
-		,	t.ResponseID
-		,	t.StatusID						
-		,	t.Solution
-		,	t.IsReviewed
-		,	t.Review
-		,	t.ReviewerID
-		,	t.ReviewerName
-		,	t.IsRelated
-		,	t.Subject
-		,	t.relatedCustomer
+		,	fb.TitleID
+		,	fb.FirstName
+		,	fb.LastName
+		,	fb.Phone
+		,	fb.MobilePhone
+		,	fb.Fax
+		,	fb.Email
+		,	fb.Skype
+		,	fb.MSN
+		,	fb.LanguageID
+		,	fb.CountryID
+		,	fb.CreatorID
+		,	c.username AS CreatorName
+		,	fb.FeedbackDate
+		,	fb.ResolutionDate
+		,	fb.CreateDate
+		,	fb.SolveDate					
+		,	fb.SiteID
+		,	fb.RoleID						
+		,	fb.ResponseID
+		,	fb.StatusID						
+		,	CAST(fb.Description AS XML) AS Description
+		,	fb.Solution
+		,	fb.IsReviewed
+		,	fb.Review
+		,	fb.ReviewerID
+		,	rv.username AS ReviewerName
+		,	0 AS IsRelated
+		,	fb.Subject
+		,	l.list AS relatedCustomer
+		,   fb.ProvinceID
+	FROM #temp t
+		INNER JOIN crmFeedback fb WITH (NOLOCK) ON fb.FeedbackID = t.FeedbackID
+		LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid 
+		INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK) ON	fb.CreatorID = c.custid
+		CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
+	) 
+	SELECT	fb.FeedbackID
+		,	fb.CustID
+		,	fb.UserName
+		,	fb.TitleID
+		,	fb.FirstName
+		,	fb.LastName
+		,	fb.Phone
+		,	fb.MobilePhone
+		,	fb.Fax
+		,	fb.Email
+		,	fb.Skype
+		,	fb.MSN
+		,	fb.LanguageID
+		,	fb.CountryID
+		,	fb.CreatorID
+		,	fb.CreatorName
+		,	fb.FeedbackDate
+		,	fb.ResolutionDate
+		,	fb.CreateDate
+		,	fb.SolveDate					
+		,	fb.SiteID
+		,	fb.RoleID						
+		,	fb.ResponseID
+		,	fb.StatusID						
+		,	fb.Solution
+		,	fb.IsReviewed
+		,	fb.Review
+		,	fb.ReviewerID
+		,	fb.ReviewerName
+		,	fb.IsRelated
+		,	fb.Subject
+		,	fb.relatedCustomer
 		,	nr.value(N'@Remark',N'nvarchar(max)') AS Description
 		,	nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
-		,   t.ProvinceID
-	FROM #temp t
-		OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
+		,   fb.ProvinceID
+	FROM CTE fb
+		OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
 	
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
 	CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 

@@ -22,19 +22,18 @@ AS
 BEGIN		
 	SET NOCOUNT ON;	
 
-	SELECT TOP (@top) fb.FeedbackID, ctm.UserName INTO #temp
+	SELECT TOP (@top) fb.FeedbackID INTO #temp
 	FROM crmFeedbackCustomer fbc WITH (NOLOCK)
-		INNER JOIN crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID = fbc.FeedbackID
-		INNER JOIN crmCustomer ctm WITH (NOLOCK) ON ctm.CustID = fb.CustID	
+		INNER JOIN crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID = fbc.FeedbackID		
 	WHERE fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
-		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
+		AND ((@UserRole=1 AND fb.SiteID=33002) OR (@UserRole=2 AND fb.SiteID<>33002))
 	ORDER BY fb.FeedbackDate DESC
 	
 	;WITH CTE AS (
 		SELECT	fb.FeedbackID
 		,	fb.CustID
-		,	t.UserName
+		,	ctm.UserName
 		,	fb.TitleID
 		,	fb.FirstName
 		,	fb.LastName
@@ -68,6 +67,7 @@ BEGIN
 		,   fb.ProvinceID
 	FROM #temp t
 		INNER JOIN crmFeedback fb WITH (NOLOCK) ON fb.FeedbackID = t.FeedbackID
+		INNER JOIN crmCustomer ctm WITH (NOLOCK) ON ctm.CustID = fb.CustID	
 		LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid 
 		INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK) ON	fb.CreatorID = c.custid
 		CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l

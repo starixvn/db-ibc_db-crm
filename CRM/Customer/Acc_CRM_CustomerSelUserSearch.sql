@@ -57,7 +57,7 @@ BEGIN
 		IF @Rows > 0
 			INSERT INTO @UserNameTable (UserName, SearchCount)
 			SELECT TOP (@Rows) Username, -1 as SearchCount
-			FROM DBACC.bodb02.dbo.Custinfo WITH (NOLOCK) 
+			FROM bodb02.dbo.Customer WITH (NOLOCK) 
 			WHERE username LIKE @Username +'%' 
 					and username not in (SELECT UserName from @UserNameTable)
 					AND ((@UserRole=2 AND ISNULL(srecommend,-1)<>0 AND ISNULL(srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK))) 

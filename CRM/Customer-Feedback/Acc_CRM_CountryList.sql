@@ -16,7 +16,7 @@ Param's Explanation:
 
 
 BEGIN
-SELECT * FROM crmCountry(NOLOCK) 
+SELECT [CountryID],[CountryAbb],[CountryName],[CountryCode],[isActive],[DisplayOrder] FROM crmCountry(NOLOCK) 
 WHERE IsActive = 1 AND @UserRole=SiteOffer
 END
 GO

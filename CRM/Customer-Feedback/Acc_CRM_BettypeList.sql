@@ -17,7 +17,7 @@ as
 	
 */
 
-select [BettypeID],[Name],[ProductID],[DisplayOrder] from crmBettype(nolock) 
+select [BettypeID],[Name],[ProductID],[DisplayOrder],IsActive from crmBettype(nolock) 
 WHERE IsActive = 1 and (ISNULL(@ProductID,0)=0 OR ProductID = @ProductID)
 	AND (SiteOffer=0 OR SiteOffer=@UserRole OR @UserRole=0)
 

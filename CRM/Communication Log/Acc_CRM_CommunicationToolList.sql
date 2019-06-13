@@ -20,7 +20,7 @@ SELECT [CommunicationID],[DisplayOrder],[IsActive],
 		CASE	WHEN @Lang='zh-TW' THEN ISNULL(NameCT,Name)
 					WHEN @Lang='zh-CN' THEN ISNULL(NameCS,Name)
 											ELSE Name
-			END AS Name,
+			END AS Name
 FROM crmCommunicationTool(NOLOCK) 
 WHERE IsActive = 1 AND (siteOffer=@UserRole)				
 GO

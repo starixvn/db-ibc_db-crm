@@ -21,7 +21,7 @@ BEGIN
 		,CASE		WHEN @Lang='zh-TW' THEN ISNULL(SettingValueCT,SettingValue)
 					WHEN @Lang='zh-CN' THEN ISNULL(SettingValueCS,SettingValue)
 											ELSE SettingValue
-			END AS Licensee,
+			END AS Licensee
 	FROM	dbo.crmSetting AS cs WITH (NOLOCK)
 	WHERE	settingname = 'LicenseeType'
 		AND	cs.IsActive = 1

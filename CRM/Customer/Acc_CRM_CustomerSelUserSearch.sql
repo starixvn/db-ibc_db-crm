@@ -50,14 +50,14 @@ BEGIN
 					)
 				AND ((@UserRole=2 AND c.SiteID<>33002) 
 						OR (@UserRole=1 AND c.SiteID=33002) 
-						OR @UserRole=0)
+					)
 		ORDER BY SearchCount DESC
 
 		SELECT @Rows = 10 - count(1) FROM @UserNameTable 
 		IF @Rows > 0
 			INSERT INTO @UserNameTable (UserName, SearchCount)
 			SELECT TOP (@Rows) Username, -1 as SearchCount
-			FROM DBACC.bodb02.dbo.Custinfo WITH (NOLOCK) 
+			FROM DBACC.bodb02.dbo.Custinfo WITH (NOLOCK) -- CRM allow to search unicode usernames
 			WHERE username LIKE @Username +'%' 
 					and username not in (SELECT UserName from @UserNameTable)
 					AND ((@UserRole=2 AND ISNULL(srecommend,-1)<>0 AND ISNULL(srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK))) 
@@ -84,7 +84,7 @@ BEGIN
 			)
 			AND ((@UserRole=2 AND c.SiteID<>33002) 
 					OR (@UserRole=1 AND c.SiteID=33002) 
-					OR @UserRole=0)
+				)
 		ORDER BY SearchCount DESC
 
 		SELECT UserName from @UserNameTable ORDER BY SearchCount DESC, UserName

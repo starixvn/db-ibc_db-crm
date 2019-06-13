@@ -1,7 +1,8 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_SettingSel
 (
-@UserRole   TINYINT
+@UserRole		TINYINT,
+@Lang			VARCHAR(10)='en-US'
 )
 AS
 /*
@@ -21,9 +22,16 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 	
-	SELECT	cs.SettingName
+	SELECT
+			CASE	WHEN @Lang='zh-TW' THEN ISNULL(cs.SettingNameCT,cs.SettingName)
+					WHEN @Lang='zh-CN' THEN ISNULL(cs.SettingNameCS,cs.SettingName)
+											ELSE cs.SettingName
+			END AS SettingName
 		,	cs.SettingID
-		,	cs.SettingValue
+		,	CASE	WHEN @Lang='zh-TW' THEN ISNULL(cs.SettingValueCT,cs.SettingValue)
+											WHEN @Lang='zh-CN' THEN ISNULL(cs.SettingValueCS,cs.SettingValue)
+											ELSE cs.SettingValue
+			END AS SettingValue
 		,	cs.DisplayOrder
 		,	cs.IsActive
 	FROM	dbo.crmSetting AS cs WITH(NOLOCK)
@@ -34,3 +42,4 @@ GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_SettingSel TO [bodbAdminNet];
 GO
+

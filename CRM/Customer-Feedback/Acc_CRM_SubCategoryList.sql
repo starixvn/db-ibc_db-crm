@@ -1,7 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE procedure Acc_CRM_SubCategoryList
-	@MainCategoryID int = null,
-	@UserRole		TINYINT
+	@MainCategoryID INT = null,
+	@UserRole		TINYINT,
+	@Lang			VARCHAR(10)='en-US'
 as
 
 /*
@@ -17,8 +18,16 @@ as
 	
 */
 
-select * from crmSubCategory(nolock) 
-where IsActive = 1 and (ISNULL(@MainCategoryID,0)=0 OR MainCategoryID = @MainCategoryID)
+SELECT [SubCategoryID],
+		CASE	WHEN @Lang='zh-TW' THEN ISNULL(NameCT,Name)
+							WHEN @Lang='zh-CN' THEN ISNULL(NameCS,Name)
+													ELSE Name
+					END AS Name,
+					DisplayOrder,
+					1 AS IsActive,
+		[MainCategoryID]
+FROM crmSubCategory WITH(NOLOCK) 
+WHERE IsActive = 1 and (ISNULL(@MainCategoryID,0)=0 OR MainCategoryID = @MainCategoryID)
 	AND (siteoffer=@UserRole OR siteOffer=0 OR @UserRole=0)
 
 GO

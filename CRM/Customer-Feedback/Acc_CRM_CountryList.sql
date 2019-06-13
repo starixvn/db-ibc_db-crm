@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE Acc_CRM_CountryList
-@UserRole INT=2
+@UserRole		INT=2,
+@Lang			VARCHAR(10)='en-US'
 AS
 /*
 Created: Winnie
@@ -16,7 +17,13 @@ Param's Explanation:
 
 
 BEGIN
-SELECT [CountryID],[CountryAbb],[CountryName],[CountryCode],[isActive],[DisplayOrder] FROM crmCountry(NOLOCK) 
+SELECT	[CountryID],[CountryAbb]		
+		,CASE		WHEN @Lang='zh-TW' THEN ISNULL(CountryNameCT,[CountryName])
+					WHEN @Lang='zh-CN' THEN ISNULL(CountryNameCS,[CountryName])
+											ELSE [CountryName]
+			END AS [CountryName],
+		[CountryCode],
+		[isActive],[DisplayOrder] FROM crmCountry  WITH(NOLOCK) 
 WHERE IsActive = 1 AND @UserRole=SiteOffer
 END
 GO

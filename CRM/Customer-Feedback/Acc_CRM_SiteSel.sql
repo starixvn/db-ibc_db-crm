@@ -1,7 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	[dbo].[Acc_CRM_SiteSel]
 					@LicenseeType	TINYINT = 0,
-					@UserRole		TINYINT
+					@UserRole		TINYINT,
+					@Lang			VARCHAR(10)='en-US'
 AS
 /*
 	Created:	20140522@Dom
@@ -17,9 +18,13 @@ AS
 		- @LicenseeType =	0: Both
 							1: Credit
 							2: Licensee
-
+		- @Lang	=	en-US
+					zh-TW
+					zh-CN
 	Example: EXEC Acc_CRM_SiteSel_xpre @LicenseeType = 2
 */
+
+
 BEGIN
 	SET NOCOUNT ON
 	IF @UserRole=2
@@ -27,7 +32,10 @@ BEGIN
 	SELECT	s.SiteID, s.SiteName, s.IsLicensee, s.IsActive
 	FROM (
 		SELECT	SiteID			=	s.SettingID
-			,	SiteName		=	s.SettingValue
+			,	SiteName		=	CASE	WHEN @Lang='zh-TW' THEN ISNULL(s.SettingValueCT,s.SettingValue)
+											WHEN @Lang='zh-CN' THEN ISNULL(s.SettingValueCS,s.SettingValue)
+											ELSE s.SettingValue
+									END
 			,	IsLicensee		=	CASE sr.ParentID	WHEN 33000 THEN 1
 													WHEN 33001 THEN 0
 													ELSE -1 
@@ -45,7 +53,11 @@ BEGIN
 	END
 	ELSE IF @UserRole=1
 	BEGIN
-		SELECT	s.SettingID AS SiteID, s.SettingValue AS SiteName, 0 IsLicensee, s.IsActive
+		SELECT	s.SettingID AS SiteID, CASE	WHEN @Lang='zh-TW' THEN ISNULL(s.SettingValueCT,s.SettingValue)
+											WHEN @Lang='zh-CN' THEN ISNULL(s.SettingValueCS,s.SettingValue)
+											ELSE s.SettingValue
+									END AS SiteName, 
+				0 IsLicensee, s.IsActive
 		FROM crmSetting s WITH(NOLOCK)
 		WHERE s.SettingID=33002
 	END

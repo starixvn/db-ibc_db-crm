@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE Acc_CRM_CountryList
-@UserRole		INT=2,
+@UserRole		TINYINT=2,
 @Lang			VARCHAR(10)='en-US'
 AS
 /*

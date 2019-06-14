@@ -1,8 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	Acc_CRM_LicenseeTypeSel
 (
-@UserRole		TINYINT,
-@Lang			VARCHAR(10)='en-US'
+@UserRole		TINYINT
+
 )
 AS
 /*
@@ -17,11 +17,8 @@ AS
 	Param's Explanation:
 */
 BEGIN
-	SELECT	SettingID		LicenseeType		
-		,CASE		WHEN @Lang='zh-TW' THEN ISNULL(SettingValueCT,SettingValue)
-					WHEN @Lang='zh-CN' THEN ISNULL(SettingValueCS,SettingValue)
-											ELSE SettingValue
-			END AS Licensee
+	SELECT		SettingID		LicenseeType		
+			,	SettingValue	AS Licensee
 	FROM	dbo.crmSetting AS cs WITH (NOLOCK)
 	WHERE	settingname = 'LicenseeType'
 		AND	cs.IsActive = 1

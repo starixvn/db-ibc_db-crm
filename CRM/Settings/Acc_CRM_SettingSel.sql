@@ -23,10 +23,7 @@ BEGIN
 	SET NOCOUNT ON;
 	
 	SELECT
-			CASE	WHEN @Lang='zh-TW' THEN ISNULL(cs.SettingNameCT,cs.SettingName)
-					WHEN @Lang='zh-CN' THEN ISNULL(cs.SettingNameCS,cs.SettingName)
-											ELSE cs.SettingName
-			END AS SettingName
+			SettingName
 		,	cs.SettingID
 		,	CASE	WHEN @Lang='zh-TW' THEN ISNULL(cs.SettingValueCT,cs.SettingValue)
 											WHEN @Lang='zh-CN' THEN ISNULL(cs.SettingValueCS,cs.SettingValue)

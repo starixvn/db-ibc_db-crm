@@ -26,7 +26,7 @@ SELECT MainCategoryID,
 			DisplayOrder,
 			1 AS IsActive
 FROM crmMainCategory WITH(NOLOCK) WHERE IsActive = 1
-	AND (siteOffer=@UserRole OR SiteOffer=0 OR @UserRole=0)
+	AND (siteOffer=@UserRole)
 END
 GO
 

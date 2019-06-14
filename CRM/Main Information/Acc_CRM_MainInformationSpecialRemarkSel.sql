@@ -19,7 +19,7 @@ SELECT TOP 5 a.Remark
 FROM crmCustomerRemark a WITH(NOLOCK) 
 	INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
 WHERE a.CustID = @CustID AND IsSpecial = 1
-	AND(@UserRole=0 OR(@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
+	AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationSpecialRemarkSel] TO [bodbAdminNet]

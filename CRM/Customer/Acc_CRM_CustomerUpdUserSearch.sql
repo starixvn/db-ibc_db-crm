@@ -29,7 +29,7 @@ BEGIN
 	IF(NOT EXISTS (SELECT TOP 1 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID
 																		AND ((@UserRole=2 AND SiteID<>33002) 
 																			OR (@UserRole=1 AND SiteID=33002) 
-																			OR @UserRole=0)))
+																			)))
 		RETURN;
 
 	DECLARE @PhoneNumber1 NVARCHAR(200) = '',

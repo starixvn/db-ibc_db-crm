@@ -28,7 +28,7 @@ SELECT [SubCategoryID],
 		[MainCategoryID]
 FROM crmSubCategory WITH(NOLOCK) 
 WHERE IsActive = 1 and (ISNULL(@MainCategoryID,0)=0 OR MainCategoryID = @MainCategoryID)
-	AND (siteoffer=@UserRole OR siteOffer=0 OR @UserRole=0)
+	AND (siteoffer=@UserRole)
 
 GO
 

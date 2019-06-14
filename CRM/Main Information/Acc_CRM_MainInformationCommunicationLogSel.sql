@@ -21,7 +21,7 @@ BEGIN
 	SELECT @CustID=b.CustID
 	FROM  crmCustomer b WITH(NOLOCK) 
 	WHERE b.CustID = @CustID
-		AND(@UserRole=0 OR(@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
+		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
 	SELECT DISTINCT TOP 10 f.FeedbackID
 	INTO #Feedback

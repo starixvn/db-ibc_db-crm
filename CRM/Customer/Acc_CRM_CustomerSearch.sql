@@ -70,8 +70,7 @@ BEGIN
 			@RoleID = RoleID 
 			FROM bodb02.dbo.Customer(NOLOCK) c
 			WHERE c.phone = @UserName OR c.mobilephone = @username	
-				AND (@UserRole=0 
-				OR(@UserRole=1 AND (c.srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=c.srecommend)))
+				AND ((@UserRole=1 AND (c.srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=c.srecommend)))
 				OR(@UserRole=2 AND c.srecommend<>0 AND NOT EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=srecommend))
 				)	
 		END					
@@ -349,7 +348,7 @@ BEGIN
 			AND custID < 0
 			AND ((@UserRole=2 AND SiteID<>33002) 
 				OR (@UserRole=1 AND SiteID=33002) 
-				OR @UserRole=0)
+				)
 
 		IF(@custID IS NULL) RETURN;
 

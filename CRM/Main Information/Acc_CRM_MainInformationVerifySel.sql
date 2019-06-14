@@ -99,8 +99,7 @@ BEGIN
 	FROM crmCustomer(NOLOCK) c
 	LEFT JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
 	WHERE c.custid = @CustID
-		AND(@UserRole=0 
-			OR (@UserRole=1 AND c.SiteID=33002)
+		AND((@UserRole=1 AND c.SiteID=33002)
 			OR (@UserRole=2 AND c.SiteID<>33002)
 			)
 END

@@ -35,7 +35,7 @@ BEGIN
 		,	cs.DisplayOrder
 		,	cs.IsActive
 	FROM	dbo.crmSetting AS cs WITH(NOLOCK)
-	WHERE cs.SiteOffer=@UserRole OR cs.SiteOffer=0 OR @UserRole=0
+	WHERE cs.SiteOffer=@UserRole
 	ORDER BY cs.IsActive DESC, cs.SettingName, cs.DisplayOrder, cs.SettingID;
 END;
 GO

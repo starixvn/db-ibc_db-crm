@@ -313,7 +313,7 @@ BEGIN
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
-				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
+				AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 			ORDER BY FeedbackDate DESC;
 		END;
 		-- customer
@@ -403,7 +403,7 @@ BEGIN
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
-				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
+				AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 			ORDER BY FeedbackDate DESC;
 
 		END;   --- end: get feedback for customer
@@ -490,7 +490,7 @@ BEGIN
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			WHERE	fbc.CustID < 0
 				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
-				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
+				AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 				AND	StatusID IN( 11004,11019)
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0

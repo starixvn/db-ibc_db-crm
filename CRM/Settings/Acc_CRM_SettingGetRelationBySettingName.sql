@@ -24,7 +24,7 @@ BEGIN
 	SET NOCOUNT ON
 
 
-	SELECT st.SettingID, st.SettingValue, 
+	SELECT st.SettingID, 
 			CASE	WHEN @Lang='zh-TW' THEN ISNULL(SettingValueCT,SettingValue)
 					WHEN @Lang='zh-CN' THEN ISNULL(SettingValueCS,SettingValue)
 											ELSE SettingValue

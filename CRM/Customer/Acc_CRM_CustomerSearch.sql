@@ -90,7 +90,7 @@ BEGIN
 				AND CustID > 0
 				AND ((@UserRole=2 AND SiteID<>33002) 
 					OR (@UserRole=1 AND SiteID=33002) 
-					OR @UserRole=0)
+					)
 		END
 
 		IF @custID IS NULL    --search all system but cannot find Customer -> Quit Execution

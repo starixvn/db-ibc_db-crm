@@ -54,7 +54,6 @@ BEGIN
 		,	@GuestID		INT
 		,	@TotalPages		INT;
 	
-	CREATE TABLE #crmCustomer (custID INT)
 	CREATE TABLE #Communication	 (CommunicationID	INT PRIMARY KEY )
 	CREATE TABLE #Category		 (CategoryID		INT PRIMARY KEY )
 	
@@ -411,7 +410,7 @@ BEGIN
 	DROP TABLE #Feedback
 	DROP TABLE #Category
 	DROP TABLE #Communication
-	DROP TABLE #crmCustomer
+	
 	
 END
 GO

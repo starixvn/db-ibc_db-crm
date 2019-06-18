@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="1"></info>*/
-CREATE FUNCTION [dbo].[f_GetRelatedCustomer_helen_xpre]
+CREATE FUNCTION [dbo].[f_GetRelatedCustomer]
 (
 	@FeedbackID INT
 )
@@ -38,5 +38,6 @@ RETURN
 		
 		) AS t
 	FOR XML PATH ('')), 1,1, ''), '') AS list
-		
+
+GO	
 	

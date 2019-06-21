@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" selectors="bodbAdminNet" viewers="" isFunction="1"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" selecters="bodbAdminNet" viewers="" isFunction="1"></info>*/
 CREATE FUNCTION [dbo].[f_GetRelatedCustomer]
 (
 	@FeedbackID INT

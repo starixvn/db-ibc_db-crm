@@ -71,8 +71,7 @@ BEGIN
 			ON	c.CustID = cf.CustID
 		LEFT JOIN	bodb02.dbo.Customer AS c1 WITH (NOLOCK)
 			ON	c1.custid = cf.CustID
-	WHERE	cf.FeedbackID = @FeedbackID 
-		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
+	WHERE	cf.FeedbackID = @FeedbackID 	
 		AND	cf.IsRelated = 1;
 		
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,

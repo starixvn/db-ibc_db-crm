@@ -37,7 +37,7 @@ BEGIN
 	SELECT DISTINCT TOP 10 f.FeedbackID
 	FROM crmFeedback f WITH(NOLOCK) 
 		INNER JOIN  crmFeedbackCustomer cf WITH(NOLOCK) ON cf.FeedbackID = f.FeedbackID
-	WHERE cf.CustID = @CustID
+	WHERE cf.CustID = @CustID AND cf.IsRelated = 1
 		AND f.StatusID <> 11004 -- exclude deleted
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC

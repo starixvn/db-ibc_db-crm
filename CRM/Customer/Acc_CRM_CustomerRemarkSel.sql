@@ -1,27 +1,26 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerRemarkSel    Script Date: 3/26/2014 6:06:05 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE Acc_CRM_CustomerRemarkSel
-	@CustID INT
+	@CustID		INT,
+	@UserRole   TINYINT
 AS
-
-SELECT * FROM crmCustomerRemark(NOLOCK) WHERE CustID = @CustID
-
-
+/*
+	Created: Winnie
+	Date: 20190510
+	Task : sel remark
+	DB: DBCRM/bodb_CRM
+	Original:
+	Revisions:		
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+	Param's Explanation:	
+*/
+BEGIN
+SELECT * 
+		FROM crmCustomerRemark a WITH(NOLOCK) 
+			INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
+		WHERE a.CustID = @CustID
+			AND ((@UserRole=1 AND b.SiteID=33002) OR (@UserRole=2 AND b.SiteID<>33002))
+END
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerRemarkSel] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerRemarkSel] TO [vnteam]
 GO 

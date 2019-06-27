@@ -1,23 +1,32 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+CREATE PROCEDURE Acc_CRM_CountryList
+@UserRole		TINYINT=2,
+@Lang			VARCHAR(10)='en-US'
+AS
+/*
+Created: Winnie
+Date: 20140212
+Task : Get data for main tab
+DB: DBCRM.bodb_CRM
+Original:
 
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CountryList    Script Date: 3/26/2014 6:06:10 PM ******/
-create procedure Acc_CRM_CountryList
-as
-select * from crmCountry(nolock) where IsActive = 1
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
+Revisions:	
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+Param's Explanation:	
+*/
 
 
-GO 
+BEGIN
+SELECT	[CountryID],[CountryAbb]		
+		,CASE		WHEN @Lang='zh-TW' THEN ISNULL(CountryNameCT,[CountryName])
+					WHEN @Lang='zh-CN' THEN ISNULL(CountryNameCS,[CountryName])
+											ELSE [CountryName]
+			END AS [CountryName],
+		[CountryCode],
+		[isActive],[DisplayOrder] FROM crmCountry  WITH(NOLOCK) 
+WHERE IsActive = 1 AND @UserRole=SiteOffer
+END
+GO
+
  GRANT EXECUTE ON [dbo].[Acc_CRM_CountryList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CountryList] TO [vnteam]
 GO 

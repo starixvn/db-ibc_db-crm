@@ -1,4 +1,4 @@
-﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticsSummary
 (
 	@Year INT
@@ -16,7 +16,8 @@ Original:
 Revisions:
 		- 2014-08-12@Dom: Feature [#18860] Change requests on 10 Jul 2014
 		- 20180420@Winnie: Missing some data on Categories Summary Report RedmineID:#94053
-		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
+		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637     	
 Param's Explanation:
 	@SiteType:	0-All,
 				1-IBC,
@@ -43,7 +44,7 @@ BEGIN
 		INNER JOIN crmMainCategory m WITH(NOLOCK)  ON m.MainCategoryID = fs.SettingID
 		INNER JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and fs.SubSettingID = s.SubCategoryID
 		LEFT JOIN crmSite [site] WITH (NOLOCK) ON [site].SiteID = f.SiteID
-	WHERE f.StatusID <> 11004
+	WHERE f.StatusID NOT IN( 11004,11019)
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1)   OR (@SiteType=3 and IsLicensee IS NULL))
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ),
@@ -60,10 +61,3 @@ END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSummary] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSummary] TO [vnteam] 
-GO
---[Acc_CRM_Rpt_FeedbackStatisticsSummary] 2015,0,-12
-
---SELECT FromDate = DATEADD(hour,-12,CONVERT( DATETIME, CAST (2014 AS VARCHAR(10))+'01'+'01',102 ));
-
---select * from crmFeedback where MaincategoryID=3000 and subcategoryID=4000 and feedbackdate >='2014-12-31 12:00:00.000'

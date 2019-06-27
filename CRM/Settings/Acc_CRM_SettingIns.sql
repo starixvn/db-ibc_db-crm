@@ -1,12 +1,5 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_SettingIns    Script Date: 3/26/2014 6:06:09 PM ******/
-  
-CREATE PROCEDURE [dbo].[Acc_CRM_SettingIns]  
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_SettingIns]  
 (  
  @UserID   INT,  
  @SettingName VARCHAR(50),  
@@ -16,7 +9,8 @@ CREATE PROCEDURE [dbo].[Acc_CRM_SettingIns]
  @DisplayOrder INT,  
  @IP    VARCHAR(15),  
  @ErrCode  INT = 0 OUTPUT,  
- @ErrMsg   NVARCHAR(4000) = '' OUTPUT  
+ @ErrMsg   NVARCHAR(4000) = '' OUTPUT ,
+ @UserRole	INT
 )  
 AS  
 /*  
@@ -27,9 +21,10 @@ DB: DBCRM/bodb_CRM
 Original:  
   
 Revisions:  
- -20120424@Sophia: Add parameter @SettingType for @SettingName = 'Site' to indicate Licensee site or Credit Site  
- -20130121@Johnson: chang linked server DB03 to DBPOLICY  
- -20140114@Dom: Update Language setting  
+ - 20120424@Sophia: Add parameter @SettingType for @SettingName = 'Site' to indicate Licensee site or Credit Site  
+ - 20130121@Johnson: chang linked server DB03 to DBPOLICY  
+ - 20140114@Dom: Update Language setting  
+ - 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:  
  @SettingType:  
    0 : Licensee site    
@@ -55,7 +50,7 @@ BEGIN
  --- check existed  
   SELECT TOP 1 @SettingID = SettingID   
   FROM crmSetting WITH(NOLOCK)   
-  WHERE SettingName = @SettingName AND @SettingName <> 'Site' AND SettingValue = @SettingValue  
+  WHERE SettingName = @SettingName AND @SettingName <> 'Site' AND SettingValue = @SettingValue AND SiteOffer=@UserRole  
   ORDER BY SettingID DESC  
  IF ISNULL(@SettingID, '') <> ''  
  BEGIN  
@@ -64,7 +59,7 @@ BEGIN
   WHERE SettingName = @SettingName   
     AND SettingValue = @SettingValue  
     AND SettingID =@SettingID   
-      
+    AND SiteOffer=@UserRole   
  END  
  ELSE --- check existed for Site and indicate Credit/Licensee    
   SELECT TOP 1 @SettingID = SettingID    
@@ -73,6 +68,7 @@ BEGIN
     AND CASE WHEN @SettingType = 1 AND SettingID BETWEEN 6000 AND 6199 THEN 1  
        WHEN @SettingType = 0 AND SettingID BETWEEN 6200 AND 6999 THEN 1  
      ELSE 0 END = 1  
+	AND SiteOffer=@UserRole
   ORDER BY SettingID DESC  
   
   IF ISNULL(@SettingID, '') <> ''  
@@ -85,31 +81,38 @@ BEGIN
         WHEN @SettingType = 0 AND SettingID BETWEEN 6200 AND 6999 THEN 1  
       ELSE 0 END = 1  
      AND SettingID =@SettingID   
+	 AND SiteOffer=@UserRole
  END  
  ELSE --create new  
  BEGIN  
   -- generate SettingID  
-  IF NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingName = @SettingName)  
+  IF NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingName = @SettingName AND SiteOffer=@UserRole)  
   BEGIN  
+	
    SELECT @MaxSettingID = MAX(SettingID)  
    FROM crmSetting WITH(NOLOCK)  
-     
+   
    SELECT @SettingID = (@MaxSettingID/1000 + 1)*1000  
   END  
   ELSE  --- Setting name existed already  
+  BEGIN
+	
    IF @SettingName = 'Site' AND @SettingType = 1 --- for Credit Site  
    BEGIN  
     SELECT @SettingID = MAX(SettingID) + 1  
     FROM crmSetting WITH(NOLOCK)  
     WHERE SettingName = 'Site' AND SettingID < 6200  
+		
    END  
    ELSE   
    BEGIN  
+	
     SELECT @SettingID = MAX(SettingID) + 1  
     FROM crmSetting WITH(NOLOCK)  
     WHERE SettingName = @SettingName  
+		
    END  
-    
+  END 
   --- get display order in crmSettingRelation table  
   SELECT   
    @SettingRelation_DisplayOrder = CASE WHEN @ParentID <> 0 THEN ISNULL(MAX(DisplayOrder) + 1, 0) ELSE 0 END  
@@ -123,14 +126,16 @@ BEGIN
       SettingName,   
       SettingID,   
       SettingValue,   
-      DisplayOrder  
+      DisplayOrder,
+	  SiteOffer
      )  
     VALUES   
      (  
       @SettingName,   
       @SettingID,  
       @SettingValue,   
-      @DisplayOrder  
+      @DisplayOrder,
+	  @UserRole  
      )  
   IF @@ERROR <> 0  
   BEGIN  
@@ -150,7 +155,7 @@ BEGIN
   IF @ErrCode <> 0  
   BEGIN  
    -- rollback  
-   DELETE FROM crmSetting WHERE SettingID = @SettingID  
+   DELETE FROM crmSetting WHERE SettingID = @SettingID AND SiteOffer=@UserRole
    SELECT @ErrCode = 102, @ErrMsg = @ErrMsg--'Create new setting unsuccessfuly.'  
    RETURN  
   END  
@@ -165,6 +170,7 @@ BEGIN
       '<SettingName>'  + ISNULL(@SettingName,'')      + '</SettingName>'  +  
       '<SettingValue>' + ISNULL(@SettingValue,'')      + '</SettingValue>' +  
       '<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),@DisplayOrder),'') + '</DisplayOrder>' +  
+	  '<UserRole>' + ISNULL(CONVERT(VARCHAR(10),@UserRole),'') + '</UserRole>' +  
      '</Acc_CRM_SettingIns>'  
       
   
@@ -176,18 +182,7 @@ BEGIN
      @IP = @IP,   
      @NewValues = @LogElement  
 END  
-  
-  
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_SettingIns] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingIns] TO [vnteam]
 GO 

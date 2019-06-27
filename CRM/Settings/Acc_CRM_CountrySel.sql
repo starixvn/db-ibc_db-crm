@@ -1,4 +1,6 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_CountrySel]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_CountrySel]
+@UserRole INT=2
 AS
 /*
 Created: Lukas
@@ -8,7 +10,7 @@ DB: DB06.bodb_CRM
 Original:
 
 Revisions:
-	
+		- 20190521@Winnie: SiteOffer CN88
 Param's Explanation:
 	
 */
@@ -24,6 +26,7 @@ BEGIN
 		DisplayOrder
 	FROM 
 		crmCountry WITH(NOLOCK)
+	WHERE SiteOffer=@UserRole
 	ORDER BY 
 		CountryName
 END
@@ -31,5 +34,3 @@ END
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_CountrySel] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CountrySel] TO [vnteam]

@@ -1,4 +1,4 @@
-﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticsSettlement
 (
 	@Year INT,
@@ -14,6 +14,7 @@ Original:
 
 Revisions:
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637     
 Param's Explanation:
 	
 */
@@ -30,11 +31,9 @@ BEGIN
 			c.CountryName,
 			COUNT(f.FeedbackID) NoOfIssues 
 	FROM crmFeedback f WITH(NOLOCK) 
-	 INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON f.FeedbackID=fs.FeedbackID
-	--LEFT JOIN crmMainCategory m WITH(NOLOCK)  ON m.MainCategoryID = f.MainCategoryID
-	--LEFT JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and f.SubCategoryID = s.SubCategoryID
+	 INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON f.FeedbackID=fs.FeedbackID	
 	LEFT JOIN crmCountry c WITH(NOLOCK) ON c.CountryID = f.CountryID
-	WHERE f.StatusID <> 11004
+	WHERE f.StatusID NOT IN( 11004,11019)
 		AND fs.SettingID = 3025
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate)),
@@ -45,7 +44,5 @@ END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSettlement] TO [vnteam] 
-GO
---[Acc_CRM_Rpt_FeedbackStatisticsSettlement] 2010,-12
+
 

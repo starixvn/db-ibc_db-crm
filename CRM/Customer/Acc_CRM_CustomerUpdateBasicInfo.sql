@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@Site					INT,
 	@FirstName				NVARCHAR(100),
@@ -29,9 +30,11 @@ ALTER PROC [dbo].[Acc_CRM_CustomerUpdateBasicInfo]
 	@Pic4Name				NVARCHAR(200)='',
 	@CustID					INT,
 	@UserID					INT,
+	@ProvinceID				INT=NULL,
 	@IP						VARCHAR(15),
 	@ErrCode				INT				= 0 OUTPUT,
-	@ErrMsg					NVARCHAR(4000)	= '' OUTPUT	
+	@ErrMsg					NVARCHAR(4000)	= '' OUTPUT,
+	@UserRole				TINYINT
 AS
 /*
 Created: Dom
@@ -43,18 +46,39 @@ Original:
 Revisions:
 	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
 	- 20141118@Dom: Add new PIC name
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 */
 	SET NOCOUNT ON
 
 	SELECT	@ErrCode	= 0,
 			@ErrMsg		= ''
 
-DECLARE @UserName NVARCHAR(100)
+DECLARE @UserName	NVARCHAR(100),
+		@srecommend INT,
+		@SiteID		INT
 
-SELECT @UserName = username
+SELECT @UserName = username,@srecommend=srecommend
 FROM bodb02.dbo.Customer(NOLOCK)
 WHERE custid = @CustID
 
+CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+INSERT INTO #SuperCN88(CustID)
+SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+WHERE UplineId IS NOT NULL
+
+IF @srecommend IS NOT NULL AND @srecommend<>0
+BEGIN
+	IF (@UserRole=1 AND @srecommend<>0 AND NOT EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend))
+		OR  (@UserRole=2 AND EXISTS(SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=@srecommend))
+	BEGIN
+		SELECT @ErrCode=100
+		SELECT @ErrMsg='You need permission'
+		RETURN
+	END
+
+END
+
+BEGIN
 	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
 		DECLARE @Birthday DATETIME
@@ -116,7 +140,7 @@ WHERE custid = @CustID
 			@Answer							= NULL,
 			@CountryID						= NULL,
 			@IsVIP							= NULL,
-			@SiteID							= NULL,
+			@SiteID							= @Site,
 			@Wire_BankName					= NULL,
 			@Wire_BankAddress				= NULL,
 			@Wire_AccountName				= NULL,
@@ -126,6 +150,7 @@ WHERE custid = @CustID
 			@SpecialRemark					= NULL,	
 			@Remark							= NULL,	
 			@CreatorID						= @UserID,
+			@ProvinceID						= @ProvinceID,
 			@IP								= @IP,
 			@ErrCode						= @ErrCode OUTPUT,
 			@ErrMsg							= @ErrMsg OUTPUT
@@ -181,6 +206,7 @@ WHERE custid = @CustID
 		@Pic2Name_Old				NVARCHAR(200),
 		@Pic3Name_Old				NVARCHAR(200),
 		@Pic4Name_Old				NVARCHAR(200),
+		@ProvinceID_Old				INT,
 		@CustID_Old					INT
 
 		SELECT 
@@ -210,7 +236,8 @@ WHERE custid = @CustID
 			@Pic1Name_Old					= Pic1Name,	
 			@Pic2Name_Old					= Pic2Name,	
 			@Pic3Name_Old					= Pic3Name,	
-			@Pic4Name_Old					= Pic4name	
+			@Pic4Name_Old					= Pic4name,
+			@ProvinceID_Old					= ProvinceID
 		FROM crmCustomer WITH(ROWLOCK,UPDLOCK)
 		WHERE CustID	= @CustID
 
@@ -247,7 +274,8 @@ WHERE custid = @CustID
 			Pic1Name					= @Pic1Name,	
 			Pic2Name					= @Pic2Name,	
 			Pic3Name					= @Pic3Name,	
-			Pic4Name					= @Pic4Name	
+			Pic4Name					= @Pic4Name,
+			ProvinceID					= @ProvinceID
 		WHERE CustID	= @CustID
 
 		-- UPDATE Customer Language
@@ -345,6 +373,8 @@ WHERE custid = @CustID
 						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name_Old),'')				+ '</Pic2Name>'		+
 						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name_Old),'')				+ '</Pic3Name>'		+
 						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name_Old),'')				+ '</Pic4Name>'		+
+						'<UserRole>'				+ ISNULL([dbo].[f_EncodeXMLValue](@UserRole),'')					+ '</UserRole>'		+
+						'<ProvinceID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@ProvinceID_Old),'')				+ '</ProvinceID>'		+
 					'</Acc_CRM_CustomerUpdateBasicInfo>'
 
 	SELECT @NewValues =
@@ -377,6 +407,8 @@ WHERE custid = @CustID
 						'<Pic2Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic2Name),'')				+ '</Pic2Name>'		+
 						'<Pic3Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic3Name),'')				+ '</Pic3Name>'		+
 						'<Pic4Name>'				+ ISNULL([dbo].[f_EncodeXMLValue](@Pic4Name),'')				+ '</Pic4Name>'		+
+						'<UserRole>'				+ ISNULL([dbo].[f_EncodeXMLValue](@UserRole),'')				+ '</UserRole>'		+
+						'<ProvinceID>'				+ ISNULL([dbo].[f_EncodeXMLValue](@ProvinceID),'')				+ '</ProvinceID>'		+
 					'</Acc_CRM_CustomerUpdateBasicInfo>'
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
@@ -388,19 +420,7 @@ WHERE custid = @CustID
 				@OldValues = @OldValues
 	
 	END
-	
-
-	
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
+END
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpdateBasicInfo] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpdateBasicInfo] TO [vnteam]
 GO 

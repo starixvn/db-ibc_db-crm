@@ -1,42 +1,43 @@
-﻿
-
-
-ALTER FUNCTION [dbo].[f_GetRelatedCustomer]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" selecters="bodbAdminNet" viewers="" isFunction="1"></info>*/
+CREATE FUNCTION [dbo].[f_GetRelatedCustomer]
 (
 	@FeedbackID INT
 )
-RETURNS @res TABLE ( list VARCHAR(MAX))
+RETURNS TABLE
 /*
 	Created: 20110629@Lukas
 	Task: get Feedback's related customers
-	DB: DB06.bodb_CRM
+	DB: DBCRM/bodb_CRM
 	Original: 
 
 	Revisions:
 		-- 20120131@Lukas: get related Guest user
+		- 20190614@Helen: CN88 - Performance Tuning [Redmine: #112637]
+		
 	Param's Explanation:	
 */
 AS
-BEGIN
-	DECLARE @list VARCHAR(MAX)
+RETURN 
+	SELECT ISNULL(STUFF((SELECT ',' + t.username
+	FROM
+		(
+			SELECT c.Username
+			FROM crmFeedbackCustomer fc WITH(NOLOCK) 
+				INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fc.CustID = c.CustID
+			WHERE FeedbackID = @FeedbackID
+				AND IsRelated = 1
+				
+			UNION ALL
+			
+			SELECT c.Username
+			FROM crmFeedbackCustomer fc WITH(NOLOCK) 
+				INNER JOIN crmcustomer c WITH(NOLOCK) ON fc.CustID = c.CustID
+			WHERE FeedbackID = @FeedbackID
+				AND IsRelated = 1
+				AND c.custid < 0
+		
+		) AS t
+	FOR XML PATH ('')), 1,1, ''), '') AS list
 
-	SELECT @list = COALESCE(@list + ', ' + c.Username, c.Username)
-	FROM crmFeedbackCustomer fc WITH(NOLOCK) 
-		INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fc.CustID = c.CustID
-	WHERE FeedbackID = @FeedbackID
-		AND IsRelated = 1
-
-	SELECT @list = COALESCE(@list + ', ' + c.Username, c.Username)
-	FROM crmFeedbackCustomer fc WITH(NOLOCK) 
-		INNER JOIN crmcustomer c WITH(NOLOCK) ON fc.CustID = c.CustID
-	WHERE FeedbackID = @FeedbackID
-		AND IsRelated = 1
-		AND c.custid < 0
-	INSERT INTO @res VALUES(ISNULL(@list,''))
-
-	RETURN
-END
-
-
-GO
-GRANT VIEW DEFINITION ON f_GetRelatedCustomer to [vnteam]
+GO	
+	

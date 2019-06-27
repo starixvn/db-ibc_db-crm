@@ -1,8 +1,9 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
 	@Username	NVARCHAR(50) = '',
-	@IsGuest	BIT = 0
+	@IsGuest	BIT = 0,
+	@UserRole   TINYINT
 )
 AS
 /*
@@ -23,6 +24,7 @@ Revisions:
 	- 20141118@Dom: Return PIC Name
 	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20180924@Winnie: Search Chinese RedmineID: #99982
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN
@@ -35,6 +37,11 @@ BEGIN
 			@CountryID int,
 			@IsGroupHeadLine BIT
 	
+	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+	INSERT INTO #SuperCN88(CustID)
+	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+	WHERE UplineId IS NOT NULL
+
 	IF @IsGuest = 0
 	BEGIN
 		PRINT 'search by username';
@@ -42,7 +49,8 @@ BEGIN
 			@Username = @Username,	
 			@IsNickName = 0,	
 			@UserID = @custID OUTPUT,
-			@RoleID = @RoleID OUTPUT		
+			@RoleID = @RoleID OUTPUT,
+			@UserRole=@UserRole		
 		
 		IF @custID IS NULL    --- search by nickname
 		BEGIN
@@ -51,7 +59,8 @@ BEGIN
 			@Username = @Username,	
 			@IsNickName = 1,	
 			@UserID = @custID OUTPUT,
-			@RoleID = @RoleID OUTPUT		
+			@RoleID = @RoleID OUTPUT,
+			@UserRole=@UserRole				
 		END
 		
 		IF @custID IS NULL    --- search by phone in IBC
@@ -60,7 +69,10 @@ BEGIN
 			SELECT @custID = c.custID ,
 			@RoleID = RoleID 
 			FROM bodb02.dbo.Customer(NOLOCK) c
-			WHERE c.phone = @UserName OR c.mobilephone = @username		
+			WHERE c.phone = @UserName OR c.mobilephone = @username	
+				AND ((@UserRole=1 AND (c.srecommend=0 OR EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=c.srecommend)))
+				OR(@UserRole=2 AND c.srecommend<>0 AND NOT EXISTS (SELECT TOP 1 1 FROM #SuperCN88 WITH(NOLOCK) WHERE CustId=srecommend))
+				)	
 		END					
 		
 		IF @custID IS NULL    --- search by phone in CRM
@@ -76,6 +88,9 @@ BEGIN
 						OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 				) 
 				AND CustID > 0
+				AND ((@UserRole=2 AND SiteID<>33002) 
+					OR (@UserRole=1 AND SiteID=33002) 
+					)
 		END
 
 		IF @custID IS NULL    --search all system but cannot find Customer -> Quit Execution
@@ -83,6 +98,8 @@ BEGIN
 			PRINT 'No Customer' ;
 			RETURN;
 		END
+		
+	
 --=====================END SEARCH CROSS SYSTEM===================================================
 
 --=====================RETURN RESULT=============================================================
@@ -98,18 +115,19 @@ BEGIN
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 
 			END
 			ELSE
 			BEGIN
+			
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
 									(SELECT site 
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')		
 			END
 			-----return customer
 			SELECT @CountryName = Country,
@@ -172,11 +190,17 @@ BEGIN
 			crm.Remark, 
 			crm.CreateDate, 			
 			ci.Username as CreatorName,
-			CASE c.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							ELSE 7004 
+			CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
+				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
+				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
+				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
+				 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
+				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
+				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
+				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
+				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
+				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006	
+				 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,
@@ -193,9 +217,12 @@ BEGIN
 			'' QQ,
 			'' BBM,
 			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker
+			crm.Checker,
+			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 		FROM 
 			bodb02.dbo.custinfo c WITH(NOLOCK) 
+					--INNER JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.custid=ci.custid
+					--LEFT JOIN crmsetting s WITH(NOLOCK) ON ci.site=crmSeeting
 					LEFT JOIN crmCustomer crm WITH(NOLOCK) ON c.custID = crm.custID
 					LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 					LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
@@ -263,11 +290,17 @@ BEGIN
 			crm.Remark, 
 			crm.CreateDate, 
 			ci.Username as CreatorName,
-			CASE cm.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							ELSE 7004 
+			CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
+				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
+				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
+				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
+				 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
+				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
+				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
+				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
+				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
+				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006
+				 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
 			END AS RoleID,
 			c.danger,
 			c.danger2,
@@ -284,7 +317,8 @@ BEGIN
 			ISNULL(crm.QQ,'') QQ,
 			ISNULL(crm.BBM,'') BBM,
 			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker
+			crm.Checker,
+			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
@@ -312,6 +346,9 @@ BEGIN
 					OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 			) 
 			AND custID < 0
+			AND ((@UserRole=2 AND SiteID<>33002) 
+				OR (@UserRole=1 AND SiteID=33002) 
+				)
 
 		IF(@custID IS NULL) RETURN;
 
@@ -364,7 +401,8 @@ BEGIN
 			crm.Remark, 
 			crm.CreateDate, 
 			ci.Username as CreatorName,
-			7004 as roleID,
+			CASE WHEN @UserRole=2 THEN 7004
+				 WHEN @UserRole=1 THEN 7010 END AS roleID,
 			danger = NULL,
 			danger2 = NULL,
 			danger3 = NULL,
@@ -380,7 +418,8 @@ BEGIN
 			ISNULL(crm.QQ,'') QQ,
 			ISNULL(crm.BBM,'') BBM,
 			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker
+			crm.Checker,
+			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 		FROM 
 			crmCustomer crm WITH(NOLOCK) 
 						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
@@ -394,19 +433,6 @@ BEGIN
 	END	
 END
 
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSearch] TO [bodbAdminNet]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerSearch] TO [vnteam]
-GO 
-
-exec Acc_CRM_CustomerSearch @Username='test',@IsGuest=0

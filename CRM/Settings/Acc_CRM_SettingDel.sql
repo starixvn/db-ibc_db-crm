@@ -1,8 +1,4 @@
-SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	[dbo].[Acc_CRM_SettingDel] (
 					@UserID			INT
 				,	@SettingID		INT
@@ -10,6 +6,7 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_SettingDel] (
 				,	@IP				VARCHAR(15)
 				,	@ErrCode		INT				= 0		OUTPUT
 				,	@ErrMsg			NVARCHAR(4000)	= ''	OUTPUT
+				,	@UserRole		INT
 )
 AS
 /*
@@ -23,7 +20,7 @@ AS
 		- 20130121@Johnson: change linked server DB03 to DBPOLICY
 		- 20140221@Dom: Update Log writing
 		- 20160301@Billy: Change status of a setting value (Active/Inactive) - [Redmine: #53173]
-
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	
 */
@@ -34,7 +31,7 @@ BEGIN
 	
 	SELECT	@OldIsActive = cs.IsActive
 	FROM	dbo.crmSetting AS cs WITH (NOLOCK)
-	WHERE	cs.SettingID = @SettingID;
+	WHERE	cs.SettingID = @SettingID AND cs.SiteOffer=@UserRole
 
 	IF	@OldIsActive IS NULL	
 	BEGIN
@@ -49,7 +46,7 @@ BEGIN
 	-- Update isActive value
 	UPDATE	dbo.crmSetting WITH (ROWLOCK, UPDLOCK)
 	SET		IsActive = @isActive
-	WHERE	SettingID = @SettingID;
+	WHERE	SettingID = @SettingID AND SiteOffer=@UserRole
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -88,5 +85,4 @@ GO
 
 GRANT EXECUTE ON [dbo].[Acc_CRM_SettingDel] TO [bodbAdminNet];
 GO 
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SettingDel] TO [vnteam];
-GO 
+

@@ -1,16 +1,11 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_LogActionActivityList    Script Date: 3/26/2014 6:06:07 PM ******/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER procedure [dbo].[Acc_CRM_LogActionActivityList]
 	@username	varchar(50) = NULL,
 	@fromdate	datetime,
 	@todate		datetime,
 	@actionid	int = null,
-	@custid		int
+	@custid		int,
+	@UserRole	TINYINT
 as
 
 /*
@@ -21,66 +16,71 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	-- 20170614@Winnie: Get log for update siteid,LicenseeType RedmineID:77820
+	- 20170614@Winnie: Get log for update siteid,LicenseeType RedmineID:77820
+	- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 Param's Explanation:
 */
+BEGIN
+	CREATE TABLE #Super(CustID INT PRIMARY KEY)
+	INSERT INTO #Super(CustID)
+	SELECT Custid FROM bodb02.dbo.CustSuper WITH(NOLOCK)
+	WHERE UplineId IS NOT NULL
 
-
-	select lc.LogDate,ci.username, lc.OldValues,lc.Doing NewValues,la.ActionNameEN ActionName
+	select lc.LogDate,ci.username,
+	 lc.OldValues,lc.Doing NewValues,la.ActionNameEN ActionName
 	from crmLogCustomer(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join crmCustomer cc WITH (nolock)  on cc.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where (lc.actionid BETWEEN 100 and 199 OR lc.actionid BETWEEN 600 and 699)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
+	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.Doing  NewValues,la.ActionNameEN ActionName
 	from crmLogFeedback(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join crmCustomer(nolock) cc on cc.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where (lc.actionid BETWEEN 200 and 299 or lc.actionid BETWEEN 400 and 499 or lc.ActionID=704) AND lc.ActionID NOT IN(400,401,402)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
+	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogRedemption(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join crmCustomer(nolock) cc on cc.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where lc.actionid BETWEEN 500 and 599
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
+	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	UNION ALL
 	select lc.LogDate,ci.username, lc.OldValues,lc.NewValues,la.ActionNameEN ActionName
 	from crmLogCustomerRemark(nolock) lc
 	inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+	inner join crmCustomer(nolock) cc on cc.custid = lc.custID
 	INNER JOIN crmLogAction(NOLOCK) la ON la.ActionID = lc.ActionID
 	where (lc.actionid BETWEEN 600 and 699)
 	and (ISNULL(@username,'') = '' OR ci.username = @username) 
 	and (ISNULL(@actionid,0) = 0 or lc.ActionID = @ActionID)
 	and lc.custid = @CustID
 	and lc.LogDate BETWEEN @FromDate and @Todate
+	AND ((@UserRole=1 AND cc.SiteID=33002) OR (@UserRole=2 AND cc.SiteID<>33002))
+	AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 	ORDER BY 1 DESC
-
---	select * from crmLogAction
---	select * from crmLogFeedback where ActionID in (400
---,401
---,402)
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
+END
 
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_LogActionActivityList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_LogActionActivityList] TO [vnteam]
 GO 

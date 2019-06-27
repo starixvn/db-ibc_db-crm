@@ -1,6 +1,7 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelByID] (
-					@FeedbackID INT
+					@FeedbackID		INT,
+					@UserRole		TINYINT
 				)
 AS
 /*
@@ -19,6 +20,7 @@ AS
 		- 20160531@Winnie:  Add more cust info
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 		
 */
@@ -110,6 +112,7 @@ BEGIN
 		,	ISNULL(fb.QQ, '') QQ
 		,	ISNULL(fb.BBM, '') BBM
 		,	fb.LicenseeType
+		,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID
@@ -117,7 +120,8 @@ BEGIN
 			ON	fb.CreatorID = c.custid
 	LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK)
 			ON	fb.ReviewerID = rv.custid
-	WHERE	fb.FeedbackID = @FeedbackID;	
+	WHERE	fb.FeedbackID = @FeedbackID
+		AND ((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002))
 	
 	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
@@ -151,6 +155,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelByID TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackSelByID TO vnteam;
 GO 

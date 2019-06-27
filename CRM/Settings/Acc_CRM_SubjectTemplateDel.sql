@@ -1,13 +1,10 @@
-﻿SET QUOTED_IDENTIFIER ON; 
-GO
-SET ANSI_NULLS ON; 
-GO
-
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_SubjectTemplateDel (
 					@TemplateID		INT
 				,	@isActive		BIT
 				,	@errCode		INT				= 0		OUTPUT
 				,	@errMsg			NVARCHAR(200)	= ''	OUTPUT
+				,	@UserRole		INT
 				)
 AS
 /*
@@ -19,7 +16,7 @@ AS
 	Revisions:
 		- 20120316@Elodie:	change DB06 to DB052 
 		- 20160301@Billy:	Change status of a setting value (Active/Inactive) - [Redmine: #53173]
-
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:	
 */
 BEGIN
@@ -29,7 +26,7 @@ BEGIN
 
 	SELECT	@OldIsActive = cst.IsActive
 	FROM	dbo.crmSubjectTemplate AS cst WITH (NOLOCK)
-	WHERE	cst.templateID = @TemplateID;
+	WHERE	cst.templateID = @TemplateID AND SiteOffer=@UserRole
 
 	IF	@OldIsActive IS NULL	
 	BEGIN
@@ -44,7 +41,7 @@ BEGIN
 	-- Update isActive value
 	UPDATE	dbo.crmSubjectTemplate WITH (ROWLOCK, UPDLOCK)
 	SET		IsActive = @isActive
-	WHERE	TemplateID = @TemplateID;
+	WHERE	TemplateID = @TemplateID AND SiteOffer=@UserRole
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -59,4 +56,3 @@ END;
 GO
 GRANT EXECUTE ON dbo.Acc_CRM_SubjectTemplateDel TO [bodbAdminNet];
 GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_SubjectTemplateDel TO [vnteam]; 

@@ -1,4 +1,9 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	Acc_CRM_LicenseeTypeSel
+(
+@UserRole		TINYINT
+
+)
 AS
 /*
 	Created:	Lukas
@@ -8,13 +13,15 @@ AS
 	Original:
 
 	Revisions:
+		- 20190507@Winnie:	CN88 	[RedmineID:#112637]
 	Param's Explanation:
 */
 BEGIN
-	SELECT	SettingID		LicenseeType
-		,	SettingValue	Licensee
+	SELECT		SettingID		LicenseeType		
+			,	SettingValue	AS Licensee
 	FROM	dbo.crmSetting AS cs WITH (NOLOCK)
 	WHERE	settingname = 'LicenseeType'
 		AND	cs.IsActive = 1
+		AND (siteOffer=@UserRole)
 END
 GO

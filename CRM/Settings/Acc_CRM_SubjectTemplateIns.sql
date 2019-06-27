@@ -1,8 +1,10 @@
-﻿ALTER PROCEDURE [dbo].[Acc_CRM_SubjectTemplateIns]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+ALTER PROCEDURE [dbo].[Acc_CRM_SubjectTemplateIns]
 (	
 	@subject NVARCHAR(200) = '',
 	@errCode INT = 0 OUTPUT,
-	@errMsg NVARCHAR(200) = '' OUTPUT
+	@errMsg NVARCHAR(200) = '' OUTPUT,
+	@UserRole		INT
 )
 AS
 /*
@@ -12,7 +14,8 @@ AS
 	Original:
 
 	Revisions:
-		-20120316@Elodie: change DB06 to DB052 
+		- 20120316@Elodie: change DB06 to DB052 
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:	
 */
 BEGIN
@@ -21,7 +24,7 @@ BEGIN
 	SELECT	@errCode = 0,
 			@errMsg = ''	
 
-	INSERT INTO crmSubjectTemplate (subject, IsActive) VALUES (@subject, 1)		
+	INSERT INTO crmSubjectTemplate (subject, IsActive,SiteOffer) VALUES (@subject, 1,@UserRole)		
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -34,4 +37,3 @@ END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_SubjectTemplateIns] TO [bodbAdminNet]
 GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SubjectTemplateIns] TO [vnteam]

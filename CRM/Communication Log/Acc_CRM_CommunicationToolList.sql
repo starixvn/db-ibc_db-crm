@@ -1,23 +1,29 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_CommunicationToolList    Script Date: 3/26/2014 6:06:10 PM ******/
-create procedure Acc_CRM_CommunicationToolList
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+CREATE PROCEDURE Acc_CRM_CommunicationToolList
+(
+@UserRole		TINYINT,
+@Lang			VARCHAR(10)='en-US'
+)
 AS
-select * from crmCommunicationTool(nolock) where IsActive = 1
-GO
+/*
+	Created:	Winnie
+	Date:		20141118
+	Task:		get list Licensee Type
+	DB:			DBCRM/bodb_CRM
+	Original:
 
-SET QUOTED_IDENTIFIER OFF 
+	Revisions:
+		- 20190507@Winnie:	CN88 	[RedmineID:#112637]
+	Param's Explanation:
+*/
+SELECT [CommunicationID],[DisplayOrder],[IsActive],
+		CASE	WHEN @Lang='zh-TW' THEN ISNULL(NameCT,Name)
+					WHEN @Lang='zh-CN' THEN ISNULL(NameCS,Name)
+											ELSE Name
+			END AS Name
+FROM crmCommunicationTool(NOLOCK) 
+WHERE IsActive = 1 AND (siteOffer=@UserRole)				
 GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
+ 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CommunicationToolList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CommunicationToolList] TO [vnteam]
 GO 

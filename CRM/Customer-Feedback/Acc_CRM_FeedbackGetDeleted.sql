@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackGetDeleted] (
 					@UserName			NVARCHAR(50)	= NULL
 				,	@IsGuest			BIT				= NULL
@@ -9,6 +9,7 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackGetDeleted] (
 				,	@SubCategoryID		INT				= NULL
 				,	@IsReviewed			BIT				= NULL
 				,	@ResponseID			INT				= NULL
+				,	@UserRole			TINYINT			= 2
 				)
 AS
 /*
@@ -24,6 +25,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	
 */
@@ -110,13 +112,15 @@ BEGIN
 		BEGIN
 			SELECT	@CustID = CustID
 			FROM	crmCustomer WITH (NOLOCK)
-			WHERE	UserName = @UserName
-				AND	CustID > 0;
+			WHERE	UserName = @UserName				
+				AND	CustID > 0
+				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
 
 			SELECT	@GuestID = CustID
 			FROM	crmCustomer WITH (NOLOCK)
 			WHERE	UserName = @UserName
-				AND	CustID < 0;
+				AND	CustID < 0
+				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
 		END;
 		ELSE IF	@IsGuest = 0
 		BEGIN
@@ -124,7 +128,8 @@ BEGIN
 				,	@GuestID = CustID
 			FROM	crmCustomer WITH(NOLOCK)
 			WHERE	UserName = @UserName
-				AND	CustID > 0;
+				AND	CustID > 0
+				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
 		END;
 		ELSE
 		BEGIN
@@ -132,7 +137,8 @@ BEGIN
 				,	@CustID = CustID
 			FROM	crmCustomer WITH(NOLOCK)
 			WHERE	UserName = @UserName
-				AND	CustID < 0;
+				AND	CustID < 0
+				AND ((@UserRole=1 AND SiteID=33002) OR (@UserRole=2 AND SiteID<>33002))
 		END;			
 		INSERT INTO #result  (
 				FeedbackID 
@@ -214,7 +220,7 @@ BEGIN
 		CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 		WHERE	(fbc.CustID = @CustID OR fbc.CustID = @GuestID)
 			AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
-			AND	StatusID = 11004
+			AND	StatusID IN(11004,11019)
 			AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 			AND	fbc.IsRelated = 0
 			AND	ResponseID = ISNULL(@ResponseID, ResponseID)			
@@ -303,10 +309,11 @@ BEGIN
 					ON	fb.ReviewerID = rv.custID
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			WHERE	FeedbackDate BETWEEN @FromDate AND @ToDate 
-				AND	StatusID = 11004
+				AND	StatusID IN( 11004,11019)
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
+				AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 			ORDER BY FeedbackDate DESC;
 		END;
 		-- customer
@@ -392,10 +399,11 @@ BEGIN
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			WHERE	fbc.CustID > 0
 				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 				
-				AND	StatusID = 11004
+				AND	StatusID IN( 11004,11019)
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
+				AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 			ORDER BY FeedbackDate DESC;
 
 		END;   --- end: get feedback for customer
@@ -482,7 +490,8 @@ BEGIN
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			WHERE	fbc.CustID < 0
 				AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
-				AND	StatusID = 11004
+				AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
+				AND	StatusID IN( 11004,11019)
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
@@ -839,6 +848,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackGetDeleted TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackGetDeleted TO vnteam;
 GO

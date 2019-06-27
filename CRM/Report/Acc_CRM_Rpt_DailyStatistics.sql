@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 (
 	@ProductType		BIT = 0,
@@ -19,6 +19,7 @@ AS
 
 	Revisions:
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:
 		@ProductType:	0: Summary
 						1: Detail	
@@ -85,7 +86,7 @@ BEGIN
 				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
 				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001)
+					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY mc.MainCategoryID, c.CommunicationID
 			ORDER BY mc.MainCategoryID, c.CommunicationID
@@ -115,7 +116,7 @@ BEGIN
 				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
 				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001)
+					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID
 			ORDER BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID
@@ -148,7 +149,7 @@ BEGIN
 				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
 				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001)
+					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY mc.MainCategoryID, c.CommunicationID, p.ProductID
 			ORDER BY mc.MainCategoryID, c.CommunicationID, p.ProductID
@@ -179,7 +180,7 @@ BEGIN
 				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
 				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
 			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001)
+					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
 					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
 			GROUP BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID, p.ProductID
 			ORDER BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID, p.ProductID

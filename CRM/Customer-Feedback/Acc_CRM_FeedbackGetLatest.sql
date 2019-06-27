@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackGetLatest (
 					@UserName			NVARCHAR(50)	= NULL
 				,	@IsGuest			BIT				= NULL
@@ -31,6 +31,7 @@ AS
 		- 20140528@Dom:		Fix bug duplicated data
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	
 */
@@ -391,6 +392,7 @@ BEGIN
 			AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 			AND	StatusID = ISNULL(@StatusID, StatusID) 
 			AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
+			AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11019 THEN 11019 ELSE -1 END
 			AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 --			AND	fbc.IsRelated = 0
 			AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
@@ -528,6 +530,7 @@ BEGIN
 				AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 				AND	StatusID = ISNULL(@StatusID, StatusID) 
 				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
+				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11019 THEN 11019 ELSE -1 END
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 
@@ -664,6 +667,7 @@ BEGIN
 				AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 				AND	StatusID = ISNULL(@StatusID, StatusID) 
 				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
+				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11019 THEN 11019 ELSE -1 END
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID)
@@ -800,6 +804,7 @@ BEGIN
 				AND	SubCategoryID = ISNULL(@SubCategoryID, SubCategoryID) 
 				AND	StatusID = ISNULL(@StatusID, StatusID) 
 				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 THEN 11004 ELSE -1 END
+				AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11019 THEN 11019 ELSE -1 END
 				AND	IsReviewed = ISNULL(@IsReviewed, IsReviewed)
 				AND	fbc.IsRelated = 0
 				AND	ResponseID = ISNULL(@ResponseID, ResponseID) 				
@@ -870,6 +875,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackGetLatest TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackGetLatest TO vnteam;
 GO 

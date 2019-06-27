@@ -1,9 +1,11 @@
-﻿ ALTER PROCEDURE [dbo].[Acc_CRM_SubjectTemplateUpd]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+ ALTER PROCEDURE [dbo].[Acc_CRM_SubjectTemplateUpd]
 (
 	@TemplateID INT,
 	@subject NVARCHAR(200) = '',
 	@errCode INT = 0 OUTPUT,
-	@errMsg NVARCHAR(200) = '' OUTPUT
+	@errMsg NVARCHAR(200) = '' OUTPUT,
+	@UserRole		INT
 )
 AS
 /*
@@ -13,7 +15,8 @@ AS
 	Original:
 
 	Revisions:
-		-20120316@Elodie: change DB06 to DB052
+		- 20120316@Elodie: change DB06 to DB052
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:	
 */
 BEGIN
@@ -24,7 +27,7 @@ BEGIN
 
 	UPDATE crmSubjectTemplate WITH(ROWLOCK,UPDLOCK)
 	SET subject = @subject
-	WHERE TemplateID = @TemplateID
+	WHERE TemplateID = @TemplateID AND SiteOffer=@UserRole
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -35,5 +38,3 @@ END
 
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_SubjectTemplateUpd] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_SubjectTemplateUpd] TO [vnteam]

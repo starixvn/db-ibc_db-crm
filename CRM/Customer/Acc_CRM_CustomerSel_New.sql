@@ -1,10 +1,11 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 USE bodb_CRM
 GO 
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
 (
-	@CustID	INT,
-	@DefaultLanguage INT = 0 OUTPUT
+	@CustID				INT,
+	@DefaultLanguage	INT = 0 OUTPUT,
+	@UserRole			TINYINT
 )
 AS
 /*
@@ -24,6 +25,7 @@ Revisions:
 	- 20141118@Dom: Return PIC Name
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170911@Winnie: Get Introduced By RedmineID #82040
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN	
@@ -35,6 +37,11 @@ BEGIN
 			@IsGroupHeadLine BIT
 
 	SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
+
+	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+	INSERT INTO #SuperCN88(CustID)
+	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+	WHERE UplineId IS NOT NULL
 
 	IF (@CustID < 0 OR EXISTS(SELECT 1 FROM crmCustomer(NOLOCK) WHERE CustID = @CustID))
 	BEGIN
@@ -103,12 +110,19 @@ BEGIN
 			c.CreateDate, 
 			c.CreatorID, 
 			ci.username as CreatorName,
-			CASE cust.roleid	
-					WHEN 1 THEN 7000
-					WHEN 2 THEN 7001
-					WHEN 3 THEN 7002
-					WHEN 4 THEN 7003
-					ELSE 7004 END as RoleID,
+			CASE 
+					WHEN cust.roleid = 1 AND @UserRole=2  THEN 7000
+					WHEN cust.roleid = 2 AND @UserRole=2  THEN 7001
+					WHEN cust.roleid = 3 AND @UserRole=2  THEN 7002
+					WHEN cust.roleid = 4 AND @UserRole=2  THEN 7003
+					WHEN (cust.roleid NOT IN(1,2,3,4) OR cust.roleid IS NULL)AND @UserRole=2 THEN 7004
+					WHEN cust.roleid = 1 AND @UserRole=1  THEN 7011
+					WHEN cust.roleid = 2 AND @UserRole=1  THEN 7007
+					WHEN cust.roleid = 3 AND @UserRole=1  THEN 7008
+					WHEN cust.roleid = 4 AND @UserRole=1  THEN 7009
+					WHEN cust.roleid = 0 AND @UserRole=1  THEN 7006
+					WHEN (cust.roleid NOT IN(1,2,3,4,0) OR cust.roleid IS NULL) AND @UserRole=1 THEN 7010
+					END AS RoleID,
 			@IsGroupHeadLine IsGroupHeadLine,
 			ISNULL(c.LicenseeType,0) LicenseeType,
 			ISNULL(c.WhatsApp,'') WhatsApp,
@@ -119,7 +133,8 @@ BEGIN
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
 			ch.username AS Checker,
-			c.IntroducedBy
+			c.IntroducedBy,
+			CASE WHEN @UserRole=1 AND c.ProvinceID IS NULL THEN 1 ELSE c.ProvinceID END AS ProvinceID
 		FROM 
 			crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.CreatorID = ci.custID
@@ -128,7 +143,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			c.CustID = @CustID
-
+			AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage1
@@ -172,7 +187,7 @@ BEGIN
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer s WITH(NOLOCK) ON c.srecommend = s.custid
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 			END
 			ELSE
 			BEGIN
@@ -182,7 +197,7 @@ BEGIN
 									(SELECT site 
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
-					AND SettingName = 'Site'
+					AND SettingName IN( 'Site','SiteCategory')
 
 			END
 
@@ -258,12 +273,18 @@ BEGIN
 			c.CreateDate, 
 			c.CreatorID,
 			cr.username AS CreatorName,
-			CASE ci.roleid	WHEN 1 THEN 7000
-							WHEN 2 THEN 7001
-							WHEN 3 THEN 7002
-							WHEN 4 THEN 7003
-							ELSE 7004 
-			END AS RoleID,
+			CASE	WHEN ci.roleid = 1 AND @UserRole=2  THEN 7000
+					WHEN ci.roleid = 2 AND @UserRole=2  THEN 7001
+					WHEN ci.roleid = 3 AND @UserRole=2  THEN 7002
+					WHEN ci.roleid = 4 AND @UserRole=2  THEN 7003
+					WHEN (ci.roleid NOT IN(1,2,3,4)OR ci.roleid IS NULL)AND @UserRole=2 THEN 7004 
+					WHEN ci.roleid = 1 AND @UserRole=1  THEN 7011
+					WHEN ci.roleid = 2 AND @UserRole=1  THEN 7007
+					WHEN ci.roleid = 3 AND @UserRole=1  THEN 7008
+					WHEN ci.roleid = 4 AND @UserRole=1  THEN 7009
+					WHEN ci.roleid = 0 AND @UserRole=1  THEN 7006
+					WHEN (ci.roleid NOT IN(1,2,3,4,0) OR ci.roleid IS NULL) AND @UserRole=1 THEN 7010
+					END AS RoleID,
 			@IsGroupHeadLine IsGroupHeadLine,
 			0 as LicenseeType,
 			ISNULL(c.WhatsApp,'') WhatsApp,
@@ -274,7 +295,8 @@ BEGIN
 			ISNULL(c.BBM,'') BBM,
 			ISNULL(c.Ignored,0) AS Ignored,
 			ch.Username AS Checker,
-			c.IntroducedBy
+			c.IntroducedBy,
+			CASE WHEN @UserRole=1 AND c.ProvinceID IS NULL THEN 1 ELSE c.ProvinceID END AS ProvinceID
 		FROM 
 			bodb02.dbo.customer ci WITH(NOLOCK) 
 			LEFT JOIN crmCustomer c WITH(NOLOCK) ON ci.custid = c.CustID
@@ -283,7 +305,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
-
+			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR ci.srecommend=0)) OR (@UserRole=2 AND ISNULL(ci.srecommend,-1)<>0 AND ISNULL(ci.srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88)))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage

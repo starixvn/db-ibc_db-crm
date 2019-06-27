@@ -1,7 +1,8 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTopByCustId (
 					@CustID		INT
 				,	@top		INT		= 10
+				,	@UserRole   TINYINT
 				)	
 AS
 /*
@@ -18,6 +19,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20180323@Winnie:	CRM - display wrong review information. - [Redmine: #92586]
 		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	exec Acc_CRM_FeedbackSelTopByCustId @CustID=19984856,@top=10
 */
@@ -56,6 +58,7 @@ SET NOCOUNT ON;
 					,	fbc.IsRelated
 					,	fb.Subject
 					,	l.list AS relatedCustomer
+					,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 	INTO #temp
 	FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
 	INNER JOIN	crmFeedback fb WITH (NOLOCK)
@@ -69,6 +72,8 @@ SET NOCOUNT ON;
 	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 	WHERE	fbc.CustID = @CustID
 		AND	fb.StatusID <> 11004
+		AND	fb.StatusID <> 11019
+		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
 	ORDER BY FeedbackDate DESC
 	
 	SELECT
@@ -106,6 +111,7 @@ SET NOCOUNT ON;
 		,	t.IsRelated
 		,	t.Subject
 		,	t.relatedCustomer
+		,	t.ProvinceID
 	FROM #temp t
 	OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 
@@ -130,6 +136,4 @@ END
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelTopByCustId TO bodbAdminNet;
-GO
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackSelTopByCustId TO vnteam;
 GO

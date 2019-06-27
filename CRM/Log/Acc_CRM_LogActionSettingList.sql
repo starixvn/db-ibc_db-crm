@@ -1,15 +1,10 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_LogActionSettingList    Script Date: 3/26/2014 6:06:07 PM ******/
-CREATE procedure [dbo].[Acc_CRM_LogActionSettingList]
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+ALTER procedure [dbo].[Acc_CRM_LogActionSettingList]
 	@username	varchar(50) = NULL,
 	@fromdate	datetime,
 	@todate		datetime,
-	@actionid	int = null
+	@actionid	int = null,
+	@UserRole	TINYINT=2
 as
 
 /*
@@ -19,31 +14,29 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 Param's Explanation:
 */
+
+CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
+INSERT INTO #SuperCN88(CustID)
+SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
+WHERE UplineId IS NOT NULL
 
 select lc.LogDate,lc.ActionID,la.ActionNameEN ActionName,ci.username,'Setting' Entity, lc.SettingID ID, lc.OldValues,lc.Doing NewValues
 from crmLogSetting(nolock) lc
 inner join crmLogAction(NOLOCK) la on la.ActionID = lc.ActionID
-inner join bodb02.dbo.custInfo(nolock) ci on ci.custid = lc.UserID
+inner join bodb02.dbo.Customer (nolock) ci on ci.custid = lc.UserID
+inner join crmSetting s WITH(NOLOCK) ON lc.SettingID=s.SettingID
 where lc.actionid BETWEEN 300 and 399
 and (ISNULL(@username,'')='' OR ci.username = @username) 
 and (ISNULL(@actionid,0)=0  or lc.ActionID = @ActionID)
 and lc.LogDate BETWEEN @FromDate and @Todate
+AND s.SiteOffer=@UserRole
+AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 order by lc.LogDate desc
 
 
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_LogActionSettingList] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_LogActionSettingList] TO [vnteam]
 GO 

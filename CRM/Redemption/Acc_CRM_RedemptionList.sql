@@ -48,4 +48,3 @@ GO
 GO 
  GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_RedemptionList] TO [vnteam]
 GO 
-

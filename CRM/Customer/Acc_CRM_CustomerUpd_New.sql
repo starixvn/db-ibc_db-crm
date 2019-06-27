@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 (
 	@UserID						INT,
@@ -78,7 +78,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT,
-	@IsUpdateHeadlineInfo		BIT				=1
+	@IsUpdateHeadlineInfo		BIT				=1,
+	@ProvinceID					INT=NULL
 )
 AS
 
@@ -96,6 +97,7 @@ Revisions:
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 	- 20171011@Winnie: Move "VIP" into Headline Info RedmineID #102925
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	
 */
@@ -185,6 +187,7 @@ BEGIN
 			@QQ								= @QQ,
 			@BBM							= @BBM,
 			@IP								= @IP,
+			@ProvinceID						= @ProvinceID,
 			@ErrCode						= @ErrCode OUTPUT,
 			@ErrMsg							= @ErrMsg OUTPUT
 		
@@ -297,7 +300,8 @@ BEGIN
 			@WeChat_Old						NVARCHAR(100)	= NULL,
 			@Yahoo_Old						NVARCHAR(100)	= NULL,
 			@QQ_Old							NVARCHAR(100)	= NULL,
-			@BBM_Old						NVARCHAR(100)	= NULL
+			@BBM_Old						NVARCHAR(100)	= NULL,
+			@ProvinceID_Old					INT	= NULL
 			
 
 	SELECT 
@@ -362,7 +366,8 @@ BEGIN
 		@QQ_Old								= QQ,
 		@BBM_Old							= BBM,
 		@IntroducedBy_Old					= IntroducedBy,
-		@Ignored_Old						=Ignored
+		@Ignored_Old						= Ignored,
+		@ProvinceID_Old						= ProvinceID
 	FROM crmCustomer WITH(NOLOCK)
 	WHERE CustID = @CustID --Old Values
 
@@ -437,7 +442,8 @@ BEGIN
 			QQ							= @QQ,
 			BBM							= @BBM,
 			Ignored						= @Ignored,
-			IntroducedBy				= @IntroducedBy
+			IntroducedBy				= @IntroducedBy,
+			ProvinceID					= @ProvinceID
 		WHERE CustID = @CustID
 	ELSE
 		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
@@ -500,7 +506,8 @@ BEGIN
 			WeChat						= @WeChat,
 			Yahoo						= @Yahoo,
 			QQ							= @QQ,
-			BBM							= @BBM
+			BBM							= @BBM,
+			ProvinceID					= @ProvinceID
 		WHERE CustID = @CustID
 
 	IF @@error <> 0
@@ -613,6 +620,7 @@ BEGIN
 							'<IntroducedBy>'				+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy_Old),'')						+ '</IntroducedBy>' +
 							'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored_Old),'')									+ '</Ignored>' +
 							'<IsUpdateHeadlineInfo>'		+ ISNULL(CONVERT(VARCHAR(10),@IsUpdateHeadlineInfo),'')							+ '</IsUpdateHeadlineInfo>' +
+							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID_Old),'')								+ '</ProvinceID>' +
 				'</Acc_CRM_CustomerUpd_New>'
 
 	SELECT @NewValues =
@@ -681,6 +689,7 @@ BEGIN
 						'<IntroducedBy>'				+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')								+ '</IntroducedBy>' +
 						'<Ignored>'						+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')											+ '</Ignored>' +
 						'<IsUpdateHeadlineInfo>'		+ ISNULL(CONVERT(VARCHAR(10),@IsUpdateHeadlineInfo),'')								+ '</IsUpdateHeadlineInfo>' +
+						'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')										+ '</ProvinceID>' +
 			'</Acc_CRM_CustomerUpd_New>'
 				
 
@@ -696,14 +705,5 @@ END
 --select top 1 * from crmLogCustomer ORDER by LogDate DESC
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpd_New] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpd_New] TO [vnteam]
 GO 

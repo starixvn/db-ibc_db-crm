@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 (
 	@UserID						INT,
@@ -79,7 +79,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 	@QQ							NVARCHAR(100)	= NULL,
 	@BBM						NVARCHAR(100)	= NULL,
 	@Ignored					BIT	= 0,	
-	@IntroducedBy					NVARCHAR(50)	= NULL,	
+	@ProvinceID					INT=NULL,
+	@IntroducedBy				NVARCHAR(50)	= NULL,	
 	@IP							VARCHAR(15),
 	@ErrCode					INT				= 0 OUTPUT,
 	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT	
@@ -103,6 +104,7 @@ Revisions:
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170511@Winnie: Duplicate & Missing Special Remark [RedmineID: #76399]
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
+	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 Param's Explanation:
 	
 */
@@ -212,7 +214,8 @@ BEGIN
 					QQ,
 					BBM,
 					[IntroducedBy],
-					Ignored
+					Ignored,
+					ProvinceID
 				)
 			VALUES
 				( 
@@ -291,7 +294,8 @@ BEGIN
 					@QQ,
 					@BBM,
 					@IntroducedBy,
-					@Ignored
+					@Ignored,
+					@ProvinceID
 				)
 	
 	IF @@ERROR <> 0
@@ -417,6 +421,7 @@ BEGIN
 						'<BBM>'						+ ISNULL([dbo].[f_EncodeXMLValue](@BBM),'')						+ '</BBM>' +
 						'<IntroducedBy>'			+ ISNULL([dbo].[f_EncodeXMLValue](@IntroducedBy),'')	+ '</IntroducedBy>' +
 						'<Ignored>'					+ ISNULL(CONVERT(VARCHAR(10),@Ignored),'')						+ '</Ignored>' +
+						'<ProvinceID>'				+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +
 					'</Acc_CRM_CustomerIns_New>' 
 				
 

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 					@UserID						INT
 				,	@CustID						INT
@@ -51,13 +51,14 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@RoleID						INT											
 				,	@ResponseID					INT
 				,	@StatusID					INT
-				,	@RelatedCustID				VARCHAR(500)	= NULL
+				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@Description				NVARCHAR(MAX)	= NULL
 				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)	= NULL
 				,	@IsReviewed					BIT				= 0
 				,	@Review						NVARCHAR(MAX)	= NULL
 				,	@ReviewerID					INT				= NULL
+				,	@ProvinceID					INT				= NULL
 				,	@LicenseeType				INT				= 0
 				,	@WhatsApp					NVARCHAR(100)	= NULL
 				,	@Line						NVARCHAR(100)	= NULL
@@ -91,6 +92,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - Redmine: #52998
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -285,6 +287,7 @@ BEGIN
 				,	Yahoo
 				,	QQ
 				,	BBM
+				,	ProvinceID
 				)
 	VALUES	(	@CustID
 			,	@TitleID
@@ -344,6 +347,7 @@ BEGIN
 			,	@Yahoo
 			,	@QQ
 			,	@BBM
+			,   @ProvinceID
 			);
 	IF @@ERROR <> 0
 	BEGIN
@@ -530,6 +534,7 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo),'')						+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
+						'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +	
 					'</Acc_CRM_FeedbackIns>';
 
 
@@ -548,6 +553,4 @@ END;
 GO
 
 GRANT EXECUTE ON dbo.Acc_CRM_FeedbackIns TO bodbAdminNet;
-GO 
-GRANT VIEW DEFINITION ON dbo.Acc_CRM_FeedbackIns TO vnteam;
 GO 

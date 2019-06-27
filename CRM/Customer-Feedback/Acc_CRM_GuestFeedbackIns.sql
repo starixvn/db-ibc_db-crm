@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 					@UserID						INT
 				,	@UserName					NVARCHAR(50)
@@ -96,6 +96,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 				,	@IP							VARCHAR(15)
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
+				,	@ProvinceID					INT=NULL
 				)
 AS
 /*
@@ -121,6 +122,7 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]	 
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - [Redmine: #84714]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -201,6 +203,7 @@ BEGIN
 			,	@Question					= @Question
 			,	@Answer						= @Answer
 			,	@CountryID					= @CountryID
+			,	@ProvinceID					= @ProvinceID
 			,	@IsVIP						= @IsVIP
 			,	@SiteID						= @SiteID
 			,	@Wire_BankName				= @Wire_BankName
@@ -285,6 +288,7 @@ BEGIN
 			,	@Skype					= @Skype
 			,	@MSN					= @MSN
 			,	@CountryID				= @CountryID
+			,	@ProvinceID				= @ProvinceID
 			,	@Pic1					= @Pic1
 			,	@Pic2					= @Pic2
 			,	@Pic3					= @Pic3

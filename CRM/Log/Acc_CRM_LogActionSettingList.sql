@@ -1,42 +1,48 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER procedure [dbo].[Acc_CRM_LogActionSettingList]
-	@username	varchar(50) = NULL,
-	@fromdate	datetime,
-	@todate		datetime,
-	@actionid	int = null,
-	@UserRole	TINYINT=2
-as
-
+	@username	VARCHAR(50) = NULL,
+	@fromdate	DATETIME,
+	@todate		DATETIME,
+	@actionid	INT = NULL,
+	@UserRole	TINYINT = 2
+AS
 /*
-Created: 20140217@Dom
-Task : Get list of setting log
-DB: DBCRM.bodb_CRM
-Original:
+	Created: 20140217@Dom
+	Task : Get list of setting log
+	DB: DBCRM.bodb_CRM
+	Original:
 
-Revisions:
-	- 20190506@Winnie:  CN88 Permission RedmineID: #112637
-Param's Explanation:
+	Revisions:
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+	Param's Explanation:
 */
-
-CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
-INSERT INTO #SuperCN88(CustID)
-SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
-WHERE UplineId IS NOT NULL
-
-select lc.LogDate,lc.ActionID,la.ActionNameEN ActionName,ci.username,'Setting' Entity, lc.SettingID ID, lc.OldValues,lc.Doing NewValues
-from crmLogSetting(nolock) lc
-inner join crmLogAction(NOLOCK) la on la.ActionID = lc.ActionID
-inner join bodb02.dbo.Customer (nolock) ci on ci.custid = lc.UserID
-inner join crmSetting s WITH(NOLOCK) ON lc.SettingID=s.SettingID
-where lc.actionid BETWEEN 300 and 399
-and (ISNULL(@username,'')='' OR ci.username = @username) 
-and (ISNULL(@actionid,0)=0  or lc.ActionID = @ActionID)
-and lc.LogDate BETWEEN @FromDate and @Todate
-AND s.SiteOffer=@UserRole
-AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
-order by lc.LogDate desc
-
-
-GO
- GRANT EXECUTE ON [dbo].[Acc_CRM_LogActionSettingList] TO [bodbAdminNet]
-GO 
+BEGIN
+	SELECT * 
+	FROM 
+		(
+		SELECT lc.LogDate, lc.ActionID, la.ActionNameEN ActionName, ci.username, 'Setting' Entity, lc.SettingID ID, lc.OldValues,lc.Doing NewValues
+		FROM crmLogSetting lc WITH (NOLOCK) 
+			INNER JOIN crmLogAction la WITH(NOLOCK) ON la.ActionID = lc.ActionID
+			INNER JOIN bodb02.dbo.Customer ci WITH (NOLOCK) ON ci.custid = lc.UserID
+			INNER JOIN crmSetting s WITH(NOLOCK) ON lc.SettingID=s.SettingID
+		WHERE lc.actionid BETWEEN 300 AND 399 AND lc.ActionID <> 303
+			AND (ISNULL(@username,'')='' OR ci.username = @username) 
+			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
+			AND lc.LogDate BETWEEN @FromDate and @Todate
+			AND s.SiteOffer = @UserRole
+			AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
+		UNION ALL 
+		SELECT lc.LogDate, lc.ActionID, la.ActionNameEN ActionName, ci.username, 'Setting' Entity, lc.SettingID ID, lc.OldValues,lc.Doing NewValues
+		FROM crmLogSetting lc WITH (NOLOCK) 
+			INNER JOIN crmLogAction la WITH(NOLOCK) ON la.ActionID = lc.ActionID
+			INNER JOIN bodb02.dbo.Customer ci WITH (NOLOCK) ON ci.custid = lc.UserID
+			INNER JOIN crmSetting s WITH(NOLOCK) ON lc.ParentID = s.SettingID
+		WHERE lc.actionid = 303 AND lc.SettingID = 0
+			AND (ISNULL(@username,'')='' OR ci.username = @username) 
+			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
+			AND lc.LogDate BETWEEN @FromDate and @Todate
+			AND s.SiteOffer = @UserRole
+			AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
+		)tmp
+	ORDER BY LogDate DESC
+END

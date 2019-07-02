@@ -25,7 +25,8 @@ AS
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
-		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20190506@Winnie: CN88 Permission - [RedmineID: #112637]
+		- 20190701@Elodie: Offer for CN88 - [RedmineID: #112637]
 	Param's Explanation:
 	
 */

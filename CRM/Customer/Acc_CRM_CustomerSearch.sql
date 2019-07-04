@@ -25,6 +25,7 @@ Revisions:
 	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
 	- 20180924@Winnie: Search Chinese RedmineID: #99982
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
 Param's Explanation:	
 */
 BEGIN

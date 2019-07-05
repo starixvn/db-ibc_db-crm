@@ -82,21 +82,30 @@ BEGIN
 						OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 				) 
 				AND CustID > 0
-				AND ((@UserRole=2 AND SiteID<>33002) 
-					OR (@UserRole=1 AND SiteID=33002) 
-					)
+				AND ((@UserRole = 2 AND SiteID <> 33002) OR (@UserRole = 1 AND SiteID = 33002))
 		END
 
 		IF @custID IS NULL    --search all system but cannot find Customer -> Quit Execution
 		BEGIN
 			PRINT 'No Customer' ;
 			RETURN;
-		END
-		
+		END		
 	
 --=====================END SEARCH CROSS SYSTEM===================================================
 
 --=====================RETURN RESULT=============================================================
+		DECLARE @StatusCN88 VARCHAR(10)
+
+		IF @UserRole = 1
+		BEGIN
+			SELECT @StatusCN88 = CASE	WHEN CustStatus = 1 THEN 'Inactive' 
+										WHEN CustStatus = 2 THEN 'Suspended' 
+										WHEN CustStatus = 3 THEN 'View Only' 
+										WHEN CustStatus = 4 THEN 'Active' END
+			FROM bodb02.dbo.f_CS_GetCustomerStatus(@custID)
+		END
+
+		SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
 
 		IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 		BEGIN
@@ -132,9 +141,7 @@ BEGIN
 			WHERE cm.custid = @custID
 			
 			print 'search in IBC'
-
-			SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
-
+			
 			SELECT	
 				c.CustID, 
 				c.UserName, 
@@ -186,23 +193,29 @@ BEGIN
 				crm.CreateDate, 			
 				ci.Username as CreatorName,
 				CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
-					 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
-					 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
-					 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
-					 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
-					 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
-					 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
-					 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
-					 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
-					 WHEN c.roleid=0 AND @UserRole=1  THEN 7006	
-					 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
+						WHEN c.roleid=2 AND @UserRole=2  THEN 7001
+						WHEN c.roleid=3 AND @UserRole=2  THEN 7002
+						WHEN c.roleid=4 AND @UserRole=2  THEN 7003
+						WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
+						WHEN c.roleid=1 AND @UserRole=1  THEN 7011
+						WHEN c.roleid=2 AND @UserRole=1  THEN 7007
+						WHEN c.roleid=3 AND @UserRole=1  THEN 7008
+						WHEN c.roleid=4 AND @UserRole=1  THEN 7009
+						WHEN c.roleid=0 AND @UserRole=1  THEN 7006	
+						WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
 				END AS RoleID,
 				c.danger,
 				c.danger2,
 				c.danger3,
-				CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
-				CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
-				CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended,
+
+				--Status for MBC and Licensee
+				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END ELSE NULL END Active,
+				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Closed,
+				CASE WHEN @UserRole = 2 THEN CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END ELSE NULL END Suspended,
+				--Status for CN88
+				@StatusCN88 AS StatusCN88,
+				CASE WHEN @UserRole = 1 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Locked,
+
 				@IsGroupHeadLine IsGroupHeadLine,
 				ISNULL(crm.LicenseeType,0) LicenseeType,
 				'' WhatsApp,
@@ -215,121 +228,113 @@ BEGIN
 				crm.Checker,
 				CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
 			FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
-				--INNER JOIN bodb02.dbo.customer ci WITH(NOLOCK) ON c.custid=ci.custid
-				--LEFT JOIN crmsetting s WITH(NOLOCK) ON ci.site=crmSeeting
 				LEFT JOIN crmCustomer crm WITH(NOLOCK) ON c.custID = crm.custID
 				LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 				LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
 				LEFT JOIN bodb02.dbo.Customer cm WITH(NOLOCK) on c.custID = cm.CustID
-			WHERE 
-				c.custID = @custID
-
-		--2nd Record Set
-		SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
-
+			WHERE c.custID = @custID
 		END
 		ELSE -- there is a customer in crm
 		BEGIN
 			print 'search in crm'
 
-			SELECT @IsGroupHeadLine=ISNULL(IsGroupHeadLine,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID AND IsGroupHeadLine=1
-
 			SELECT	
-			crm.CustID, 
-			crm.UserName, 
-			cm.username2,
-			crm.TitleID, 
-			crm.FirstName, 
-			crm.LastName, 
-			crm.Phone, 
-			crm.PhoneCountryCode,
-			crm.PhoneAreaCode,
-			crm.Phone2,
-			crm.Phone2CountryCode,
-			crm.Phone2AreaCode,
-			crm.Phone3,
-			crm.Phone3CountryCode,
-			crm.Phone3AreaCode,
-			crm.MobilePhone,
-			crm.MobilePhoneCountryCode,
-			crm.MobilePhoneAreaCode,
-			crm.Fax, 
-			crm.FaxCountryCode, 
-			crm.FaxAreaCode, 
-			crm.Email, 
-			crm.Skype,
-			crm.msn,
-			crm.Birthday, 
-			crm.RefCode1, 
-			crm.RefCode2, 
-			crm.Pic1, 
-			crm.Pic2, 
-			crm.Pic3,
-			crm.Pic4,
-			crm.Pic1Name, 
-			crm.Pic2Name, 
-			crm.Pic3Name,
-			crm.Pic4Name,
-			crm.Question, 
-			crm.Answer, 
-			crm.CountryID,
-			ct.CountryName, 
-			crm.IsVIP,
-			crm.SiteID,
-			crm.Wire_BankName, 
-			crm.Wire_BankAddress, 
-			crm.Wire_SwiftCode, 
-			crm.Wire_AccountName, 
-			crm.Wire_AccountNo,
-			crm.Remark, 
-			crm.CreateDate, 
-			ci.Username as CreatorName,
-			CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
-				 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
-				 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
-				 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
-				 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
-				 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
-				 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
-				 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
-				 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
-				 WHEN c.roleid=0 AND @UserRole=1  THEN 7006
-				 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
-			END AS RoleID,
-			c.danger,
-			c.danger2,
-			c.danger3,
-			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
-			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
-			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended,
-			@IsGroupHeadLine IsGroupHeadLine,
-			ISNULL(crm.LicenseeType,0) LicenseeType,
-			ISNULL(crm.WhatsApp,'') WhatsApp,
-			ISNULL(crm.Line,'') Line,
-			ISNULL(crm.WeChat,'') WeChat,
-			ISNULL(crm.Yahoo,'') Yahoo,
-			ISNULL(crm.QQ,'') QQ,
-			ISNULL(crm.BBM,'') BBM,
-			ISNULL(crm.Ignored,0) AS Ignored ,
-			crm.Checker,
-			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
-		FROM 
-			crmCustomer crm WITH(NOLOCK) 
-						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
-						LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
-						LEFT JOIN bodb02.dbo.customer cm WITH(NOLOCK) ON cm.custid = crm.custID			
-						LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = crm.CustID		
-														
-		WHERE 
-			crm.custID = @custID
+				crm.CustID, 
+				crm.UserName, 
+				cm.username2,
+				crm.TitleID, 
+				crm.FirstName, 
+				crm.LastName, 
+				crm.Phone, 
+				crm.PhoneCountryCode,
+				crm.PhoneAreaCode,
+				crm.Phone2,
+				crm.Phone2CountryCode,
+				crm.Phone2AreaCode,
+				crm.Phone3,
+				crm.Phone3CountryCode,
+				crm.Phone3AreaCode,
+				crm.MobilePhone,
+				crm.MobilePhoneCountryCode,
+				crm.MobilePhoneAreaCode,
+				crm.Fax, 
+				crm.FaxCountryCode, 
+				crm.FaxAreaCode, 
+				crm.Email, 
+				crm.Skype,
+				crm.msn,
+				crm.Birthday, 
+				crm.RefCode1, 
+				crm.RefCode2, 
+				crm.Pic1, 
+				crm.Pic2, 
+				crm.Pic3,
+				crm.Pic4,
+				crm.Pic1Name, 
+				crm.Pic2Name, 
+				crm.Pic3Name,
+				crm.Pic4Name,
+				crm.Question, 
+				crm.Answer, 
+				crm.CountryID,
+				ct.CountryName, 
+				crm.IsVIP,
+				crm.SiteID,
+				crm.Wire_BankName, 
+				crm.Wire_BankAddress, 
+				crm.Wire_SwiftCode, 
+				crm.Wire_AccountName, 
+				crm.Wire_AccountNo,
+				crm.Remark, 
+				crm.CreateDate, 
+				ci.Username as CreatorName,
+				CASE WHEN c.roleid=1 AND @UserRole=2 THEN 7000
+					 WHEN c.roleid=2 AND @UserRole=2  THEN 7001
+					 WHEN c.roleid=3 AND @UserRole=2  THEN 7002
+					 WHEN c.roleid=4 AND @UserRole=2  THEN 7003
+					 WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
+					 WHEN c.roleid=1 AND @UserRole=1  THEN 7011
+					 WHEN c.roleid=2 AND @UserRole=1  THEN 7007
+					 WHEN c.roleid=3 AND @UserRole=1  THEN 7008
+					 WHEN c.roleid=4 AND @UserRole=1  THEN 7009
+					 WHEN c.roleid=0 AND @UserRole=1  THEN 7006
+					 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
+				END AS RoleID,
+				c.danger,
+				c.danger2,
+				c.danger3,
 
-		--2nd Record Set
-		SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
+				--Status for MBC and Licensee
+				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END ELSE NULL END Active,
+				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Closed,
+				CASE WHEN @UserRole = 2 THEN CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END ELSE NULL END Suspended,
+				--Status for CN88
+				@StatusCN88 AS StatusCN88,
+				CASE WHEN @UserRole = 1 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Locked,
+
+				@IsGroupHeadLine IsGroupHeadLine,
+				ISNULL(crm.LicenseeType,0) LicenseeType,
+				ISNULL(crm.WhatsApp,'') WhatsApp,
+				ISNULL(crm.Line,'') Line,
+				ISNULL(crm.WeChat,'') WeChat,
+				ISNULL(crm.Yahoo,'') Yahoo,
+				ISNULL(crm.QQ,'') QQ,
+				ISNULL(crm.BBM,'') BBM,
+				ISNULL(crm.Ignored,0) AS Ignored ,
+				crm.Checker,
+				CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
+			FROM crmCustomer crm WITH(NOLOCK) 
+				LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
+				LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
+				LEFT JOIN bodb02.dbo.customer cm WITH(NOLOCK) ON cm.custid = crm.custID			
+				LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = crm.CustID		
+			WHERE crm.custID = @custID			
 		END
 	END
 	ELSE IF @IsGuest=1  ---- if guest = 1
 	BEGIN		
 		print 'search guest'
+
 		SELECT	@custID = custID 
 		FROM crmCustomer WITH (NOLOCK) 
 		WHERE (
@@ -340,11 +345,9 @@ BEGIN
 					OR MobilePhoneCountryCode+MobilePhoneAreaCode+MobilePhone = @username
 			) 
 			AND custID < 0
-			AND ((@UserRole=2 AND SiteID<>33002) 
-				OR (@UserRole=1 AND SiteID=33002) 
-				)
+			AND ((@UserRole = 2 AND SiteID <> 33002) OR (@UserRole = 1 AND SiteID = 33002))
 
-		IF(@custID IS NULL) RETURN;
+		IF(@custID IS NULL) RETURN
 
 		SELECT	
 			crm.CustID, 
@@ -400,9 +403,14 @@ BEGIN
 			danger = NULL,
 			danger2 = NULL,
 			danger3 = NULL,
+			--Status for MBC and Licensee
 			Active = NULL,
 			Closed = NULL,
 			Suspended = NULL,
+			--Status for CN88
+			StatusCN88 = NULL,
+			Locked = NULL,
+
 			CAST(0 as BIT) IsGroupHeadLine,
 			ISNULL(crm.LicenseeType,0) LicenseeType,
 			ISNULL(crm.WhatsApp,'') WhatsApp,
@@ -414,19 +422,13 @@ BEGIN
 			ISNULL(crm.Ignored,0) AS Ignored ,
 			crm.Checker,
 			CASE WHEN @UserRole=1 AND crm.ProvinceID IS NULL THEN 1 ELSE crm.ProvinceID END AS ProvinceID
-		FROM 
-			crmCustomer crm WITH(NOLOCK) 
-						LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
-						LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID						
-														
-		WHERE 
-			crm.custID = @custID
-
-		--2nd Record Set
-		SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
+		FROM crmCustomer crm WITH(NOLOCK) 
+			LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
+			LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID						
+		WHERE crm.custID = @custID
 	END	
-END
 
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerSearch] TO [bodbAdminNet]
-GO 
+	--2nd Record Set
+	SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
+END
+GO

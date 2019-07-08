@@ -37,7 +37,10 @@ BEGIN
 		CASE	WHEN @UserRole = 2 THEN CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
 														WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
 														WHEN ci.Closed = 1 THEN 'Closed' END
-				WHEN @UserRole = 1 THEN st.CustStatus END AS CustStatus
+				WHEN @UserRole = 1 THEN CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
+												WHEN st.CustStatus = 2 THEN 'Suspended' 
+												WHEN st.CustStatus = 3 THEN 'View Only' 
+												WHEN st.CustStatus = 4 THEN 'Active' END END AS CustStatus
 	FROM bodb02.dbo.custinfo ci WITH(NOLOCK) 
 		CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
 	WHERE
@@ -48,10 +51,10 @@ BEGIN
 			CASE	WHEN @UserRole = 2 THEN CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
 														WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
 														WHEN ci.Closed = 1 THEN 'Closed' END
-				WHEN @UserRole = 1 THEN CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
-												WHEN st.CustStatus = 2 THEN 'Suspended' 
-												WHEN st.CustStatus = 3 THEN 'View Only' 
-												WHEN st.CustStatus = 4 THEN 'Active' END END AS CustStatus
+					WHEN @UserRole = 1 THEN CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
+													WHEN st.CustStatus = 2 THEN 'Suspended' 
+													WHEN st.CustStatus = 3 THEN 'View Only' 
+													WHEN st.CustStatus = 4 THEN 'Active' END END AS CustStatus
 	FROM	bodb02.dbo.custAccount a WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
 			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON h.custid=ci.custid

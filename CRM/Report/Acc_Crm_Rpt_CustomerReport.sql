@@ -1,16 +1,16 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
-	@UserName 				NVARCHAR(100) = '',
-	@LanguageID				VARCHAR(1000) = NULL,	
-	@SiteID					VARCHAR(1000) = NULL,
-	@RoleID					VARCHAR(50)='',	
-	@HeadLine				VARCHAR(50)=NULL,
-	@ExcludeIgnoredAcc		BIT=0,
-	@VIP					SMALLINT = -1,
-	@PageSize				INT = 0,
-	@PageIndex				INT = 0,
-	@TotalRows				INT = 0 OUTPUT
+ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport_xpre]
+	@UserName 				NVARCHAR(100)	= '',
+	@LanguageID				VARCHAR(1000)	= NULL,	
+	@SiteID					VARCHAR(1000)	= NULL,
+	@RoleID					VARCHAR(50)		= '',	
+	@HeadLine				NVARCHAR(50)	= NULL,
+	@ExcludeIgnoredAcc		BIT				= 0,
+	@VIP					SMALLINT		= -1,
+	@PageSize				INT				= 0,
+	@PageIndex				INT				= 0,
+	@TotalRows				INT				= 0 OUTPUT
 AS
 /*
 	Created: Dom
@@ -58,16 +58,16 @@ BEGIN
 		FROM f_CRM_strSplit (@SiteID,',')
 	
 	CREATE TABLE #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Ignored BIT)
-	CREATE CLUSTERED INDEX [IX_groupID] ON [dbo].#tempHeadline 
+	CREATE CLUSTERED INDEX [IX_groupID] ON #tempHeadline 
 	(
 		groupID ASC
 	)WITH (PAD_INDEX  = OFF, STATISTICS_NORECOMPUTE  = OFF, SORT_IN_TEMPDB = OFF, IGNORE_DUP_KEY = OFF, DROP_EXISTING = OFF, ONLINE = OFF, ALLOW_ROW_LOCKS  = ON, ALLOW_PAGE_LOCKS  = ON) ON [PRIMARY]
 
 	INSERT INTO #tempHeadline(Custid,Username,groupID,Ignored)
 	SELECT hed.custid,username,groupID,Ignored
-	FROM  bodb02.dbo.CustAccount hed INNER JOIN 
-	crmCustomer hedinfo WITH(NOLOCK)  ON hed.IsGroupHeadLine=1 AND hed.custid=hedinfo.custid
-	WHERE  @HeadLine IS NULL OR( hedinfo.username LIKE @HeadLine+'%')
+	FROM  bodb02.dbo.CustGroupHeadline hed 
+		INNER JOIN crmCustomer hedinfo WITH(NOLOCK) ON hed.custid = hedinfo.custid
+	WHERE @HeadLine IS NULL OR hedinfo.username LIKE @HeadLine+'%'
 
 	IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN
@@ -162,9 +162,9 @@ BEGIN
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 	END
 
-	WITH Pag AS
+	;WITH Pag AS
 		(
-		  SELECT distinct  c.CustID,ISNULL(IsVIP,0) AS IsVIP
+		  SELECT DISTINCT c.CustID,ISNULL(IsVIP,0) AS IsVIP
 		  , ISNULL(hed.custid,0) AS HeadlineID
 		  FROM crmCustomer(NOLOCK) c 
 			LEFT JOIN 

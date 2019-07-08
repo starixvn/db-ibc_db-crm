@@ -1,4 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
 (
 	@CustID		INT				= NULL,
@@ -7,18 +8,20 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
 )
 AS
 /*
-Created: Lukas
-Date: 20101118
-Task : get customer upline list
-DB: DB06.bodb_CRM
-Original:
+	Created: Lukas
+	Date: 20101118
+	Task : get customer upline list
+	DB: DBCRM/bodb_CRM
+	Original:
 
-Revisions:
-	- 20140303@Dom: Modify for new structure
-	- 20180910@Winnie: Show headline [RedmineID: #99982]
-	- 201810107@Winnie: Fix bug Show headline [RedmineID: #102925]
-	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-Param's Explanation:	
+	Revisions:
+		- 20140303@Dom: Modify for new structure
+		- 20180910@Winnie: Show headline [RedmineID: #99982]
+		- 201810107@Winnie: Fix bug Show headline [RedmineID: #102925]
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20190708@Elodie: Get CN88's customer status [RedmineId: #112637]
+
+	Param's Explanation:	
 */
 BEGIN	
 	SET NOCOUNT ON
@@ -27,7 +30,7 @@ BEGIN
 
 	SELECT @srecommend=srecommend,@mrecommend=mrecommend,@recommend=recommend
 	FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
-	WHERE	c.CustID = @CustID
+	WHERE c.CustID = @CustID
 
 	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
 	INSERT INTO #SuperCN88(CustID)

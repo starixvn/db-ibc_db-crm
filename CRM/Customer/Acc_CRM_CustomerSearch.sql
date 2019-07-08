@@ -208,12 +208,11 @@ BEGIN
 				c.danger2,
 				c.danger3,
 
-				--Status for MBC and Licensee
-				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END ELSE NULL END Active,
-				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Closed,
-				CASE WHEN @UserRole = 2 THEN CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END ELSE NULL END Suspended,
-				--Status for CN88
-				@StatusCN88 AS StatusCN88,
+				CASE	WHEN @UserRole = 2 THEN CASE	WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 0 THEN 'Active'
+														WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 1 THEN 'Suspended'
+														WHEN c.Closed = 1 THEN 'Closed' END
+						WHEN @UserRole = 1 THEN @StatusCN88 END AS CustStatus,
+
 				CASE WHEN @UserRole = 1 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Locked,
 
 				@IsGroupHeadLine IsGroupHeadLine,
@@ -304,12 +303,11 @@ BEGIN
 				c.danger2,
 				c.danger3,
 
-				--Status for MBC and Licensee
-				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END ELSE NULL END Active,
-				CASE WHEN @UserRole = 2 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Closed,
-				CASE WHEN @UserRole = 2 THEN CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END ELSE NULL END Suspended,
-				--Status for CN88
-				@StatusCN88 AS StatusCN88,
+				CASE	WHEN @UserRole = 2 THEN CASE	WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 0 THEN 'Active'
+														WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 1 THEN 'Suspended'
+														WHEN c.Closed = 1 THEN 'Closed' END
+						WHEN @UserRole = 1 THEN @StatusCN88 END AS CustStatus,
+
 				CASE WHEN @UserRole = 1 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Locked,
 
 				@IsGroupHeadLine IsGroupHeadLine,
@@ -403,12 +401,7 @@ BEGIN
 			danger = NULL,
 			danger2 = NULL,
 			danger3 = NULL,
-			--Status for MBC and Licensee
-			Active = NULL,
-			Closed = NULL,
-			Suspended = NULL,
-			--Status for CN88
-			StatusCN88 = NULL,
+			CustStatus = NULL,
 			Locked = NULL,
 
 			CAST(0 as BIT) IsGroupHeadLine,

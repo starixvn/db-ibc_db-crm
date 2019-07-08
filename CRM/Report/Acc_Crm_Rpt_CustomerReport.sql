@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport_xpre]
+ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@UserName 				NVARCHAR(100)	= '',
 	@LanguageID				VARCHAR(1000)	= NULL,	
 	@SiteID					VARCHAR(1000)	= NULL,
@@ -25,6 +25,7 @@ AS
 		- 20160712@Winnie: #60341 Modify customer report to display more information
 		- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067	
 		- 20170911@Winnie: Get Checker from NAP RedmineID #82040
+		- 20190708@Elodie: Get CN88's customer status [RedmineId: #112637]
 
 	Param's Explanation:		
 		@CustomerType: 0 = All

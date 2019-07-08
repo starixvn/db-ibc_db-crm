@@ -27,83 +27,36 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @srecommend INT,@mrecommend INT,@recommend INT
-
-	SELECT @srecommend=srecommend,@mrecommend=mrecommend,@recommend=recommend
-	FROM bodb02.dbo.custinfo c WITH(NOLOCK) 
+	
+	SELECT @srecommend = srecommend,@mrecommend=mrecommend,@recommend=recommend
+	FROM bodb02.dbo.customer c WITH(NOLOCK) 
 	WHERE c.CustID = @CustID
+		AND((@UserRole=1 AND c.site = 'CN88') OR(@UserRole=2 AND c.site <> 'CN88'))
 
-	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
-	INSERT INTO #SuperCN88(CustID)
-	SELECT CustID FROM bodb02.dbo.CustSuper WITH(NOLOCK) 
-	WHERE UplineId IS NOT NULL
-
-	SELECT s.UserName, s.CustID, s.roleid,
-			CASE WHEN s.Closed = 0 and ISNULL(s.reject,0) = 0 THEN 1 ELSE 0 END Active,
-			CASE WHEN s.Closed = 1 THEN 1 ELSE 0 END Closed,
-			CASE WHEN ISNULL(s.reject,0) = 1 and s.Closed = 0 THEN 1 ELSE 0 END Suspended
-	FROM
-		bodb02.dbo.custinfo c WITH(NOLOCK) 
-			INNER JOIN bodb02.dbo.custinfo s WITH(NOLOCK) ON c.srecommend = s.CustID
+	SELECT ci.UserName, ci.CustID, ci.roleid,
+		CASE	WHEN @UserRole = 2 THEN CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
+														WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
+														WHEN ci.Closed = 1 THEN 'Closed' END
+				WHEN @UserRole = 1 THEN st.CustStatus END AS CustStatus
+	FROM bodb02.dbo.custinfo ci WITH(NOLOCK) 
+		CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
 	WHERE
-		c.CustID = @CustID
-			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
+		ci.CustID IN (@srecommend,@mrecommend,@recommend)
 
 	UNION ALL
-
-	SELECT m.UserName, m.CustID, m.roleid,
-			CASE WHEN m.Closed = 0 and ISNULL(m.reject,0) = 0 THEN 1 ELSE 0 END Active,
-			CASE WHEN m.Closed = 1 THEN 1 ELSE 0 END Closed,
-			CASE WHEN ISNULL(m.reject,0) = 1 and m.Closed = 0 THEN 1 ELSE 0 END Suspended
-	FROM
-		bodb02.dbo.custinfo c WITH(NOLOCK) 
-			INNER JOIN bodb02.dbo.custinfo m WITH(NOLOCK) ON c.mrecommend = m.CustID
-	WHERE
-		c.CustID = @CustID
-			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
-
-	UNION ALL
-
-	SELECT	a.UserName, a.CustID, a.roleid,
-			CASE WHEN a.Closed = 0 and ISNULL(a.reject,0) = 0 THEN 1 ELSE 0 END Active,
-			CASE WHEN a.Closed = 1 THEN 1 ELSE 0 END Closed,
-			CASE WHEN ISNULL(a.reject,0) = 1 and a.Closed = 0 THEN 1 ELSE 0 END Suspended
-	FROM
-		bodb02.dbo.custinfo c WITH(NOLOCK) 
-			INNER JOIN bodb02.dbo.custinfo a WITH(NOLOCK) ON c.recommend  = a.CustID 
-	WHERE
-		c.CustID = @CustID
-			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
-
-	UNION ALL
-	SELECT	c.UserName, c.CustID, 7006 AS RoleID,
-			CASE WHEN c.Closed = 0 and ISNULL(c.reject,0) = 0 THEN 1 ELSE 0 END Active,
-			CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END Closed,
-			CASE WHEN ISNULL(c.reject,0) = 1 and c.Closed = 0 THEN 1 ELSE 0 END Suspended
+	SELECT	ci.UserName, ci.CustID, 7006 AS RoleID,
+			CASE	WHEN @UserRole = 2 THEN CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
+														WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
+														WHEN ci.Closed = 1 THEN 'Closed' END
+				WHEN @UserRole = 1 THEN CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
+												WHEN st.CustStatus = 2 THEN 'Suspended' 
+												WHEN st.CustStatus = 3 THEN 'View Only' 
+												WHEN st.CustStatus = 4 THEN 'Active' END END AS CustStatus
 	FROM	bodb02.dbo.custAccount a WITH(NOLOCK) 
 			LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
-			INNER JOIN bodb02.dbo.custInfo c WITH(NOLOCK) ON h.custid=c.custid
+			INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON h.custid=ci.custid
+			CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
 	WHERE
-		a.CustID IN(@srecommend,@mrecommend,@recommend,@CustID)
-			AND((@UserRole=1 AND (c.srecommend IN(SELECT Custid FROM #SuperCN88) OR c.srecommend=0)) 
-				OR( @UserRole=2) AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT Custid FROM #SuperCN88))	
-
+		a.CustID IN (@srecommend,@mrecommend,@recommend,@CustID)
 END
-
-
-
-
-
 GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerGetUplineList] TO [bodbAdminNet]
-GO 

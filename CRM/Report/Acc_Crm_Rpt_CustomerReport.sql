@@ -72,7 +72,7 @@ BEGIN
 
 	IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN
-	SELECT DISTINCT
+		SELECT DISTINCT
 			 c.CustID, 
 			ISNULL(hed.custid,0) AS HeadlineID,
 			hed.UserName AS Headline,
@@ -122,7 +122,7 @@ BEGIN
 			LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 			LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 			OUTER APPLY(
-				SELECT Stuff((SELECT ',' + lang.Name
+				SELECT STUFF((SELECT ',' + lang.Name
 							 FROM  crmCustomerLanguage(nolock) clang
 							 inner join crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
 							 WHERE clang.CustID = c.CustID

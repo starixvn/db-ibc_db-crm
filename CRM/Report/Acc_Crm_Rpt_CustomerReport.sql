@@ -8,6 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@HeadLine				NVARCHAR(50)	= NULL,
 	@ExcludeIgnoredAcc		BIT				= 0,
 	@VIP					SMALLINT		= -1,
+	@UserRole				TINYINT			= 2,
 	@PageSize				INT				= 0,
 	@PageIndex				INT				= 0,
 	@TotalRows				INT				= 0 OUTPUT
@@ -59,6 +60,7 @@ BEGIN
 	INSERT INTO @tmpSite
 	SELECT val
 	FROM f_CRM_strSplit (@SiteID,',')
+	WHERE (@UserRole = 1 AND val = 33002) OR (@UserRole = 2 AND val <> 33002)
 	
 	CREATE TABLE #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Ignored BIT)
 	CREATE CLUSTERED INDEX [IX_groupID] ON #tempHeadline 
@@ -103,10 +105,14 @@ BEGIN
 			c.Birthday,
 			c.Passport,
 			site.SiteName,
-			CASE	WHEN ISNULL(closed,0)=1 THEN 'Closed' 
-					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
-					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-					ELSE 'Active' END AS Status,
+			CASE WHEN @UserRole = 2 THEN CASE	WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+												WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+												WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+												ELSE 'Active' END 
+				WHEN @UserRole = 1 THEN CASE	WHEN CustStatus = 1 THEN 'Inactive' 
+												WHEN CustStatus = 2 THEN 'Suspended' 
+												WHEN CustStatus = 3 THEN 'View Only' 
+												WHEN CustStatus = 4 THEN 'Active' END END AS Status,
 			ct.CountryName,
 			ch.username AS Checker,
 			CASE	WHEN ci.roleid=1 THEN 'Member'
@@ -116,6 +122,7 @@ BEGIN
 					ELSE  'Guest' END  AS Position
 		FROM crmCustomer c WITH(NOLOCK)  
 			LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
+			OUTER APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custid) st
 			LEFT JOIN crmSite site WITH(NOLOCK)  ON site.SiteID = c.SiteID
 			LEFT JOIN crmCustomerLanguage custlang WITH(NOLOCK)  ON custlang.CustID = c.CustID
 			LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
@@ -154,7 +161,7 @@ BEGIN
 			LEFT JOIN  #tempHeadline hed  ON cus.groupID=hed.groupID 	
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
-					(ISNULL(@LanguageID,'')='')-- and isnull(A.language_name,'')='')
+					(ISNULL(@LanguageID,'')='')
 					OR (isnull(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
@@ -215,10 +222,14 @@ BEGIN
 		c.Birthday,
 		c.Passport,
 		site.SiteName,		
-		CASE	WHEN ISNULL(closed,0)=1 THEN 'Closed' 
-				WHEN ISNULL(reject,0)=1 THEN 'Suspended'
-				WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-				ELSE 'Active' END AS Status,
+		CASE WHEN @UserRole = 2 THEN CASE	WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+												WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+												WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+												ELSE 'Active' END 
+				WHEN @UserRole = 1 THEN CASE	WHEN CustStatus = 1 THEN 'Inactive' 
+												WHEN CustStatus = 2 THEN 'Suspended' 
+												WHEN CustStatus = 3 THEN 'View Only' 
+												WHEN CustStatus = 4 THEN 'Active' END END AS Status,
 		ct.CountryName ,
 		ch.username AS Checker,
 		CASE WHEN ci.roleid=1 THEN 'Member'

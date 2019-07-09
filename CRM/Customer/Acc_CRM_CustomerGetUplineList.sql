@@ -41,7 +41,8 @@ BEGIN
 				CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
 						WHEN st.CustStatus = 2 THEN 'Suspended' 
 						WHEN st.CustStatus = 3 THEN 'View Only' 
-						WHEN st.CustStatus = 4 THEN 'Active' END AS CustStatus
+						WHEN st.CustStatus = 4 THEN 'Active' END AS CustStatus,
+				ci.Closed AS Locked
 			FROM bodb02.dbo.custinfo ci WITH(NOLOCK) 
 				CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
 			WHERE ci.CustID IN (@srecommend,@mrecommend,@recommend)
@@ -51,7 +52,8 @@ BEGIN
 				CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
 						WHEN st.CustStatus = 2 THEN 'Suspended' 
 						WHEN st.CustStatus = 3 THEN 'View Only' 
-						WHEN st.CustStatus = 4 THEN 'Active' END AS CustStatus
+						WHEN st.CustStatus = 4 THEN 'Active' END AS CustStatus,
+				ci.Closed AS Locked
 			FROM	bodb02.dbo.custAccount a WITH(NOLOCK) 
 					LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
 					INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON h.custid=ci.custid
@@ -63,7 +65,8 @@ BEGIN
 			SELECT ci.UserName, ci.CustID, ci.roleid,
 				CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
 						WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
-						WHEN ci.Closed = 1 THEN 'Closed' END  AS CustStatus
+						WHEN ci.Closed = 1 THEN 'Closed' END  AS CustStatus,
+				NULL AS Locked
 			FROM bodb02.dbo.custinfo ci WITH(NOLOCK) 
 			WHERE ci.CustID IN (@srecommend,@mrecommend,@recommend)
 
@@ -71,7 +74,8 @@ BEGIN
 			SELECT	ci.UserName, ci.CustID, 7006 AS RoleID,
 					CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
 							WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
-							WHEN ci.Closed = 1 THEN 'Closed' END  AS CustStatus
+							WHEN ci.Closed = 1 THEN 'Closed' END  AS CustStatus,
+					NULL AS Locked
 			FROM	bodb02.dbo.custAccount a WITH(NOLOCK) 
 					LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
 					INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON h.custid=ci.custid

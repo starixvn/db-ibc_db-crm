@@ -31,32 +31,34 @@ AS
 		@CustomerType: 0 = All
 						1 = Customer
 						2 = Guest
-	Example: declare @p1 int
-			set @p1=9608
-			exec Acc_Crm_Rpt_CustomerReport @TotalRows=@p1 output,@SiteID='0,6004,6006,6014,6016,6019,6023,6024,6025,6026,6027,6028,6029,6037,6055,6274,6294,6343,6344,6254,6200,6201,6202,6204,6206,6207,6208,6248,6211,6212,6213,6214,6215,6216,6232,6241,6247,6249,6250,6252,6255,6258,6259,6260,6261,6262,6263,6264,6265,6266,6267,6268,6269,6271,6272,6274,6278,6279,6280,6281,6282,6283,6284,6285,6286,6292,6293,6287,6288,6289,6290,6291,6295,6296,6297,6298,6299,6300,6306,6307,6308,6309,6310,6311,6312,6313,6314,6315,6316,6317,6318,6321,6322,6323,6324,6325,6327,6328,6329,6331,6332,6335,6336,6337,6338,6339,6340,6341,6342,6345,6346,6347,6348,6349,6350,6351,6352,6355',@UserName=NULL,@PageSize=50,@VIP=-1,@RoleID='1,2,3,4',@PageIndex=1,@ExcludeIgnoredAcc=1,@LanguageID='0,12000,12001,12002,12003,12004,12006,12007,12008,12009',@HeadLine=NULL
-			select @p1
+
+	Example:	declare @p1 int
+				set @p1=9608
+				exec Acc_Crm_Rpt_CustomerReport @TotalRows=@p1 output,@SiteID='0,6004,6006,6014,6016,6019,6023,6024,6025,6026,6027,6028,6029,6037,6055,6274,6294,6343,6344,6254,6200,6201,6202,6204,6206,6207,6208,6248,6211,6212,6213,6214,6215,6216,6232,6241,6247,6249,6250,6252,6255,6258,6259,6260,6261,6262,6263,6264,6265,6266,6267,6268,6269,6271,6272,6274,6278,6279,6280,6281,6282,6283,6284,6285,6286,6292,6293,6287,6288,6289,6290,6291,6295,6296,6297,6298,6299,6300,6306,6307,6308,6309,6310,6311,6312,6313,6314,6315,6316,6317,6318,6321,6322,6323,6324,6325,6327,6328,6329,6331,6332,6335,6336,6337,6338,6339,6340,6341,6342,6345,6346,6347,6348,6349,6350,6351,6352,6355',@UserName=NULL,@PageSize=50,@VIP=-1,@RoleID='1,2,3,4',@PageIndex=1,@ExcludeIgnoredAcc=1,@LanguageID='0,12000,12001,12002,12003,12004,12006,12007,12008,12009',@HeadLine=NULL
+				select @p1
 */
 BEGIN
 	DECLARE @RowStart INT, @RowEnd INT 
+	DECLARE @tmpRole TABLE (RoleId TINYINT)
+	DECLARE @tmpLanguage TABLE (LanguageId INT)
+	DECLARE @tmpSite TABLE (SiteID INT)
+
 	SELECT @TotalRows = 0		
 	SELECT @PageIndex = @PageIndex - 1
 			,@RowStart = @PageSize * @PageIndex + 1
 			,@RowEnd = @RowStart + @PageSize - 1
-			
-	DECLARE @tmpRole TABLE (RoleId tinyint)
-	DECLARE @tmpLanguage TABLE (LanguageId INT)
-	DECLARE @tmpSite TABLE (SiteID INT)
+
 	INSERT INTO @tmpRole
-		SELECT val
-		FROM f_CRM_strSplit (@RoleID,',')
+	SELECT val
+	FROM f_CRM_strSplit (@RoleID,',')
 
 	INSERT INTO @tmpLanguage
-		SELECT val
-		FROM f_CRM_strSplit (@LanguageID,',')
+	SELECT val
+	FROM f_CRM_strSplit (@LanguageID,',')
 
 	INSERT INTO @tmpSite
-		SELECT val
-		FROM f_CRM_strSplit (@SiteID,',')
+	SELECT val
+	FROM f_CRM_strSplit (@SiteID,',')
 	
 	CREATE TABLE #tempHeadline(Custid INT,Username VARCHAR(50),groupID SMALLINT,Ignored BIT)
 	CREATE CLUSTERED INDEX [IX_groupID] ON #tempHeadline 
@@ -66,14 +68,13 @@ BEGIN
 
 	INSERT INTO #tempHeadline(Custid,Username,groupID,Ignored)
 	SELECT hed.custid,username,groupID,Ignored
-	FROM  bodb02.dbo.CustGroupHeadline hed 
-		INNER JOIN crmCustomer hedinfo WITH(NOLOCK) ON hed.custid = hedinfo.custid
+	FROM  bodb02.dbo.CustGroupHeadline hed WITH (NOLOCK)
+		INNER JOIN crmCustomer hedinfo WITH (NOLOCK) ON hed.custid = hedinfo.custid
 	WHERE @HeadLine IS NULL OR hedinfo.username LIKE @HeadLine+'%'
 
 	IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN
-		SELECT DISTINCT
-			 c.CustID, 
+		SELECT DISTINCT c.CustID, 
 			ISNULL(hed.custid,0) AS HeadlineID,
 			hed.UserName AS Headline,
 			c.UserName,
@@ -102,43 +103,43 @@ BEGIN
 			c.Birthday,
 			c.Passport,
 			site.SiteName,
-			CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
-				 WHEN ISNULL(reject,0)=1 THEN 'Suspended'
-				 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
-				 ELSE 'Active' END AS Status,
+			CASE	WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+					WHEN ISNULL(reject,0)=1 THEN 'Suspended'
+					WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+					ELSE 'Active' END AS Status,
 			ct.CountryName,
 			ch.username AS Checker,
-			CASE WHEN ci.roleid=1 THEN 'Member'
-				 WHEN ci.roleid=2 THEN 'Agent'
-				 WHEN ci.roleid=3 THEN 'Master'
-				 WHEN ci.roleid=4 THEN 'Super'
-				 ELSE  'Guest' END  AS Position
-		FROM crmCustomer(NOLOCK) c 
+			CASE	WHEN ci.roleid=1 THEN 'Member'
+					WHEN ci.roleid=2 THEN 'Agent'
+					WHEN ci.roleid=3 THEN 'Master'
+					WHEN ci.roleid=4 THEN 'Super'
+					ELSE  'Guest' END  AS Position
+		FROM crmCustomer c WITH(NOLOCK)  
 			LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
-			LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
-			LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
+			LEFT JOIN crmSite site WITH(NOLOCK)  ON site.SiteID = c.SiteID
+			LEFT JOIN crmCustomerLanguage custlang WITH(NOLOCK)  ON custlang.CustID = c.CustID
 			LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 			LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker
 			LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 			LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 			OUTER APPLY(
 				SELECT STUFF((SELECT ',' + lang.Name
-							 FROM  crmCustomerLanguage(nolock) clang
-							 inner join crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
-							 WHERE clang.CustID = c.CustID
-							 FOR XML PATH('')), 1, 1, '')
+								FROM  crmCustomerLanguage clang WITH (NOLOCK) 
+								INNER JOIN crmLanguage lang WITH (NOLOCK) ON lang.LanguageID = clang.LanguageID
+								WHERE clang.CustID = c.CustID
+								FOR XML PATH('')), 1, 1, '')
 			)A (language_name)
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
-					(ISNULL(@LanguageID,'')='')-- and isnull(A.language_name,'')='')
+					(ISNULL(@LanguageID,'')='')
 					OR (isnull(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)	
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
 			AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
-			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
-			ORDER BY ISNULL(hed.custid,0) DESC, ISNULL(c.IsVIP,0) DESC,Custid ASC
+			AND (@HeadLine IS NULL OR (hed.Custid IN (SELECT custid FROM #tempHeadline )) )
+		ORDER BY ISNULL(hed.custid,0) DESC, ISNULL(c.IsVIP,0) DESC,Custid ASC
 
 		RETURN
 	END
@@ -146,9 +147,9 @@ BEGIN
 	IF @TotalRows = 0  
 	BEGIN  
 		SELECT @TotalRows = count(DISTINCT c.CustID)
-		FROM crmCustomer(NOLOCK) c 
+		FROM crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid		
-			LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID	
+			LEFT JOIN crmCustomerLanguage custlang WITH(NOLOCK)  ON custlang.CustID = c.CustID	
 			LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 			LEFT JOIN  #tempHeadline hed  ON cus.groupID=hed.groupID 	
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
@@ -163,33 +164,27 @@ BEGIN
 			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
 	END
 
-	;WITH Pag AS
-		(
-		  SELECT DISTINCT c.CustID,ISNULL(IsVIP,0) AS IsVIP
-		  , ISNULL(hed.custid,0) AS HeadlineID
-		  FROM crmCustomer(NOLOCK) c 
-			LEFT JOIN 
-			 bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid	   
-			LEFT join crmCustomerLanguage(NOLOCK) custlang ON custlang.CustID = c.CustID
-			LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
-			LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 
-		
-			WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
-				AND (
-						(ISNULL(@LanguageID,'')='')-- and isnull(A.language_name,'')='')
-						OR (isnull(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
-					)
-				AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR isnull(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))							
-				AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
-				AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
-				AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
-				AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
+	;WITH Pag AS (
+		SELECT DISTINCT c.CustID,ISNULL(IsVIP,0) AS IsVIP, ISNULL(hed.custid,0) AS HeadlineID
+		FROM crmCustomer c WITH(NOLOCK)
+			LEFT JOIN bodb02.dbo.CustInfo ci WITH(NOLOCK) ON c.custid=ci.Custid	   
+			LEFT JOIN crmCustomerLanguage custlang WITH (NOLOCK) ON custlang.CustID = c.CustID
+			LEFT JOIN bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
+			LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 		
+		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
+			AND (
+					(ISNULL(@LanguageID,'')='')-- and isnull(A.language_name,'')='')
+					OR (isnull(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
+				)
+			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR isnull(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))							
+			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
+			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
+			AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
+			AND (@HeadLine IS NULL OR (hed.Custid IN (SELECT custid FROM #tempHeadline )) )
 			
 		)
-		,pag2 as
-		(
-		SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC,Custid ASC
-		) AS RowNum FROM Pag
+	,pag2 AS (
+		SELECT CustID, ROW_NUMBER() OVER(ORDER BY HeadlineID DESC, IsVIP DESC,Custid ASC) AS RowNum FROM Pag
 		)
 	SELECT DISTINCT c.CustID, 
 		ISNULL(hed.custid,0) AS hedId,
@@ -220,7 +215,7 @@ BEGIN
 		c.Birthday,
 		c.Passport,
 		site.SiteName,		
-		CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
+		CASE	WHEN ISNULL(closed,0)=1 THEN 'Closed' 
 				WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 				WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 				ELSE 'Active' END AS Status,
@@ -231,18 +226,18 @@ BEGIN
 				WHEN ci.roleid=3 THEN 'Master'
 				WHEN ci.roleid=4 THEN 'Super'
 				ELSE  'Guest' END AS Position
-	FROM crmCustomer(NOLOCK) c 
+	FROM crmCustomer c WITH (NOLOCK) 
 		INNER JOIN pag2 ON c.CustID = pag2.CustID
 		LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
-		LEFT JOIN crmSite(nolock) site ON site.SiteID = c.SiteID
+		LEFT JOIN crmSite site WITH (NOLOCK)  ON site.SiteID = c.SiteID
 		LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 		LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker
 		LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 
 		LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
 		OUTER APPLY(
-			SELECT Stuff((SELECT ',' + lang.Name
-							FROM  crmCustomerLanguage(nolock) clang
-							inner join crmLanguage(nolock) lang on lang.LanguageID = clang.LanguageID
+			SELECT STUFF((	SELECT ',' + lang.Name
+							FROM  crmCustomerLanguage clang WITH(NOLOCK) 
+								INNER JOIN crmLanguage lang WITH(NOLOCK) ON lang.LanguageID = clang.LanguageID
 							WHERE clang.CustID = c.CustID
 							FOR XML PATH('')), 1, 1, '')
 		)A (language_name)

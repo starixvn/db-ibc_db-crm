@@ -109,10 +109,10 @@ BEGIN
 												WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 												WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 												ELSE 'Active' END 
-				WHEN @UserRole = 1 THEN CASE	WHEN CustStatus = 1 THEN 'Inactive' 
-												WHEN CustStatus = 2 THEN 'Suspended' 
-												WHEN CustStatus = 3 THEN 'View Only' 
-												WHEN CustStatus = 4 THEN 'Active' END END AS Status,
+				WHEN @UserRole = 1 THEN CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
+												WHEN st.CustStatus = 2 THEN 'Suspended' 
+												WHEN st.CustStatus = 3 THEN 'View Only' 
+												WHEN st.CustStatus = 4 THEN 'Active' END END AS Status,
 			ct.CountryName,
 			ch.username AS Checker,
 			CASE	WHEN ci.roleid=1 THEN 'Member'
@@ -122,7 +122,7 @@ BEGIN
 					ELSE  'Guest' END  AS Position
 		FROM crmCustomer c WITH(NOLOCK)  
 			LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
-			OUTER APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custid) st
+			OUTER APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custid) st (CustStatus)
 			LEFT JOIN crmSite site WITH(NOLOCK)  ON site.SiteID = c.SiteID
 			LEFT JOIN crmCustomerLanguage custlang WITH(NOLOCK)  ON custlang.CustID = c.CustID
 			LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
@@ -226,10 +226,10 @@ BEGIN
 												WHEN ISNULL(reject,0)=1 THEN 'Suspended'
 												WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
 												ELSE 'Active' END 
-				WHEN @UserRole = 1 THEN CASE	WHEN CustStatus = 1 THEN 'Inactive' 
-												WHEN CustStatus = 2 THEN 'Suspended' 
-												WHEN CustStatus = 3 THEN 'View Only' 
-												WHEN CustStatus = 4 THEN 'Active' END END AS Status,
+				WHEN @UserRole = 1 THEN CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
+												WHEN st.CustStatus = 2 THEN 'Suspended' 
+												WHEN st.CustStatus = 3 THEN 'View Only' 
+												WHEN st.CustStatus = 4 THEN 'Active' END END AS Status,
 		ct.CountryName ,
 		ch.username AS Checker,
 		CASE WHEN ci.roleid=1 THEN 'Member'
@@ -240,6 +240,7 @@ BEGIN
 	FROM crmCustomer c WITH (NOLOCK) 
 		INNER JOIN pag2 ON c.CustID = pag2.CustID
 		LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
+		OUTER APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custid) st
 		LEFT JOIN crmSite site WITH (NOLOCK)  ON site.SiteID = c.SiteID
 		LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
 		LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker

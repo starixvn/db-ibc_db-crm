@@ -122,7 +122,7 @@ BEGIN
 					ELSE  'Guest' END  AS Position
 		FROM crmCustomer c WITH(NOLOCK)  
 			LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid
-			OUTER APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custid) st (CustStatus)
+			OUTER APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custid) st
 			LEFT JOIN crmSite site WITH(NOLOCK)  ON site.SiteID = c.SiteID
 			LEFT JOIN crmCustomerLanguage custlang WITH(NOLOCK)  ON custlang.CustID = c.CustID
 			LEFT JOIN  bodb02.dbo.CustAccount cus WITH(NOLOCK) ON c.CustID=cus.custid
@@ -139,7 +139,7 @@ BEGIN
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
 					(ISNULL(@LanguageID,'')='')
-					OR (isnull(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
+					OR (ISNULL(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)	
@@ -153,7 +153,7 @@ BEGIN
 
 	IF @TotalRows = 0  
 	BEGIN  
-		SELECT @TotalRows = count(DISTINCT c.CustID)
+		SELECT @TotalRows = COUNT(DISTINCT c.CustID)
 		FROM crmCustomer c WITH(NOLOCK) 
 			LEFT JOIN  bodb02.dbo.CustInfo ci WITH(NOLOCK)  ON c.custid=ci.Custid		
 			LEFT JOIN crmCustomerLanguage custlang WITH(NOLOCK)  ON custlang.CustID = c.CustID	
@@ -162,13 +162,13 @@ BEGIN
 		WHERE (ISNULL(@UserName,'')='' OR c.UserName LIKE '%'+@UserName+'%')
 			AND (
 					(ISNULL(@LanguageID,'')='')
-					OR (isnull(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
+					OR (ISNULL(custlang.LanguageID,0) IN(SELECT LanguageID FROM @tmpLanguage) AND ISNULL(@LanguageID,'')<>'')
 				)
 			AND ((ISNULL(@SiteID,'')='' AND ISNULL(c.SiteID,0)=0) OR ISNULL(c.SiteID,0) IN(SELECT siteid FROM @tmpSite ))	
 			AND (ISNULL(@Vip,-1)=-1 OR ISNULL(c.IsVIP,0) = @Vip)			
 			AND (ISNULL(@ExcludeIgnoredAcc,0)=0 OR ISNULL(hed.ignored,0) <> @ExcludeIgnoredAcc)
 			AND (ISNULL(ci.roleid,5) IN (SELECT RoleID FROM @tmpRole))
-			AND (@HeadLine IS NULL OR (hed.Custid IN (select custid FROM #tempHeadline )) )
+			AND (@HeadLine IS NULL OR (hed.Custid IN (SELECT custid FROM #tempHeadline )) )
 	END
 
 	;WITH Pag AS (

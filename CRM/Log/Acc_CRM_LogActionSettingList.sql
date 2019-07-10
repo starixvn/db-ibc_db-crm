@@ -25,7 +25,7 @@ BEGIN
 			INNER JOIN crmLogAction la WITH(NOLOCK) ON la.ActionID = lc.ActionID
 			INNER JOIN bodb02.dbo.Customer ci WITH (NOLOCK) ON ci.custid = lc.UserID
 			INNER JOIN crmSetting s WITH(NOLOCK) ON lc.SettingID=s.SettingID
-		WHERE (lc.actionid BETWEEN 300 AND 399 OR lc.ActionID IN (800, 801)) AND lc.ActionID <> 303
+		WHERE (lc.actionid BETWEEN 300 AND 399 OR lc.actionid BETWEEN 800 AND 899) AND lc.ActionID <> 303
 			AND (ISNULL(@username,'')='' OR ci.username = @username) 
 			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
 			AND lc.LogDate BETWEEN @FromDate and @Todate

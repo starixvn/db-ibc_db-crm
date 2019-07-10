@@ -373,7 +373,7 @@ BEGIN
 				,	fb.LanguageID
 				,	fb.CountryID
 				,	fb.CreatorID
-				,	fb.username AS CreatorName
+				,	fb.CreatorName
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate
@@ -465,7 +465,7 @@ BEGIN
 				,	fb.LanguageID
 				,	fb.CountryID
 				,	fb.CreatorID
-				,	fb.username AS CreatorName
+				,	fb.CreatorName
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate
@@ -560,7 +560,7 @@ BEGIN
 				,	fb.LanguageID
 				,	fb.CountryID
 				,	fb.CreatorID
-				,	fb.username AS CreatorName
+				,	fb.CreatorName
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate
@@ -655,7 +655,7 @@ BEGIN
 				,	fb.LanguageID
 				,	fb.CountryID
 				,	fb.CreatorID
-				,	fb.username AS CreatorName
+				,	fb.CreatorName
 				,	fb.FeedbackDate
 				,	fb.ResolutionDate
 				,	fb.CreateDate

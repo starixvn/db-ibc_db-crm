@@ -19,6 +19,8 @@ AS
 BEGIN
 	SELECT ActionID,SPName,ActionNameEN ActionName FROM crmLogAction(NOLOCK) 
 	WHERE (ActionID BETWEEN 100 AND 199 OR ActionID BETWEEN 200 AND 299 OR ActionID BETWEEN 500 AND 599 OR ActionID BETWEEN 600 AND 699)
-		AND (@UserRole=2 OR(@UserRole=1 AND ExcludedForCn88 = 0))
+		AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0) = 0))
 END
 GO 
+
+SELECT * FROM dbo.crmLogAction 

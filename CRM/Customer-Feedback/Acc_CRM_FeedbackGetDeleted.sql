@@ -386,7 +386,7 @@ BEGIN
 				,	fb.IsReviewed
 				,	fb.Review
 				,	fb.ReviewerID
-				,	fb.username AS ReviewerName			
+				,	fb.ReviewerName		
 				,	fb.IsRelated
 				,	fb.Subject
 				,	fb.relatedCustomer
@@ -478,7 +478,7 @@ BEGIN
 				,	fb.IsReviewed
 				,	fb.Review
 				,	fb.ReviewerID
-				,	fb.username AS ReviewerName			
+				,	fb.ReviewerName
 				,	fb.IsRelated
 				,	fb.Subject
 				,	fb.relatedCustomer
@@ -573,7 +573,7 @@ BEGIN
 				,	fb.IsReviewed
 				,	fb.Review
 				,	fb.ReviewerID
-				,	fb.username AS ReviewerName			
+				,	fb.ReviewerName
 				,	fb.IsRelated
 				,	fb.Subject
 				,	fb.relatedCustomer
@@ -668,7 +668,7 @@ BEGIN
 				,	fb.IsReviewed
 				,	fb.Review
 				,	fb.ReviewerID
-				,	fb.username AS ReviewerName			
+				,	fb.ReviewerName
 				,	fb.IsRelated
 				,	fb.Subject
 				,	fb.relatedCustomer

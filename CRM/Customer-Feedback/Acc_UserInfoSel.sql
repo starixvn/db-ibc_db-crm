@@ -16,6 +16,7 @@ AS
 		- 20120309@Lukas: Get user info by nickname
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
+		- 20190707@Winnie: Fix bug [RedmineID: #112637]
 	Param's Explanation:
 
 */
@@ -25,11 +26,12 @@ BEGIN
 		SELECT @UserID = CustID, @RoleID = roleid
 		FROM customer WITH(NOLOCK)
 		WHERE UserName = @UserName
-			AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND site <> 'CN88'))
+			AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))
 	ELSE 
 		SELECT @UserID = CustID, @RoleID = roleid
 		FROM customer WITH(NOLOCK)
 		WHERE UserName2 = @UserName
-			AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND site <> 'CN88'))
+			AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))
 END
+
 GO

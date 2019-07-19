@@ -58,7 +58,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@Pic2Name					NVARCHAR(100)	= NULL
 				,	@Pic3Name					NVARCHAR(100)	= NULL
 				,	@Pic4Name					NVARCHAR(100)	= NULL
-				,	@RelatedCustID				NVARCHAR(MAX)	= NULL
+				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@LicenseeType				INT				= 0
 				,	@ProvinceID					INT				= NULL
 				,	@WhatsApp					NVARCHAR(100)	= NULL
@@ -91,6 +91,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing

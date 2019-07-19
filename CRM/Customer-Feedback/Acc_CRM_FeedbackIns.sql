@@ -93,6 +93,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -445,6 +446,13 @@ BEGIN
 		INSERT INTO	@relatedCustomer
 		SELECT	CONVERT(INT, val)
 		FROM	dbo.f_split(@RelatedCustID, ',');
+
+		IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
+		BEGIN
+			SELECT	@ErrCode = 106
+				,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum..'
+			RETURN
+		END
 
 		-- insert feedback related
 		INSERT INTO	crmFeedbackCustomer

@@ -43,7 +43,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@RoleID						INT			
 				,	@ResponseID					INT
 				,	@StatusID					INT
-				,	@RelatedCustID				VARCHAR(500)	= NULL
+				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@Description				NVARCHAR(MAX)	= NULL
 				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)	= NULL
@@ -97,6 +97,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190628@Winnie: CN88 Permission Fix bug RedmineID: #115828
+		- 20190719@Winnie: CRM - Remove limit Is Related Customer: #113305
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */

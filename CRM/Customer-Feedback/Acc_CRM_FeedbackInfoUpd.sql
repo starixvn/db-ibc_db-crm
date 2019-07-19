@@ -28,7 +28,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@LanguageID					VARCHAR(1000)
 				,	@CountryID					INT
 				,	@Subject					NVARCHAR(200)	= NULL
-				,	@RelatedCustID				NVARCHAR(MAX)	= NULL
+				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@FeedbackDate				DATETIME
 				,	@ResolutionDate				DATETIME
 				,	@CommunicationID			VARCHAR(MAX)	
@@ -96,6 +96,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Province RedmineID: #112637
+		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing

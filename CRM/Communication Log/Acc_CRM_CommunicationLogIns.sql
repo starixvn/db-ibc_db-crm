@@ -481,7 +481,7 @@ BEGIN
 
 		INSERT INTO @relatedCustomer
 		SELECT	CONVERT(INT, val)
-		FROM	dbo.f_split(@RelatedCustID, ',')
+		FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',')
 
 		IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
 		BEGIN

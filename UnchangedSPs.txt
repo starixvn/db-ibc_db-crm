@@ -1,1 +1,3 @@
 CRM\Customer\Acc_CRM_CustomerSearch.sql
+CRM\Customer-Feedback\Acc_CRM_RelatedCustomerVerify.sql
+CRM\Customer-Feedback\Acc_CRM_GuestFeedbackIns_Multiple.sql

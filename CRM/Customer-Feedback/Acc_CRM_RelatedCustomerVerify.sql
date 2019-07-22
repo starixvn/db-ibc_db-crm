@@ -31,7 +31,7 @@ BEGIN
 
 	INSERT INTO @tmpCustomer(UserName)
 	SELECT ltrim(rtrim(val)) UserName
-	FROM dbo.f_split(@UserName,',')		
+	FROM dbo.f_CRM_strSplit(@UserName,',')		
 		
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 

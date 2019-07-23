@@ -132,6 +132,19 @@ BEGIN
 		RETURN;
 	END;
 
+	DECLARE	@relatedCustomer TABLE(CustID INT);
+
+	INSERT INTO @relatedCustomer
+	SELECT	CONVERT(INT, val)
+	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+
+	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
+	BEGIN
+		SELECT	@ErrCode = 106
+			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
+		RETURN
+	END
+
 	DECLARE  @tblFbSetting TABLE(		
 		SettingID			INT
 		,SubSettingID		INT 	
@@ -444,18 +457,7 @@ BEGIN
 	IF	ISNULL(@RelatedCustID_Old, '') <> ''
 	SELECT	@RelatedCustID_Old = LEFT(@RelatedCustID_Old, LEN(@RelatedCustID_Old) - 1);
 
-	DECLARE	@relatedCustomer TABLE(CustID INT);
-
-	INSERT INTO @relatedCustomer
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-	BEGIN
-		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-		RETURN
-	END
+	
 		
 	DELETE	crmFeedbackCustomer WITH(ROWLOCK, UPDLOCK)
 	WHERE	FeedbackID = @FeedbackID

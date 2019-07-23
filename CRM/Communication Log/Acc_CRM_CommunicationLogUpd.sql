@@ -110,6 +110,19 @@ BEGIN
 
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
+	DECLARE	@relatedCustomer TABLE(CustID INT);
+
+	INSERT INTO @relatedCustomer
+	SELECT	CONVERT(INT, val)
+	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+
+	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
+	BEGIN
+		SELECT	@ErrCode = 106
+			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
+		RETURN
+	END
+
 	DECLARE	@CustID_Old					INT
 		,	@RelatedCustID_Old			VARCHAR(MAX)
 		,	@LanguageID_Old				INT
@@ -325,20 +338,7 @@ BEGIN
 			,	@ErrMsg = 'updated feedback unsuccessfuly.';
 
 		RETURN;
-	END;
-
-	DECLARE	@relatedCustomer TABLE(CustID INT);
-
-	INSERT INTO @relatedCustomer
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-	BEGIN
-		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-		RETURN
-	END
+	END;	
 		
 	DELETE	crmFeedbackCustomer WITH(ROWLOCK, UPDLOCK)
 	WHERE	FeedbackID = @FeedbackID

@@ -336,7 +336,7 @@ BEGIN
 	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
 	BEGIN
 		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum..'
+			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
 		RETURN
 	END
 		

@@ -43,7 +43,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@RoleID						INT			
 				,	@ResponseID					INT
 				,	@StatusID					INT
-				,	@RelatedCustID				VARCHAR(500)	= NULL
+				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@Description				NVARCHAR(MAX)	= NULL
 				,	@AutoField					NVARCHAR(MAX)	= NULL
 				,	@Solution					NVARCHAR(MAX)	= NULL
@@ -97,6 +97,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190628@Winnie: CN88 Permission Fix bug RedmineID: #115828
+		- 20190719@Winnie: CRM - Remove limit Is Related Customer: #113305
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -119,7 +120,18 @@ BEGIN
 
 		RETURN;
 	END;
+	DECLARE	@relatedCustomer TABLE(CustID INT);
 
+	INSERT INTO	@relatedCustomer
+	SELECT	CONVERT(INT, val)
+	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+
+	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
+	BEGIN
+		SELECT	@ErrCode = 106
+			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
+		RETURN
+	END
 	
 	IF	NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN

@@ -58,7 +58,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@Pic2Name					NVARCHAR(100)	= NULL
 				,	@Pic3Name					NVARCHAR(100)	= NULL
 				,	@Pic4Name					NVARCHAR(100)	= NULL
-				,	@RelatedCustID				NVARCHAR(MAX)	= NULL
+				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@LicenseeType				INT				= 0
 				,	@ProvinceID					INT				= NULL
 				,	@WhatsApp					NVARCHAR(100)	= NULL
@@ -91,6 +91,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -130,6 +131,19 @@ BEGIN
 
 		RETURN;
 	END;
+
+	DECLARE	@relatedCustomer TABLE(CustID INT);
+
+	INSERT INTO @relatedCustomer
+	SELECT	CONVERT(INT, val)
+	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+
+	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
+	BEGIN
+		SELECT	@ErrCode = 106
+			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
+		RETURN
+	END
 
 	DECLARE  @tblFbSetting TABLE(		
 		SettingID			INT
@@ -442,6 +456,24 @@ BEGIN
 
 	IF	ISNULL(@RelatedCustID_Old, '') <> ''
 	SELECT	@RelatedCustID_Old = LEFT(@RelatedCustID_Old, LEN(@RelatedCustID_Old) - 1);
+
+	
+		
+	DELETE	crmFeedbackCustomer WITH(ROWLOCK, UPDLOCK)
+	WHERE	FeedbackID = @FeedbackID
+		AND	IsRelated = 1;
+
+	UPDATE fc
+	SET fc.IsRelated=1
+	FROM crmFeedbackCustomer  fc WITH(ROWLOCK, UPDLOCK)
+		INNER JOIN @relatedCustomer t ON fc.CustID=t.CustID
+	WHERE fc.FeedbackID=@FeedbackID
+	-- Insert feedback related
+	INSERT INTO crmFeedbackCustomer
+				(	FeedbackID , CustID, IsRelated)	
+	SELECT DISTINCT @FeedbackID, t.CustID, 1
+	FROM	@relatedCustomer t
+	WHERE	NOT EXISTS(SELECT TOP 1 1 FROM crmFeedbackCustomer WITH(NOLOCK) WHERE FeedbackID=@FeedbackID AND CustID=t.CustID)
 
 	--- update feedback
 	UPDATE crmFeedback WITH (ROWLOCK, UPDLOCK)

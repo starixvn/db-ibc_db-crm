@@ -1,8 +1,9 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackCustomerUpd]
 (
 	@UserID				INT,
 	@FeedbackID			INT,
-	@RelatedCustID		NVARCHAR(MAX)	= NULL,	
+	@RelatedCustID		VARCHAR(MAX)	= NULL,	
 	@IP					VARCHAR(15),
 	@ErrCode			INT				= 0 OUTPUT,
 	@ErrMsg				NVARCHAR(4000)	= '' OUTPUT	
@@ -23,6 +24,7 @@ AS
 		- 20120418@Elodie: remove all related customers of feedback if @RelatedCustID parameter is empty.				   
 						   change default value of @RelatedCustID param to NULL value
 		- 20140303@Dom: Modify for new structure
+		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
 	Param's Explanation:
 	
 */
@@ -46,7 +48,14 @@ BEGIN
 
 		INSERT INTO @relatedCustomer
 				SELECT CONVERT(INT,val)
-				FROM [dbo].[f_split](@RelatedCustID,',')
+				FROM [dbo].f_CRM_strSplit(@RelatedCustID,',')
+
+		IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
+		BEGIN
+			SELECT	@ErrCode = 106
+				,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
+			RETURN
+		END
 
 		IF EXISTS (SELECT TOP 1 1 FROM @relatedCustomer )
 		BEGIN
@@ -106,16 +115,6 @@ BEGIN
 END
 
 
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackCustomerUpd] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackCustomerUpd] TO [vnteam]
 GO 

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" selectors="bodbAdminNet" viewers="" isFunction="1"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" selectors="bodbAdminNet" viewers="" isFunction="1"></info>*/
 CREATE FUNCTION [dbo].[f_Inform_HeadlineList] (@Currency VARCHAR(1000), @Level VARCHAR(10), @Site VARCHAR(4000), @TypeAccount TINYINT)
 RETURNS @DirectAcc TABLE (
 	[CustID] [INT],

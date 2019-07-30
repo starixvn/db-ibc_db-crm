@@ -80,7 +80,7 @@ BEGIN
 	
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT,Username VARCHAR(30))	
 	INSERT INTO #DirectAcc (CustID, GroupID,Username)
-	SELECT a.CustID, GroupID,Username FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	SELECT a.CustID, GroupID,a.Username FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)

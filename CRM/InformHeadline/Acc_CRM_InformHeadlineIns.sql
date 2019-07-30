@@ -80,7 +80,7 @@ BEGIN
 	FROM f_CRM_strSplit (@Currency,',')
 
 	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	SELECT a.CustID, GroupID FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@ExcludeIgnored,0)=0 OR ISNULL(ignored,0) <> @ExcludeIgnored)
 		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)

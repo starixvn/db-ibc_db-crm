@@ -42,6 +42,7 @@ BEGIN
 	DECLARE @UplineID INT
 	DECLARE @CurrencyID INT
 	DECLARE @SiteHardcode VARCHAR(10)
+	DECLARE @UsernameHardcode VARCHAR(30)
 	DECLARE @RoleID INT
 	DECLARE @TypeAccountHardcode INT
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
@@ -51,18 +52,18 @@ BEGIN
 
 	INSERT INTO @tmpLevel
 	SELECT val
-	FROM f_CRM_strSplit (@Level,',')
+	FROM f_split (@Level,',')
 
 	INSERT INTO @tmpSite
 	SELECT s.SiteName
-	FROM f_CRM_strSplit (@Site,',') v
+	FROM f_split (@Site,',') v
 		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
 	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
 
-	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0) FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustID
+	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0),@UsernameHardcode=UserName FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustID
 
 	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID and IsGroupHeadLine=1)
 	BEGIN
@@ -75,11 +76,11 @@ BEGIN
 
 	INSERT INTO @tmpCurrency
 	SELECT val
-	FROM f_CRM_strSplit (@Currency,',')
+	FROM f_split (@Currency,',')
 	
-	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
-	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT,Username VARCHAR(30))	
+	INSERT INTO #DirectAcc (CustID, GroupID,Username)
+	SELECT a.CustID, GroupID,Username FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)
@@ -91,8 +92,8 @@ BEGIN
 		AND (ISNULL(@Ignored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @Ignored)
 		AND (@IsVip =2 OR @IsVip=@IsVipHardCode)
 	BEGIN
-		INSERT INTO #DirectAcc (CustID, GroupID)
-		SELECT @CustID,groupID
+		INSERT INTO #DirectAcc (CustID, GroupID,Username)
+		SELECT @CustID,groupID,@UsernameHardcode
 		FROM bodb02.dbo.custAccount WITH(NOLOCK)
 		WHERE custid=@CustID
 	END
@@ -103,10 +104,9 @@ BEGIN
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						hl.CustID AS HeadlineID, 
-						c.username,
+						hl.username,
 						hl.GroupID
-				FROM #DirectAcc hl
-					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
+				FROM #DirectAcc hl				
 				)tmp
 	ELSE
 		SELECT	ID, HeadlineID, username, GroupID,
@@ -114,10 +114,9 @@ BEGIN
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
 						hl.CustID AS HeadlineID, 
-						c.username,
+						hl.username,
 						hl.GroupID
-				FROM #DirectAcc hl
-					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
+				FROM #DirectAcc hl					
 				)tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 

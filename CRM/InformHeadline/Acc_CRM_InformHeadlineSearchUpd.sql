@@ -43,12 +43,12 @@ BEGIN
 	END	
 	DECLARE @LogID INT
 
-	DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT, IsKeep BIT)
+	DECLARE @HeadlineData TABLE(HeadlineID INT, GroupID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT)
 	DECLARE @HeadlineDataOld TABLE(InformHeadlineID INT,HeadlineID INT,TitleID INT, InformHeadlineStatusID INT,GroupID INT,UpdatedTime DATETIME, Remark NVARCHAR(4000), Handler INT, Extension INT, ProductStatus INT, IsInform BIT)
 	DECLARE @HeadlineDataDelete TABLE(InformHeadlineID INT,HeadlineID INT,TitleID INT, InformHeadlineStatusID INT,GroupID INT,UpdatedTime DATETIME, Remark NVARCHAR(4000), Handler INT, Extension INT, ProductStatus INT, IsInform BIT)
 
 	--Infomation which user input 
-	INSERT INTO @HeadlineData
+	INSERT INTO @HeadlineData(HeadlineID,GroupID,InformHeadlineStatusID,Remark,Extension,ProductStatus)
 	SELECT	xmlData.Col.value('@HeadlineID','INT') HeadlineID,
 			xmlData.Col.value('@GroupID','INT') GroupID,
 			xmlData.Col.value('@StatusID','INT') InformHeadlineStatusID,
@@ -204,8 +204,7 @@ BEGIN
 						'<Remark>'						+ ISNULL([dbo].[f_EncodeXMLValue](hl.Remark),'')										+ '</Remark>' +
 						'<Extension>'					+ ISNULL(CAST(hl.Extension AS VARCHAR(30)),'')											+ '</Extension>'+													
 						'<ProductStatus>'				+ ISNULL(CAST(hl.ProductStatus AS VARCHAR(30)),'')										+ '</ProductStatus>' +
-						'<Handler>'						+ ISNULL(CAST(@UserID AS VARCHAR(30)),'')												+ '</Handler>'+	
-						'<IsKeep>'						+ CAST(ISNULL(hl.IsKeep, 0) AS VARCHAR(1))												+ '</IsKeep>' +
+						'<Handler>'						+ ISNULL(CAST(@UserID AS VARCHAR(30)),'')												+ '</Handler>'+							
 						'<UpdateTime>'					+ ISNULL(CAST(GETDATE() AS VARCHAR(30)),'')												+ '</UpdateTime>'+													
 						'<IsInform>'					+ ISNULL(CAST(1 AS VARCHAR(30)),'')														+ '</IsInform>'+						
 					'</Acc_CRM_InformHeadlineSearchUpd>' 

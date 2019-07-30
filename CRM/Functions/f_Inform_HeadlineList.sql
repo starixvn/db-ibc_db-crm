@@ -11,7 +11,7 @@ AS
 	Task: Get Inform Headline
 	DB: DBCRM/bodb_CRM
 	Revisions:	
-	
+		-20190311@Winnie: CRM - Enhance Inform Headline RedmineID:#109775	
 */
 BEGIN
 	DECLARE @tmpCurrency TABLE (currency INT)	

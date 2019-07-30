@@ -72,6 +72,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 	@IsVerifyGivenCredit		BIT				= 0,
 	@CreatorID					INT,
 	@LicenseeType				INT				= 0,
+	@IsVip						BIT				= 0,
 	@WhatsApp					NVARCHAR(100)	= NULL,
 	@Line						NVARCHAR(100)	= NULL,
 	@WeChat						NVARCHAR(100)	= NULL,

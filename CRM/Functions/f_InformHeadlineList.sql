@@ -1,4 +1,3 @@
-/*<info serverAlias="DBEXT-bodb02" selectors="bodbAdminNet" viewers="" isFunction="1"></info>*/
 ALTER FUNCTION [dbo].[f_InformHeadlineList] (@Currency VARCHAR(1000), @Level VARCHAR(10), @Site VARCHAR(4000), @TypeAccount TINYINT)
 RETURNS @DirectAcc TABLE (
 	[CustID] [INT],
@@ -10,13 +9,12 @@ AS
 	Task: Get Inform Headline
 	DB: DBEXT/bodb02
 	Revisions:	
-		-20190311@Winnie: CRM - Enhance Inform Headline RedmineID:#109775	
+	
 */
 BEGIN
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @tmpLevel TABLE (roleID TINYINT)	
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
-	
 
 	INSERT INTO @tmpCurrency
 	SELECT val
@@ -109,29 +107,12 @@ BEGIN
 				AND cs.IsInternal = 0 AND cmaster.IsInternal = 0 AND ca.IsInternal = 0
 				AND ((cih.closed=0 AND ISNULL(cih.reject,0) = 0 AND cih.Enabled = 1 AND ch.currency IN (SELECT currency FROM @tmpCurrency) AND (ch.site IN (SELECT Site FROM @tmpSite) OR cha.site IN (SELECT Site FROM @tmpSite))) 
 					OR (cim.closed=0 AND ISNULL(cim.reject,0) = 0 AND cim.Enabled = 1 AND cm.currency IN (SELECT currency FROM @tmpCurrency) AND (cm.site IN (SELECT Site FROM @tmpSite) OR cma.site IN (SELECT Site FROM @tmpSite))))
-				AND hl.groupID > 0	
-		
-		IF EXISTS (SELECT 1 FROM @tmpLevel WHERE roleID = 0)
-			
-			INSERT INTO @DirectAcc (CustID,GroupID)		
-			SELECT DISTINCT c.custid,
-					(SELECT TOP 1 GroupID FROM custAccount ca WITH(NOLOCK) 
-												INNER JOIN Acc_CustGroup acc WITH(NOLOCK) ON ca.custid=acc.CustID 
-												INNER JOIN custInfo co WITH(NOLOCK) ON acc.CustID=co.CustID
-											WHERE acc.RoleID=4 AND acc.GroupName=g.GroupName)
-			
-			FROM  bodb_EAS.dbo.eaUserInfo u WITH (NOLOCK)
-				INNER JOIN custInfo c WITH(NOLOCK) ON u.UserID=c.custid	
-				INNER JOIN bodb_EAS.dbo.eaGroup g  WITH (NOLOCK) ON u.groupid=g.GroupID				
-				CROSS APPLY @tmpSite	t					
-			WHERE c.RoleID IN(5,6,7,8,9,10) AND		
-					((c.closed=0 AND ISNULL(c.reject,0) = 0 AND c.Enabled = 1 AND (select TOP 1 exchangeID from f_CurrencyBySystem(g.GroupName)) IN (SELECT currency FROM @tmpCurrency) AND exists (select val from bodb02.dbo.strSplit(g.site,',') where val=t.site)) 
-					)		
-		
+				AND hl.groupID > 0
+
 	END
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3
-	BEGIN	
+	BEGIN
 		IF EXISTS (SELECT 1 FROM @tmpLevel WHERE roleID = 4)
 			INSERT INTO @DirectAcc (CustID, GroupID)
 			SELECT DISTINCT c.CustID, 0
@@ -178,7 +159,7 @@ BEGIN
 				AND c.currency IN (SELECT currency FROM @tmpCurrency) 
 				AND c.site IN (SELECT Site FROM @tmpSite)
 				AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
-	
+
 		IF EXISTS (SELECT 1 FROM @tmpLevel WHERE roleID = 1)
 			INSERT INTO @DirectAcc (CustID, GroupID)
 			SELECT c.CustID, 0
@@ -196,10 +177,11 @@ BEGIN
 				AND c.currency IN (SELECT currency FROM @tmpCurrency) 
 				AND ca.site IN (SELECT Site FROM @tmpSite)
 				AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
-		
 	END		
 	RETURN
 END
-GO
+
+GO 
 GRANT SELECT ON [dbo].[f_InformHeadlineList] TO [bodbAdminNet]
 GO
+GRANT VIEW DEFINITION ON [dbo].[f_InformHeadlineList] TO [vnteam] AS [dbo]

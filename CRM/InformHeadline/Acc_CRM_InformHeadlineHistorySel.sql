@@ -20,7 +20,7 @@ AS
 
 */
 BEGIN
-	SELECT	ID, HeadlineID, DirectAcc, Handler,Remark,UpdatedTime,Status,ProductStatus,Extension		
+	SELECT	ID, HeadlineID, DirectAcc, Handler,Remark,UpdatedTime,ISNULL(Status,'N/A'),ISNULL(ProductStatus,'N/A'),ISNULL(Extension,'N/A')		
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY HeadLineID DESC) AS ID,
 						hi.HeadlineID,
@@ -33,12 +33,11 @@ BEGIN
 						e.SettingName AS Extension
 				FROM [dbo].[crmInformHeadline_History] hi WITH(NOLOCK)
 					INNER JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON hi.[HeadlineID]=h.custid
-					INNER JOIN crmSetting hs WITH(NOLOCK) ON hi.InformHeadlineStatusID=hs.SettingID
-					INNER JOIN crmSetting ps WITH(NOLOCK) ON hi.ProductStatus=ps.SettingID
-					INNER JOIN crmSetting e WITH(NOLOCK) ON hi.ProductStatus=e.SettingID
+					LEFT JOIN crmSetting hs WITH(NOLOCK) ON hi.InformHeadlineStatusID=hs.SettingID
+					LEFT JOIN crmSetting ps WITH(NOLOCK) ON hi.ProductStatus=ps.SettingID
+					LEFT JOIN crmSetting e WITH(NOLOCK) ON hi.ProductStatus=e.SettingID
 					INNER JOIN bodb02.dbo.Customer ha WITH(NOLOCK) ON hi.[HeadlineID]=ha.custid
-				WHERE hi.LogID=@LogID
-				GROUP BY hi.LogID
+				WHERE hi.LogID=@LogID			
 				)tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 END

@@ -22,7 +22,7 @@ AS
 BEGIN
 	SELECT	ID, LogID, username, LogDate,NumAcc				
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY LogID DESC) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.LogID DESC) AS ID,
 						hl.LogDate , 
 						hl.LogID,
 						c.username,

@@ -31,7 +31,7 @@ BEGIN
 					INNER JOIN 	[dbo].[crmInformHeadline_History] hi WITH(NOLOCK) ON hl.LogID=hi.LogID		
 					INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON hl.EditedBy=c.custid
 				WHERE hl.TitleID=@TitleID
-				GROUP BY hl.LogID
+				GROUP BY hl.LogID,hl.LogDate,c.username
 				)tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 

@@ -102,7 +102,7 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, hl.username) AS ID,
 						hl.CustID AS HeadlineID, 
 						hl.username,
 						hl.GroupID
@@ -112,7 +112,7 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, hl.username) AS ID,
 						hl.CustID AS HeadlineID, 
 						hl.username,
 						hl.GroupID

@@ -49,8 +49,8 @@ BEGIN
 
 	IF @TypeAccount = 1 OR @TypeAccount = 3
 	BEGIN			
-		INSERT INTO @DirectAcc (CustID, GroupID)	
-		SELECT DISTINCT hl.custid, hl.groupID
+		INSERT INTO @DirectAcc (CustID, GroupID,[Username])	
+		SELECT DISTINCT hl.custid, hl.groupID,ch.username
 		FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
 			INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
 			INNER JOIN bodb02.dbo.custInfo cih WITH (NOLOCK) ON hl.custid = cih.custid
@@ -61,8 +61,8 @@ BEGIN
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3
 	BEGIN	
-		INSERT INTO @DirectAcc (CustID, GroupID)
-		SELECT c.CustID, 0
+		INSERT INTO @DirectAcc (CustID, GroupID,[Username])
+		SELECT c.CustID, 0,ci.username
 		FROM bodb02.dbo.CustDirectAccount c WITH (NOLOCK) 
 			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid			
 			INNER JOIN bodb02.dbo.Customer co WITH (NOLOCK) ON co.custid = ci.custid				

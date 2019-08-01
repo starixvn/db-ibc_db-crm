@@ -28,9 +28,9 @@ BEGIN
 						ha.username AS Handler,
 						hi.Remark,
 						hi.UpdatedTime,
-						hs.SettingName AS Status,
-						ps.SettingName AS ProductStatus,
-						e.SettingName AS Extension
+						hs.SettingValue AS Status,
+						ps.SettingValue AS ProductStatus,
+						e.SettingValue AS Extension
 				FROM [dbo].[crmInformHeadline_History] hi WITH(NOLOCK)
 					INNER JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON hi.[HeadlineID]=h.custid
 					LEFT JOIN crmSetting hs WITH(NOLOCK) ON hi.InformHeadlineStatusID=hs.SettingID

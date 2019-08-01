@@ -144,5 +144,3 @@ GO
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CopyCustomerInformation] TO [bodbAdminNet]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CopyCustomerInformation] TO [vnteam]
-GO 

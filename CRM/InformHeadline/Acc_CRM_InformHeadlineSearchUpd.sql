@@ -139,28 +139,34 @@ BEGIN
 		SELECT @ErrMsg = 'Insert unsuccessfuly.'
 		RETURN
 	END
+	IF EXISTS(SELECT TOP 1 1 FROM @HeadlineDataDelete
+		WHERE InformHeadlineStatusID<>45006 OR (Extension<>0 AND Extension<>2022) OR ProductStatus<>0 OR ISNULL(Remark,'')<>'')
+		OR
+		EXISTS(SELECT TOP 1 1 FROM @HeadlineDataDelete hd
+		INNER JOIN @HeadlineData h ON hd.HeadlineID=h.HeadlineID
+		WHERE h.InformHeadlineStatusID<>hd.InformHeadlineStatusID OR h.Extension<>hd.Extension OR h.ProductStatus<>hd.ProductStatus OR hd.Remark<>h.Remark)
+	BEGIN
+		INSERT INTO [dbo].[crmInformHeadline_Log]([LogDate],EditedBy,TitleID)
+		SELECT GETDATE(),@UserID,@TitleID
+		SELECT @LogID=@@IDENTITY
+		INSERT INTO [dbo].[crmInformHeadline_History](LogID,HeadlineID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform)
+		SELECT @LogID,HeadlineID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform
+		FROM @HeadlineDataDelete
+			WHERE InformHeadlineStatusID<>45006 OR (Extension<>0 AND Extension<>2022) OR ProductStatus<>0 OR ISNULL(Remark,'')<>''	
 
-	INSERT INTO [dbo].[crmInformHeadline_Log]([LogDate],EditedBy,TitleID)
-	SELECT GETDATE(),@UserID,@TitleID
-
-	SELECT @LogID=@@IDENTITY
-	INSERT INTO [dbo].[crmInformHeadline_History](LogID,HeadlineID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform)
-	SELECT @LogID,HeadlineID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform
-	FROM @HeadlineDataDelete
-		WHERE InformHeadlineStatusID<>45006 OR (Extension<>0 AND Extension<>2022) OR ProductStatus<>0 OR ISNULL(Remark,'')<>''	
-
-	INSERT INTO [dbo].[crmInformHeadline_History](LogID,HeadlineID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform)
-	SELECT @LogID,hd.HeadlineID,hd.InformHeadlineStatusID,hd.GroupID,hd.UpdatedTime,hd.Remark,hd.Handler,hd.Extension,hd.ProductStatus,hd.IsInform
-	FROM @HeadlineDataDelete hd
+		INSERT INTO [dbo].[crmInformHeadline_History](LogID,HeadlineID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform)
+		SELECT @LogID,hd.HeadlineID,hd.InformHeadlineStatusID,hd.GroupID,hd.UpdatedTime,hd.Remark,hd.Handler,hd.Extension,hd.ProductStatus,hd.IsInform
+		FROM @HeadlineDataDelete hd
 		INNER JOIN @HeadlineData h ON hd.HeadlineID=h.HeadlineID
 		WHERE h.InformHeadlineStatusID<>hd.InformHeadlineStatusID OR h.Extension<>hd.Extension OR h.ProductStatus<>hd.ProductStatus OR hd.Remark<>h.Remark	
 
-	IF @@ERROR <> 0
-	BEGIN
-		SELECT @ErrCode = 103
-		SELECT @ErrMsg = 'Insert Log unsuccessfuly.'
-		RETURN
-	END
+		IF @@ERROR <> 0
+		BEGIN
+			SELECT @ErrCode = 103
+			SELECT @ErrMsg = 'Insert Log unsuccessfuly.'
+			RETURN
+		END
+	END	
 	
 	-- write log
 	DECLARE @OldValues XML = '', @NewValues XML = ''

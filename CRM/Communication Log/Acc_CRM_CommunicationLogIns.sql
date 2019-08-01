@@ -38,6 +38,7 @@ AS
 		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 		- 20190506@Winnie: CN88 Province RedmineID: #112637
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
+		- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 	Param's Explanation:
 */
 BEGIN

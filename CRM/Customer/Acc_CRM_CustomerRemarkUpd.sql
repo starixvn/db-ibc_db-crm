@@ -1,9 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 /****** Object:  Stored Procedure dbo.Acc_CRM_CustomerRemarkUpd    Script Date: 3/26/2014 6:06:05 PM ******/
 ALTER PROCEDURE Acc_CRM_CustomerRemarkUpd
 	@CustID		INT,
@@ -20,7 +15,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:
-	
+	- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 Param's Explanation:
 */
 
@@ -151,6 +146,5 @@ GO
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerRemarkUpd] TO [bodbAdminNet]
 GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerRemarkUpd] TO [vnteam]
-GO 
+
 

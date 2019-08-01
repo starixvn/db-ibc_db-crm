@@ -1,9 +1,4 @@
-
-SET QUOTED_IDENTIFIER ON 
-GO
-SET ANSI_NULLS ON 
-GO
-
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 /****** Object:  Stored Procedure dbo.Acc_CRM_CopyCustomerInformation    Script Date: 3/26/2014 6:06:04 PM ******/
 CREATE PROCEDURE Acc_CRM_CopyCustomerInformation
 	@CustID				INT,
@@ -21,7 +16,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	
+	- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 Param's Explanation:	
 */
 
@@ -109,7 +104,7 @@ EXEC Acc_CRM_CustomerIns_New
 			@Question						= NULL,
 			@Answer							= NULL,
 			@CountryID						= @CountryID,
-			@IsVIP							= NULL,
+			@IsVIP							= 0,
 			@SiteID							= NULL,
 			@Wire_BankName					= NULL,
 			@Wire_BankAddress				= NULL,

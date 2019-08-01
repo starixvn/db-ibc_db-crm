@@ -20,7 +20,7 @@ AS
 
 */
 BEGIN
-	SELECT	ID, HeadlineID, DirectAcc, Handler,Remark,UpdatedTime,ISNULL(Status,'N/A'),ISNULL(ProductStatus,'N/A'),ISNULL(Extension,'N/A')		
+	SELECT	ID, HeadlineID, DirectAcc, Handler,Remark,UpdatedTime,ISNULL(Status,'N/A') AS Status,ISNULL(ProductStatus,'N/A') AS ProductStatus,ISNULL(Extension,'N/A') AS Extension
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY HeadLineID DESC) AS ID,
 						hi.HeadlineID,

@@ -98,7 +98,7 @@ BEGIN
 		WHERE custid=@CustID
 	END
 
-	SELECT	ac.CustID, ac.Username AS UserName,
+	SELECT	ac.CustID AS HeadlineID, ac.Username AS UserName,
 					ISNULL(ih.GroupID,ac.GroupID) AS GroupID,
 					ISNULL(ih.InformHeadlineStatusID,45006) AS InformHeadlineStatusID, 
 					ih.UpdatedTime,

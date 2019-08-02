@@ -26,7 +26,7 @@ AS
 						3: Both
 		- @ChangeFilter =0: Not change
 						=1: Change filter
-	Example: EXEC Acc_CRM_InformHeadlineSearchSel_UAT3 @TitleID = 1, @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @ChangeFilter = 0
+	Example: EXEC Acc_CRM_InformHeadlineSearchSel @TitleID = 1, @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @ChangeFilter = 0
 */
 BEGIN
 	SET NOCOUNT ON
@@ -80,7 +80,7 @@ BEGIN
 
 	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT,Username VARCHAR(30))	
 	INSERT INTO #DirectAcc (CustID, GroupID,Username)
-	SELECT a.CustID, GroupID,a.Username FROM dbo.f_Inform_HeadlineList_UAT3 (@Currency, @Level, @Site, @TypeAccount) a	
+	SELECT a.CustID, GroupID,a.Username FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a	
 		LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
 		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)

@@ -24,13 +24,11 @@ BEGIN
 	IF ISNULL(@TotalRows,0)=0
 	BEGIN
 		SELECT	@TotalRows=COUNT(1)
-				FROM [dbo].[crmInformHeadline_History] hi WITH(NOLOCK)
-					INNER JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON hi.[HeadlineID]=h.custid
-					LEFT JOIN crmSetting hs WITH(NOLOCK) ON hi.InformHeadlineStatusID=hs.SettingID
-					LEFT JOIN crmSetting ps WITH(NOLOCK) ON hi.ProductStatus=ps.SettingID
-					LEFT JOIN crmSetting e WITH(NOLOCK) ON hi.ProductStatus=e.SettingID
-					INNER JOIN bodb02.dbo.Customer ha WITH(NOLOCK) ON hi.[HeadlineID]=ha.custid
-				WHERE hi.LogID=@LogID	
+		FROM crmInformHeadline_Log hl WITH(NOLOCK)
+			INNER JOIN 	[dbo].[crmInformHeadline_History] hi WITH(NOLOCK) ON hl.LogID=hi.LogID		
+			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON hl.EditedBy=c.custid
+		WHERE hl.TitleID=@TitleID
+		GROUP BY hl.LogID,hl.LogDate,c.username
 	END
 	SELECT	ID, LogID, username, LogDate,NumAcc				
 		FROM (

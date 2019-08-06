@@ -10,6 +10,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchUpd]
 	@ChangeFilter	BIT, 	
 	@Content		XML = '',
 	@UserID			INT,
+	@IsVip			INT=2,
 	@IP				VARCHAR(40),
 	@ErrCode		INT	= 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT	
@@ -58,7 +59,7 @@ BEGIN
 
 	DECLARE @Filter VARCHAR(4000), @Old_Filter XML, @Old_Title NVARCHAR(2000), @Old_Site VARCHAR(4000), @Old_Currency VARCHAR(1000), @Old_Level VARCHAR(10), @Old_TypeAccount TINYINT,@Old_ExcludeIgnored BIT
 	
-	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount)+ ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored)  + '''></Filters>'
+	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency +  ''' IsVip  = ''' + @IsVip + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount)+ ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored)  + '''></Filters>'
 	SELECT @Old_Title = Title, @Old_Filter = Filter FROM crmInformTitle_New WITH (NOLOCK) WHERE TitleID = @TitleID
 
 	SELECT	@Old_Site = xmlData.Col.value('@Site','VARCHAR(4000)'),

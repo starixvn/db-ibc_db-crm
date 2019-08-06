@@ -8,7 +8,6 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchUpd]
 	@TypeAccount	TINYINT,
 	@ExcludeIgnored	BIT=0,
 	@ChangeFilter	BIT, 	
-	@IsVip			TINYINT=2,
 	@Content		XML = '',
 	@UserID			INT,
 	@IP				VARCHAR(40),

@@ -6,7 +6,8 @@ CREATE PROCEDURE [dbo].[Acc_CRM_InformHeadlineHistorySel]
 	@PageIndex		INT = 1, 
 	@ItemsPerPage	INT = 100,	
 	@ErrCode		INT	= 0 OUTPUT,
-	@ErrMsg			NVARCHAR(4000) = '' OUTPUT	
+	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
+	@TotalRows		INT = 0 OUTPUT
 AS	
 /*
 	Created: Winnie
@@ -20,6 +21,19 @@ AS
 
 */
 BEGIN
+	IF ISNULL(@TotalRows,0)=0
+	BEGIN
+		SELECT	ROW_NUMBER() OVER ( ORDER BY hl.LogID DESC) AS ID,
+						hl.LogDate , 
+						hl.LogID,
+						c.username,
+						Count(hi.HeadlineID) AS NumAcc
+				FROM crmInformHeadline_Log hl WITH(NOLOCK)
+					INNER JOIN 	[dbo].[crmInformHeadline_History] hi WITH(NOLOCK) ON hl.LogID=hi.LogID		
+					INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON hl.EditedBy=c.custid
+				WHERE hl.TitleID=@TitleID
+				GROUP BY hl.LogID,hl.LogDate,c.username
+	END
 	SELECT	ID, HeadlineID, DirectAcc, Handler,Remark,UpdatedTime,ISNULL(Status,'N/A') AS Status,ISNULL(ProductStatus,'N/A') AS ProductStatus,ISNULL(Extension,'N/A') AS Extension
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY HeadLineID DESC) AS ID,

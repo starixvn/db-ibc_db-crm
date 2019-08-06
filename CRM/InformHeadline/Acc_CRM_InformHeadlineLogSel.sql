@@ -6,7 +6,8 @@ CREATE PROCEDURE [dbo].[Acc_CRM_InformHeadlineLogSel]
 	@PageIndex		INT = 1, 
 	@ItemsPerPage	INT = 100,	
 	@ErrCode		INT	= 0 OUTPUT,
-	@ErrMsg			NVARCHAR(4000) = '' OUTPUT	
+	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
+	@TotalRows		INT = 0 OUTPUT
 AS	
 /*
 	Created: Winnie
@@ -20,6 +21,17 @@ AS
 
 */
 BEGIN
+	IF ISNULL(@TotalRows,0)=0
+	BEGIN
+		SELECT	@TotalRows=COUNT(1)
+				FROM [dbo].[crmInformHeadline_History] hi WITH(NOLOCK)
+					INNER JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON hi.[HeadlineID]=h.custid
+					LEFT JOIN crmSetting hs WITH(NOLOCK) ON hi.InformHeadlineStatusID=hs.SettingID
+					LEFT JOIN crmSetting ps WITH(NOLOCK) ON hi.ProductStatus=ps.SettingID
+					LEFT JOIN crmSetting e WITH(NOLOCK) ON hi.ProductStatus=e.SettingID
+					INNER JOIN bodb02.dbo.Customer ha WITH(NOLOCK) ON hi.[HeadlineID]=ha.custid
+				WHERE hi.LogID=@LogID	
+	END
 	SELECT	ID, LogID, username, LogDate,NumAcc				
 		FROM (
 				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.LogID DESC) AS ID,

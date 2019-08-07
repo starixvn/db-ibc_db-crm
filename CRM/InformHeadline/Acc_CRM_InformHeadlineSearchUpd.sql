@@ -106,6 +106,7 @@ BEGIN
 			h.IsInform=1
 	FROM [dbo].[crmInformHeadline_New] h WITH(ROWLOCK,UPDLOCK)		
 		INNER JOIN @HeadlineData t ON h.[HeadlineID]=t.[HeadlineID]
+	WHERE h.TitleID=@TitleID
 
 	IF @@ERROR <> 0
 	BEGIN
@@ -130,7 +131,7 @@ BEGIN
 	INSERT INTO [crmInformHeadline_New](HeadlineID,TitleID,InformHeadlineStatusID,GroupID,UpdatedTime,Remark,Handler,Extension,ProductStatus,IsInform)
 	SELECT t.HeadlineID,@TitleID,t.InformHeadlineStatusID,t.GroupID,GETDATE(),t.Remark,@UserID,t.Extension,t.ProductStatus,1
 	FROM @HeadlineData t
-		LEFT JOIN [crmInformHeadline_New] h WITH(NOLOCK) ON t.HeadlineID=h.HeadlineID
+		LEFT JOIN [crmInformHeadline_New] h WITH(NOLOCK) ON t.HeadlineID=h.HeadlineID AND h.TitleID=@TitleID 
 	WHERE h.HeadlineID IS NULL
 
 	IF @@ERROR <> 0

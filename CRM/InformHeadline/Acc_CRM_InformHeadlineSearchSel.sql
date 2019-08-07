@@ -83,7 +83,7 @@ BEGIN
 	SELECT a.CustID, GroupID,a.Username FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a	
 		LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
-		AND ((@IsVip =2 AND IsVip IN(0,1)) OR @IsVip=IsVIP)
+		AND ((@IsVip =2 AND ISNULL(IsVip,0) IN(0,1)) OR @IsVip=ISNULL(IsVIP,0))
 	
 	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@SiteHardcode) 
 	AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 

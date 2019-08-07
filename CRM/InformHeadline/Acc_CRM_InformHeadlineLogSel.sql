@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 USE [bodb_CRM]
 GO
-CREATE PROCEDURE [dbo].[Acc_CRM_InformHeadlineLogSel]
+ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineLogSel]
 	@TitleID		INT,
 	@PageIndex		INT = 1, 
 	@ItemsPerPage	INT = 100,	
@@ -21,28 +21,24 @@ AS
 
 */
 BEGIN
+	SELECT	ROW_NUMBER() OVER ( ORDER BY hl.LogID DESC) AS ID,
+					hl.LogDate , 
+					hl.LogID,
+					c.username,
+					Count(hi.HeadlineID) AS NumAcc
+	INTO #temp
+	FROM crmInformHeadline_Log hl WITH(NOLOCK)
+		INNER JOIN 	[dbo].[crmInformHeadline_History] hi WITH(NOLOCK) ON hl.LogID=hi.LogID		
+		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON hl.EditedBy=c.custid
+	WHERE hl.TitleID=@TitleID
+	GROUP BY hl.LogID,hl.LogDate,c.username
 	IF ISNULL(@TotalRows,0)=0
 	BEGIN
 		SELECT	@TotalRows=COUNT(1)
-		FROM crmInformHeadline_Log hl WITH(NOLOCK)
-			INNER JOIN 	[dbo].[crmInformHeadline_History] hi WITH(NOLOCK) ON hl.LogID=hi.LogID		
-			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON hl.EditedBy=c.custid
-		WHERE hl.TitleID=@TitleID
-		GROUP BY hl.LogID,hl.LogDate,c.username
+		FROM #temp
 	END
 	SELECT	ID, LogID, username, LogDate,NumAcc				
-		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY hl.LogID DESC) AS ID,
-						hl.LogDate , 
-						hl.LogID,
-						c.username,
-						Count(hi.HeadlineID) AS NumAcc
-				FROM crmInformHeadline_Log hl WITH(NOLOCK)
-					INNER JOIN 	[dbo].[crmInformHeadline_History] hi WITH(NOLOCK) ON hl.LogID=hi.LogID		
-					INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON hl.EditedBy=c.custid
-				WHERE hl.TitleID=@TitleID
-				GROUP BY hl.LogID,hl.LogDate,c.username
-				)tmp
+		FROM #temp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 
 END

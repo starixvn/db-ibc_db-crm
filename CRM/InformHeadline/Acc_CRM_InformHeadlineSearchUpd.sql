@@ -57,7 +57,7 @@ BEGIN
 			ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus		
 	FROM @Content.nodes('//Content/Headline') xmlData(Col)			
 
-	DECLARE @Filter VARCHAR(4000), @Old_Filter XML, @Old_Title NVARCHAR(2000), @Old_Site VARCHAR(4000), @Old_Currency VARCHAR(1000), @Old_Level VARCHAR(10), @Old_TypeAccount TINYINT,@Old_ExcludeIgnored BIT
+	DECLARE @Filter VARCHAR(4000), @Old_Filter XML, @Old_Title NVARCHAR(2000), @Old_Site VARCHAR(4000), @Old_Currency VARCHAR(1000), @Old_Level VARCHAR(10), @Old_TypeAccount TINYINT,@Old_ExcludeIgnored BIT,@Old_IsVip BIT
 	
 	SELECT @Filter = '<Filters Site = ''' + @Site + ''' Position  = ''' + @Level + ''' Currency  = ''' + @Currency +  ''' IsVip  = ''' + CAST(@IsVip AS VARCHAR(1)) + ''' DirectAccount  = ''' + CONVERT(VARCHAR(1),@TypeAccount)+ ''' ExcludeIgnored  = ''' + CONVERT(VARCHAR(1),@ExcludeIgnored)  + '''></Filters>'
 	SELECT @Old_Title = Title, @Old_Filter = Filter FROM crmInformTitle_New WITH (NOLOCK) WHERE TitleID = @TitleID
@@ -66,7 +66,8 @@ BEGIN
 			@Old_Level = xmlData.Col.value('@Position','VARCHAR(10)'),
 			@Old_Currency = xmlData.Col.value('@Currency','VARCHAR(1000)'),			
 			@Old_TypeAccount = xmlData.Col.value('@DirectAccount','TINYINT'),
-			@Old_ExcludeIgnored = xmlData.Col.value('@ExcludeIgnored','BIT')
+			@Old_ExcludeIgnored = xmlData.Col.value('@ExcludeIgnored','BIT'),
+			@Old_IsVip = xmlData.Col.value('@IsVip','BIT')
 	FROM @Old_Filter.nodes('//Filters') xmlData(Col)	
 	
 	IF @ChangeFilter = 1 OR @Old_Title <> @Title
@@ -190,6 +191,7 @@ BEGIN
 						'<Site>'						+ @Old_Site																				+ '</Site>' +
 						'<TypeAccount>'					+ CONVERT(VARCHAR(1), @Old_TypeAccount)													+ '</TypeAccount>' +
 						'<ExcludeIgnored>'				+ CONVERT(VARCHAR(1), @Old_ExcludeIgnored)												+ '</ExcludeIgnored>' +
+						'<IsVip>'						+ CONVERT(VARCHAR(1), @Old_IsVip)														+ '</IsVip>' +
 						'<HeadlineID>'					+ CAST(ISNULL(hl.HeadlineID, '') AS VARCHAR(30))										+ '</HeadlineID>' +
 						'<GroupID>'						+ CAST(ISNULL(hl.GroupID, '') AS VARCHAR(30))											+ '</GroupID>' +
 						'<StatusID>'					+ CAST(ISNULL(hl.InformHeadlineStatusID, -1) AS VARCHAR(30))							+ '</StatusID>' +
@@ -211,6 +213,7 @@ BEGIN
 						'<Site>'						+ @Site																					+ '</Site>' +
 						'<TypeAccount>'					+ CONVERT(VARCHAR(1), @TypeAccount)														+ '</TypeAccount>' +
 						'<ExcludeIgnored>'				+ CONVERT(VARCHAR(1), @ExcludeIgnored)													+ '</ExcludeIgnored>' +
+						'<IsVip>'						+ CONVERT(VARCHAR(1), @IsVip)															+ '</IsVip>' +
 						'<HeadlineID>'					+ CAST(ISNULL(hl.HeadlineID,'') AS VARCHAR(30))											+ '</HeadlineID>' +
 						'<GroupID>'						+ CAST(ISNULL(hl.GroupID, '') AS VARCHAR(30))											+ '</GroupID>' +
 						'<StatusID>'					+ CAST(ISNULL(hl.InformHeadlineStatusID, '') AS VARCHAR(30))							+ '</StatusID>' +

@@ -32,7 +32,7 @@ BEGIN
 		SELECT c.CustID, 0,ci.username
 		FROM crmCustomer c WITH (NOLOCK) 
 			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid		
-		WHERE ci.roleid > 4 
+		WHERE  ci.srecommend IS NULL AND ci.roleid > 4 
 
 		DELETE FROM @tmpLevel WHERE roleID=0
 	END

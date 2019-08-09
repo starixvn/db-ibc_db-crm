@@ -108,6 +108,7 @@ BEGIN
 	FROM [dbo].[crmInformHeadline_New] h WITH(ROWLOCK,UPDLOCK)		
 		INNER JOIN @HeadlineData t ON h.[HeadlineID]=t.[HeadlineID]
 	WHERE h.TitleID=@TitleID
+		AND (h.InformHeadlineStatusI<>t.InformHeadlineStatusID OR h.Remark<>t.Remark OR h.Extension<>t.Extension OR h.ProductStatus<>t.ProductStatus)
 
 	IF @@ERROR <> 0
 	BEGIN

@@ -47,7 +47,7 @@ BEGIN
 					INNER JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON hi.[HeadlineID]=h.custid
 					LEFT JOIN crmSetting hs WITH(NOLOCK) ON hi.InformHeadlineStatusID=hs.SettingID
 					LEFT JOIN crmSetting ps WITH(NOLOCK) ON hi.ProductStatus=ps.SettingID
-					LEFT JOIN crmSetting e WITH(NOLOCK) ON hi.ProductStatus=e.SettingID
+					LEFT JOIN crmSetting e WITH(NOLOCK) ON hi.Extension=e.SettingID
 					INNER JOIN bodb02.dbo.Customer ha WITH(NOLOCK) ON hi.Handler=ha.custid
 				WHERE hi.LogID=@LogID			
 				)tmp

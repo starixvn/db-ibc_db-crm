@@ -28,18 +28,12 @@ BEGIN
 
 	IF EXISTS(SELECT TOP 1 1 FROM @tmpLevel WHERE roleID=0)
 	BEGIN
-		INSERT INTO @tmpLevel(roleID)
-		SELECT 5
-		UNION ALL
-		SELECT 6
-		UNION ALL
-		SELECT 7
-		UNION ALL
-		SELECT 8
-		UNION ALL
-		SELECT 9
-		UNION ALL
-		SELECT 10
+		INSERT INTO @DirectAcc (CustID, GroupID,[Username])
+		SELECT c.CustID, 0,ci.username
+		FROM crmCustomer c WITH (NOLOCK) 
+			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid		
+		WHERE ci.roleid > 4 
+
 		DELETE FROM @tmpLevel WHERE roleID=0
 	END
 	INSERT INTO @tmpSite

@@ -41,16 +41,51 @@ BEGIN
 	FROM f_split (@Site,',') v
 		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
 
+	IF EXISTS(SELECT TOP 1 1 FROM @tmpLevel WHERE roleID=1)
+	BEGIN
+		IF @TypeAccount = 1 OR @TypeAccount = 3
+		BEGIN			
+			INSERT INTO @DirectAcc (CustID, GroupID,[Username])	
+			SELECT DISTINCT hl.custid, hl.groupID,ch.username
+			FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
+				INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
+				INNER JOIN bodb02.dbo.Customer agent WITH (NOLOCK) ON agent.custid = ch.recommend
+			WHERE hl.IsGroupHeadLine=1 AND ch.roleid=1 AND		
+				ch.currency IN (SELECT currency FROM @tmpCurrency) AND agent.site IN (SELECT Site FROM @tmpSite)
+				AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
+											INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
+										 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
+		END
+
+		IF @TypeAccount = 2 OR @TypeAccount = 3
+		BEGIN	
+			INSERT INTO @DirectAcc (CustID, GroupID,[Username])
+			SELECT c.CustID, 0,ci.username
+			FROM bodb02.dbo.CustDirectAccount c WITH (NOLOCK) 
+				INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid						
+				INNER JOIN bodb02.dbo.Customer agent WITH (NOLOCK) ON agent.custid = ci.recommend	
+			WHERE 
+				ci.currency IN (SELECT currency FROM @tmpCurrency) 
+				AND ci.roleid=1
+				AND agent.site IN (SELECT Site FROM @tmpSite)
+				AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
+				AND NOT EXISTS (SELECT 1 FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = c.custid AND groupid > 0)
+		END		
+		DELETE FROM @tmpLevel WHERE roleID=1
+	END
+
 	IF @TypeAccount = 1 OR @TypeAccount = 3
 	BEGIN			
 		INSERT INTO @DirectAcc (CustID, GroupID,[Username])	
 		SELECT DISTINCT hl.custid, hl.groupID,ch.username
 		FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
 			INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
-			INNER JOIN bodb02.dbo.custInfo cih WITH (NOLOCK) ON hl.custid = cih.custid
 			INNER JOIN @tmpLevel t ON ch.roleid= t.roleID
-		WHERE hl.IsGroupHeadLine=1 AND
-		(cih.closed=0 AND ISNULL(cih.reject,0) = 0 AND cih.Enabled = 1 AND ch.currency IN (SELECT currency FROM @tmpCurrency) AND ch.site IN (SELECT Site FROM @tmpSite))
+		WHERE hl.IsGroupHeadLine=1 AND		
+			ch.currency IN (SELECT currency FROM @tmpCurrency) AND ch.site IN (SELECT Site FROM @tmpSite)
+			AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
+										INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
+									 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
 	END
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3

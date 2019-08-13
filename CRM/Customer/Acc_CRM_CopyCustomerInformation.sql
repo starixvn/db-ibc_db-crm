@@ -50,8 +50,8 @@ SELECT @FirstName		= firstname,
 		@Birthday		= c.birthday,
 		@RefCode1		= c.RefCode1,
 		@RefCode2		= c.refcode2
-FROM bodb02.dbo.Customer WITH(NOLOCK) c
-LEFT JOIN crmCountry WITH(NOLOCK) ct ON ct.CountryName = c.country
+FROM bodb02.dbo.Customer  c WITH(NOLOCK)
+LEFT JOIN crmCountry  ct WITH(NOLOCK) ON ct.CountryName = c.country
 WHERE custid = @CustID
 
 EXEC Acc_CRM_CustomerIns_New

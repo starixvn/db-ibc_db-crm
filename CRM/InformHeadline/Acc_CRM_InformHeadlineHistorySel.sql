@@ -1,6 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-USE [bodb_CRM]
-GO
+
 CREATE PROCEDURE [dbo].[Acc_CRM_InformHeadlineHistorySel]
 	@LogID			INT,
 	@PageIndex		INT = 1, 

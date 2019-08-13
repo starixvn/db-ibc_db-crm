@@ -91,6 +91,7 @@ BEGIN
 	AND EXISTS(SELECT 1 FROM @tmpLevel WHERE roleID=@RoleID) 
 	AND (ISNULL(@Ignored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @Ignored)
 	AND (@IsVip =2 OR @IsVip=@IsVipHardCode)
+	AND NOT EXISTS(SELECT TOP 1 1 FROm #DirectAcc WHERE CustID=@CustID)
 	BEGIN
 		INSERT INTO #DirectAcc (CustID, GroupID,Username)
 		SELECT @CustID,groupID,@UsernameHardcode

@@ -21,11 +21,11 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
+	- 20190711@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID:##109775
 Param's Explanation:	
 */
 
-	IF NOT EXISTS(SELECT 1 FROM crmCustomer(NOLOCK) WHERE CustID = @CustID)
+	IF NOT EXISTS(SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
 		EXEC Acc_CRM_CopyCustomerInformation
 			@CustID		= @CustID,
@@ -104,12 +104,3 @@ Param's Explanation:
 
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerInformationVerify] TO [bodbAdminNet]
-GO 

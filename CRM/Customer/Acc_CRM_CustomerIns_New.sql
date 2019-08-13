@@ -105,7 +105,7 @@ Revisions:
 	- 20170511@Winnie: Duplicate & Missing Special Remark [RedmineID: #76399]
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-	- 20190307@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
+	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 Param's Explanation:
 	
 */

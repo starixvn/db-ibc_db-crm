@@ -53,7 +53,7 @@ Revisions:
 	- 20120404@Elodie: change data type of @Skype, @MSN, @Pic1, @Pic2, @Pic3 params to NVARCHAR(100)
 	- 20120529@Elodie: encode some parameters to write log in XML format, such as Question, Answer, Pic1, ...
 	- 20140602@Lukas: expand remark & remark2 to nvarchar(3000)
-	- 20190307@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
+	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 Param's Explanation:
 	
 */

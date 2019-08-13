@@ -70,7 +70,7 @@ BEGIN
 		RETURN
 	END
 
-	IF	NOT EXISTS(SELECT 1 FROM crmCustomer(NOLOCK) WHERE CustID = @CustID)
+	IF	NOT EXISTS(SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
 		EXECUTE	Acc_CRM_CopyCustomerInformation
 					@CustID		= @CustID

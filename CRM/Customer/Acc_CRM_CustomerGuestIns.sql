@@ -104,7 +104,7 @@ Revisions:
 	- 20161215@Winnie: HotFix When adding new Guest Feedback, Guest is created but feedback is not RedmineID: RedmineID: #64067
 	- 20171204@Winnie: HotFix Record special characters included in feedback content RedmineID: RedmineID: #85858
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-	- 20190307@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
+	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 Param's Explanation:
 	
 */

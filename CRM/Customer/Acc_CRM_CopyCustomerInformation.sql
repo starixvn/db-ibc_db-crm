@@ -1,5 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-/****** Object:  Stored Procedure dbo.Acc_CRM_CopyCustomerInformation    Script Date: 3/26/2014 6:06:04 PM ******/
 CREATE PROCEDURE Acc_CRM_CopyCustomerInformation
 	@CustID				INT,
 	@UserID				INT,
@@ -16,7 +15,7 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
+	- 20190711@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID:##109775
 Param's Explanation:	
 */
 
@@ -51,8 +50,8 @@ SELECT @FirstName		= firstname,
 		@Birthday		= c.birthday,
 		@RefCode1		= c.RefCode1,
 		@RefCode2		= c.refcode2
-FROM bodb02.dbo.Customer(NOLOCK) c
-LEFT JOIN crmCountry(NOLOCK) ct ON ct.CountryName = c.country
+FROM bodb02.dbo.Customer WITH(NOLOCK) c
+LEFT JOIN crmCountry WITH(NOLOCK) ct ON ct.CountryName = c.country
 WHERE custid = @CustID
 
 EXEC Acc_CRM_CustomerIns_New
@@ -132,15 +131,4 @@ EXEC Acc_CRM_CustomerIns_New
 			RETURN
 		END
 
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CopyCustomerInformation] TO [bodbAdminNet]
 GO 

@@ -39,6 +39,6 @@ BEGIN
 	END
 	SELECT	ID, LogID, username, LogDate,NumAcc				
 		FROM #temp
-		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
+	WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 
 END

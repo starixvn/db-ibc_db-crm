@@ -1,5 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-/****** Object:  Stored Procedure dbo.Acc_CRM_CustomerRemarkUpd    Script Date: 3/26/2014 6:06:05 PM ******/
 ALTER PROCEDURE Acc_CRM_CustomerRemarkUpd
 	@CustID		INT,
 	@Remarks	XML,
@@ -44,14 +43,14 @@ SET @Remarks = CAST('<Remarks>
 	DECLARE @Remark_old nvarchar(max)='',@SPRemark_old nvarchar(max)=''
 	
 	SELECT @Remark_old = @Remark_old+'<Remark>' + REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(CAST(Remark AS nvarchar(MAX)),'&','&amp;'),'<','&lt;'),'>','&gt;'),'"','&quot;'),'''','&apos;') +  '</Remark>'
-	FROM crmCustomerRemark(NOLOCK) where CustID = @CustID and IsSpecial=0
+	FROM crmCustomerRemark WITH(NOLOCK) where CustID = @CustID and IsSpecial=0
 	
 	IF(@Remark_old IS NULL OR @Remark_old='')
 		SELECT @Remark_old = '<Remark/>'
 
 
 	SELECT @SPRemark_old = @SPRemark_old+'<SpecialRemark>' + REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(CAST(Remark AS nvarchar(MAX)),'&','&amp;'),'<','&lt;'),'>','&gt;'),'"','&quot;'),'''','&apos;') +  '</SpecialRemark>'
-	FROM crmCustomerRemark(NOLOCK) where CustID = @CustID and IsSpecial=1
+	FROM crmCustomerRemark WITH(NOLOCK) where CustID = @CustID and IsSpecial=1
 
 	IF(@SPRemark_old IS NULL OR @SPRemark_old='')
 		SELECT @SPRemark_old = '<SpecialRemark/>'

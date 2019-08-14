@@ -89,9 +89,9 @@ BEGIN
 			AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
 										INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
 									 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
-			AND NOT EXISTS(SELECT TOP 1 1 FROM CustSuper cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
-			AND NOT EXISTS(SELECT TOP 1 1 FROM CustMaster cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
-			AND NOT EXISTS(SELECT TOP 1 1 FROM CustAgent cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustSuper cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustMaster cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustAgent cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
 	END
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3
@@ -107,9 +107,9 @@ BEGIN
 			AND co.site IN (SELECT Site FROM @tmpSite)
 			AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
 			AND NOT EXISTS (SELECT 1 FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = c.custid AND groupid > 0)
-			AND NOT EXISTS(SELECT TOP 1 1 FROM CustSuper cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
-			AND NOT EXISTS(SELECT TOP 1 1 FROM CustMaster cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
-			AND NOT EXISTS(SELECT TOP 1 1 FROM CustAgent cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustSuper cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustMaster cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustAgent cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
 	END		
 	RETURN
 END

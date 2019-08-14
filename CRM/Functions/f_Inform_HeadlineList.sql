@@ -50,11 +50,13 @@ BEGIN
 			FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
 				INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
 				INNER JOIN bodb02.dbo.Customer agent WITH (NOLOCK) ON agent.custid = ch.recommend
+				INNER JOIN bodb02.dbo.CustAgent ca WITH(NOLOCK) ON agent.custid=ca.custid AND ca.IsInternal=0
 			WHERE hl.IsGroupHeadLine=1 AND ch.roleid=1 AND		
 				ch.currency IN (SELECT currency FROM @tmpCurrency) AND agent.site IN (SELECT Site FROM @tmpSite)
 				AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
 										 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
+			
 		END
 
 		IF @TypeAccount = 2 OR @TypeAccount = 3
@@ -64,6 +66,7 @@ BEGIN
 			FROM bodb02.dbo.CustDirectAccount c WITH (NOLOCK) 
 				INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid						
 				INNER JOIN bodb02.dbo.Customer agent WITH (NOLOCK) ON agent.custid = ci.recommend	
+				INNER JOIN bodb02.dbo.CustAgent ca WITH(NOLOCK) ON agent.custid=ca.custid AND ca.IsInternal=0
 			WHERE 
 				ci.currency IN (SELECT currency FROM @tmpCurrency) 
 				AND ci.roleid=1
@@ -86,6 +89,9 @@ BEGIN
 			AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
 										INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
 									 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM CustSuper cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM CustMaster cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM CustAgent cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
 	END
 
 	IF @TypeAccount = 2 OR @TypeAccount = 3
@@ -101,6 +107,9 @@ BEGIN
 			AND co.site IN (SELECT Site FROM @tmpSite)
 			AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
 			AND NOT EXISTS (SELECT 1 FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = c.custid AND groupid > 0)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM CustSuper cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM CustMaster cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
+			AND NOT EXISTS(SELECT TOP 1 1 FROM CustAgent cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
 	END		
 	RETURN
 END

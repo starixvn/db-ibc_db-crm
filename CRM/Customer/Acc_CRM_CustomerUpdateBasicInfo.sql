@@ -47,6 +47,7 @@ Revisions:
 	- 20140827@Dom: [Redmine #18632] Update phone number in custsearch
 	- 20141118@Dom: Add new PIC name
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 */
 	SET NOCOUNT ON
 
@@ -58,7 +59,7 @@ DECLARE @UserName	NVARCHAR(100),
 		@SiteID		INT
 
 SELECT @UserName = username,@srecommend=srecommend
-FROM bodb02.dbo.Customer(NOLOCK)
+FROM bodb02.dbo.Customer WITH(NOLOCK)
 WHERE custid = @CustID
 
 CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
@@ -83,7 +84,7 @@ BEGIN
 	BEGIN
 		DECLARE @Birthday DATETIME
 		SELECT @Birthday = birthday
-		FROM bodb02.dbo.Customer(NOLOCK)
+		FROM bodb02.dbo.Customer WITH(NOLOCK)
 		WHERE custid = @CustID
 
 		EXEC Acc_CRM_CustomerIns_New
@@ -139,7 +140,7 @@ BEGIN
 			@Question						= NULL,
 			@Answer							= NULL,
 			@CountryID						= NULL,
-			@IsVIP							= NULL,
+			@IsVIP							= 0,
 			@SiteID							= @Site,
 			@Wire_BankName					= NULL,
 			@Wire_BankAddress				= NULL,
@@ -238,11 +239,11 @@ BEGIN
 			@Pic3Name_Old					= Pic3Name,	
 			@Pic4Name_Old					= Pic4name,
 			@ProvinceID_Old					= ProvinceID
-		FROM crmCustomer WITH(ROWLOCK,UPDLOCK)
+		FROM crmCustomer WITH(NOLOCK)
 		WHERE CustID	= @CustID
 
 		SELECT @Language_Old = @Language_Old + cast(LanguageID as nvarchar(50))+ ','
-		FROM crmCustomerLanguage(NOLOCK) WHERE CustID = @CustID
+		FROM crmCustomerLanguage WITH(NOLOCK) WHERE CustID = @CustID
 
 		IF ISNULL(@Language_Old,'')<>''
 		SELECT @Language_Old = LEFT(@Language_Old,LEN(@Language_Old)-1)
@@ -423,4 +424,3 @@ BEGIN
 END
 GO 
  GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpdateBasicInfo] TO [bodbAdminNet]
-GO 

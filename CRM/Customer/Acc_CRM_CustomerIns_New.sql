@@ -54,7 +54,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerIns_New]
 	@Question					NVARCHAR(300)	= NULL,
 	@Answer						NVARCHAR(300)	= NULL,
 	@CountryID					INT				= NULL,
-	@IsVIP						BIT				= NULL,
+	@IsVIP						BIT				= 0,
 	@SiteID						INT				= NULL,
 	@Wire_BankName				NVARCHAR(100)	= NULL,
 	@Wire_BankAddress			NVARCHAR(200)	= NULL,
@@ -105,6 +105,7 @@ Revisions:
 	- 20170511@Winnie: Duplicate & Missing Special Remark [RedmineID: #76399]
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 Param's Explanation:
 	
 */

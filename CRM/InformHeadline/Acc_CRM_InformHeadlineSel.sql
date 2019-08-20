@@ -1,6 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-USE [bodb_CRM]
-GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSel]
 	@Currency		VARCHAR(1000) = '',
@@ -10,7 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSel]
 	@PageIndex		INT = 1, 
 	@ItemsPerPage	INT = 100,
 	@Ignored		BIT=0,
-	@IsVip			BIT=0,
+	@IsVip			TINYINT=2,
 	@ErrCode		INT	= 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT	
 AS	
@@ -24,6 +22,7 @@ AS
 		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 		- 20180911@Winnie: Add IsVip RedmineID #99982
 		- 20190130@Winnie: Hardcode for this account BA03RM headline RedmineID #108504
+		- 20190311@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -42,6 +41,7 @@ BEGIN
 	DECLARE @UplineID INT
 	DECLARE @CurrencyID INT
 	DECLARE @SiteHardcode VARCHAR(10)
+	DECLARE @UsernameHardcode VARCHAR(30)
 	DECLARE @RoleID INT
 	DECLARE @TypeAccountHardcode INT
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))	
@@ -51,18 +51,18 @@ BEGIN
 
 	INSERT INTO @tmpLevel
 	SELECT val
-	FROM f_CRM_strSplit (@Level,',')
+	FROM f_split (@Level,',')
 
 	INSERT INTO @tmpSite
 	SELECT s.SiteName
-	FROM f_CRM_strSplit (@Site,',') v
+	FROM f_split (@Site,',') v
 		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
 
 	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
 	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
 
-	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0) FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustID
+	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0),@UsernameHardcode=UserName FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustID
 
 	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid=@CustID and IsGroupHeadLine=1)
 	BEGIN
@@ -75,24 +75,25 @@ BEGIN
 
 	INSERT INTO @tmpCurrency
 	SELECT val
-	FROM f_CRM_strSplit (@Currency,',')
+	FROM f_split (@Currency,',')
 	
-	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT)	
-	INSERT INTO #DirectAcc (CustID, GroupID)
-	SELECT a.CustID, GroupID FROM bodb02.dbo.f_InformHeadlineList (@Currency, @Level, @Site, @TypeAccount) a
+	CREATE TABLE #DirectAcc (CustID INT PRIMARY KEY, GroupID INT,Username VARCHAR(30))	
+	INSERT INTO #DirectAcc (CustID, GroupID,Username)
+	SELECT a.CustID, GroupID,a.Username FROM dbo.f_Inform_HeadlineList (@Currency, @Level, @Site, @TypeAccount) a
 	LEFT JOIN crmCustomer b WITH (NOLOCK) ON a.CustID=b.CustID			
 	WHERE (ISNULL(@Ignored,0)=0 OR ISNULL(ignored,0) <> @Ignored)
-		AND (@IsVip IS NULL OR @IsVip=IsVIP)
+		AND ((@IsVip =2 AND ISNULL(IsVip,0) IN(0,1)) OR @IsVip=ISNULL(IsVIP,0))
 
 	IF EXISTS(SELECT 1 FROM @tmpSite WHERE Site=@SiteHardcode) 
 		AND (@TypeAccount =@TypeAccountHardcode OR @TypeAccount=3) 
 		AND EXISTS(SELECT 1 FROM @tmpCurrency WHERE currency=@CurrencyID) 
 		AND EXISTS(SELECT 1 FROM @tmpLevel WHERE roleID=@RoleID) 
 		AND (ISNULL(@Ignored,0)=0 OR ISNULL(@IgnoredHardCode,0) <> @Ignored)
-		AND (@IsVip IS NULL OR @IsVip=@IsVipHardCode)
+		AND (@IsVip =2 OR @IsVip=@IsVipHardCode)
+		AND NOT EXISTS(SELECT TOP 1 1 FROm #DirectAcc WHERE CustID=@CustID)
 	BEGIN
-		INSERT INTO #DirectAcc (CustID, GroupID)
-		SELECT @CustID,groupID
+		INSERT INTO #DirectAcc (CustID, GroupID,Username)
+		SELECT @CustID,groupID,@UsernameHardcode
 		FROM bodb02.dbo.custAccount WITH(NOLOCK)
 		WHERE custid=@CustID
 	END
@@ -101,28 +102,27 @@ BEGIN
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, hl.username) AS ID,
 						hl.CustID AS HeadlineID, 
-						c.username,
+						hl.username,
 						hl.GroupID
-				FROM #DirectAcc hl
-					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
+				FROM #DirectAcc hl				
 				)tmp
 	ELSE
 		SELECT	ID, HeadlineID, username, GroupID,
 				45006 AS InformHeadlineStatusID			
 		FROM (
-				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, c.username) AS ID,
+				SELECT	ROW_NUMBER() OVER ( ORDER BY CASE WHEN hl.GroupID > 0 THEN 1 ELSE 0 END DESC, hl.username) AS ID,
 						hl.CustID AS HeadlineID, 
-						c.username,
+						hl.username,
 						hl.GroupID
-				FROM #DirectAcc hl
-					INNER JOIN bodb02.dbo.CustInfo c WITH (NOLOCK) ON hl.CustID = c.custid		
+				FROM #DirectAcc hl					
 				)tmp
 		WHERE ID BETWEEN @PageIndex*@ItemsPerPage-@ItemsPerPage+1 AND @PageIndex*@ItemsPerPage
 
 	DROP TABLE #DirectAcc 	
 END
+
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSel] TO [bodbAdminNet]
 GO

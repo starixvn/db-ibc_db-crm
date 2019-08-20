@@ -55,7 +55,6 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 	@Answer						NVARCHAR(300)	= NULL,
 	@CountryID					INT				= NULL,
 	@ProvinceID					INT				= NULL,
-	@IsVIP						BIT				= NULL,
 	@SiteID						INT				= NULL,
 	@Wire_BankName				NVARCHAR(100)	= NULL,
 	@Wire_BankAddress			NVARCHAR(200)	= NULL,
@@ -73,6 +72,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGuestIns]
 	@IsVerifyGivenCredit		BIT				= 0,
 	@CreatorID					INT,
 	@LicenseeType				INT				= 0,
+	@IsVip						BIT				= 0,
 	@WhatsApp					NVARCHAR(100)	= NULL,
 	@Line						NVARCHAR(100)	= NULL,
 	@WeChat						NVARCHAR(100)	= NULL,
@@ -104,6 +104,7 @@ Revisions:
 	- 20161215@Winnie: HotFix When adding new Guest Feedback, Guest is created but feedback is not RedmineID: RedmineID: #64067
 	- 20171204@Winnie: HotFix Record special characters included in feedback content RedmineID: RedmineID: #85858
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
 Param's Explanation:
 	
 */

@@ -38,6 +38,7 @@ AS
 		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 		- 20190506@Winnie: CN88 Province RedmineID: #112637
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
+		- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 	Param's Explanation:
 */
 BEGIN
@@ -69,7 +70,7 @@ BEGIN
 		RETURN
 	END
 
-	IF	NOT EXISTS(SELECT 1 FROM crmCustomer(NOLOCK) WHERE CustID = @CustID)
+	IF	NOT EXISTS(SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
 		EXECUTE	Acc_CRM_CopyCustomerInformation
 					@CustID		= @CustID

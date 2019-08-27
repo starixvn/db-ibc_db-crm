@@ -1,8 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CheckDirectAccount]
 (	
-	@CustID						INT,
-	@IsDirectAcc				BIT=0 OUTPUT
+	@CustID						INT
 )
 AS
 /*
@@ -17,9 +16,17 @@ Param's Explanation:
 	
 */
 BEGIN	
-	SET NOCOUNT ON
-	IF EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.CustDirectAccount WITH(NOLOCK) WHERE Custid=@CustID)	
-	BEGIN
-		SELECT @IsDirectAcc=1
-	END
+DECLARE @IsDirectAcc BIT = 0
+
+IF EXISTS (
+		SELECT TOP 1 1
+		FROM bodb02.dbo.CustDirectAccount WITH (NOLOCK)
+		WHERE Custid = @CustID
+		)
+BEGIN
+	SELECT @IsDirectAcc = 1
+END
+
+SELECT @IsDirectAcc
+
 END

@@ -29,8 +29,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@LanguageID					INT				= NULL
 				,	@CountryID					INT				= NULL
 				,	@BettingCode				NVARCHAR(100)	= NULL
-				,	@RefCode2					NVARCHAR(100)	= NULL
-				,	@IsVip						BIT				= NULL
+				,	@RefCode2					NVARCHAR(100)	= NULL			
 				,	@CreatorID					INT
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@FeedbackDate				DATETIME
@@ -98,6 +97,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190628@Winnie: CN88 Permission Fix bug RedmineID: #115828
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer: #113305
+		- 20190827@Winnie: CRM - Remove IsVip: #119163
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -167,7 +167,7 @@ BEGIN
 				,	@Skype					= @Skype
 				,	@MSN					= @MSN
 				,	@CountryID				= @CountryID
-				,	@IsVIP					= @IsVIP
+				,	@IsVIP					= 0
 				,	@SiteID					= @SiteID
 				,	@CreatorID				= @CreatorID
 				,	@LicenseeType			= @LicenseeType
@@ -234,7 +234,7 @@ BEGIN
 					,	@BettingCode			= @BettingCode
 					,	@RefCode2				= @RefCode2
 					,	@Passport				= @Passport
-					,	@IsVip					= @IsVip
+					,	@IsVip					= 0
 					,	@LicenseeType			= @LicenseeType
 					,	@WhatsApp				= @WhatsApp
 					,	@Line					= @Line
@@ -287,7 +287,7 @@ BEGIN
 			,	@SiteID					= @SiteID
 			,	@BettingCode			= @BettingCode
 			,	@RefCode2				= @RefCode2
-			,	@IsVip					= @IsVip
+			,	@IsVip					= 0
 			,	@LanguageID				= @LanguageID
 			,	@CreatorID				= @CreatorID
 			,	@Subject				= @Subject

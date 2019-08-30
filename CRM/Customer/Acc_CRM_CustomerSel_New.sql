@@ -306,7 +306,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
-			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR ci.srecommend=0)) OR (@UserRole=2 AND ISNULL(ci.srecommend,-1)<>0 AND ISNULL(ci.srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88)))
+			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR ci.srecommend=0)) OR (@UserRole=2 AND  ISNULL(ci.srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88)))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage

@@ -12,7 +12,8 @@ AS
 	Revisions:
 	    - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
-	    - 20190506@Winnie:  CN88 Permission RedmineID: #112637        
+	    - 20190506@Winnie:  CN88 Permission RedmineID: #112637      
+		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
 	Parameters' Explanation:
 */
 BEGIN
@@ -59,7 +60,7 @@ BEGIN
 		WHERE	cf.StatusID IN( 11004,11019)
 			AND	cf.CreatorID = ISNULL(@CreatorID, cf.CreatorID)
 			AND	cf.CreateDate >= @FromDate AND cf.CreateDate <= @ToDate
-			AND ((@Userrole=1 AND c.siteID=33002) OR (@Userrole=2 AND c.siteID<>33002))
+			AND ((@Userrole=1 AND c.siteID=33002) OR (@Userrole=2 AND ISNULL(c.siteID,0)<>33002))
 			
 		INSERT INTO #ResultTable
 			(	CreateDate  , CreatorID  , DeletorID, FeedbackID  , Subject  , Username)

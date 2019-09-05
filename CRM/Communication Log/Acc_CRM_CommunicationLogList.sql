@@ -19,6 +19,7 @@ BEGIN
             - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 			- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 			- 20190506@Winnie: CN88 Permission RedmineID: #112637
+			- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
 */
 
 DECLARE @handlerid int
@@ -44,7 +45,7 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 		AND f.CreateDate BETWEEN @fromdate and @todate 
 		AND (isnull(@handler,'')='' OR f.CreatorID = @handlerid)
 		AND (isnull(@StatusID,0)=0 OR f.StatusID = @StatusID)
-		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
+		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002))
 	UNION 
 	SELECT DISTINCT f.FeedbackID,
 			FeedbackDate,		
@@ -66,7 +67,7 @@ FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 		AND f.CreateDate BETWEEN @fromdate and @todate 
 		AND (isnull(@handler,'')='' OR f.CreatorID = @handlerid)
 		AND (isnull(@StatusID,0)=0 OR f.StatusID = @StatusID)
-		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
+		AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002))
 	ORDER BY f.FeedbackID DESC	
 	
 	SELECT * FROM #temp

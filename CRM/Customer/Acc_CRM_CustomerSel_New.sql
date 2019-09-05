@@ -26,6 +26,7 @@ Revisions:
 	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 	- 20170911@Winnie: Get Introduced By RedmineID #82040
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190829@Winnie: Fix issue SiteID ISNULL RedmineID: #112637
 Param's Explanation:	
 */
 BEGIN	
@@ -143,7 +144,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			c.CustID = @CustID
-			AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
+			AND ((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage1
@@ -305,7 +306,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.customer ch WITH(NOLOCK) ON ch.CustID = ca.checker
 		WHERE 
 			ci.custid = @CustID
-			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR ci.srecommend=0)) OR (@UserRole=2 AND ISNULL(ci.srecommend,-1)<>0 AND ISNULL(ci.srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88)))
+			AND ((@UserRole=1 AND ( ci.srecommend IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK)) OR ci.srecommend=0)) OR (@UserRole=2 AND  ISNULL(ci.srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88)))
 		-- Return Customer Language
 		SELECT * 
 		INTO #CustomerLanguage

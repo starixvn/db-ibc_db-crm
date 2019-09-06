@@ -17,6 +17,7 @@ Revisions:
 	- 20140807@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
 	- 20180924@Winnie: Search Chinese RedmineID: #99982
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 Param's Explanation:
 	• @userid: User who are logging in.
 	• @username: the search term.
@@ -48,7 +49,7 @@ BEGIN
 							OR PhoneNumber3 = @Username
 							OR cs.MobilePhone = @Username
 					)
-				AND ((@UserRole=2 AND c.SiteID<>33002) 
+				AND ((@UserRole=2 AND ISNULL(c.SiteID,0)<>33002) 
 						OR (@UserRole=1 AND c.SiteID=33002) 
 					)
 		ORDER BY SearchCount DESC

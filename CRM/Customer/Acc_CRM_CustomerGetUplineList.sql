@@ -20,7 +20,7 @@ AS
 		- 201810107@Winnie: Fix bug Show headline [RedmineID: #102925]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190708@Elodie: Get CN88's customer status [RedmineId: #112637]
-
+		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 	Param's Explanation:	
 */
 BEGIN	
@@ -31,7 +31,7 @@ BEGIN
 	SELECT @srecommend = srecommend,@mrecommend=mrecommend,@recommend=recommend
 	FROM bodb02.dbo.customer c WITH(NOLOCK) 
 	WHERE c.CustID = @CustID
-		AND((@UserRole=1 AND c.site = 'CN88') OR(@UserRole=2 AND c.site <> 'CN88'))
+		AND((@UserRole=1 AND c.site = 'CN88') OR(@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 
 	IF @@ROWCOUNT <> 0
 	BEGIN

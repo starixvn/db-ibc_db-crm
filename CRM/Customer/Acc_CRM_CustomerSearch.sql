@@ -26,6 +26,7 @@ Revisions:
 	- 20180924@Winnie: Search Chinese RedmineID: #99982
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
+	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 Param's Explanation:	
 */
 BEGIN
@@ -66,7 +67,7 @@ BEGIN
 			@RoleID = RoleID 
 			FROM bodb02.dbo.Customer c WITH (NOLOCK) 
 			WHERE c.phone = @UserName OR c.mobilephone = @username	
-				AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND c.site <> 'CN88'))
+				AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 		END					
 		
 		IF @custID IS NULL    --- search by phone in CRM

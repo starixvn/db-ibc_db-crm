@@ -13,6 +13,7 @@ Original:
 
 Revisions:	
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
 Param's Explanation:	
 */
 
@@ -100,7 +101,7 @@ BEGIN
 	LEFT JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
 	WHERE c.custid = @CustID
 		AND((@UserRole=1 AND c.SiteID=33002)
-			OR (@UserRole=2 AND c.SiteID<>33002)
+			OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002)
 			)
 END
 

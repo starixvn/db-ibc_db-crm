@@ -21,6 +21,7 @@ AS
 		- 20180305@Winnie: Support long list of "Verify related customer" RedmineID: #91469
 		- 20190506@Winnie:  CN88 Permission - [RedmineID: #112637]
 		- 20190701@Elodie: Offer for CN88 - [RedmineID: #112637]
+		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 	Param's Explanation:	
 */
 BEGIN
@@ -37,7 +38,7 @@ BEGIN
 	SELECT c.custid, c.username 
 	FROM bodb02.dbo.Customer c WITH (NOLOCK)
 	WHERE username IN ( SELECT username FROM @tmpCustomer)
-		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND c.site <> 'CN88'))
+		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 	
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 

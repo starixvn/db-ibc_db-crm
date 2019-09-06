@@ -16,6 +16,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
 */
 BEGIN
 	DECLARE   @AutoField       NVARCHAR(MAX)
@@ -62,7 +63,7 @@ BEGIN
 		LEFT JOIN	bodb02.dbo.Customer AS review WITH (NOLOCK)
 			ON	f.ReviewerID = review.custid
 	WHERE	f.FeedbackID = @FeedbackID
-		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND c.SiteID<>33002))
+		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002))
 
 	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName

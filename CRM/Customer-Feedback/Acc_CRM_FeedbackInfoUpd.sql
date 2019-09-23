@@ -70,6 +70,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT
 				,	@IsOverWrite				BIT				= 0	
+				,	@NoInquiries				SMALLINT		= NULL
 )
 AS
 /*
@@ -97,6 +98,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Province RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -264,6 +266,7 @@ BEGIN
 			,	@Line					= @Line
 			,	@WeChat					= @WeChat
 			,	@Yahoo					= @Yahoo
+			,	@NoInquiries			= @NoInquiries
 			,	@QQ						= @QQ
 			,	@BBM					= @BBM
 			,	@ErrCode				= @ErrCode OUTPUT

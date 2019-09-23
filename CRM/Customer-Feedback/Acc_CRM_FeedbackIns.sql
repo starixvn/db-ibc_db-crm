@@ -69,6 +69,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@IP							VARCHAR(15)
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
+				,	@NoInquiries				SMALLINT		= NULL
 				)
 AS
 /*
@@ -94,6 +95,7 @@ AS
 		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -289,6 +291,7 @@ BEGIN
 				,	QQ
 				,	BBM
 				,	ProvinceID
+				,	Inquiries
 				)
 	VALUES	(	@CustID
 			,	@TitleID
@@ -349,6 +352,7 @@ BEGIN
 			,	@QQ
 			,	@BBM
 			,   @ProvinceID
+			,	@NoInquiries
 			);
 	IF @@ERROR <> 0
 	BEGIN
@@ -543,6 +547,7 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +	
+						'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +	
 					'</Acc_CRM_FeedbackIns>';
 
 

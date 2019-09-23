@@ -69,6 +69,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@BBM						NVARCHAR(100)	= NULL
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
+				,	@NoInquiries				SMALLINT		= NULL
 )
 AS
 /*
@@ -92,6 +93,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -535,6 +537,7 @@ BEGIN
 	,	QQ							= @QQ
 	,	BBM							= @BBM
 	,	ProvinceID					= @ProvinceID
+	,	Inquiries					= @NoInquiries
 	WHERE	FeedbackID = @FeedbackID;
 	
 	DELETE FROM crmfeedbackSetting WHERE FeedbackID=@FeedbackID

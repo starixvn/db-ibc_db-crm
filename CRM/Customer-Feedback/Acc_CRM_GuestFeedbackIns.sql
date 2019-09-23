@@ -96,7 +96,8 @@ ALTER PROCEDURE	dbo.Acc_CRM_GuestFeedbackIns (
 				,	@IP							VARCHAR(15)
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
-				,	@ProvinceID					INT=NULL
+				,	@ProvinceID					INT				= NULL
+				,	@NoInquiries				SMALLINT		= NULL
 				)
 AS
 /*
@@ -124,6 +125,7 @@ AS
 		- 20171222@Winnie:  Allow users to select multiple products/sub-categories - [Redmine: #84714]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID: #113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -343,6 +345,7 @@ BEGIN
 			,	@QQ						= @QQ
 			,	@BBM					= @BBM
 			,	@IP						= @IP
+			,	@NoInquiries			= @NoInquiries
 			,	@ErrCode				= @ErrCode				OUTPUT
 			,	@ErrMsg					= @ErrMsg				OUTPUT;
 					  

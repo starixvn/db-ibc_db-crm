@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackUpdInquiries (
+ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackQuickUpd (
 					@FeedbackID					INT
 				,	@UserID						INT
 				,	@IP							VARCHAR(50)		= ''
@@ -43,17 +43,17 @@ BEGIN
 		,	@NewValues	XML
 	
 		SELECT	@OldValues = 				
-					'<Acc_CRM_FeedbackUpdMultiple>' + 
+					'<Acc_CRM_CustomerFeedbackQuickUpd>' + 
 							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(10),@NoInquiries_Old),'')				+ '</NoInquiries>' + 
 							'<FeedbackID>'					+ ISNULL(CONVERT(VARCHAR(10),@FeedbackID),'')					+ '</FeedbackID>' +							
-					'</Acc_CRM_FeedbackUpdMultiple>';				
+					'</Acc_CRM_CustomerFeedbackQuickUpd>';				
 					
 				
 	SELECT @NewValues = 				
-					'<Acc_CRM_FeedbackUpdMultiple>' + 
+					'<Acc_CRM_CustomerFeedbackQuickUpd>' + 
 							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(10),@NoInquiries),'')				+ '</NoInquiries>' + 
 							'<FeedbackID>'					+ ISNULL(CONVERT(VARCHAR(10),@FeedbackID),'')					+ '</FeedbackID>' +							
-					'</Acc_CRM_FeedbackUpdMultiple>';
+					'</Acc_CRM_CustomerFeedbackQuickUpd>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
 				@UserID = @UserID
@@ -70,5 +70,5 @@ BEGIN
 END;
 GO 
 
-GRANT EXECUTE ON dbo.Acc_CRM_CustomerFeedbackIns TO bodbAdminNet;
+GRANT EXECUTE ON dbo.Acc_CRM_CustomerFeedbackQuickUpd TO bodbAdminNet;
 GO 

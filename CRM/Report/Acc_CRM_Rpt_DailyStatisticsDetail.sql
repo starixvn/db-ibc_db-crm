@@ -320,6 +320,7 @@ BEGIN
 		,   SubCategoryID			=	pag.SubCategoryID
 		,   CommunicationID			=	pag.CommunicationID
 		,   StationID			    =	pag.StationID
+		,   NoInquiries             =   ISNULL(fb.Inquiries,'-')
 	INTO #temp
 	FROM		crmFeedback fb WITH (NOLOCK) 
 	INNER JOIN	Pag
@@ -408,7 +409,8 @@ BEGIN
 			,   CategoryID				
 			,   SubCategoryID			
 			,   CommunicationID			
-			,   StationID			   		
+			,   StationID		
+			,   NoInquiries	   		
 	 from #temp AS c
 	 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)	
 END;

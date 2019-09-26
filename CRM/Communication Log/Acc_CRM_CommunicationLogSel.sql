@@ -58,7 +58,7 @@ BEGIN
 		,	f.SolveDate
 		,	f.LicenseeType
 		,	CASE WHEN @UserRole=1 AND f.ProvinceID IS NULL THEN 1 ELSE f.ProvinceID END AS ProvinceID
-		,   ISNULL(f.Inquiries,'-') AS Inquiries
+		,   ISNULL(f.Inquiries,'-') AS NoInquiries
 	FROM		dbo.crmFeedback AS f WITH (NOLOCK)
 		LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
 			ON	c.CustID = f.CustID

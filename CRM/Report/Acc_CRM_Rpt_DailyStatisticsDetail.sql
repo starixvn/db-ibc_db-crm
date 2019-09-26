@@ -216,7 +216,7 @@ BEGIN
 			,ca.SubCategoryID
 			,com.CommunicationID
 			,sta.StationID
-			,ISNULL(fb.Inquiries,'-') AS Inquiries
+			,ISNULL(fb.Inquiries,'-') AS NoInquiries
 		FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN #FBProduct p ON fb.FeedbackID=p.FeedbackID
 		INNER JOIN #FBCategory ca ON fb.FeedbackID=ca.FeedbackID

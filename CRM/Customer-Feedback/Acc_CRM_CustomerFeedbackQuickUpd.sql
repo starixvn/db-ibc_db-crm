@@ -59,7 +59,7 @@ BEGIN
 				@UserID = @UserID
 			,	@FeedbackID = @FeedbackID
 			,	@CustID = @CustID
-			,	@ActionID = 305
+			,	@ActionID = 206
 			,	@IP = @IP
 			,	@Description = NULL
 			,	@Solution = NULL

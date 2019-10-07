@@ -287,6 +287,7 @@ BEGIN
 		,	@Pic4Name_Old					NVARCHAR(100)	= NULL
 		,	@LicenseeType_Old				INT				= 0
 		,	@ProvinceID_Old					INT				= NULL
+		,	@NoInquiries_Old				SMALLINT		= NULL
 		,	@WhatsApp_Old					NVARCHAR(100)	= NULL
 		,	@Line_Old						NVARCHAR(100)	= NULL
 		,	@WeChat_Old						NVARCHAR(100)	= NULL
@@ -353,6 +354,7 @@ BEGIN
 		,	@QQ_Old							= QQ
 		,	@BBM_Old						= BBM
 		,	@ProvinceID_Old					= ProvinceID
+		,	@NoInquiries_Old				= Inquiries
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -621,6 +623,7 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ_Old),'')						+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM_Old),'')						+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID_Old),'')				+ '</ProvinceID>' +
+						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')				+ '</NoInquiries>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	SELECT @NewValues = 				
@@ -687,6 +690,7 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID),'')					+ '</ProvinceID>' +
+						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')					+ '</NoInquiries>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

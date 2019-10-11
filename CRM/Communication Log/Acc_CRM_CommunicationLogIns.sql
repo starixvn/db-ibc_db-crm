@@ -22,6 +22,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 				,	@LicenseeType		INT				= 0
 				,	@UserID				INT
 				,	@IP					VARCHAR(15)
+				,	@NoInquiries		SMALLINT		= NULL
 				,	@ErrCode			INT				= 0		OUTPUT
 				,	@ErrMsg				NVARCHAR(4000)	= ''	OUTPUT
 AS
@@ -39,6 +40,7 @@ AS
 		- 20190506@Winnie: CN88 Province RedmineID: #112637
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
 		- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 */
 BEGIN
@@ -336,6 +338,7 @@ BEGIN
 				,	QQ				
 				,	BBM
 				,	ProvinceID
+				,	Inquiries
 				)			
     SELECT	@CustID
 		,	@TitleID
@@ -401,6 +404,7 @@ BEGIN
 		,	@QQ
 		,	@BBM
 		,	@ProvinceID
+		,	@NoInquiries
 
 	IF	@@ERROR <> 0
 	BEGIN
@@ -591,7 +595,8 @@ BEGIN
 						'<Yahoo>'						+ ISNULL(dbo.f_EncodeXMLValue(@Yahoo),'')						+ '</Yahoo>' +
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
-						'<ProvinceID>'				+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +
+						'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +
+						'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +
 					'</Acc_CRM_CommunicationLogIns>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

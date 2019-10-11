@@ -25,6 +25,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20180814@Winnie: Enhancement made for Excel. [RedmineID: #99811]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -215,6 +216,7 @@ BEGIN
 			,ca.SubCategoryID
 			,com.CommunicationID
 			,sta.StationID
+			,ISNULL(fb.Inquiries,'-') AS NoInquiries
 		FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN #FBProduct p ON fb.FeedbackID=p.FeedbackID
 		INNER JOIN #FBCategory ca ON fb.FeedbackID=ca.FeedbackID
@@ -318,6 +320,7 @@ BEGIN
 		,   SubCategoryID			=	pag.SubCategoryID
 		,   CommunicationID			=	pag.CommunicationID
 		,   StationID			    =	pag.StationID
+		,   NoInquiries             =   ISNULL(fb.Inquiries,'-')
 	INTO #temp
 	FROM		crmFeedback fb WITH (NOLOCK) 
 	INNER JOIN	Pag
@@ -406,7 +409,8 @@ BEGIN
 			,   CategoryID				
 			,   SubCategoryID			
 			,   CommunicationID			
-			,   StationID			   		
+			,   StationID		
+			,   NoInquiries	   		
 	 from #temp AS c
 	 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)	
 END;

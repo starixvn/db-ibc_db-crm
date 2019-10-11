@@ -17,6 +17,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 */
 BEGIN
 	DECLARE   @AutoField       NVARCHAR(MAX)
@@ -57,6 +58,7 @@ BEGIN
 		,	f.SolveDate
 		,	f.LicenseeType
 		,	CASE WHEN @UserRole=1 AND f.ProvinceID IS NULL THEN 1 ELSE f.ProvinceID END AS ProvinceID
+		,   ISNULL(f.Inquiries,'-') AS NoInquiries
 	FROM		dbo.crmFeedback AS f WITH (NOLOCK)
 		LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
 			ON	c.CustID = f.CustID

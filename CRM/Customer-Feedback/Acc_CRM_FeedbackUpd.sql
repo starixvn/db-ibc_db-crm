@@ -69,6 +69,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@BBM						NVARCHAR(100)	= NULL
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
+				,	@NoInquiries				SMALLINT		= NULL
 )
 AS
 /*
@@ -92,6 +93,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -285,6 +287,7 @@ BEGIN
 		,	@Pic4Name_Old					NVARCHAR(100)	= NULL
 		,	@LicenseeType_Old				INT				= 0
 		,	@ProvinceID_Old					INT				= NULL
+		,	@NoInquiries_Old				SMALLINT		= NULL
 		,	@WhatsApp_Old					NVARCHAR(100)	= NULL
 		,	@Line_Old						NVARCHAR(100)	= NULL
 		,	@WeChat_Old						NVARCHAR(100)	= NULL
@@ -351,6 +354,7 @@ BEGIN
 		,	@QQ_Old							= QQ
 		,	@BBM_Old						= BBM
 		,	@ProvinceID_Old					= ProvinceID
+		,	@NoInquiries_Old				= Inquiries
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -535,6 +539,7 @@ BEGIN
 	,	QQ							= @QQ
 	,	BBM							= @BBM
 	,	ProvinceID					= @ProvinceID
+	,	Inquiries					= @NoInquiries
 	WHERE	FeedbackID = @FeedbackID;
 	
 	DELETE FROM crmfeedbackSetting WHERE FeedbackID=@FeedbackID
@@ -618,6 +623,7 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ_Old),'')						+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM_Old),'')						+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID_Old),'')				+ '</ProvinceID>' +
+						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')				+ '</NoInquiries>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	SELECT @NewValues = 				
@@ -684,6 +690,7 @@ BEGIN
 						'<QQ>'							+ ISNULL(dbo.f_EncodeXMLValue(@QQ),'')							+ '</QQ>' +
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID),'')					+ '</ProvinceID>' +
+						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')					+ '</NoInquiries>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

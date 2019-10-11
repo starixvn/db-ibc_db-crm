@@ -68,8 +68,9 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@BBM						NVARCHAR(100)	= NULL
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
-				,	@IsOverWrite				BIT				= 0,
-					@ProvinceID					INT				= NULL
+				,	@IsOverWrite				BIT				= 0
+				,	@ProvinceID					INT				= NULL
+				,	@NoInquiries				SMALLINT		= NULL
 				)
 AS
 /*
@@ -98,6 +99,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190628@Winnie: CN88 Permission Fix bug RedmineID: #115828
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer: #113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 */
@@ -316,6 +318,7 @@ BEGIN
 			,	@BBM					= @BBM
 			,	@IP						= @IP
 			,	@ProvinceID				= @ProvinceID
+			,	@NoInquiries			= @NoInquiries
 			,	@ErrCode				= @ErrCode OUTPUT
 			,	@ErrMsg					= @ErrMsg OUTPUT;
 	IF	@ErrCode <> 0

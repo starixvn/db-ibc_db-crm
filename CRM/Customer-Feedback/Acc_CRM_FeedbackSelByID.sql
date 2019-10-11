@@ -21,6 +21,7 @@ AS
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 		
 */
@@ -113,6 +114,7 @@ BEGIN
 		,	ISNULL(fb.BBM, '') BBM
 		,	fb.LicenseeType
 		,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
+		,   ISNULL(fb.Inquiries,'-') AS NoInquiries
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID

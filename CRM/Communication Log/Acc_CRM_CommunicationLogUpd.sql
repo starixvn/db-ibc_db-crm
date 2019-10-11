@@ -26,9 +26,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 				,	@LicenseeType			INT				= 0
 				,	@UserID					INT
 				,	@IP						VARCHAR(15)
-				,	@ProvinceID			INT=NULL
+				,	@ProvinceID				INT=NULL
 				,	@ErrCode				INT				= 0			OUTPUT
 				,	@ErrMsg					NVARCHAR(4000)	= ''		OUTPUT
+				,	@NoInquiries			SMALLINT		= NULL
 AS
 /*
 	Created:	20140127@Dom
@@ -43,6 +44,7 @@ AS
 		- 20180405@Winnie:  Allow users to select multiple products/sub-categories - Redmine: #84714
 		- 20190506@Winnie: CN88 Province RedmineID: #112637
 		- 20190719@Winnie: Limit Related Customer RedmineID:#113305
+		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 	Param's Explanation:
 */
 BEGIN
@@ -155,6 +157,7 @@ BEGIN
 		,	@Subject_Old				NVARCHAR(200)
 		,	@SolveDate_Old				DATETIME
 		,	@LicenseeType_Old			INT
+		,	@NoInquiries_Old			SMALLINT
 		,	@ProvinceID_Old				INT;
 
 	SELECT	@CustID_Old				= CustID		
@@ -175,6 +178,7 @@ BEGIN
 		,	@SolveDate_Old			= SolveDate
 		,	@LicenseeType_Old		= LicenseeType
 		,	@ProvinceID_Old			= ProvinceID
+		,	@NoInquiries_Old		= Inquiries
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -316,6 +320,7 @@ BEGIN
 	,	SolveDate			= @SolveDate
 	,	LicenseeType		= @LicenseeType
 	,	ProvinceID			= @ProvinceID
+	,	Inquiries			= @NoInquiries
 	WHERE	FeedbackID = @FeedbackID;
 	IF	@@ERROR <> 0
 	BEGIN
@@ -392,6 +397,7 @@ BEGIN
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')					+ '</SolveDate>' +	
 							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')					+ '</LicenseeType>' +		
 							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID_Old),'')					+ '</ProvinceID>' +			
+							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries_Old),'')					+ '</NoInquiries>' +			
 					'</Acc_CRM_CommunicationLogUpd>';
 	 
 	SELECT	@NewValues =
@@ -422,6 +428,7 @@ BEGIN
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')					+ '</SolveDate>' +			
 							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +		
+							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +			
 					'</Acc_CRM_CommunicationLogUpd>';
 			
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

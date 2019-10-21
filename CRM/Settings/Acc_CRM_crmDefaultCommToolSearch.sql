@@ -3,7 +3,10 @@ ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSearch
 (
 					@Username			NVARCHAR(MAX)=NULL,
 					@Category			NVARCHAR(MAX),
-					@SubCategory		NVARCHAR(MAX)
+					@SubCategory		NVARCHAR(MAX),
+					@PageSize				INT = 0,
+					@PageIndex				INT = 0,
+					@TotalRows				INT = 0 OUTPUT
 					)
 AS
 /*
@@ -18,8 +21,17 @@ AS
 	
 */
 BEGIN
+	DECLARE @RowStart INT, @RowEnd INT 
+	
+	SELECT @PageIndex = @PageIndex - 1
+			,@RowStart = @PageSize * @PageIndex + 1
+			,@RowEnd = @RowStart + @PageSize - 1
 
-	SELECT 
+	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
+
+	INSERT INTO #tmp(DefaultCommID ,UserName ,Category ,SubCategory ,CommTool)
+	SELECT DISTINCT
+	 a.DefaultCommID,
      cc.UserName 
 	  ,STUFF(
 						(   SELECT ',' + b.SettingValue
@@ -52,8 +64,7 @@ BEGIN
 						)
 						, 1
 						, 1
-						, '') AS [CommTool]
-    
+						, '') AS [CommTool]   
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
 		INNER JOIN crmCustomer cc WITH(NOLOCK) ON a.CustID=cc.CustID	
 	WHERE a.DefaultCommID<>0 AND  (UserName LIKE '%'+@Username+'%' OR @Username IS NULL) AND
@@ -76,6 +87,26 @@ BEGIN
 						, 1
 						, 1
 						, '') =@SubCategory
+	IF @TotalRows=0
+	BEGIN
+		SELECT @TotalRows=COUNT(1) FROM #tmp
+	END
+	IF ((@PageSize <= 0) AND (@PageIndex <= 0))
+	BEGIN
+		SELECT * FROM #tmp
+	END
+	ELSE 
+	BEGIN
+		WITH pag as
+		(
+			SELECT DefaultCommID, ROW_NUMBER() OVER(ORDER BY DefaultCommID DESC) AS RowNum 
+			FROM #tmp
+		)
+		SELECT 	*
+		FROM #tmp(NOLOCK) c 
+			INNER JOIN pag ON c.DefaultCommID = pag.DefaultCommID
+		WHERE pag.RowNum BETWEEN @RowStart AND @RowEnd
+	END
 END;
 GO
 

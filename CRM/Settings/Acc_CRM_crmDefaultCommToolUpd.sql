@@ -32,7 +32,7 @@ BEGIN
 	DECLARE @tmpComm		TABLE(CommID		INT)
 	DECLARE	@CustID			INT
 	DECLARE	@MaxID			INT	
-	DECLARE @CustomerCheck TABLE(CustID INT, UserName VARCHAR(50))
+	DECLARE @CustomerCheck TABLE(CustID INT)
 	DECLARE @Category_OLD			NVARCHAR(MAX),@SubCategory_OLD		NVARCHAR(MAX),@Comm_OLD				NVARCHAR(MAX)
 
 	CREATE TABLE #tmp
@@ -55,8 +55,8 @@ BEGIN
 	SELECT ltrim(rtrim(val))
 	FROM dbo.f_CRM_strSplit(@Comm,',')		
 
-	INSERT INTO @CustomerCheck(CustID,UserName)
-	SELECT cc.CustID,cc.UserName
+	INSERT INTO @CustomerCheck(CustID)
+	SELECT cc.CustID
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 		
 	WHERE a.DefaultCommID<>0 AND a.custid=@CustID AND
 		STUFF(

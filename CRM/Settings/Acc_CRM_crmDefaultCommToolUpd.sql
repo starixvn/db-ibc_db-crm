@@ -141,7 +141,7 @@ BEGIN
 	IF @@ERROR <> 0  
 	BEGIN  
 		SELECT @ErrCode = 101, @ErrMsg = 'Update setting unsuccessfuly.'  
-		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
+		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=@DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
 					,[CustID]
@@ -162,7 +162,7 @@ BEGIN
 	IF @@ERROR <> 0  
 	BEGIN  
 		SELECT @ErrCode = 102, @ErrMsg = 'Update setting unsuccessfuly.'  
-		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
+		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=@DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
 					,[CustID]
@@ -183,7 +183,7 @@ BEGIN
 	IF @@ERROR <> 0  
 	BEGIN  
 		SELECT @ErrCode = 103, @ErrMsg = 'Update setting unsuccessfuly.'  
-		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
+		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=@DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
 					,[CustID]

@@ -3,7 +3,6 @@ ALTER PROCEDURE [dbo].[Acc_CRM_crmDefaultCommToolUpd]
 (  
  @UserID			INT,  
  @DefaultCommID		INT,
- @Username			NVARCHAR(MAX)=NULL,
  @Category			NVARCHAR(MAX),
  @SubCategory		NVARCHAR(MAX),
  @Comm				NVARCHAR(MAX),
@@ -34,6 +33,8 @@ BEGIN
 	DECLARE	@MaxID			INT	
 	DECLARE @CustomerCheck TABLE(CustID INT)
 	DECLARE @Category_OLD			NVARCHAR(MAX),@SubCategory_OLD		NVARCHAR(MAX),@Comm_OLD				NVARCHAR(MAX)
+
+	SELECT @CustID=CustID FROM [crmDefaultCommTool] WITH(NOLOCK) WHERE DefaultCommID=@DefaultCommID
 
 	CREATE TABLE #tmp
 	(

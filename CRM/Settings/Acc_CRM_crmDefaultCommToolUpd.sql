@@ -144,12 +144,12 @@ BEGIN
 	END  
 
 	INSERT INTO [crmDefaultCommTool]([DefaultCommID],[CustID],[SettingID],[SettingType])
-	SELECT @DefautCommID,@CustID,CategoryID,1
+	SELECT @DefaultCommID,@CustID,CategoryID,1
 	FROM @tmpCategory
 	IF @@ERROR <> 0  
 	BEGIN  
 		SELECT @ErrCode = 101, @ErrMsg = 'Update setting unsuccessfuly.'  
-		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=@DefautCommID 
+		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
 					,[CustID]
@@ -170,7 +170,7 @@ BEGIN
 	IF @@ERROR <> 0  
 	BEGIN  
 		SELECT @ErrCode = 101, @ErrMsg = 'Update setting unsuccessfuly.'  
-		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=@DefautCommID 
+		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
 					,[CustID]
@@ -191,7 +191,7 @@ BEGIN
 	IF @@ERROR <> 0  
 	BEGIN  
 		SELECT @ErrCode = 101, @ErrMsg = 'Update setting unsuccessfuly.'  
-		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=@DefautCommID 
+		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
 					,[CustID]
@@ -213,7 +213,7 @@ BEGIN
  SELECT @LogElement =       
      '<Acc_CRM_crmDefaultCommToolUpd>' + --SP Name  
 	  '<CustID>' + ISNULL(CONVERT(VARCHAR(10),@CustID),'')	+ '</CustID>' +  
-	  '<DefautCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
+	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
       '<Username>'  + ISNULL(@Username,'')      + '</Username>'  +  
       '<Category>' + ISNULL(@Category,'')       + '</Category>' +  
 	  '<SubCategory>' + ISNULL(@SubCategory,'') + '</SubCategory>' +  
@@ -225,7 +225,7 @@ BEGIN
  SELECT @LogElement_OLD =       
      '<Acc_CRM_crmDefaultCommToolUpd>' + --SP Name  
 	  '<CustID>' + ISNULL(CONVERT(VARCHAR(10),@CustID),'')	+ '</CustID>' +  
-	  '<DefautCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
+	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
       '<Username>'  + ISNULL(@Username,'')      + '</Username>'  +  
       '<Category>' + ISNULL(@Category_OLD,'')       + '</Category>' +  
 	  '<SubCategory>' + ISNULL(@SubCategory_OLD,'')		+ '</SubCategory>' +  

@@ -56,7 +56,7 @@ BEGIN
 	FROM dbo.f_CRM_strSplit(@Comm,',')		
 
 	INSERT INTO @CustomerCheck(CustID)
-	SELECT cc.CustID
+	SELECT CustID
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 		
 	WHERE a.DefaultCommID<>0 AND a.custid=@CustID AND
 		STUFF(
@@ -81,16 +81,7 @@ BEGIN
 
 	IF EXISTS(SELECT TOP 1 1 FROM @CustomerCheck)
 	BEGIN
-		 SELECT @ErrCode = 100, @ErrMsg = 'This setting exists in these customer(s):'+STUFF(
-																						(   SELECT ',' + UserName
-																							FROM @CustomerCheck
-																							FOR xml path('')
-																						)
-																						, 1
-																						, 1
-																						, '') +'. Please check again!'
-		 
-
+		 SELECT @ErrCode = 100, @ErrMsg = 'This setting exists, please check again!'
 		 RETURN
 	END
 	

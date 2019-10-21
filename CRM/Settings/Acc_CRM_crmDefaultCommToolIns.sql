@@ -127,7 +127,7 @@ BEGIN
 		
 		 IF @@ERROR <> 0  
 		  BEGIN  
-		   SELECT @ErrCode = 101, @ErrMsg = 'Create new setting unsuccessfuly.'  
+		   SELECT @ErrCode = 102, @ErrMsg = 'Create new setting unsuccessfuly.'  
 		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM @Customer)
 		   RETURN  
 		  END  
@@ -137,7 +137,7 @@ BEGIN
 		FROM @tmpComm
 		 IF @@ERROR <> 0  
 		  BEGIN  
-		   SELECT @ErrCode = 101, @ErrMsg = 'Create new setting unsuccessfuly.' 
+		   SELECT @ErrCode = 103, @ErrMsg = 'Create new setting unsuccessfuly.' 
 		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM @Customer)
 		   RETURN  
 		  END  

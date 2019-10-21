@@ -30,7 +30,7 @@ BEGIN
 	DECLARE @tmpSubCategory TABLE(SubCategoryID	INT)
 	DECLARE @tmpComm		TABLE(CommID		INT)
 	DECLARE	@CustID			INT
-	DECLARE	@MaxID			INT	
+	
 	DECLARE @CustomerCheck TABLE(CustID INT)
 	DECLARE @Category_OLD			NVARCHAR(MAX),@SubCategory_OLD		NVARCHAR(MAX),@Comm_OLD				NVARCHAR(MAX)
 
@@ -134,7 +134,7 @@ BEGIN
 		SELECT @ErrCode = 100, @ErrMsg = 'Update setting unsuccessfuly.'  	
 		RETURN  
 	END  
-
+	select @DefaultCommID
 	INSERT INTO [crmDefaultCommTool]([DefaultCommID],[CustID],[SettingID],[SettingType])
 	SELECT @DefaultCommID,@CustID,CategoryID,1
 	FROM @tmpCategory
@@ -157,11 +157,11 @@ BEGIN
 	END  
 
 	INSERT INTO [crmDefaultCommTool]([DefaultCommID],[CustID],[SettingID],[SettingType])
-	SELECT @MaxID+1,@CustID,SubCategoryID,2
+	SELECT @DefaultCommID,@CustID,SubCategoryID,2
 	FROM @tmpSubCategory		
 	IF @@ERROR <> 0  
 	BEGIN  
-		SELECT @ErrCode = 101, @ErrMsg = 'Update setting unsuccessfuly.'  
+		SELECT @ErrCode = 102, @ErrMsg = 'Update setting unsuccessfuly.'  
 		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]
@@ -178,11 +178,11 @@ BEGIN
 	END  
 
 	INSERT INTO [crmDefaultCommTool]([DefaultCommID],[CustID],[SettingID],[SettingType])
-	SELECT @MaxID+1,@CustID,CommID,3
+	SELECT @DefaultCommID,@CustID,CommID,3
 	FROM @tmpComm
 	IF @@ERROR <> 0  
 	BEGIN  
-		SELECT @ErrCode = 101, @ErrMsg = 'Update setting unsuccessfuly.'  
+		SELECT @ErrCode = 103, @ErrMsg = 'Update setting unsuccessfuly.'  
 		DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]=DefaultCommID 
 		INSERT INTO [crmDefaultCommTool](
 					[DefaultCommID]

@@ -33,7 +33,7 @@ BEGIN
   
  SELECT @LogElement =       
      '<Acc_CRM_crmDefaultCommToolDel>' + --SP Name  
-      '<DafaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DafaultCommID),'')	+ '</DafaultCommID>' +  
+      '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
 	  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
 	  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
      '</Acc_CRM_crmDefaultCommToolDel>'  

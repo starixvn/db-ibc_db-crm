@@ -205,8 +205,7 @@ BEGIN
  SELECT @LogElement =       
      '<Acc_CRM_crmDefaultCommToolUpd>' + --SP Name  
 	  '<CustID>' + ISNULL(CONVERT(VARCHAR(10),@CustID),'')	+ '</CustID>' +  
-	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
-      '<Username>'  + ISNULL(@Username,'')      + '</Username>'  +  
+	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +      
       '<Category>' + ISNULL(@Category,'')       + '</Category>' +  
 	  '<SubCategory>' + ISNULL(@SubCategory,'') + '</SubCategory>' +  
       '<Comm>' + ISNULL(@Comm,'')				+ '</Comm>' +  
@@ -217,8 +216,7 @@ BEGIN
  SELECT @LogElement_OLD =       
      '<Acc_CRM_crmDefaultCommToolUpd>' + --SP Name  
 	  '<CustID>' + ISNULL(CONVERT(VARCHAR(10),@CustID),'')	+ '</CustID>' +  
-	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +  
-      '<Username>'  + ISNULL(@Username,'')      + '</Username>'  +  
+	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +      
       '<Category>' + ISNULL(@Category_OLD,'')       + '</Category>' +  
 	  '<SubCategory>' + ISNULL(@SubCategory_OLD,'')		+ '</SubCategory>' +  
       '<Comm>' + ISNULL(@Comm_OLD,'')					+ '</Comm>' +  

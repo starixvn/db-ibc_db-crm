@@ -73,6 +73,7 @@ BEGIN
 							(   SELECT ',' + CONVERT(  varchar(50),c.settingID)
 								FROM [crmDefaultCommTool] c WITH(NOLOCK)									
 								WHERE c.DefaultCommID=a.DefaultCommID  AND c.SettingType=1
+								ORDER BY c.SettingID ASC
 								FOR xml path('')
 							)
 							, 1
@@ -83,6 +84,7 @@ BEGIN
 						(   SELECT ','+ CONVERT(  varchar(50),c.settingID)
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)								
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
+							ORDER BY c.SettingID ASC
 							FOR xml path('')
 						)
 						, 1

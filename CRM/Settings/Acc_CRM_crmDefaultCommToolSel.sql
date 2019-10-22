@@ -35,7 +35,7 @@ SELECT 0,'Any'
 	  ,STUFF(
 						(   SELECT ','+ b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN #MainCategory b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
+								INNER JOIN #MainCategory b  ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID=a.DefaultCommID AND c.SettingType=1
 							FOR xml path('')
 						)
@@ -46,7 +46,7 @@ SELECT 0,'Any'
 	    ,STUFF(
 						(   SELECT ','+ b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN #SubCategory b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
+								INNER JOIN #SubCategory b  ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
 							FOR xml path('')
 						)

@@ -27,6 +27,20 @@ BEGIN
 			,@RowStart = @PageSize * @PageIndex + 1
 			,@RowEnd = @RowStart + @PageSize - 1
 
+	CREATE TABLE #MainCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
+	INSERT INTO #MainCategory(SettingID,SettingValue)
+	SELECT SettingID,SettingValue
+	FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='MainCategory'
+	UNION ALL
+	SELECT 0,'Any'
+
+	CREATE TABLE #SubCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
+	INSERT INTO #SubCategory(SettingID,SettingValue)
+	SELECT SettingID,SettingValue
+	FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
+	UNION ALL
+	SELECT 0,'Any'
+
 	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
 
 	INSERT INTO #tmp(DefaultCommID ,UserName ,Category ,SubCategory ,CommTool)
@@ -36,7 +50,7 @@ BEGIN
 	  ,STUFF(
 						(   SELECT ',' + b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN crmSetting b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
+								INNER JOIN #MainCategory b  ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID=a.DefaultCommID  AND c.SettingType=1
 							FOR xml path('')
 						)
@@ -47,7 +61,7 @@ BEGIN
 	    ,STUFF(
 						(   SELECT ','+ b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN crmSetting b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
+								INNER JOIN #SubCategory b  ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
 							FOR xml path('')
 						)

@@ -29,14 +29,14 @@ FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
 UNION ALL
 SELECT 0,'Any'
 
-select * from crmSetting
+
 	SELECT DISTINCT a.[DefaultCommID]
       ,[CustID]
 	  ,STUFF(
 						(   SELECT ','+ b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
 								INNER JOIN #MainCategory b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
-							WHERE c.DefaultCommID=a.DefaultCommID
+							WHERE c.DefaultCommID=a.DefaultCommID AND c.SettingType=1
 							FOR xml path('')
 						)
 						, 1
@@ -47,7 +47,7 @@ select * from crmSetting
 						(   SELECT ','+ b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
 								INNER JOIN #SubCategory b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
-							WHERE c.DefaultCommID = a.[DefaultCommID]
+							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
 							FOR xml path('')
 						)
 						, 1

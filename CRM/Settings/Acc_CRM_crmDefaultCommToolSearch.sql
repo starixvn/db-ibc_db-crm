@@ -31,20 +31,19 @@ BEGIN
 	CREATE TABLE #MainCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
 	CREATE TABLE #SubCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
 
-	IF @IsDisableCat=0
-	BEGIN
-		INSERT INTO #MainCategory(SettingID,SettingValue)
-		SELECT SettingID,SettingValue
-		FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='MainCategory'
-		UNION ALL
-		SELECT 0,'Any'
 	
-		INSERT INTO #SubCategory(SettingID,SettingValue)
-		SELECT SettingID,SettingValue
-		FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
-		UNION ALL
-		SELECT 0,'Any'
-	END
+	INSERT INTO #MainCategory(SettingID,SettingValue)
+	SELECT SettingID,SettingValue
+	FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='MainCategory'
+	UNION ALL
+	SELECT 0,'Any'
+	
+	INSERT INTO #SubCategory(SettingID,SettingValue)
+	SELECT SettingID,SettingValue
+	FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
+	UNION ALL
+	SELECT 0,'Any'
+
 
 	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
 

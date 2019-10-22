@@ -2,8 +2,9 @@
 ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSearch
 (
 					@Username			NVARCHAR(MAX)=NULL,
-					@Category			NVARCHAR(MAX),
-					@SubCategory		NVARCHAR(MAX),
+					@Category			NVARCHAR(MAX)=NULL,
+					@SubCategory		NVARCHAR(MAX)=NULL,
+					@IsDisableCat		BIT=1,
 					@PageSize				INT = 0,
 					@PageIndex				INT = 0,
 					@TotalRows				INT = 0 OUTPUT
@@ -26,20 +27,24 @@ BEGIN
 	SELECT @PageIndex = @PageIndex - 1
 			,@RowStart = @PageSize * @PageIndex + 1
 			,@RowEnd = @RowStart + @PageSize - 1
-
+	
 	CREATE TABLE #MainCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
-	INSERT INTO #MainCategory(SettingID,SettingValue)
-	SELECT SettingID,SettingValue
-	FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='MainCategory'
-	UNION ALL
-	SELECT 0,'Any'
-
 	CREATE TABLE #SubCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
-	INSERT INTO #SubCategory(SettingID,SettingValue)
-	SELECT SettingID,SettingValue
-	FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
-	UNION ALL
-	SELECT 0,'Any'
+
+	IF @IsDisableCat=0
+	BEGIN
+		INSERT INTO #MainCategory(SettingID,SettingValue)
+		SELECT SettingID,SettingValue
+		FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='MainCategory'
+		UNION ALL
+		SELECT 0,'Any'
+	
+		INSERT INTO #SubCategory(SettingID,SettingValue)
+		SELECT SettingID,SettingValue
+		FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
+		UNION ALL
+		SELECT 0,'Any'
+	END
 
 	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
 
@@ -81,11 +86,14 @@ BEGIN
 						, '') AS [CommTool]   
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
 		INNER JOIN crmCustomer cc WITH(NOLOCK) ON a.CustID=cc.CustID	
-	WHERE a.DefaultCommID<>0 AND  (UserName LIKE '%'+@Username+'%' OR @Username IS NULL) AND
+	WHERE a.DefaultCommID<>0 AND  (UserName LIKE '%'+@Username+'%' OR @Username IS NULL) 
+		AND(@IsDisableCat=1 OR (@IsDisableCat=0
+		AND
 		STUFF(
 							(   SELECT ',' + CONVERT(  varchar(50),c.settingID)
 								FROM [crmDefaultCommTool] c WITH(NOLOCK)									
 								WHERE c.DefaultCommID=a.DefaultCommID  AND c.SettingType=1
+								ORDER BY c.settingID ASC
 								FOR xml path('')
 							)
 							, 1
@@ -96,11 +104,13 @@ BEGIN
 						(   SELECT ','+ CONVERT(  varchar(50),c.settingID)
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)								
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
+							ORDER BY c.settingID ASC
 							FOR xml path('')
 						)
 						, 1
 						, 1
 						, '') =@SubCategory
+		))
 	IF @TotalRows=0
 	BEGIN
 		SELECT @TotalRows=COUNT(1) FROM #tmp

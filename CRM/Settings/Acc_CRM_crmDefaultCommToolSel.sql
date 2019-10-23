@@ -14,9 +14,20 @@ AS
 	
 */
 BEGIN
+	DECLARE @Username NVARCHAR(50),@CustID INT
 
+	SELECT @CustID=CustID 
+	FROM  [crmDefaultCommTool] a WITH(NOLOCK) 		
+	WHERE [DefaultCommID]=@DefaultCommID
+
+	SELECT @Username=Username FROM crmCustomer WITH(NOLOCK) WHERE CustID=@CustID
+	IF @Username IS NULL
+	BEGIN
+		SELECT @Username=Username FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE CustID=@CustID
+	END
 	SELECT DISTINCT a.[DefaultCommID]
-      ,[CustID]
+      ,@CustID AS CustID
+	  ,@Username AS Username
 	  ,STUFF(
 						(   SELECT ','+ CAST(c.settingID AS VARCHAR(50))
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)							

@@ -15,27 +15,11 @@ AS
 */
 BEGIN
 
-CREATE TABLE #MainCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
-INSERT INTO #MainCategory(SettingID,SettingValue)
-SELECT SettingID,SettingValue
-FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='MainCategory'
-UNION ALL
-SELECT 0,'Any'
-
-CREATE TABLE #SubCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
-INSERT INTO #SubCategory(SettingID,SettingValue)
-SELECT SettingID,SettingValue
-FROM [dbo].[crmSetting] WITH(NOLOCK) WHERE [SettingName]='SubCategory'
-UNION ALL
-SELECT 0,'Any'
-
-
 	SELECT DISTINCT a.[DefaultCommID]
       ,[CustID]
 	  ,STUFF(
-						(   SELECT ','+ b.SettingValue
-							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN #MainCategory b  ON c.SettingID=b.[SettingID]
+						(   SELECT ','+ CAST(c.settingID AS VARCHAR(50))
+							FROM [crmDefaultCommTool] c WITH(NOLOCK)							
 							WHERE c.DefaultCommID=a.DefaultCommID AND c.SettingType=1
 							FOR xml path('')
 						)
@@ -44,9 +28,8 @@ SELECT 0,'Any'
 						, '') AS [Category]
      
 	    ,STUFF(
-						(   SELECT ','+ b.SettingValue
-							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN #SubCategory b  ON c.SettingID=b.[SettingID]
+						(   SELECT ','+ CAST(c.settingID AS VARCHAR(50))
+							FROM [crmDefaultCommTool] c WITH(NOLOCK)								
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
 							FOR xml path('')
 						)
@@ -55,9 +38,8 @@ SELECT 0,'Any'
 						, '') AS [SubCategory]
 
 		,STUFF(
-						(   SELECT ',' + b.SettingValue
-							FROM [crmDefaultCommTool] c WITH(NOLOCK)
-								INNER JOIN crmSetting b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
+						(   SELECT ','+ CAST(c.settingID AS VARCHAR(50))
+							FROM [crmDefaultCommTool] c WITH(NOLOCK)							
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=3
 							FOR xml path('')
 						)

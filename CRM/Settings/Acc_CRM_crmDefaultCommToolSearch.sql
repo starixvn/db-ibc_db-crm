@@ -52,7 +52,7 @@ BEGIN
 	 a.DefaultCommID,
      cc.UserName 
 	  ,STUFF(
-						(   SELECT ',' + b.SettingValue
+						(   SELECT ', ' + b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
 								INNER JOIN #MainCategory b  ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID=a.DefaultCommID  AND c.SettingType=1
@@ -63,7 +63,7 @@ BEGIN
 						, '') AS [Category]
      
 	    ,STUFF(
-						(   SELECT ','+ b.SettingValue
+						(   SELECT ', '+ b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
 								INNER JOIN #SubCategory b  ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
@@ -74,7 +74,7 @@ BEGIN
 						, '') AS [SubCategory]
 
 		,STUFF(
-						(   SELECT ',' + b.SettingValue
+						(   SELECT ', ' + b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
 								INNER JOIN crmSetting b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
 							WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=3

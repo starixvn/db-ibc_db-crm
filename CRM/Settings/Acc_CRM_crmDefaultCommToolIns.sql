@@ -65,7 +65,7 @@ BEGIN
 		AND c.SiteID <> 33002
 
 	INSERT INTO @CustomerCheck(CustID,UserName)
-	SELECT cc.CustID,cc.UserName
+	SELECT DISTINCT cc.CustID,cc.UserName
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
 		INNER JOIN @Customer cc ON a.CustID=cc.CustID	
 	WHERE a.DefaultCommID<>0 AND 

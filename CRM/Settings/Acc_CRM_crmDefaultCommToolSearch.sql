@@ -45,12 +45,14 @@ BEGIN
 
 	SELECT @Username2=CAST(@Username AS VARCHAR(30))
 
-	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Role VARCHAR(10),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
+	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Role VARCHAR(10),CustID INT,Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
 
-	INSERT INTO #tmp(DefaultCommID ,UserName,Role ,Category ,SubCategory ,CommTool)
+	INSERT INTO #tmp(DefaultCommID ,UserName,CustID,Role ,Category ,SubCategory ,CommTool)
 	SELECT DISTINCT
 	 a.DefaultCommID,
      cc.UserName 
+	  
+	  ,cc.CustID
 	  , 'Guest'
 	  ,STUFF(
 						(   SELECT ', ' + b.SettingValue
@@ -114,7 +116,8 @@ BEGIN
 		UNION ALL
 		SELECT DISTINCT
 		 a.DefaultCommID,
-		 cc.UserName 
+		 cc.UserName ,
+		   cc.CustID
 		  ,CASE WHEN cc.roleid=1 THEN 'Member'
 				WHEN cc.roleid=2 THEN 'Agent'
 				WHEN cc.roleid=3 THEN 'Master'

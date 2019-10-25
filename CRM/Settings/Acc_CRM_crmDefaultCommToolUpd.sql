@@ -59,7 +59,7 @@ BEGIN
 	INSERT INTO @CustomerCheck(CustID)
 	SELECT CustID
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 		
-	WHERE a.DefaultCommID<>0 AND a.custid=@CustID AND
+	WHERE a.DefaultCommID<>@DefaultCommID AND a.custid=@CustID AND
 		STUFF(
 							(   SELECT ',' + CONVERT(  varchar(50),c.settingID)
 								FROM [crmDefaultCommTool] c WITH(NOLOCK)									

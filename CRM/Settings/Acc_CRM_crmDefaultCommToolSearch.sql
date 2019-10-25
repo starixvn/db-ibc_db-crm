@@ -22,7 +22,7 @@ AS
 	
 */
 BEGIN
-	DECLARE @RowStart INT, @RowEnd INT 
+	DECLARE @RowStart INT, @RowEnd INT, @Username2 VARCHAR(30)
 	
 	SELECT @PageIndex = @PageIndex - 1
 			,@RowStart = @PageSize * @PageIndex + 1
@@ -30,7 +30,6 @@ BEGIN
 	
 	CREATE TABLE #MainCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
 	CREATE TABLE #SubCategory(SettingID INT PRIMARY KEY,SettingValue NVARCHAR(100))
-
 	
 	INSERT INTO #MainCategory(SettingID,SettingValue)
 	SELECT SettingID,SettingValue
@@ -44,13 +43,15 @@ BEGIN
 	UNION ALL
 	SELECT 0,'Any'
 
+	SELECT @Username2=CAST(@Username AS VARCHAR(30))
 
-	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
+	CREATE TABLE #tmp (DefaultCommID INT,UserName NVARCHAR(50),Role VARCHAR(10),Category VARCHAR(MAX),SubCategory VARCHAR(MAX),CommTool VARCHAR(MAX))
 
-	INSERT INTO #tmp(DefaultCommID ,UserName ,Category ,SubCategory ,CommTool)
+	INSERT INTO #tmp(DefaultCommID ,UserName,Role ,Category ,SubCategory ,CommTool)
 	SELECT DISTINCT
 	 a.DefaultCommID,
      cc.UserName 
+	  , 'Guest'
 	  ,STUFF(
 						(   SELECT ', ' + b.SettingValue
 							FROM [crmDefaultCommTool] c WITH(NOLOCK)
@@ -85,7 +86,7 @@ BEGIN
 						, '') AS [CommTool]   
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
 		INNER JOIN crmCustomer cc WITH(NOLOCK) ON a.CustID=cc.CustID	
-	WHERE a.DefaultCommID<>0 AND  (UserName LIKE '%'+@Username+'%' OR @Username IS NULL) 
+	WHERE a.DefaultCommID<>0 AND cc.CustID<0 AND  (UserName LIKE '%'+@Username+'%' OR @Username IS NULL) 
 		AND(@IsDisableCat=1 OR (@IsDisableCat=0
 		AND
 		STUFF(
@@ -108,8 +109,75 @@ BEGIN
 						)
 						, 1
 						, 1
-						, '') =@SubCategory
+						, '') =@SubCategory		
 		))
+		UNION ALL
+		SELECT DISTINCT
+		 a.DefaultCommID,
+		 cc.UserName 
+		  ,CASE WHEN cc.roleid=1 THEN 'Member'
+				WHEN cc.roleid=2 THEN 'Agent'
+				WHEN cc.roleid=3 THEN 'Master'
+				WHEN cc.roleid=4 THEN 'Super' END
+		  ,STUFF(
+							(   SELECT ', ' + b.SettingValue
+								FROM [crmDefaultCommTool] c WITH(NOLOCK)
+									INNER JOIN #MainCategory b  ON c.SettingID=b.[SettingID]
+								WHERE c.DefaultCommID=a.DefaultCommID  AND c.SettingType=1
+								FOR xml path('')
+							)
+							, 1
+							, 1
+							, '') AS [Category]
+     
+			,STUFF(
+							(   SELECT ', '+ b.SettingValue
+								FROM [crmDefaultCommTool] c WITH(NOLOCK)
+									INNER JOIN #SubCategory b  ON c.SettingID=b.[SettingID]
+								WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
+								FOR xml path('')
+							)
+							, 1
+							, 1
+							, '') AS [SubCategory]
+
+			,STUFF(
+							(   SELECT ', ' + b.SettingValue
+								FROM [crmDefaultCommTool] c WITH(NOLOCK)
+									INNER JOIN crmSetting b WITH(NOLOCK) ON c.SettingID=b.[SettingID]
+								WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=3
+								FOR xml path('')
+							)
+							, 1
+							, 1
+							, '') AS [CommTool]   
+		FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
+			INNER JOIN bodb02.dbo.Customer cc WITH(NOLOCK) ON a.CustID=cc.CustID	
+		WHERE a.DefaultCommID<>0 AND  (UserName LIKE '%'+@Username2+'%' OR @Username2 IS NULL) 
+			AND(@IsDisableCat=1 OR (@IsDisableCat=0
+			AND
+			STUFF(
+								(   SELECT ',' + CONVERT(  varchar(50),c.settingID)
+									FROM [crmDefaultCommTool] c WITH(NOLOCK)									
+									WHERE c.DefaultCommID=a.DefaultCommID  AND c.SettingType=1
+									ORDER BY c.settingID ASC
+									FOR xml path('')
+								)
+								, 1
+								, 1
+								, '')=@Category
+			AND 
+			STUFF(
+							(   SELECT ','+ CONVERT(  varchar(50),c.settingID)
+								FROM [crmDefaultCommTool] c WITH(NOLOCK)								
+								WHERE c.DefaultCommID = a.[DefaultCommID] AND c.SettingType=2
+								ORDER BY c.settingID ASC
+								FOR xml path('')
+							)
+							, 1
+							, 1
+							, '') =@SubCategory		
+			))
 	IF @TotalRows=0
 	BEGIN
 		SELECT @TotalRows=COUNT(1) FROM #tmp

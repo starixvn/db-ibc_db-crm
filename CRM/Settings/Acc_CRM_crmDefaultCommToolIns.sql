@@ -158,7 +158,7 @@ BEGIN
   
  SELECT @LogElement =       
      '<Acc_CRM_crmDefaultCommToolIns>' + --SP Name  
-      '<Username>'  + ISNULL(@Username,'')      + '</Username>'  +  
+      '<ListCustID>'  + ISNULL(@ListCustID,'')      + '</ListCustID>'  +  
       '<Category>' + ISNULL(@Category,'')       + '</Category>' + 
 	  '<SubCategory>' + ISNULL(@SubCategory,'') + '</SubCategory>' +  
       '<Comm>' + ISNULL(@Comm,'')				+ '</Comm>' +  

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSearch_xpre
+ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSearch
 (
 					@Username			NVARCHAR(MAX)=NULL,
 					@Category			NVARCHAR(MAX)=NULL,

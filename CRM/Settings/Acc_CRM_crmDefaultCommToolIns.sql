@@ -96,7 +96,7 @@ BEGIN
 
 	IF EXISTS(SELECT TOP 1 1 FROM #CustomerCheck)
 	BEGIN
-		 SELECT @ErrCode = 100, @ErrMsg = 'This setting exists in these customer(s):'+STUFF(
+		 SELECT @ErrCode = 100, @ErrMsg = 'This setting exists in these customer(s): '+STUFF(
 																						(   SELECT ',' + UserName
 																							FROM #CustomerCheck
 																							FOR xml path('')

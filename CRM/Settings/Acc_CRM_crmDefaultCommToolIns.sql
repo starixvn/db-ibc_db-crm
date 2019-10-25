@@ -62,7 +62,7 @@ BEGIN
 	SELECT *
 		FROM OPENXML(@iDoc, '/ROOT/Cust', 1) WITH (
 				  CustID		INT
-				, UserName		NVARCHAR(50)			
+				, Username		NVARCHAR(50)			
 				)
 
 	EXEC sp_xml_removedocument @iDoc

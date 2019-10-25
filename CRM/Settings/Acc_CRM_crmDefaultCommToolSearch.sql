@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSearch
+ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSearch_xpre
 (
 					@Username			NVARCHAR(MAX)=NULL,
 					@Category			NVARCHAR(MAX)=NULL,
@@ -189,14 +189,14 @@ BEGIN
 	IF ((@PageSize <= 0) AND (@PageIndex <= 0))
 	BEGIN
 		SELECT * FROM #tmp
+		ORDER BY DefaultCommID DESC,UserName ASC
 	END
 	ELSE 
 	BEGIN
 		WITH pag as
 		(
-			SELECT DefaultCommID, ROW_NUMBER() OVER(ORDER BY DefaultCommID DESC) AS RowNum 
-			FROM #tmp
-			ORDER BY UserName ASC
+			SELECT DefaultCommID, ROW_NUMBER() OVER(ORDER BY DefaultCommID DESC,UserName ASC) AS RowNum 
+			FROM #tmp			
 		)
 		SELECT 	*
 		FROM #tmp(NOLOCK) c 

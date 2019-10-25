@@ -38,8 +38,8 @@ BEGIN
 	DECLARE	@CustID			INT
 	DECLARE	@MaxID			INT
 
-	CREATE TABLE #Customer(CustID INT PRIMARY KEY, UserName VARCHAR(50))
-	DECLARE @CustomerCheck TABLE(CustID INT, UserName VARCHAR(50))
+	CREATE TABLE #Customer(CustID INT PRIMARY KEY, UserName NVARCHAR(50))
+	CREATE TABLE #CustomerCheck (CustID INT PRIMARY KEY, UserName NVARCHAR(50))
 
 	INSERT INTO @tmpCategory(CategoryID)
 	SELECT ltrim(rtrim(val))
@@ -52,9 +52,6 @@ BEGIN
 	INSERT INTO @tmpComm(CommID)
 	SELECT ltrim(rtrim(val))
 	FROM dbo.f_CRM_strSplit(@Comm,',')		
-		
-	INSERT INTO @Customer(CustID, UserName)
-	SELECT c.custid, c.username 
 	
 	DECLARE @iDoc INT
 
@@ -70,7 +67,7 @@ BEGIN
 
 	EXEC sp_xml_removedocument @iDoc
 
-	INSERT INTO @CustomerCheck(CustID,UserName)
+	INSERT INTO #CustomerCheck(CustID,UserName)
 	SELECT DISTINCT cc.CustID,cc.UserName
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
 		INNER JOIN #Customer cc ON a.CustID=cc.CustID	
@@ -97,11 +94,11 @@ BEGIN
 						, 1
 						, '') =@SubCategory
 
-	IF EXISTS(SELECT TOP 1 1 FROM @CustomerCheck)
+	IF EXISTS(SELECT TOP 1 1 FROM #CustomerCheck)
 	BEGIN
 		 SELECT @ErrCode = 100, @ErrMsg = 'This setting exists in these customer(s):'+STUFF(
 																						(   SELECT ',' + UserName
-																							FROM @CustomerCheck
+																							FROM #CustomerCheck
 																							FOR xml path('')
 																						)
 																						, 1
@@ -112,9 +109,9 @@ BEGIN
 		 RETURN
 	END
 
-	WHILE EXISTS(SELECT TOP 1 1 FROM @Customer)
+	WHILE EXISTS(SELECT TOP 1 1 FROM #Customer)
 	BEGIN
-		SELECT TOP 1 @CustID=CustID FROM @Customer
+		SELECT TOP 1 @CustID=CustID FROM #Customer
 
 		SELECT @MaxID=MAX([DefaultCommID]) FROM [dbo].[crmDefaultCommTool] WITH(NOLOCK)
 
@@ -125,7 +122,7 @@ BEGIN
 		 IF @@ERROR <> 0  
 		  BEGIN  
 		   SELECT @ErrCode = 101, @ErrMsg = 'Create new setting unsuccessfuly.'  
-		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM @Customer)
+		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM #Customer)
 		   RETURN  
 		  END  
 
@@ -136,7 +133,7 @@ BEGIN
 		 IF @@ERROR <> 0  
 		  BEGIN  
 		   SELECT @ErrCode = 102, @ErrMsg = 'Create new setting unsuccessfuly.'  
-		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM @Customer)
+		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM #Customer)
 		   RETURN  
 		  END  
 
@@ -146,11 +143,11 @@ BEGIN
 		 IF @@ERROR <> 0  
 		  BEGIN  
 		   SELECT @ErrCode = 103, @ErrMsg = 'Create new setting unsuccessfuly.' 
-		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM @Customer)
+		   DELETE FROM [crmDefaultCommTool] WHERE [DefaultCommID]>@MaxID AND custid IN (SELECT CustID FROM #Customer)
 		   RETURN  
 		  END  
 
-		DELETE FROM @Customer WHERE CustID=@CustID
+		DELETE FROM #Customer WHERE CustID=@CustID
 	END
 
  -- write log  

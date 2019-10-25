@@ -118,7 +118,8 @@ BEGIN
 		  ,CASE WHEN cc.roleid=1 THEN 'Member'
 				WHEN cc.roleid=2 THEN 'Agent'
 				WHEN cc.roleid=3 THEN 'Master'
-				WHEN cc.roleid=4 THEN 'Super' END
+				WHEN cc.roleid=4 THEN 'Super'
+				ELSE 'Guest' END
 		  ,STUFF(
 							(   SELECT ', ' + b.SettingValue
 								FROM [crmDefaultCommTool] c WITH(NOLOCK)

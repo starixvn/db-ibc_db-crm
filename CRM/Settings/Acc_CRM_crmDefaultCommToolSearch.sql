@@ -196,6 +196,7 @@ BEGIN
 		(
 			SELECT DefaultCommID, ROW_NUMBER() OVER(ORDER BY DefaultCommID DESC) AS RowNum 
 			FROM #tmp
+			ORDER BY UserName ASC
 		)
 		SELECT 	*
 		FROM #tmp(NOLOCK) c 

@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_crmDefaultCommToolIns]  
 (  
  @UserID			INT,  
- @Username			NVARCHAR(MAX)=NULL,
+ @ListCustID		VARCHAR(MAX)=NULL,
  @Category			NVARCHAR(MAX),
  @SubCategory		NVARCHAR(MAX),
  @Comm				NVARCHAR(MAX),
@@ -21,24 +21,25 @@ Original:
 Revisions:  
  - 20191018@Winnie: CRM - Support Default Communication Tool RedmineID: #122078
 Param's Explanation:  
-
+			<ROOT>
+				<Cust 
+						CustID="1" 
+						Username="20" 					
+				/>
+			</ROOT>	 
 */  
 BEGIN  
- SET NOCOUNT ON   
-   
-	DECLARE @tmpCustomer	TABLE(UserName		VARCHAR(50))
+
+ SET NOCOUNT ON      
+	
 	DECLARE @tmpCategory	TABLE(CategoryID	INT)
 	DECLARE @tmpSubCategory TABLE(SubCategoryID	INT)
 	DECLARE @tmpComm		TABLE(CommID		INT)
 	DECLARE	@CustID			INT
 	DECLARE	@MaxID			INT
 
-	DECLARE @Customer TABLE(CustID INT, UserName VARCHAR(50))
+	CREATE TABLE #Customer(CustID INT PRIMARY KEY, UserName VARCHAR(50))
 	DECLARE @CustomerCheck TABLE(CustID INT, UserName VARCHAR(50))
-
-	INSERT INTO @tmpCustomer(UserName)
-	SELECT ltrim(rtrim(val)) 
-	FROM dbo.f_CRM_strSplit(@UserName,',')		
 
 	INSERT INTO @tmpCategory(CategoryID)
 	SELECT ltrim(rtrim(val))
@@ -54,20 +55,25 @@ BEGIN
 		
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 
-	FROM bodb02.dbo.Customer c WITH (NOLOCK)
-	WHERE username IN ( SELECT username FROM @tmpCustomer)
-		AND ISNULL(c.site,'') <> 'CN88'
 	
-	INSERT INTO @Customer(CustID, UserName)
-	SELECT c.custid, c.username 
-	FROM crmCustomer c WITH (NOLOCK) INNER JOIN @tmpCustomer tc on c.username = tc.UserName
-	WHERE c.CustID < 0	
-		AND c.SiteID <> 33002
+	DECLARE @iDoc INT
+
+	EXEC sp_xml_preparedocument @iDoc OUTPUT
+		, @ListCustID
+
+	INSERT INTO #Customer(CustID ,UserName)
+	SELECT *
+		FROM OPENXML(@iDoc, '/ROOT/Cust', 1) WITH (
+				  CustID		INT
+				, UserName		NVARCHAR(50)			
+				)
+
+	EXEC sp_xml_removedocument @iDoc
 
 	INSERT INTO @CustomerCheck(CustID,UserName)
 	SELECT DISTINCT cc.CustID,cc.UserName
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
-		INNER JOIN @Customer cc ON a.CustID=cc.CustID	
+		INNER JOIN #Customer cc ON a.CustID=cc.CustID	
 	WHERE a.DefaultCommID<>0 AND 
 		STUFF(
 							(   SELECT ',' + CONVERT(  varchar(50),c.settingID)

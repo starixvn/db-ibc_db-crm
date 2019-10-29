@@ -3,9 +3,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackCheck_Multiple]
 (   
  @ListCustID		VARCHAR(MAX)=NULL,
  @Categorystr		VARCHAR(MAX),
- @SubCategorystr	VARCHAR(MAX),
- @ErrCode			INT = 0 OUTPUT,  
- @ErrMsg			NVARCHAR(4000) = '' OUTPUT 
+ @SubCategorystr	VARCHAR(MAX)
 )  
 AS  
 /*  

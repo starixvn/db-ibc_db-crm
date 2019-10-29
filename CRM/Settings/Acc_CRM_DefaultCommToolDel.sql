@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_crmDefaultCommToolDel]  
+ALTER PROCEDURE [dbo].[Acc_CRM_DefaultCommToolDel]  
 (  
  @UserID			INT,  
  @DefaultCommID		INT,
@@ -49,5 +49,5 @@ BEGIN
 END  
 
 GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_crmDefaultCommToolDel] TO [bodbAdminNet]
+ GRANT EXECUTE ON [dbo].[Acc_CRM_DefaultCommToolDel] TO [bodbAdminNet]
 GO 

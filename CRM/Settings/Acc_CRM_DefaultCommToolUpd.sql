@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_crmDefaultCommToolUpd]  
+ALTER PROCEDURE [dbo].[Acc_CRM_DefaultCommToolUpd]  
 (  
  @UserID			INT,  
  @DefaultCommID		INT,
@@ -205,7 +205,7 @@ BEGIN
  DECLARE @LogElement_OLD XML 
   
  SELECT @LogElement =       
-     '<Acc_CRM_crmDefaultCommToolUpd>' + --SP Name  
+     '<Acc_CRM_DefaultCommToolUpd>' + --SP Name  
 	  '<CustID>' + ISNULL(CONVERT(VARCHAR(10),@CustID),'')	+ '</CustID>' +  
 	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +      
       '<Category>' + ISNULL(@Category,'')       + '</Category>' +  
@@ -213,10 +213,10 @@ BEGIN
       '<Comm>' + ISNULL(@Comm,'')				+ '</Comm>' +  
 	  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
 	  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
-     '</Acc_CRM_crmDefaultCommToolUpd>'  
+     '</Acc_CRM_DefaultCommToolUpd>'  
 
  SELECT @LogElement_OLD =       
-     '<Acc_CRM_crmDefaultCommToolUpd>' + --SP Name  
+     '<Acc_CRM_DefaultCommToolUpd>' + --SP Name  
 	  '<CustID>' + ISNULL(CONVERT(VARCHAR(10),@CustID),'')	+ '</CustID>' +  
 	  '<DefaultCommID>' + ISNULL(CONVERT(VARCHAR(10),@DefaultCommID),'')	+ '</DefaultCommID>' +      
       '<Category>' + ISNULL(@Category_OLD,'')       + '</Category>' +  
@@ -224,7 +224,7 @@ BEGIN
       '<Comm>' + ISNULL(@Comm_OLD,'')					+ '</Comm>' +  
 	  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
 	  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
-     '</Acc_CRM_crmDefaultCommToolUpd>'  
+     '</Acc_CRM_DefaultCommToolUpd>'  
       
   
  EXEC [dbo].[WriteLog_UserLog_crmLogSetting]  
@@ -238,5 +238,5 @@ BEGIN
 END  
 
 GO 
- GRANT EXECUTE ON [dbo].Acc_CRM_crmDefaultCommToolUpd TO [bodbAdminNet]
+ GRANT EXECUTE ON [dbo].Acc_CRM_DefaultCommToolUpd TO [bodbAdminNet]
 GO 

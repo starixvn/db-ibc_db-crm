@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_crmDefaultCommToolSel
+ALTER PROCEDURE	dbo.Acc_CRM_DefaultCommToolSel
 					@DefaultCommID			INT			
 AS
 /*

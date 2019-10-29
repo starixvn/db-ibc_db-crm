@@ -166,17 +166,7 @@ BEGIN
 			END
 			DELETE FROM @tmpUserName WHERE CustId=@CustID
 	END
-	IF EXISTS(SELECT TOP 1 1 FROM #NotExistedDefault)
-	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'The '+STUFF(
-																					(   SELECT ',' + UserName
-																						FROM #NotExistedDefault
-																						FOR xml path('')
-																					)
-																					, 1
-																					, 1
-																					, '') +' do not have any default communication, so we cannot create feedback for them!'
-	END
+	SELECT Username FROM #NotExistedDefault
 END
 
 GO 

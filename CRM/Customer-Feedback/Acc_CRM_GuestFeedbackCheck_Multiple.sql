@@ -45,6 +45,7 @@ BEGIN
 	EXEC sp_xml_removedocument @iDoc
 	WHILE EXISTS(SELECT TOP 1 CustID FROM @tmpUserName)
 	BEGIN	
+		SELECT TOP 1 @CustID = CustID FROM @tmpUserName	
 		SELECT @CommunicationID=STUFF(
 							(   SELECT ','  + CONVERT(  varchar(50),c.settingID)
 								FROM [crmDefaultCommTool] c WITH(NOLOCK)								
@@ -163,6 +164,7 @@ BEGIN
 				SELECT CustID,USERNAME
 				FROM @tmpUserName WHERE CustId=@CustID
 			END
+			DELETE FROM @tmpUserName WHERE CustId=@CustID
 	END
 	IF EXISTS(SELECT TOP 1 1 FROM #NotExistedDefault)
 	BEGIN

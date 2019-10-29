@@ -174,5 +174,5 @@ BEGIN
 END  
 
 GO 
- GRANT EXECUTE ON [dbo].Acc_CRMDefaultCommToolIns TO [bodbAdminNet]
+ GRANT EXECUTE ON [dbo].Acc_CRM_DefaultCommToolIns TO [bodbAdminNet]
 GO 

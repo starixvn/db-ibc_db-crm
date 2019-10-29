@@ -29,7 +29,7 @@ BEGIN
 
  SET NOCOUNT ON      
 	DECLARE @tmpUserName TABLE (USERNAME NVARCHAR(50),CustId INT PRIMARY KEY)
-	DECLARE @iDoc INT,@CommunicationID			VARCHAR(MAX)	
+	DECLARE @iDoc INT,@CommunicationID			VARCHAR(MAX),@CustID INT
 	CREATE TABLE #NotExistedDefault(CustID INT,USERNAME NVARCHAR(50))
 
 	EXEC sp_xml_preparedocument @iDoc OUTPUT

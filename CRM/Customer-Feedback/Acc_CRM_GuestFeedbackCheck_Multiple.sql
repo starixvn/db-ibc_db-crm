@@ -164,14 +164,17 @@ BEGIN
 				FROM @tmpUserName WHERE CustId=@CustID
 			END
 	END
-		SELECT @ErrCode = 0, @ErrMsg = 'The '+STUFF(
-																						(   SELECT ',' + UserName
-																							FROM #NotExistedDefault
-																							FOR xml path('')
-																						)
-																						, 1
-																						, 1
-																						, '') +' do not have any default communication, so we cannot create feedback for them!'
+	IF EXISTS(SELECT TOP 1 1 FROM #NotExistedDefault)
+	BEGIN
+		SELECT @ErrCode = 100, @ErrMsg = 'The '+STUFF(
+																					(   SELECT ',' + UserName
+																						FROM #NotExistedDefault
+																						FOR xml path('')
+																					)
+																					, 1
+																					, 1
+																					, '') +' do not have any default communication, so we cannot create feedback for them!'
+	END
 END
 
 GO 

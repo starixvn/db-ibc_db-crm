@@ -99,6 +99,7 @@ AS
 		- 20190506@Winnie:  CN88 Province RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20191104@Winnie:  [CRM] cannot search feedback of customer in manage feedback RedmineID: #123160
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing

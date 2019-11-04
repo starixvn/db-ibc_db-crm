@@ -93,7 +93,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
-		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20191104@Winnie:  [CRM] cannot search feedback of customer in manage feedback RedmineID: #123160
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -472,12 +472,14 @@ BEGIN
 	FROM crmFeedbackCustomer  fc WITH(ROWLOCK, UPDLOCK)
 		INNER JOIN @relatedCustomer t ON fc.CustID=t.CustID
 	WHERE fc.FeedbackID=@FeedbackID
+		AND t.custID<>@CustID
 	-- Insert feedback related
 	INSERT INTO crmFeedbackCustomer
 				(	FeedbackID , CustID, IsRelated)	
 	SELECT DISTINCT @FeedbackID, t.CustID, 1
 	FROM	@relatedCustomer t
 	WHERE	NOT EXISTS(SELECT TOP 1 1 FROM crmFeedbackCustomer WITH(NOLOCK) WHERE FeedbackID=@FeedbackID AND CustID=t.CustID)
+		AND t.CustID<>@CustID
 
 	--- update feedback
 	UPDATE crmFeedback WITH (ROWLOCK, UPDLOCK)

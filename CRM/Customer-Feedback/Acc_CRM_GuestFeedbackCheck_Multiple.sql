@@ -164,7 +164,14 @@ BEGIN
 			END
 			DELETE FROM @tmpUserName WHERE CustId=@CustID
 	END
-	SELECT CustID,Username FROM #NotExistedDefault
+	SELECT cc.CustID,cc.Username,
+	CASE WHEN c.roleid=1 THEN 'Member'
+							WHEN c.roleid=2 THEN 'Agent'
+							WHEN c.roleid=3 THEN 'Master'
+							WHEN c.roleid=4 THEN 'Super'
+							ELSE 'Guest' END AS Role
+	FROM #NotExistedDefault cc
+		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid=cc.CustID
 END
 
 GO 

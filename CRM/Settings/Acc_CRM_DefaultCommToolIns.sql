@@ -39,7 +39,7 @@ BEGIN
 	DECLARE	@MaxID			INT
 
 	CREATE TABLE #Customer(CustID INT PRIMARY KEY, UserName NVARCHAR(50))
-	CREATE TABLE #CustomerCheck (CustID INT PRIMARY KEY, UserName NVARCHAR(50))
+	CREATE TABLE #CustomerCheck (CustID INT PRIMARY KEY, UserName NVARCHAR(50),Role VARCHAR(10))
 
 	INSERT INTO @tmpCategory(CategoryID)
 	SELECT ltrim(rtrim(val))
@@ -67,10 +67,16 @@ BEGIN
 
 	EXEC sp_xml_removedocument @iDoc
 
-	INSERT INTO #CustomerCheck(CustID,UserName)
-	SELECT DISTINCT cc.CustID,cc.UserName
+	INSERT INTO #CustomerCheck(CustID,UserName,Role)
+	SELECT DISTINCT cc.CustID,cc.UserName,
+				CASE WHEN c.roleid=1 THEN 'Member'
+							WHEN c.roleid=2 THEN 'Agent'
+							WHEN c.roleid=3 THEN 'Master'
+							WHEN c.roleid=4 THEN 'Super'
+							ELSE 'Guest' END
 	FROM [crmDefaultCommTool] a WITH(NOLOCK) 	
 		INNER JOIN #Customer cc ON a.CustID=cc.CustID	
+		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid=cc.CustID
 	WHERE a.DefaultCommID<>0 AND 
 		STUFF(
 							(   SELECT ',' + CONVERT(  varchar(50),c.settingID)
@@ -97,7 +103,7 @@ BEGIN
 	IF EXISTS(SELECT TOP 1 1 FROM #CustomerCheck)
 	BEGIN
 		 SELECT @ErrCode = 100, @ErrMsg = 'This setting exists in these customer(s): '+STUFF(
-																						(   SELECT ',' + UserName
+																						(   SELECT ',' + UserName + '('+Role+')'
 																							FROM #CustomerCheck
 																							FOR xml path('')
 																						)

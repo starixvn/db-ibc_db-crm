@@ -164,7 +164,7 @@ BEGIN
 			END
 			DELETE FROM @tmpUserName WHERE CustId=@CustID
 	END
-	SELECT Username FROM #NotExistedDefault
+	SELECT CustID,Username FROM #NotExistedDefault
 END
 
 GO 

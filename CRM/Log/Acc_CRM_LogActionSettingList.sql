@@ -52,8 +52,7 @@ BEGIN
 		WHERE lc.actionid IN(306,307)
 			AND (ISNULL(@username,'')='' OR ci.username = @username) 
 			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
-			AND lc.LogDate BETWEEN @FromDate and @Todate
-			AND s.SiteOffer = @UserRole
+			AND lc.LogDate BETWEEN @FromDate and @Todate		
 			AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 		)tmp
 	ORDER BY LogDate DESC

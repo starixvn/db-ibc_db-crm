@@ -120,6 +120,8 @@ BEGIN
 		SELECT TOP 1 @CustID=CustID FROM #Customer
 
 		SELECT @MaxID=MAX([DefaultCommID]) FROM [dbo].[crmDefaultCommTool] WITH(NOLOCK)
+		IF @MaxID IS NULL
+			SET @MaxID=1
 
 		INSERT INTO [crmDefaultCommTool]([DefaultCommID],[CustID],[SettingID],[SettingType])
 		SELECT @MaxID+1,@CustID,CategoryID,1

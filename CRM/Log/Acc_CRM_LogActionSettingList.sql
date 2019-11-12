@@ -49,7 +49,7 @@ BEGIN
 		FROM crmLogSetting lc WITH (NOLOCK) 
 			INNER JOIN crmLogAction la WITH(NOLOCK) ON la.ActionID = lc.ActionID
 			INNER JOIN bodb02.dbo.Customer ci WITH (NOLOCK) ON ci.custid = lc.UserID		
-		WHERE lc.actionid IN(306,307)
+		WHERE lc.actionid IN(306,307,308)
 			AND (ISNULL(@username,'')='' OR ci.username = @username) 
 			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
 			AND lc.LogDate BETWEEN @FromDate and @Todate		

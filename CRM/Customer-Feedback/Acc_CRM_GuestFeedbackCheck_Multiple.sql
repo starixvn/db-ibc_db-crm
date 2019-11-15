@@ -163,6 +163,7 @@ BEGIN
 				FROM @tmpUserName WHERE CustId=@CustID
 			END
 			DELETE FROM @tmpUserName WHERE CustId=@CustID
+			SELECT @CommunicationID=NULL
 	END
 	SELECT cc.CustID,cc.Username,
 	CASE WHEN c.roleid=1 THEN 'Member'

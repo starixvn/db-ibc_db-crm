@@ -14,6 +14,7 @@ AS
 
 	Revisions:
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 20191018@Winnie:  CRM - Support Default Communication Tool RedmineID: #122078
 	Param's Explanation:
 */
 BEGIN
@@ -42,6 +43,16 @@ BEGIN
 			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
 			AND lc.LogDate BETWEEN @FromDate and @Todate
 			AND s.SiteOffer = @UserRole
+			AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
+		UNION ALL 
+		SELECT lc.LogDate, lc.ActionID, la.ActionNameEN ActionName, ci.username, 'Setting' Entity, lc.SettingID ID, lc.OldValues,lc.Doing NewValues
+		FROM crmLogSetting lc WITH (NOLOCK) 
+			INNER JOIN crmLogAction la WITH(NOLOCK) ON la.ActionID = lc.ActionID
+			INNER JOIN bodb02.dbo.Customer ci WITH (NOLOCK) ON ci.custid = lc.UserID		
+		WHERE lc.actionid IN(306,307,308)
+			AND (ISNULL(@username,'')='' OR ci.username = @username) 
+			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
+			AND lc.LogDate BETWEEN @FromDate and @Todate		
 			AND (@UserRole=2 OR(@UserRole=1 AND ISNULL(ExcludedForCn88,0)<>1 ))
 		)tmp
 	ORDER BY LogDate DESC

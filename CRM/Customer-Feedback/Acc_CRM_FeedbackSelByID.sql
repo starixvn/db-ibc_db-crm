@@ -22,6 +22,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
 	Param's Explanation:
 		
 */
@@ -114,7 +115,7 @@ BEGIN
 		,	ISNULL(fb.BBM, '') BBM
 		,	fb.LicenseeType
 		,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
-		,   ISNULL(fb.Inquiries,'-') AS NoInquiries
+		,   ISNULL(fb.Inquiries,0) AS NoInquiries
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID

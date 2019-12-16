@@ -26,6 +26,7 @@ AS
 		- 20180814@Winnie: Enhancement made for Excel. [RedmineID: #99811]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -216,7 +217,7 @@ BEGIN
 			,ca.SubCategoryID
 			,com.CommunicationID
 			,sta.StationID
-			,ISNULL(fb.Inquiries,'-') AS NoInquiries
+			,ISNULL(fb.Inquiries,0) AS NoInquiries
 		FROM		crmFeedback fb WITH (NOLOCK) 
 		INNER JOIN #FBProduct p ON fb.FeedbackID=p.FeedbackID
 		INNER JOIN #FBCategory ca ON fb.FeedbackID=ca.FeedbackID
@@ -320,7 +321,7 @@ BEGIN
 		,   SubCategoryID			=	pag.SubCategoryID
 		,   CommunicationID			=	pag.CommunicationID
 		,   StationID			    =	pag.StationID
-		,   NoInquiries             =   ISNULL(fb.Inquiries,'-')
+		,   NoInquiries             =   ISNULL(fb.Inquiries,0)
 	INTO #temp
 	FROM		crmFeedback fb WITH (NOLOCK) 
 	INNER JOIN	Pag

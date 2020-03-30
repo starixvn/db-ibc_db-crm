@@ -110,7 +110,7 @@ BEGIN
 				,NULL AS Locked
 			FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
 				INNER JOIN bodb02.dbo.custAccount AS ca WITH (NOLOCK) ON c.custid = ca.custid
-				LEFT JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
+				INNER JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
 				OR c.mrecommend = upline.custid
 				OR c.recommend = upline.custid
 				OUTER APPLY (
@@ -124,6 +124,8 @@ BEGIN
 					AND h.IsGroupHeadLine = 1
 				) AS h
 			WHERE c.CustID = @CustID
+				AND ISNULL(upline.groupID, 0) <> 0
 		END
 	END
 END
+

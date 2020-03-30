@@ -86,8 +86,10 @@ BEGIN
 				,ci.CustID
 				,ci.roleid
 				,CASE 
-					WHEN ci.Closed = 0 AND ISNULL(ci.reject, 0) = 0 THEN 'Active'
-					WHEN ci.Closed = 0 AND ISNULL(ci.reject, 0) = 1 THEN 'Suspended'
+					WHEN ci.Closed = 0
+						AND ISNULL(ci.reject, 0) = 0 THEN 'Active'
+					WHEN ci.Closed = 0
+						AND ISNULL(ci.reject, 0) = 1 THEN 'Suspended'
 					WHEN ci.Closed = 1 THEN 'Closed'
 					END AS CustStatus
 				,NULL AS Locked
@@ -95,20 +97,33 @@ BEGIN
 			WHERE ci.CustID IN (@srecommend, @mrecommend, @recommend)
 			
 			UNION ALL
-			SELECT ci.UserName
-				,ci.CustID
+			SELECT h.UserName
+				,h.CustID
 				,7006 AS RoleID
 				,CASE 
-					WHEN ci.Closed = 0 AND ISNULL(ci.reject, 0) = 0 THEN 'Active'
-					WHEN ci.Closed = 0 AND ISNULL(ci.reject, 0) = 1 THEN 'Suspended'
-					WHEN ci.Closed = 1 THEN 'Closed'
+					WHEN h.Closed = 0
+						AND ISNULL(h.reject, 0) = 0 THEN 'Active'
+					WHEN h.Closed = 0
+						AND ISNULL(h.reject, 0) = 1 THEN 'Suspended'
+					WHEN h.Closed = 1 THEN 'Closed'
 					END AS CustStatus
 				,NULL AS Locked
-			FROM bodb02.dbo.custAccount a WITH (NOLOCK)
-				LEFT JOIN bodb02.dbo.custAccount h WITH (NOLOCK) ON a.groupID = h.groupID
-				AND h.IsGroupHeadLine = 1
-				INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON h.custid = ci.custid
-			WHERE a.CustID = @CustID
+			FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+				INNER JOIN bodb02.dbo.custAccount AS ca WITH (NOLOCK) ON c.custid = ca.custid
+				LEFT JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
+				OR c.mrecommend = upline.custid
+				OR c.recommend = upline.custid
+				OUTER APPLY (
+				SELECT ci.custid
+					,ci.username
+					,ci.closed
+					,ci.reject
+				FROM bodb02.dbo.custAccount AS h WITH (NOLOCK)
+					INNER JOIN bodb02.dbo.custInfo AS ci WITH (NOLOCK) ON h.custid = ci.custid
+				WHERE upline.groupID = h.groupID
+					AND h.IsGroupHeadLine = 1
+				) AS h
+			WHERE c.CustID = @CustID
 		END
 	END
 END

@@ -112,7 +112,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
 				OR c.mrecommend = upline.custid
 				OR c.recommend = upline.custid
-				OUTER APPLY (
+				CROSS APPLY (
 				SELECT ci.custid
 					,ci.username
 					,ci.closed
@@ -121,10 +121,16 @@ BEGIN
 					INNER JOIN bodb02.dbo.custInfo AS ci WITH (NOLOCK) ON h.custid = ci.custid
 				WHERE upline.groupID = h.groupID
 					AND h.IsGroupHeadLine = 1
+					AND NOT EXISTS (
+						SELECT 1
+						FROM bodb02.dbo.Acc_CustDirect AS cd WITH (NOLOCK)
+						WHERE upline.custid = cd.custid
+						)
 				) AS h
 			WHERE c.CustID = @CustID
 				AND ISNULL(upline.groupID, 0) <> 0
 		END
 	END
 END
+
 

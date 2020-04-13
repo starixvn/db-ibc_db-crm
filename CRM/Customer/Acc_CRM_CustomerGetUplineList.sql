@@ -1,11 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList]
-(
-	@CustID		INT				= NULL,
-	@UserName	NVARCHAR(50)	= NULL,
-	@UserRole   TINYINT
-)
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList] @CustID INT = NULL
+	,@UserName NVARCHAR(50) = NULL
+	,@UserRole TINYINT
 AS
 /*
 	Created: Lukas
@@ -21,66 +18,119 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190708@Elodie: Get CN88's customer status [RedmineId: #112637]
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
+		- 20200320@Tim: fix bug get headline [RedmineId: #129144]
 	Param's Explanation:	
 */
-BEGIN	
+BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @srecommend INT,@mrecommend INT,@recommend INT
-	
-	SELECT @srecommend = srecommend,@mrecommend=mrecommend,@recommend=recommend
-	FROM bodb02.dbo.customer c WITH(NOLOCK) 
-	WHERE c.CustID = @CustID
-		AND((@UserRole=1 AND c.site = 'CN88') OR(@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
+	DECLARE @srecommend INT
+		,@mrecommend INT
+		,@recommend INT
+
+	SELECT @srecommend = srecommend
+		,@mrecommend = mrecommend
+		,@recommend = recommend
+	FROM bodb02.dbo.customer WITH (NOLOCK)
+	WHERE CustID = @CustID
+		AND (
+			(
+				@UserRole = 1
+				AND [site] = 'CN88'
+				)
+			OR (
+				@UserRole = 2
+				AND ISNULL([site], '') <> 'CN88'
+				)
+			)
 
 	IF @@ROWCOUNT <> 0
 	BEGIN
 		IF @UserRole = 1
 		BEGIN
-			SELECT ci.UserName, ci.CustID, ci.roleid,
-				CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
-						WHEN st.CustStatus = 2 THEN 'Suspended' 
-						WHEN st.CustStatus = 3 THEN 'View Only' 
-						WHEN st.CustStatus = 4 THEN 'Active' END AS CustStatus,
-				ci.Closed AS Locked
-			FROM bodb02.dbo.custinfo ci WITH(NOLOCK) 
+			SELECT ci.UserName
+				,ci.CustID
+				,ci.roleid
+				,CASE 
+					WHEN st.CustStatus = 1 THEN 'Inactive'
+					WHEN st.CustStatus = 2 THEN 'Suspended'
+					WHEN st.CustStatus = 3 THEN 'View Only'
+					WHEN st.CustStatus = 4 THEN 'Active'
+					END AS CustStatus
+				,ci.Closed AS Locked
+			FROM bodb02.dbo.custinfo ci WITH (NOLOCK)
 				CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
-			WHERE ci.CustID IN (@srecommend,@mrecommend,@recommend)
-
+			WHERE ci.CustID IN (@srecommend, @mrecommend, @recommend)
+			
 			UNION ALL
-			SELECT	ci.UserName, ci.CustID, 7006 AS RoleID,
-				CASE	WHEN st.CustStatus = 1 THEN 'Inactive' 
-						WHEN st.CustStatus = 2 THEN 'Suspended' 
-						WHEN st.CustStatus = 3 THEN 'View Only' 
-						WHEN st.CustStatus = 4 THEN 'Active' END AS CustStatus,
-				ci.Closed AS Locked
-			FROM	bodb02.dbo.custAccount a WITH(NOLOCK) 
-					LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
-					INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON h.custid=ci.custid
-					CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
-			WHERE a.CustID IN (@srecommend,@mrecommend,@recommend,@CustID)
+			SELECT ci.UserName
+				,ci.CustID
+				,7006 AS RoleID
+				,CASE 
+					WHEN st.CustStatus = 1 THEN 'Inactive'
+					WHEN st.CustStatus = 2 THEN 'Suspended'
+					WHEN st.CustStatus = 3 THEN 'View Only'
+					WHEN st.CustStatus = 4 THEN 'Active'
+					END AS CustStatus
+				,ci.Closed AS Locked
+			FROM bodb02.dbo.custAccount a WITH (NOLOCK)
+				LEFT JOIN bodb02.dbo.custAccount h WITH (NOLOCK) ON a.groupID = h.groupID
+				AND h.IsGroupHeadLine = 1
+				INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON h.custid = ci.custid
+				CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
+			WHERE a.CustID = @CustID
 		END
 		ELSE
 		BEGIN
-			SELECT ci.UserName, ci.CustID, ci.roleid,
-				CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
-						WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
-						WHEN ci.Closed = 1 THEN 'Closed' END  AS CustStatus,
-				NULL AS Locked
-			FROM bodb02.dbo.custinfo ci WITH(NOLOCK) 
-			WHERE ci.CustID IN (@srecommend,@mrecommend,@recommend)
-
+			SELECT ci.UserName
+				,ci.CustID
+				,ci.roleid
+				,CASE 
+					WHEN ci.Closed = 0
+						AND ISNULL(ci.reject, 0) = 0 THEN 'Active'
+					WHEN ci.Closed = 0
+						AND ISNULL(ci.reject, 0) = 1 THEN 'Suspended'
+					WHEN ci.Closed = 1 THEN 'Closed'
+					END AS CustStatus
+				,NULL AS Locked
+			FROM bodb02.dbo.custinfo ci WITH (NOLOCK)
+			WHERE ci.CustID IN (@srecommend, @mrecommend, @recommend)
+			
 			UNION ALL
-			SELECT	ci.UserName, ci.CustID, 7006 AS RoleID,
-					CASE	WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 0 THEN 'Active'
-							WHEN ci.Closed = 0 AND ISNULL(ci.reject,0) = 1 THEN 'Suspended'
-							WHEN ci.Closed = 1 THEN 'Closed' END  AS CustStatus,
-					NULL AS Locked
-			FROM	bodb02.dbo.custAccount a WITH(NOLOCK) 
-					LEFT JOIN bodb02.dbo.custAccount h WITH(NOLOCK) ON a.groupID=h.groupID AND h.IsGroupHeadLine=1
-					INNER JOIN bodb02.dbo.custInfo ci WITH(NOLOCK) ON h.custid=ci.custid
-			WHERE a.CustID IN (@srecommend,@mrecommend,@recommend,@CustID)
+			SELECT h.UserName
+				,h.CustID
+				,7006 AS RoleID
+				,CASE 
+					WHEN h.Closed = 0
+						AND ISNULL(h.reject, 0) = 0 THEN 'Active'
+					WHEN h.Closed = 0
+						AND ISNULL(h.reject, 0) = 1 THEN 'Suspended'
+					WHEN h.Closed = 1 THEN 'Closed'
+					END AS CustStatus
+				,NULL AS Locked
+			FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+				INNER JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
+				OR c.mrecommend = upline.custid
+				OR c.recommend = upline.custid
+				CROSS APPLY (
+				SELECT ci.custid
+					,ci.username
+					,ci.closed
+					,ci.reject
+				FROM bodb02.dbo.custAccount AS h WITH (NOLOCK)
+					INNER JOIN bodb02.dbo.custInfo AS ci WITH (NOLOCK) ON h.custid = ci.custid
+				WHERE upline.groupID = h.groupID
+					AND h.IsGroupHeadLine = 1
+					AND NOT EXISTS (
+						SELECT 1
+						FROM bodb02.dbo.Acc_CustDirect AS cd WITH (NOLOCK)
+						WHERE upline.custid = cd.custid
+						)
+				) AS h
+			WHERE c.CustID = @CustID
+				AND ISNULL(upline.groupID, 0) <> 0
 		END
 	END
 END
-GO
+
+

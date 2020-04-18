@@ -28,7 +28,7 @@ BEGIN
 	END
 	ELSE IF @SettingName = 'Site'
 	BEGIN
-		SELECT s.SettingID, s.SettingName, m.site as SettingSource, c.username as LicenseeManager
+		SELECT s.SettingID, s.SettingName, m.site as SettingSource, l.username as LicenseeManager
 		FROM crmSetting p WITH(NOLOCK)
 			INNER JOIN crmSettingRelation r WITH(NOLOCK) on p.SettingID = r.ParentID
 			INNER JOIN crmSetting s WITH(NOLOCK) ON r.SettingID = s.SettingID 

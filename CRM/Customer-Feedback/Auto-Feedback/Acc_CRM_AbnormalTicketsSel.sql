@@ -1,5 +1,5 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_MessageAbnormalTicketsSel]
+ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
 	@MessageIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,
 	@ConfigPRO BIT = 0
@@ -113,8 +113,8 @@ BEGIN
 	--tickets info
 	SELECT MessageId, 
 		transid,
-		custid, 
-		username, 
+		t.custid, 
+		t.username, 
 		b.typenamee as bettype,
 		CASE WHEN s.custid IS NULL THEN 0 ELSE 1 END as isDeposit,
 		ISNULL(s.site,'') as site		

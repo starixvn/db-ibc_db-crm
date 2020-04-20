@@ -22,23 +22,23 @@ BEGIN
 			@ConfigPRO BIT
 	
 	SELECT @JobStatus = value 
-	FROM crmSystemSetting WITH(NOLOCK)
+	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'JobStatus'
 	
 	SELECT @BatchSize = value
-	FROM crmSystemSetting WITH(NOLOCK)
+	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'BatchSize'
 	
 	SELECT @LastMsgID = value
-	FROM crmSystemSetting WITH(NOLOCK)
+	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'LastMsgID'
 	
 	SELECT @ConfigUAT = value
-	FROM crmSystemSetting WITH(NOLOCK)
+	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'ConfigUAT'
 	
 	SELECT @ConfigPRO = value
-	FROM crmSystemSetting WITH(NOLOCK)
+	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'ConfigPRO'
 	
 	SELECT @JobStatus as JobStatus, 

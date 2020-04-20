@@ -1,7 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-
 ALTER PROCEDURE [dbo].[Acc_CRM_SystemSettingUpd] 
-	Settings VARCHAR(MAX)	
+	@Settings VARCHAR(MAX)	
 AS
 /*
 	Created: 20200418@@Johnson
@@ -21,7 +20,7 @@ BEGIN
 	
 	DECLARE @xml XML = CAST(@Settings as xml)
 	
-	DECLARE @tmpSetting (SettingName VARCHAR(50),Value VARCHAR(50))
+	DECLARE @tmpSetting TABLE (SettingName VARCHAR(50),Value VARCHAR(50))
 	
 	INSERT INTO @tmpSetting(SettingName,Value)
 	SELECT t.c.value('@Name[1]','varchar(50)') SettingName,

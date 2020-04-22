@@ -27,5 +27,10 @@ BEGIN
 		t.c.value('@Value[1]','varchar(50)') Value
 	FROM @xml.nodes('/ROOT/r') t(c)
 	
-	
+	UPDATE s
+	SET s.Value = t.value
+	FROM SystemSetting s WITH(UPDLOCK,ROWLOCK)
+		INNER JOIN @tmpSetting t ON s.SettingName = t.SettingName
+		
+		
 END	

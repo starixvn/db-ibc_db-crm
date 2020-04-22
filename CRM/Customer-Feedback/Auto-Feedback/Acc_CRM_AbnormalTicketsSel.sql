@@ -83,7 +83,7 @@ BEGIN
 	
 	INSERT INTO @tblTrans (MessageId, transid, custid, username,srecommend,recommend, bettype)
 	SELECT vh.MessageId, 
-		transid,
+		vh.transid,
 		custid, 
 		username, 
 		srecommend,

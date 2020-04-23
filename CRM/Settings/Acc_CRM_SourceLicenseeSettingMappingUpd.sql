@@ -43,7 +43,7 @@ BEGIN
 			AND SettingID <> @SettingID)
 	BEGIN
 		SELECT @Errcode = 101,
-			@ErrMsg = 'This '+@LicenseeManager+' has been assigned for '+s.SettingValue'. Please check!'
+			@ErrMsg = 'This '+@LicenseeManager+' has been assigned for '+s.SettingValue+'. Please check!'
 		FROM crmSetting s WITH(NOLOCK)
 			INNER JOIN crmLicenseeMapping m WITH(NOLOCK) ON s.SettingID = m.SettingID
 		WHERE m.custid = @LicenseeManagerID 
@@ -93,13 +93,13 @@ BEGIN
 	-- write log
 	DECLARE @NewValues XML,@OldValues XML
 
-	SELECT @OldValues =	(	SELECT	ISNULL(@SourceMapping_Old, '') 	'SourceMapping'
-									ISNULL(@LicenseeManager_old, '')	'LicenseeManager'								
+	SELECT @OldValues =	(	SELECT	ISNULL(@site_Old, '') AS	'SourceMapping',
+									ISNULL(@LicenseeManager_old, '') AS	'LicenseeManager'								
 							FOR XML PATH ('Acc_CRM_SourceLicenseeMappingUpd')
 						)
 
-	SELECT @NewValues =	(	SELECT	ISNULL(@SourceMapping, '') 	'SourceMapping'
-									ISNULL(@LicenseeManager, '')	'LicenseeManager'								
+	SELECT @NewValues =	(	SELECT	ISNULL(@SourceMapping, '') AS	'SourceMapping',
+									ISNULL(@LicenseeManager, '') AS	'LicenseeManager'								
 							FOR XML PATH ('Acc_CRM_SourceLicenseeMappingUpd')
 						)				
 

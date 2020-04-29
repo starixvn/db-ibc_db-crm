@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE dbo.Acc_CRM_SourceLicenseeMappingSel	
+ALTER PROCEDURE dbo.Acc_CRM_SourceLicenseeMappingSel
+	@Setting VARCHAR(50) = ''	
 AS
 /*
 	Created: 20200421@Johnson	
@@ -14,7 +15,7 @@ AS
 */	
 BEGIN
 	SET NOCOUNT ON;
-	
+		
 	SELECT s.SettingID, s.SettingValue as setting, m.site as SettingSource, l.username as LicenseeManager
 	FROM crmSetting p WITH(NOLOCK)
 		INNER JOIN crmSettingRelation r WITH(NOLOCK) on p.SettingID = r.ParentID
@@ -25,5 +26,6 @@ BEGIN
 		AND p.SettingValue = 'LicenseeSite'
 		AND s.isActive = 1
 		AND s.SiteOffer = 2--MBC
+		AND s.SettingValue LIKE '%'+@Setting+'%'
 	ORDER BY Setting, SettingSource	
 END	

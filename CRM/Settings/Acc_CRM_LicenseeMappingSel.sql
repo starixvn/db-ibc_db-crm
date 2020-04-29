@@ -1,6 +1,5 @@
 /*<info serverAlias="DBLIC-bodb_Licensee" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE dbo.Acc_CRM_LicenseeMappingSel
-	@Settings VARCHAR(MAX)
+ALTER PROCEDURE dbo.Acc_CRM_LicenseeMappingSel	
 AS
 /*
 	Created: 20200421@Johnson	

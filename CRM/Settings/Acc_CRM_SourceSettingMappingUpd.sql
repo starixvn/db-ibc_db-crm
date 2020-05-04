@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_SourceSettingMappingUpd
-	@SettingID VARCHAR(50),
+	@SettingID INT,
 	@SettingSource VARCHAR(MAX) = '', 
 	@UserID INT =0,
 	@IP VARCHAR(15)=''
@@ -67,12 +67,12 @@ BEGIN
 		,	@OldValues		XML;
 
 	SELECT @NewValues = (
-		SELECT	@SettingSource	AS 'SettingSource'
+		SELECT	ISNULL(@SettingSource,'')	AS 'SettingSource'
 		FOR XML PATH ('Acc_CRM_SourceSettingMappingUpd')
 	,	TYPE
 	);
 	SELECT @OldValues = (
-		SELECT	@SettingSource_old	AS 'SettingSource'
+		SELECT	ISNULL(@SettingSource_old,'')	AS 'SettingSource'
 		FOR XML PATH ('Acc_CRM_SourceSettingMappingUpd')
 	,	TYPE
 	);

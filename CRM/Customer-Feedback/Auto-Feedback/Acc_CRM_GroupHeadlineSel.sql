@@ -128,6 +128,14 @@ BEGIN
 						FROM Acc_CustDirect c WITH(NOLOCK)
 						WHERE t.srecommend = c.custid
 						)
+			AND NOT EXISTS(SELECT 1 
+						FROM Acc_CustDirect c WITH(NOLOCK)
+						WHERE t.mrecommend = c.custid
+						)
+			AND NOT EXISTS(SELECT 1 
+						FROM Acc_CustDirect c WITH(NOLOCK)
+						WHERE t.recommend = c.custid
+						)
 						
 		--hl is direct master
 		UPDATE t
@@ -140,7 +148,11 @@ BEGIN
 						FROM Acc_CustDirect c WITH(NOLOCK)
 						WHERE t.mrecommend = c.custid
 						)	
-
+			AND NOT EXISTS(SELECT 1 
+						FROM Acc_CustDirect c WITH(NOLOCK)
+						WHERE t.recommend = c.custid
+						)
+						
 		--hl is direct agent
 		UPDATE t
 		SET t.headlineID = c.custid,

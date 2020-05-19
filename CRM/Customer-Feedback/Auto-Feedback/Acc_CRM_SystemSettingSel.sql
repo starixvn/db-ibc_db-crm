@@ -60,6 +60,6 @@ BEGIN
 		@LastMsgID as LastMsgID,
 		@ConfigUAT as ConfigUAT,
 		@ConfigPRO as ConfigPRO,
-		@ServiceFlag as @ServiceFlag,
+		@ServiceFlag as ServiceFlag,
 		@LastRuntime as LastRuntime
 END

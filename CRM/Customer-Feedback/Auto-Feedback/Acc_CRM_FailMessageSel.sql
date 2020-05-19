@@ -25,7 +25,7 @@ BEGIN
 	UPDATE c
 	SET status = 'initial',
 		retryCount = retryCount + 1
-	FROM dbo.crmAutoFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+	FROM dbo.crmAutoFeedbackInfo c WITH(UPDLOCK,ROWLOCK)
 	WHERE MessageID IN (SELECT MessageID FROM @tmpMessage)
 		AND status IN ('initial','fail')
 		AND retryCount < 5

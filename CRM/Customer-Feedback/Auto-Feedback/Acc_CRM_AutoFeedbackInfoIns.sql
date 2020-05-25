@@ -43,5 +43,5 @@ BEGIN
 		INNER JOIN @tmpCust t ON c.MessageID = t.MessageID
 								AND c.custid = t.custid
 	WHERE status = 'initial'	
-		AND retryCount < 5
+		AND retryCount <= 5
 END	

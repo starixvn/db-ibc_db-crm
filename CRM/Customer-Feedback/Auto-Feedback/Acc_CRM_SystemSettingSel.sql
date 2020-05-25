@@ -43,10 +43,6 @@ BEGIN
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'ConfigPRO'
 	
-	SELECT @ConfigPRO = value
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'ConfigPRO'
-	
 	SELECT @ServiceFlag = value
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'ServiceFlag'

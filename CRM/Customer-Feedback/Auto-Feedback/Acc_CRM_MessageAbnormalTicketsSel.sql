@@ -2,7 +2,8 @@
 
 ALTER PROCEDURE [dbo].[Acc_CRM_MessageAbnormalTicketsSel]
 	@BatchSize INT,
-	@LastMsgID INT
+	@LastMsgID INT,
+	@FailMsgIDs VARCHAR(MAX)=''
 AS
 /*
 	Created: 20200416@@Johnson
@@ -17,10 +18,17 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	SELECT TOP (@BatchSize) MessageId,Content_en,Content_cs 
-	FROM Msg WITH(NOLOCK)
-	WHERE MessageID > @LastMsgID
-		AND MsgContentsType = 103
+	SELECT * 
+	FROM(
+		SELECT TOP (@BatchSize) MessageId,Content_en,Content_cs 
+		FROM Msg WITH(NOLOCK)
+		WHERE MessageID > @LastMsgID
+			AND MsgContentsType = 103
+		UNION 
+		SELECT MessageId,Content_en,Content_cs 
+		FROM Msg WITH(NOLOCK)
+		WHERE MessageID IN (SELECT val FROM dbo.strSplit(@FailMsgIDs,','))
+			AND MsgContentsType = 103
+		)t	
 	ORDER BY MessageID ASC
-	
 END	

@@ -612,7 +612,7 @@ BEGIN
 			,	@Description = @Description
 			,	@Solution = @Solution
 			,	@Review =  @Review
-			,	@NewValues = @LogElement;
+			,	@NewValues = @LogElement
 			, 	@Duration = @Duration
 END;
 GO

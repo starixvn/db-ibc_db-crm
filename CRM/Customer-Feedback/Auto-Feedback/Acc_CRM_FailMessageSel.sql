@@ -9,27 +9,14 @@ AS
 
 	Revisions:
 		- 20200519@Johnson: Initial sp [redmine:#134220]
+		- 20200604@Johnson: update retryCount after process done [redmine:]
 	Param's Explanation:		
 */
 BEGIN
 	SET NOCOUNT ON
-	
-	DECLARE @tmpMessage TABLE (MessageID INT)
-	
-	INSERT INTO @tmpMessage(MessageID)
+		
 	SELECT DISTINCT MessageID 
 	FROM dbo.crmAutoFeedbackInfo WITH(NOLOCK)
 	WHERE status IN ('initial','fail')
-		AND retryCount < 5
-	
-	UPDATE c
-	SET status = 'initial',
-		retryCount = retryCount + 1
-	FROM dbo.crmAutoFeedbackInfo c WITH(UPDLOCK,ROWLOCK)
-	WHERE MessageID IN (SELECT MessageID FROM @tmpMessage)
-		AND status IN ('initial','fail')
-		AND retryCount < 5
-	
-	SELECT MessageID
-	FROM @tmpMessage
+		AND retryCount < 5	
 END	

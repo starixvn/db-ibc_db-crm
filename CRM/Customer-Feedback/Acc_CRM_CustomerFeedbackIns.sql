@@ -71,6 +71,8 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@IsOverWrite				BIT				= 0
 				,	@ProvinceID					INT				= NULL
 				,	@NoInquiries				SMALLINT		= NULL
+				,	@MessageID 					INT 			= 0
+				,	@ListOrigCustIDs 			VARCHAR(MAX)	= ''
 				)
 AS
 /*
@@ -100,8 +102,11 @@ AS
 		- 20190628@Winnie: CN88 Permission Fix bug RedmineID: #115828
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer: #113305
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
+		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
+		- @ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
 	SET NOCOUNT ON;
@@ -319,6 +324,8 @@ BEGIN
 			,	@IP						= @IP
 			,	@ProvinceID				= @ProvinceID
 			,	@NoInquiries			= @NoInquiries
+			, 	@MessageID				= @MessageID
+			,	@ListOrigCustIDs		= @ListOrigCustIDs
 			,	@ErrCode				= @ErrCode OUTPUT
 			,	@ErrMsg					= @ErrMsg OUTPUT;
 	IF	@ErrCode <> 0
@@ -329,5 +336,3 @@ BEGIN
 END;
 GO 
 
-GRANT EXECUTE ON dbo.Acc_CRM_CustomerFeedbackIns TO bodbAdminNet;
-GO 

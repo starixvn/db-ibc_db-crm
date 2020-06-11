@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 					@UserID						INT
-				,	@CustID						INT
+				,	@CustID						INT				
 				,	@UserName					NVARCHAR(50)
 				,	@TitleID					INT				= NULL
 				,	@Birthday					DATETIME		= NULL
@@ -70,6 +70,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 				,	@NoInquiries				SMALLINT		= NULL
+				, 	@MessageID 					INT 			= 0
+				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
 AS
 /*
@@ -96,6 +98,7 @@ AS
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -112,6 +115,8 @@ AS
 			  SubCategoryID="2401"      
 			/>
 		</ROOT>
+	@MessageID : MsgID from Auto fb service
+	@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
 	SET NOCOUNT ON;
@@ -124,7 +129,10 @@ BEGIN
 		,	@ProductID						VARCHAR(MAX)
 		,	@SubProductID					VARCHAR(MAX)
 		,	@BettypeID						VARCHAR(MAX)
-
+		, 	@StartRun						DATETIME
+		,	@Duration						INT
+	
+	SELECT @StartRun = GETDATE()	
 	SELECT @Remark = @Description		
 	SELECT @Description= (SELECT @AutoField AS AutoField, @Description AS Remark  FOR XML RAW,ROOT('ROOT'))
 
@@ -229,7 +237,26 @@ BEGIN
 	SELECT @BettypeID = Stuff((SELECT DISTINCT ',' + CAST(fs.BetTypeID AS VARCHAR(50))
                  FROM  @tblProduct fs 								
                  FOR XML PATH('')), 1, 1, '')
-
+	
+	--check msg from auto void service
+	DECLARE @tmpOrigCustID TABLE (custid INT)
+	
+	IF @MessageID > 0
+	BEGIN
+		INSERT INTO @tmpOrigCustID(custid)
+		SELECT	CONVERT(INT, val)
+		FROM	dbo.f_CRM_strSplit(@ListOrigCustIDs, ',');
+		
+		--check fb for these custids base on voiding tickets create yet
+		IF EXISTS (SELECT 1 FROM crmAutoFeedbackInfo WITH(NOLOCK)
+					WHERE MessageID = @MessageID
+						AND	HeadlineID = @custid
+						AND CustID IN (SELECT custid FROM @tmpOrigCustID)
+						AND status = 'completed'
+				)
+		RETURN;		
+	END
+	
 	-- insert feedback
 	INSERT INTO	crmFeedback (
 					CustID
@@ -477,7 +504,31 @@ BEGIN
 			RETURN;
 		END;
 	END;	
+	
+	--update status for crmAutoFeedbackInfo 
+	IF  @MessageID > 0
+	BEGIN
+		UPDATE fb
+		SET status = 'completed',
+			UpdatedTime = GETDATE()
+		FROM crmAutoFeedbackInfo fb WITH(UPDLOCK,ROWLOCK)
+		WHERE MessageID = @MessageID
+			AND	HeadlineID = @custid
+			AND CustID IN (SELECT custid FROM @tmpOrigCustID)			
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
 
+			RETURN;
+		END;
+	END
+	
 	-- write log
 	DECLARE @LogElement XML;
 
@@ -550,7 +601,8 @@ BEGIN
 						'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +	
 					'</Acc_CRM_FeedbackIns>';
 
-
+	SELECT @Duration = DATEDIFF (millisecond,@startRun,GETDATE())
+	
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback
 				@UserID = @UserID
 			,	@FeedbackID = @FeedbackID
@@ -560,10 +612,7 @@ BEGIN
 			,	@Description = @Description
 			,	@Solution = @Solution
 			,	@Review =  @Review
-			,	@NewValues = @LogElement;
+			,	@NewValues = @LogElement
+			, 	@Duration = @Duration
 END;
-
 GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_FeedbackIns TO bodbAdminNet;
-GO 

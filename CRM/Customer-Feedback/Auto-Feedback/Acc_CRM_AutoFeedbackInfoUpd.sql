@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20200519@Johnson: Initial sp [redmine:#134220]
+		- 20200604@Johnson: update retrycount when fail [redmine:#135337]
 	Param's Explanation:		
 		- @custids: list custids for each feedback
 */
@@ -27,6 +28,7 @@ BEGIN
 	
 	UPDATE crmAutoFeedbackInfo WITH(UPDLOCK,ROWLOCK)
 	SET status = @status,
+		RetryCount = CASE WHEN @status = 'fail' THEN retrycount + 1 ELSE retrycount END,
 		Description = @Description,
 		UpdatedTime = GETDATE()
 	WHERE MessageID = @MessageID

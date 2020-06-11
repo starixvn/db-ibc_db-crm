@@ -42,6 +42,6 @@ BEGIN
 	FROM crmAutoFeedbackInfo c WITH(NOLOCK)
 		INNER JOIN @tmpCust t ON c.MessageID = t.MessageID
 								AND c.custid = t.custid
-	WHERE status = 'initial'	
-		AND retryCount <= 5
+	WHERE status IN ('initial','fail')	
+		AND retryCount < 5
 END	

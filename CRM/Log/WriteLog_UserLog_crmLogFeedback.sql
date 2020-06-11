@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmLogFeedback]
 (
 	@UserID			INT, 
@@ -9,7 +10,8 @@ ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmLogFeedback]
 	@Solution		NVARCHAR(MAX),
 	@Review			NVARCHAR(MAX),
 	@NewValues		XML,
-	@OldValues		XML = NULL
+	@OldValues		XML = NULL,
+	@Duration		INT = NULL
 )
 AS
 /*
@@ -21,6 +23,7 @@ Original:
 
 Revisions:
 	- 20140303@Dom: Modify for new structure
+	- 20200604@Johnson: add Duration for tracking fb [redmine:#135337]
 Param's Explanation:
 	- @UserID: UserId perform this action
 	- @CustID: 
@@ -42,7 +45,8 @@ BEGIN
 					Solution, 
 					Review, 
 					Doing,
-					OldValues
+					OldValues,
+					Duration
 				)
 			VALUES
 				(
@@ -56,7 +60,8 @@ BEGIN
 					@Solution, 
 					@Review,
 					@NewValues,
-					@OldValues
+					@OldValues,
+					@Duration
 				)
 END
 
@@ -64,14 +69,3 @@ END
 
 GO
 
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[WriteLog_UserLog_crmLogFeedback] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[WriteLog_UserLog_crmLogFeedback] TO [vnteam]
-GO 

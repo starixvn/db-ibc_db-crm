@@ -36,6 +36,7 @@ BEGIN
 		INNER JOIN TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId and r.IssueTypeId = 11 --abnormal bets
 	WHERE MessageId > @LastMsgID	
 		AND vh.StatusId = 2 --tickets void successfully
+	ORDER BY MessageId ASC 	
 		
 	CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT)
 		

@@ -1,6 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
-	@MessageIDs VARCHAR(MAX),
+	@LastMsgID INT,
+	@BatchSize INT,
+	@FailMsgIDs VARCHAR(MAX) = '',
 	@ConfigUAT BIT = 0,
 	@ConfigPRO BIT = 0
 AS
@@ -12,22 +14,30 @@ AS
 
 	Revisions:
 		- 20200416@Johnson: Initial sp [redmine:#130949]
+		- 20200611@Johnson: get tickets from last msg to fix missing tickets [redmine:#135719]
 	Param's Explanation:
-		- @MessageIDs: batch msg need to get abnormal tickets
-		'100,101,102'
+		- @LastMsgID: last msg of void abnormal bets
+		- @FailMsgIDs: fail messages need to create fb again		
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
 */
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT)
+	DECLARE @tmpMessage TABLE (MessageId INT)
 	CREATE TABLE #tmpTrans (transid BIGINT)
 	
 	INSERT INTO @tmpMessage (MessageId)
 	SELECT val
-	FROM strSplit(@MessageIDs,',')
+	FROM strSplit(@FailMsgIDs,',')
 	
+	INSERT INTO @tmpMessage (MessageId)
+	SELECT DISTINCT TOP (@BatchSize) MessageId
+	FROM dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+		INNER JOIN TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId and r.IssueTypeId = 11 --abnormal bets
+	WHERE MessageId > @LastMsgID	
+		AND vh.StatusId = 2 --tickets void successfully
+		
 	CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT)
 		
 	INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId)

@@ -1,34 +1,24 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_CRM_MessageAbnormalTicketsSel]
-	@BatchSize INT,
-	@LastMsgID INT,
-	@FailMsgIDs VARCHAR(MAX)=''
+ALTER PROCEDURE [dbo].[Acc_CRM_MessageAbnormalTicketsSel]	
+	@MessageIDs VARCHAR(MAX)=''
 AS
 /*
-	Created: 20200416@@Johnson
+	Created: 20200416@Johnson
 	Task : Get last messages from voiding tickets
 	DB: DBMSG/bodb_Message
 	Original:
 
 	Revisions:
-		- 20200416@@Johnson: Initial sp [redmine:#130949]
+		- 20200416@Johnson: Initial sp [redmine:#130949]
+		- 20200611@Johnson: enhance service [redmine:#135719]
 	Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON
 	
-	SELECT * 
-	FROM(
-		SELECT TOP (@BatchSize) MessageId,Content_en,Content_cs 
-		FROM Msg WITH(NOLOCK)
-		WHERE MessageID > @LastMsgID
-			AND MsgContentsType = 103
-		UNION 
-		SELECT MessageId,Content_en,Content_cs 
-		FROM Msg WITH(NOLOCK)
-		WHERE MessageID IN (SELECT val FROM dbo.strSplit(@FailMsgIDs,','))
-			AND MsgContentsType = 103
-		)t	
+	SELECT MessageId,Content_en,Content_cs 
+	FROM Msg WITH(NOLOCK)
+	WHERE MessageID IN (SELECT val FROM dbo.strSplit(@MessageIDs,','))			
 	ORDER BY MessageID ASC
 END	

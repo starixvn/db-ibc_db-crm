@@ -25,8 +25,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @tmpMessage TABLE (MessageId INT)
-	CREATE TABLE #tmpTrans (transid BIGINT)
-	
+		
 	INSERT INTO @tmpMessage (MessageId)
 	SELECT val
 	FROM strSplit(@FailMsgIDs,',')
@@ -132,5 +131,7 @@ BEGIN
 		INNER JOIN bettype b WITH(NOLOCK) ON t.bettype = b.typeid
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
 	ORDER BY MessageId,isDeposit,custid
+	
+	DROP TABLE #VoidingHistory	
 END	
 

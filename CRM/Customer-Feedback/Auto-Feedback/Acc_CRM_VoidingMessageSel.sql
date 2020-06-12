@@ -19,7 +19,7 @@ BEGIN
 	FROM dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
 		INNER JOIN TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId 
 															AND r.IssueTypeId = 11 --abnormal bets
-	WHERE CreatedDate >= GETDATE() - 1
+	WHERE vh.CreatedDate >= GETDATE() - 1
 		AND vh.StatusId = 2 --tickets void successfully
 	ORDER BY MessageId ASC 	
 	

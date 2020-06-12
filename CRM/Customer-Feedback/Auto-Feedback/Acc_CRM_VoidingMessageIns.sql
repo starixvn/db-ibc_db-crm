@@ -21,7 +21,7 @@ BEGIN
 		
 	INSERT INTO @tmpMessage (MessageId)
 	SELECT val
-	FROM strSplit(@MessageIds,',')
+	FROM f_CRM_strSplit(@MessageIds,',')
 	
 	INSERT INTO crmMessageImport(MessageId,CreatedDate,isProcessed)
 	SELECT t.MessageId, GETDATE(), 0

@@ -123,3 +123,4 @@ BEGIN
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
 	ORDER BY MessageId,isDeposit,custid
 END	
+

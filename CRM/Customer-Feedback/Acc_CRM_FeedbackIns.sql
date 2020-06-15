@@ -99,6 +99,7 @@ AS
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
+		- 20200615@Johnson: check missing feedback from auto service [redmine: #135719]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -527,6 +528,23 @@ BEGIN
 
 			RETURN;
 		END;
+		
+		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
+		SET isProcessed = 1		
+		WHERE MessageID = @MessageID
+			AND isProcessed = 0
+
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;	
 	END
 	
 	-- write log

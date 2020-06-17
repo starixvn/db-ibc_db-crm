@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20200519@Johnson: Initial sp [redmine:#134220]
 		- 20200604@Johnson: update retrycount when fail [redmine:#135337]
+		- 20200612@Johnson: enhance to check missing feedback [redmine:#135719]
 	Param's Explanation:		
 		- @custids: list custids for each feedback
 */
@@ -33,4 +34,9 @@ BEGIN
 		UpdatedTime = GETDATE()
 	WHERE MessageID = @MessageID
 		AND custid IN (SELECT custid FROM @tmpCust)
+	
+	UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
+	SET isProcessed = 1		
+	WHERE MessageID = @MessageID
+		AND isProcessed = 0
 END	

@@ -11,13 +11,13 @@ AS
 	Revisions:
 		- 20200416@Johnson: Initial sp [redmine:#130949]
 		- 20200519@Johnson: add setting serviceflag/lastruntime [redmine:#134220]	Param's Explanation:
+		- 20200612@Johnson: remove LastMsgID [redmine:#135719]
 */
 BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @JobStatus VARCHAR(50),
-			@BatchSize INT,
-			@LastMsgID INT,
+			@BatchSize INT,			
 			@ConfigUAT BIT,
 			@ConfigPRO BIT,
 			@ServiceFlag BIT,
@@ -30,11 +30,7 @@ BEGIN
 	SELECT @BatchSize = value
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'BatchSize'
-	
-	SELECT @LastMsgID = value
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'LastMsgID'
-	
+		
 	SELECT @ConfigUAT = value
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'ConfigUAT'
@@ -53,7 +49,6 @@ BEGIN
 	
 	SELECT @JobStatus as JobStatus, 
 		@BatchSize as BatchSize, 
-		@LastMsgID as LastMsgID,
 		@ConfigUAT as ConfigUAT,
 		@ConfigPRO as ConfigPRO,
 		@ServiceFlag as ServiceFlag,

@@ -39,14 +39,18 @@ BEGIN
 
 	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID
 
+	DECLARE @DirectAccounts TABLE (username VARCHAR(50))
+	INSERT INTO @DirectAccounts (username)
+	SELECT val FROM dbo.f_split(@DirectAccount, ',')
+
 	INSERT INTO #DirectAccountTmp
 	(
 		CustID,
 		Username
 	)
-	SELECT DISTINCT Custid,Username
-	FROM bodb02.dbo.Customer WITH(NOLOCK)
-	WHERE ',' + @DirectAccount + ',' LIKE '%,' + username + ',%'
+	SELECT Custid, Username
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+	WHERE EXISTS (SELECT 1 FROM @DirectAccounts d WHERE c.username = d.username)
 
 	SET @IsKeepAssign = ISNULL(@IsKeepAssign,0)
 
@@ -57,7 +61,7 @@ BEGIN
 			DELETE m
 			OUTPUT @HeadlineName, p.Username, p.PicID,t.Username, t.CustID
 			INTO #LogForRemovePIC
-			FROM dbo.crmPicManagement m
+			FROM dbo.crmPicManagement m WITH(NOLOCK)
 				INNER JOIN #DirectAccountTmp t ON m.CustID = t.CustID
 				LEFT JOIN  dbo.crmPIC p WITH(NOLOCK) ON p.PicID = m.PicID
 

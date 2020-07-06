@@ -20,75 +20,85 @@ Original:
 BEGIN 
 	SET NOCOUNT ON
 	
-	DECLARE @GroupID INT = 0,@InvalidUsername VARCHAR(MAX) = NULL, @NotDirectAccount VARCHAR(MAX) = NULL, @NoBelongHeadlineAccount VARCHAR(MAX) = NULL
+	DECLARE @GroupID INT, @InvalidUsername VARCHAR(MAX) = NULL, @NotDirectAccount VARCHAR(MAX) = NULL, @NoBelongHeadlineAccount VARCHAR(MAX) = NULL
 
-	CREATE TABLE #Tmp (Username VARCHAR(30), CustID INT,IsCustomer BIT, IsDirectAccount BIT,IsHeadlineGroup BIT)
+	DECLARE @tblUsername TABLE (Username VARCHAR(MAX), CustId INT, srecommend INT, IsDirectAccount BIT, IsBelongHeadline BIT)
 
 	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID
 
-	INSERT INTO #Tmp
-	(
-		Username
-	)
-	SELECT DISTINCT Val
-	FROM bodb02.dbo.strSplit(@UserName,',')
+	IF @GroupID IS NULL
+	BEGIN
+		SELECT @ErrCode = 1001, @ErrMsg = 'Invalid headline!'
+		RETURN
+	END
+
+	INSERT INTO @tblUsername (Username)
+	SELECT DISTINCT val FROM dbo.f_split(@UserName, ',')
 
 	UPDATE t
-	SET IsCustomer		=	CASE WHEN c.custid IS NULL THEN 0 
-							ELSE 1 END,
-
-		IsDirectAccount =	CASE WHEN ca.custid IS NULL	THEN 0
-							     WHEN ISNULL(s.IsInternal,0) = 1 THEN 0
-							ELSE 1 END,
-
-		IsHeadlineGroup =   CASE WHEN ISNULL(u.groupID, 0) = @GroupID THEN 1
-							ELSE 0 END, 
-
-		CustID          =	c.custid
-	FROM #Tmp AS t
-		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.username = t.Username
-		LEFT JOIN bodb02.dbo.CustDirectAccount ca WITH(NOLOCK) ON ca.CustID = c.custid
-		LEFT JOIN bodb02.dbo.custAccount u WITH(NOLOCK) ON c.custid = u.custid 
-		LEFT JOIN bodb02.dbo.CustSuper s WITH(NOLOCK) ON s.custid = c.srecommend
+	SET t.CustId = c.custid, t.srecommend = c.srecommend
+	FROM @tblUsername t
+		INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.Username = c.username
 
 	-- check  usernames
-	IF EXISTS (SELECT 1 FROM #Tmp WHERE IsCustomer = 0)
+	IF EXISTS (SELECT 1 FROM @tblUsername WHERE CustId IS NULL)
 	BEGIN
 		SELECT @InvalidUsername = STUFF((SELECT ',' + Username 
-													   FROM #Tmp
-													   WHERE IsCustomer = 0
-													   FOR XML PATH('')),1,1,'')	
-		DELETE #Tmp
-		WHERE IsCustomer = 0
+											FROM @tblUsername
+											WHERE CustId IS NULL
+											FOR XML PATH('')),1,1,'')	
+		DELETE @tblUsername
+		WHERE custid IS NULL
 
 		SELECT @ErrCode = 1007
 	END
 
 	-- check direct accounts
-	IF EXISTS (SELECT 1 FROM #Tmp WHERE IsDirectAccount = 0)
+	IF EXISTS (SELECT 1 FROM @tblUsername)
+	BEGIN
+		UPDATE t
+		SET t.IsDirectAccount = 1
+		FROM @tblUsername t
+			INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON t.CustId = cda.CustID
+			INNER JOIN bodb02.dbo.CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
+		WHERE s.IsInternal = 0
+	END
+	
+	IF EXISTS (SELECT 1 FROM @tblUsername WHERE IsDirectAccount IS NULL)
 	BEGIN	 
 		SELECT @NotDirectAccount =  STUFF((SELECT ',' + Username
-									  FROM #Tmp
-									  WHERE IsDirectAccount = 0
-							          FOR XML PATH('')),1,1,'')
-		DELETE #Tmp
-		WHERE IsDirectAccount = 0
+											FROM @tblUsername
+											WHERE IsDirectAccount IS NULL
+											FOR XML PATH('')),1,1,'')
+		DELETE @tblUsername
+		WHERE IsDirectAccount IS NULL
 
 		SELECT @ErrCode = 1007
 	END
-	-- check direct accounts are belonging to the headline 
-	IF EXISTS (SELECT 1 FROM #Tmp WHERE IsHeadlineGroup = 0)
-	BEGIN
-		SELECT @NoBelongHeadlineAccount = STUFF((SELECT ',' + Username 
-										   FROM #Tmp
-										   WHERE IsHeadlineGroup = 0
-										   FOR XML PATH('')),1,1,'')
-		DELETE #Tmp
-		WHERE IsHeadlineGroup = 0
 
-		SELECT @ErrCode = 1007		
+	-- check direct accounts are belonging to the headline 
+	IF EXISTS (SELECT 1 FROM @tblUsername)
+	BEGIN
+		UPDATE t
+		SET t.IsBelongHeadline = 1
+		FROM @tblUsername t
+			INNER JOIN bodb02.dbo.custAccount ca WITH (NOLOCK) ON t.CustId = ca.CustID
+		WHERE ca.groupID = @GroupID
 	END
 
+	IF EXISTS (SELECT 1 FROM @tblUsername WHERE IsBelongHeadline IS NULL)
+	BEGIN	 
+		SELECT @NoBelongHeadlineAccount =  STUFF((SELECT ',' + Username
+													FROM @tblUsername
+													WHERE IsBelongHeadline IS NULL
+													FOR XML PATH('')),1,1,'')
+		DELETE @tblUsername
+		WHERE IsDirectAccount IS NULL
+
+		SELECT @ErrCode = 1007
+	END
+
+	-- Return data
 	IF @ErrCode = 1007
 	BEGIN
 		SELECT @InvalidUsername AS InvalidUsername, @NotDirectAccount AS NotDirectAccount, @NoBelongHeadlineAccount AS NoBelongHeadlineAccount
@@ -106,7 +116,7 @@ BEGIN
 		SELECT t.Username AS Username, p.Username AS PicName, s.SettingValue AS [Role]
 		FROM dbo.crmPicManagement m WITH(NOLOCK) 
 			INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = m.PicID 
-			INNER JOIN #Tmp t ON t.CustID = m.CustID
+			INNER JOIN @tblUsername t ON t.CustID = m.CustID
 			LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role 
 	)
 	SELECT 
@@ -118,6 +128,4 @@ BEGIN
 				FOR XML PATH('')),1,1,'') AS DirectAccount
 	FROM CTE t 
 	GROUP BY t.PicName, t.Role
-	
-	DROP TABLE #Tmp
 END

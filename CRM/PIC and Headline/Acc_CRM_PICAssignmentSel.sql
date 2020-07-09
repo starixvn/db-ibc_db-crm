@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_PICAssignmentSel]
+CREATE PROCEDURE [dbo].[Acc_CRM_PICAssignmentSel]
 	@Site			    VARCHAR(MAX) = '',
 	@Currency			VARCHAR(1000) = '',
 	@Status				VARCHAR(100) = '',
@@ -38,6 +38,7 @@ BEGIN
 
 		CustID			INT PRIMARY KEY,
 		Username		VARCHAR(30),
+		RoleId          TINYINT,
 		Status			VARCHAR(10),
 		Site			VARCHAR(20),
 		Position		VARCHAR(20),
@@ -46,6 +47,7 @@ BEGIN
 		HeadlineName	VARCHAR(30),
 		HeadlineType	INT,
 		GroupID         INT,
+		Recommend       INT,
 		RowNum          INT
 	)
 
@@ -58,6 +60,8 @@ BEGIN
 	SELECT @ExcludeIsTest = ISNULL(@ExcludeIsTest,0),@ExcludeIgnoredAcc = ISNULL(@ExcludeIgnoredAcc,0),@PicName = ISNULL(@PicName,''),
 		   @DirectAccount = ISNULL(@DirectAccount,''),@GroupHeadline = ISNULL(@GroupHeadline,''), @Position = ISNULL(@Position,''),
 		   @Currency = ISNULL(@Currency,''),@Status = ISNULL(@Status,''),@Site = ISNULL(@Site,''),@HeadlineType = ISNULL(@HeadlineType,2)
+
+    CREATE NONCLUSTERED INDEX ix_RoleId_CustId_Recommend ON #Tmp_DirectAccount (RoleId, CustId, Recommend)
 
 	INSERT INTO #Tmp_DirectAccount(CustID, Username, Status, Site, Position, Currency, GroupID)
 	SELECT cda.CustID,
@@ -73,18 +77,43 @@ BEGIN
 						 WHEN 4 THEN 'Super'
 		   ELSE NULL END AS Position,
 		   c.currency,
-		   ISNULL(ca.groupID, 0) AS GroupID
+		   ISNULL(ca.groupID, 0) AS GroupID,
+		   recommend = ag.custid,
+		   roleid = c.roleid
 	FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)			
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON cda.custid = c.custid		
 		INNER JOIN bodb02.dbo.custinfo o WITH(NOLOCK) ON o.custid = c.custid
 		LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON ag.custid = c.recommend AND c.roleid = 1
 		OUTER APPLY (SELECT TOP 1 ca.GroupId FROM bodb02.dbo.custAccount ca WITH(NOLOCK) WHERE cda.CustID = ca.custid) ca
-		CROSS APPLY (SELECT TOP 1 s.custid FROM bodb02.dbo.CustSuper s WITH(NOLOCK) WHERE s.IsInternal = 0 AND s.custid = c.srecommend) s
 	WHERE (@Site = '' OR ',' + @Site + ',' LIKE '%,' + ISNULL(ag.site, c.site)  + ',%')
 		AND (@DirectAccount = '' OR c.username LIKE '%' + @DirectAccount + '%')
 		AND (@ExcludeIsTest = 0 OR  c.currency NOT IN (20,27,28))
 		AND (@Currency = '' OR ',' + @Currency + ',' LIKE '%,' + CONVERT(VARCHAR(4),c.currency) + ',%')
 		AND (@Position = '' OR ',' + @Position + ',' LIKE '%,' + CONVERT(VARCHAR(3),c.roleid) + ',%')
+    
+	IF @Position = '' OR ',' + @Position + ',' LIKE '%,4,%' 
+	DELETE T
+	FROM #Tmp_DirectAccount T
+	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustSuper s WITH(NOLOCK) WHERE s.custid = T.CustID AND s.IsInternal = 1)
+		AND T.RoleId = 4
+
+	IF @Position = '' OR ',' + @Position + ',' LIKE '%,3,%' 
+	DELETE T
+	FROM #Tmp_DirectAccount T
+	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster m WITH(NOLOCK) WHERE m.custid = T.CustID AND m.IsInternal = 1)
+		AND T.RoleId = 3
+
+	IF @Position = '' OR ',' + @Position + ',' LIKE '%,2,%' 
+	DELETE T
+	FROM #Tmp_DirectAccount T
+	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.CustID AND ag.IsInternal = 1)
+		AND T.RoleId = 2
+
+	IF @Position = '' OR ',' + @Position + ',' LIKE '%,1,%' 
+	DELETE T
+	FROM #Tmp_DirectAccount T
+	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.Recommend AND ag.IsInternal = 1)
+		AND T.RoleId = 1
 
 	IF @Status <> ''
 	BEGIN
@@ -168,8 +197,12 @@ BEGIN
 	SET t.HeadlineName = c.username,
 		t.HeadlineID   = c.custid
 	FROM #Tmp_DirectAccount t
-		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON t.GroupID = h.GroupID
+		INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON t.GroupID = h.GroupID AND h.GroupID > 0
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = h.CustID
+
+	DELETE t
+	FROM #Tmp_DirectAccount t
+	WHERE GroupID > 0 AND t.HeadlineID IS NULL
 
 	SELECT @TotalRows = COUNT(*) FROM #Tmp_DirectAccount
 

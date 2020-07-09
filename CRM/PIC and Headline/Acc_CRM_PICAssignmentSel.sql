@@ -92,28 +92,28 @@ BEGIN
 		AND (@Position = '' OR ',' + @Position + ',' LIKE '%,' + CONVERT(VARCHAR(3),c.roleid) + ',%')
     
 	IF @Position = '' OR ',' + @Position + ',' LIKE '%,4,%' 
-	DELETE T
-	FROM #Tmp_DirectAccount T
-	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustSuper s WITH(NOLOCK) WHERE s.custid = T.CustID AND s.IsInternal = 1)
-		AND T.RoleId = 4
+		DELETE T
+		FROM #Tmp_DirectAccount T
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustSuper s WITH(NOLOCK) WHERE s.custid = T.CustID AND s.IsInternal = 1)
+			AND T.RoleId = 4
 
 	IF @Position = '' OR ',' + @Position + ',' LIKE '%,3,%' 
-	DELETE T
-	FROM #Tmp_DirectAccount T
-	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster m WITH(NOLOCK) WHERE m.custid = T.CustID AND m.IsInternal = 1)
-		AND T.RoleId = 3
+		DELETE T
+		FROM #Tmp_DirectAccount T
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster m WITH(NOLOCK) WHERE m.custid = T.CustID AND m.IsInternal = 1)
+			AND T.RoleId = 3
 
 	IF @Position = '' OR ',' + @Position + ',' LIKE '%,2,%' 
-	DELETE T
-	FROM #Tmp_DirectAccount T
-	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.CustID AND ag.IsInternal = 1)
-		AND T.RoleId = 2
+		DELETE T
+		FROM #Tmp_DirectAccount T
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.CustID AND ag.IsInternal = 1)
+			AND T.RoleId = 2
 
 	IF @Position = '' OR ',' + @Position + ',' LIKE '%,1,%' 
-	DELETE T
-	FROM #Tmp_DirectAccount T
-	WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.Recommend AND ag.IsInternal = 1)
-		AND T.RoleId = 1
+		DELETE T
+		FROM #Tmp_DirectAccount T
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.Recommend AND ag.IsInternal = 1)
+			AND T.RoleId = 1
 
 	IF @Status <> ''
 	BEGIN

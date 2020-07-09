@@ -68,7 +68,7 @@ BEGIN
 		SET t.IsDirectAccount = NULL
 		FROM @tblUsername t
 		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster  m WITH(NOLOCK) WHERE t.CustId = m.custid AND m.IsInternal = 1)
-			AND t.RoleId = 4
+			AND t.RoleId = 3
 
 		UPDATE t
 		SET t.IsDirectAccount = NULL

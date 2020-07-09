@@ -22,7 +22,7 @@ BEGIN
 	
 	DECLARE @GroupID INT, @InvalidUsername VARCHAR(MAX) = NULL, @NotDirectAccount VARCHAR(MAX) = NULL, @NoBelongHeadlineAccount VARCHAR(MAX) = NULL
 
-	DECLARE @tblUsername TABLE (Username VARCHAR(MAX), CustId INT, srecommend INT, IsDirectAccount BIT, IsBelongHeadline BIT)
+	DECLARE @tblUsername TABLE (Username VARCHAR(MAX), CustId INT, srecommend INT, RoleId INT,IsDirectAccount BIT, IsBelongHeadline BIT)
 
 	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID
 
@@ -33,7 +33,7 @@ BEGIN
 	SELECT DISTINCT val FROM dbo.f_split(@UserName, ',')
 
 	UPDATE t
-	SET t.CustId = c.custid, t.srecommend = c.srecommend
+	SET t.CustId = c.custid, t.srecommend = c.srecommend, t.RoleId = c.roleid
 	FROM @tblUsername t
 		INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.Username = c.username
 
@@ -56,9 +56,15 @@ BEGIN
 		UPDATE t
 		SET t.IsDirectAccount = 1
 		FROM @tblUsername t
-			INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON t.CustId = cda.CustID
-			INNER JOIN bodb02.dbo.CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
-		WHERE s.IsInternal = 0
+			INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON t.CustId = cda.CustID	
+		
+		UPDATE t
+		SET t.IsDirectAccount = 0
+		FROM @tblUsername t
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustSuper  s WITH(NOLOCK) WHERE t.CustId = s.custid AND s.IsInternal = 1 AND t.RoleId = 4)
+		   OR EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster m WITH(NOLOCK) WHERE t.CustId = m.custid AND m.IsInternal = 1 AND t.RoleId = 3)
+		   OR EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE t.CustId = ag.custid AND ag.IsInternal = 1 AND t.RoleId IN (1,2))
+
 	END
 	
 	IF EXISTS (SELECT 1 FROM @tblUsername WHERE IsDirectAccount IS NULL)
@@ -78,9 +84,9 @@ BEGIN
 	BEGIN
 		UPDATE t
 		SET t.IsBelongHeadline = 1
-		FROM @tblUsername t
-			INNER JOIN bodb02.dbo.custAccount ca WITH (NOLOCK) ON t.CustId = ca.CustID
-		WHERE ca.groupID = @GroupID
+		FROM @tblUsername t	
+			LEFT JOIN bodb02.dbo.custAccount ca WITH (NOLOCK) ON t.CustId = ca.CustID
+		WHERE ISNULL(ca.groupID,0) = @GroupID
 	END
 
 	IF EXISTS (SELECT 1 FROM @tblUsername WHERE IsBelongHeadline IS NULL)

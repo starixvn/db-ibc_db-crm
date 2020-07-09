@@ -22,7 +22,7 @@ BEGIN
 	
 	DECLARE @GroupID INT, @InvalidUsername VARCHAR(MAX) = NULL, @NotDirectAccount VARCHAR(MAX) = NULL, @NoBelongHeadlineAccount VARCHAR(MAX) = NULL
 
-	DECLARE @tblUsername TABLE (Username VARCHAR(MAX), CustId INT, srecommend INT, RoleId INT,IsDirectAccount BIT, IsBelongHeadline BIT)
+	DECLARE @tblUsername TABLE (Username VARCHAR(MAX), CustId INT, srecommend INT, recommend INT,RoleId INT,IsDirectAccount BIT, IsBelongHeadline BIT)
 
 	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID
 
@@ -33,7 +33,7 @@ BEGIN
 	SELECT DISTINCT val FROM dbo.f_split(@UserName, ',')
 
 	UPDATE t
-	SET t.CustId = c.custid, t.srecommend = c.srecommend, t.RoleId = c.roleid
+	SET t.CustId = c.custid, t.srecommend = c.srecommend, t.RoleId = c.roleid, t.recommend = c.recommend
 	FROM @tblUsername t
 		INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.Username = c.username
 
@@ -59,11 +59,22 @@ BEGIN
 			INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON t.CustId = cda.CustID	
 		
 		UPDATE t
-		SET t.IsDirectAccount = 0
+		SET t.IsDirectAccount = NULL
 		FROM @tblUsername t
-		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustSuper  s WITH(NOLOCK) WHERE t.CustId = s.custid AND s.IsInternal = 1 AND t.RoleId = 4)
-		   OR EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster m WITH(NOLOCK) WHERE t.CustId = m.custid AND m.IsInternal = 1 AND t.RoleId = 3)
-		   OR EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE t.CustId = ag.custid AND ag.IsInternal = 1 AND t.RoleId IN (1,2))
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustSuper  s WITH(NOLOCK) WHERE t.CustId = s.custid AND s.IsInternal = 1)
+			AND t.RoleId = 4
+
+		UPDATE t
+		SET t.IsDirectAccount = NULL
+		FROM @tblUsername t
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster  m WITH(NOLOCK) WHERE t.CustId = m.custid AND m.IsInternal = 1)
+			AND t.RoleId = 4
+
+		UPDATE t
+		SET t.IsDirectAccount = NULL
+		FROM @tblUsername t
+		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent  ag WITH(NOLOCK) WHERE  t.recommend = ag.custid AND ag.IsInternal = 1)
+			AND t.RoleId IN (1,2)
 
 	END
 	
@@ -85,7 +96,7 @@ BEGIN
 		UPDATE t
 		SET t.IsBelongHeadline = 1
 		FROM @tblUsername t	
-			LEFT JOIN bodb02.dbo.custAccount ca WITH (NOLOCK) ON t.CustId = ca.CustID
+			LEFT JOIN bodb02.dbo.custAccount ca WITH (NOLOCK) ON t.CustId = ca.CustID AND ca.groupID <> 0
 		WHERE ISNULL(ca.groupID,0) = @GroupID
 	END
 

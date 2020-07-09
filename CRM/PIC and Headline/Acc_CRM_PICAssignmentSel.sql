@@ -63,7 +63,7 @@ BEGIN
 
     CREATE NONCLUSTERED INDEX ix_RoleId_CustId_Recommend ON #Tmp_DirectAccount (RoleId, CustId, Recommend)
 
-	INSERT INTO #Tmp_DirectAccount(CustID, Username, Status, Site, Position, Currency, GroupID)
+	INSERT INTO #Tmp_DirectAccount(CustID, Username, Status, Site, Position, Currency, GroupID, Recommend, RoleId)
 	SELECT cda.CustID,
 		   c.Username,
 		   CASE WHEN ISNULL(o.Enabled,0) = 0 THEN 'Disabled' 

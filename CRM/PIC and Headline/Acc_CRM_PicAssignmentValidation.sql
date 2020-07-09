@@ -27,10 +27,7 @@ BEGIN
 	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID
 
 	IF @GroupID IS NULL
-	BEGIN
-		SELECT @ErrCode = 1001, @ErrMsg = 'Invalid headline!'
-		RETURN
-	END
+		SELECT @GroupID = 0
 
 	INSERT INTO @tblUsername (Username)
 	SELECT DISTINCT val FROM dbo.f_split(@UserName, ',')

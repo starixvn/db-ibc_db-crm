@@ -61,8 +61,6 @@ BEGIN
 		   @DirectAccount = ISNULL(@DirectAccount,''),@GroupHeadline = ISNULL(@GroupHeadline,''), @Position = ISNULL(@Position,''),
 		   @Currency = ISNULL(@Currency,''),@Status = ISNULL(@Status,''),@Site = ISNULL(@Site,''),@HeadlineType = ISNULL(@HeadlineType,2)
 
-    CREATE NONCLUSTERED INDEX ix_RoleId_CustId_Recommend ON #Tmp_DirectAccount (RoleId, CustId, Recommend)
-
 	INSERT INTO #Tmp_DirectAccount(CustID, Username, Status, Site, Position, Currency, GroupID, Recommend, RoleId)
 	SELECT cda.CustID,
 		   c.Username,
@@ -78,7 +76,7 @@ BEGIN
 		   ELSE NULL END AS Position,
 		   c.currency,
 		   ISNULL(ca.groupID, 0) AS GroupID,
-		   recommend = ag.custid,
+		   recommend = c.recommend,
 		   roleid = c.roleid
 	FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)			
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON cda.custid = c.custid		
@@ -103,17 +101,11 @@ BEGIN
 		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustMaster m WITH(NOLOCK) WHERE m.custid = T.CustID AND m.IsInternal = 1)
 			AND T.RoleId = 3
 
-	IF @Position = '' OR ',' + @Position + ',' LIKE '%,2,%' 
-		DELETE T
-		FROM #Tmp_DirectAccount T
-		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.CustID AND ag.IsInternal = 1)
-			AND T.RoleId = 2
-
-	IF @Position = '' OR ',' + @Position + ',' LIKE '%,1,%' 
+	IF @Position = '' OR ',' + @Position + ',' LIKE '%,2,%'  OR ',' + @Position + ',' LIKE '%,1,%'
 		DELETE T
 		FROM #Tmp_DirectAccount T
 		WHERE EXISTS(SELECT 1 FROM bodb02.dbo.CustAgent ag WITH(NOLOCK) WHERE ag.custid = T.Recommend AND ag.IsInternal = 1)
-			AND T.RoleId = 1
+			AND T.RoleId IN (1, 2)
 
 	IF @Status <> ''
 	BEGIN

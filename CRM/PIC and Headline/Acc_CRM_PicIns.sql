@@ -62,13 +62,13 @@ BEGIN
 
 	IF @PicName = ''
 	BEGIN
-		SELECT @ErrCode = 1007, @ErrMsg = 'Username is null'
+		SELECT @ErrCode = 1007, @ErrMsg = 'Name is null'
 		RETURN
 	END
 
 	IF EXISTS (SELECT 1 FROM dbo.crmPIC WITH(NOLOCK) WHERE Username = @PicName)
 	BEGIN
-		SELECT @ErrCode = 1007,  @ErrMsg = 'Username exists'
+		SELECT @ErrCode = 1007,  @ErrMsg = 'Name exists'
 		RETURN
 	END
 

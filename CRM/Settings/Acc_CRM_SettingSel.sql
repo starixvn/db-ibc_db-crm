@@ -1,8 +1,11 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_SettingSel
 (
-@UserRole		TINYINT,
-@Lang			VARCHAR(10)='en-US'
+	@UserRole			TINYINT = NULL,
+	@Lang				VARCHAR(10)='en-US',
+	@SettingName		VARCHAR(50) = '',
+	@IsActive			TINYINT = 2,
+	@IncludedSettingID	VARCHAR(200) = ''
 )
 AS
 /*
@@ -17,12 +20,15 @@ AS
 		- 20160301@Billy:	Support Active/Inactive function - [Redmine: #53173]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20200421@Johnson: get mapping setting for auto feedback [redmine:#130949]
+		- 20200508@Malcolm : search by setting name  [Redmine: #108739]
 	Param's Explanation:
 	
 */
 BEGIN
 	SET NOCOUNT ON;
 	
+	SELECT @SettingName = ISNULL(@SettingName,''), @IncludedSettingID = ISNULL(@IncludedSettingID,'')
+
 	SELECT
 			SettingName
 		,	cs.SettingID
@@ -35,11 +41,10 @@ BEGIN
 		, 	m.SettingSource
 	FROM	dbo.crmSetting AS cs WITH(NOLOCK)
 		LEFT JOIN crmSettingMapping m WITH(NOLOCK) ON cs.SettingID = m.SettingID
-	WHERE cs.SiteOffer=@UserRole
+	WHERE ((cs.SiteOffer = @UserRole OR @UserRole IS NULL) 
+		  AND (cs.SettingName = @SettingName OR @SettingName = '')
+		  AND (cs.IsActive = @IsActive OR @IsActive = 2)) 
+		  OR (@IncludedSettingID <> '' AND ',' + @IncludedSettingID + ',' LIKE '%,' + CONVERT(VARCHAR(20),cs.SettingID) + ',%')
 	ORDER BY cs.IsActive DESC, cs.SettingName, cs.DisplayOrder, cs.SettingID;
 END;
 GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_SettingSel TO [bodbAdminNet];
-GO
-

@@ -3,7 +3,9 @@ CREATE PROCEDURE [dbo].[Acc_CRM_PicDefaultIns]
 	@HeadlineID		INT,
 	@DefaultPicIDs	NVARCHAR(200) ,
 	@UserID			INT,
-	@LoginIP        VARCHAR(20) =''
+	@LoginIP        VARCHAR(20) ='',
+	@ErrCode		INT = 0 OUTPUT,
+	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 /*
 Created: 20200717@Malcolm

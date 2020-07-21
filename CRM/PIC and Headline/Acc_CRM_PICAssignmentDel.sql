@@ -29,10 +29,12 @@ BEGIN
 	IF @RemovedPICs  = ''
 		RETURN
 
-	DECLARE @iDOC INT, @NewValues XML,@PicID INT,@PicName NVARCHAR(200)
+	DECLARE @iDOC INT, @NewValues XML,@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0, @CustId INT = 0,
+			@ActionID INT = 0
 
 	CREATE TABLE #input 
 	(
+		ID              INT IDENTITY(1,1) PRIMARY KEY,
 		HeadlineID		INT,
 		HeadlineName	VARCHAR(30),
 		CustID			INT,
@@ -124,28 +126,51 @@ BEGIN
 			WHERE c.groupID = h.GroupID AND p.PicID = i.PicID
 		)
 	END	
+	SELECT @RowTotal = COUNT(*) FROM #input
 
-	SELECT @NewValues =	(SELECT HeadlineID		AS 'GroupHeadline/@HeadlineID',
-								HeadlineName	AS 'GroupHeadline/@HeadlineName',
-								PicID			AS 'Pic/@PicID',
-								PicName			AS 'Pic/@PicName', 
-								CustID			AS 'DirectAccount/@CustID',
-								UserName		AS 'DirectAccount/@Username'
-						 FROM #input
-						 FOR XML PATH('RemovedPIC'),ROOT('Acc_CRM_PICAssignmentDel'))
+	SELECT @CurrentRow = 1
 
-    IF @InActivatedPIC = 1 AND @NewValues IS NULL
-	BEGIN
-		DROP TABLE #input
-		RETURN
-	END
+	IF @InActivatedPIC = 0
+		SET @ActionID = 904
 	ELSE
-	BEGIN
-		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-			@UserID = @UserID,
-			@ActionID = 904,
-			@IP = @LoginIP,
-			@NewValues = @NewValues
-	DROP TABLE #input
-	END
+		SET @ActionID = 907
+	 
+
+	--WHILE @RowTotal >= @CurrentRow
+	--BEGIN
+		
+
+	--	IF @InActivatedPIC = 0
+	--	BEGIN
+	--		SELECT @CustId = CustId FROM #input WHERE ID = @CurrentRow
+
+	--		SELECT @NewValues =	(SELECT PicID			AS 'PicID',
+	--									PicName			AS 'PicName'
+	--							 FROM #input
+	--							 WHERE ID = @CurrentRow
+	--							 FOR XML PATH('Acc_CRM_PICAssignmentDel'))
+	--	END
+	--	ELSE 
+	--	BEGIN
+	--		SELECT @CustId = PicID FROM #input WHERE ID = @CurrentRow
+
+	--		SELECT @NewValues =	(SELECT CustID			AS 'CustID',
+	--									UserName		AS 'UserName'
+	--							 FROM #input
+	--							 WHERE ID = @CurrentRow
+	--							 FOR XML PATH('Acc_CRM_PICAssignmentDel'))
+	--	END
+
+	--	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+	--		@UserID = @UserID,
+	--		@CustId = @CustId,
+	--		@ActionID = @ActionID,
+	--		@IP = @LoginIP,
+	--		@NewValues = @NewValues
+
+	--	SELECT @CurrentRow = @CurrentRow + 1
+	--END
+	
+	
+	DROP TABLE #input	
 END

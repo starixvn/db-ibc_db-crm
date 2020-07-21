@@ -27,11 +27,27 @@ BEGIN
 	
 	CREATE TABLE #DirectAccountTmp (CustID INT, Username VARCHAR(30))
 
-	CREATE TABLE #LogForNewAssignPIC(HeadlineName VARCHAR(30), PicName NVARCHAR(200), PicID INT, Username VARCHAR(30), CustID INT)
+	CREATE TABLE #LogForNewAssignPIC
+	(
+		ID INT IDENTITY(1,1) PRIMARY KEY,
+		HeadlineName VARCHAR(30), 
+		PicName NVARCHAR(200), 
+		PicID INT, 
+		Username VARCHAR(30), 
+		CustID INT
+	)
 
-	CREATE TABLE #LogForRemovePIC(HeadlineName VARCHAR(30), PicName NVARCHAR(200), PicID INT, Username VARCHAR(30), CustID INT)
+	CREATE TABLE #LogForRemovePIC
+	(
+		ID INT IDENTITY(1,1) PRIMARY KEY,
+		HeadlineName VARCHAR(30), 
+		PicName NVARCHAR(200), 
+		PicID INT, 
+		Username VARCHAR(30), 
+		CustID INT
+	)
 
-	DECLARE @HeadlineName VARCHAR(30) = '', @GroupID INT = 0,@NewValues XML, @OldValues XML
+	DECLARE @HeadlineName VARCHAR(30) = '', @GroupID INT = 0,@NewValues XML, @OldValues XML, @RowTotal INT = 0, @CurrentRow INT = 1, @CustId INT = 0
 	
 	SELECT @HeadlineID = ISNULL(@HeadlineID,0)
 
@@ -134,38 +150,57 @@ BEGIN
 		RETURN
 	END CATCH
 	
-	IF @IsKeepAssign = 0
-	BEGIN
-		SELECT @NewValues =	(SELECT @HeadlineID		AS 'GroupHeadline/@HeadlineID',
-									HeadlineName	AS 'GroupHeadline/@HeadlineName',
-									PicID			AS 'Pic/@PicID',
-									PicName			AS 'Pic/@PicName', 
-									CustID			AS 'DirectAccount/@CustID',
-									Username		AS 'DirectAccount/@Username'
-							 FROM #LogForRemovePIC
-							 FOR XML PATH('AssignedPIC'),ROOT('Acc_CRM_PICAssignment'))
+	--IF @IsKeepAssign = 0
+	--BEGIN
+	--	SELECT @RowTotal = COUNT(*) FROM #LogForRemovePIC
 
-		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-				@UserID = @UserID,
-				@ActionID = 904,
-				@IP = @LoginIP,
-				@NewValues = @NewValues
-	END 
+	--	SELECT @CurrentRow = 1
 
-	SELECT @NewValues =	(SELECT @HeadlineID		AS 'GroupHeadline/@HeadlineID',
-								HeadlineName	AS 'GroupHeadline/@HeadlineName',
-								PicID			AS 'Pic/@PicID',
-								PicName			AS 'Pic/@PicName', 
-								CustID			AS 'DirectAccount/@CustID',
-								Username		AS 'DirectAccount/@Username'
-						 FROM #LogForNewAssignPIC
-						 FOR XML PATH('AssignedPIC'),ROOT('Acc_CRM_PICAssignment'))
+	--	WHILE @RowTotal >= @CurrentRow
+	--	BEGIN			
+	--		SELECT @CustId = CustId FROM #LogForRemovePIC WHERE ID = @CurrentRow
+
+	--		SELECT @NewValues =	(SELECT PicID			AS 'PicID',
+	--									PicName			AS 'PicName'
+	--							FROM #LogForRemovePIC
+	--							WHERE ID = @CurrentRow
+	--							FOR XML PATH('Acc_CRM_PICAssignment'))			
+
+	--		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+	--				@UserID = @UserID,
+	--				@CustId = @CustId,
+	--				@ActionID = 904,
+	--				@IP = @LoginIP,
+	--				@NewValues = @NewValues
+
+	--		SELECT @CurrentRow = @CurrentRow + 1
+	--	END		
+		
+	--	SELECT @RowTotal = 0,@CurrentRow = 1,@NewValues = NULL
+	--END 
+
+	--SELECT @RowTotal = COUNT(*) FROM #LogForNewAssignPIC
+
+	--WHILE @RowTotal >= @CurrentRow
+	--BEGIN
+	--	SELECT @CustId = CustId FROM #LogForNewAssignPIC WHERE ID = @CurrentRow
+
+	--	SELECT @NewValues =	(SELECT PicID			AS 'PicID',
+	--							    PicName			AS 'PicName'
+	--						FROM #LogForNewAssignPIC
+	--						WHERE ID = @CurrentRow
+	--						FOR XML PATH('Acc_CRM_PICAssignment'))
 	
-	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-			@UserID = @UserID,
-			@ActionID = 905,
-			@IP = @LoginIP,
-			@NewValues = @NewValues  
+	--	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+	--			@UserID = @UserID,
+	--			@CustId = @CustId,
+	--			@ActionID = 905,
+	--			@IP = @LoginIP,
+	--			@NewValues = @NewValues  
+
+	--	SELECT @CurrentRow = @CurrentRow + 1
+	--END
+	
     
 	DROP TABLE #DirectAccountTmp
 	DROP TABLE #LogForNewAssignPIC

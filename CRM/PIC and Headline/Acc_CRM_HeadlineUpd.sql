@@ -1,12 +1,13 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,bodbExtAccNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_HeadlineUpd]
-	@CustID		INT = 0,
-	@Username   VARCHAR(30) = '',
-	@Case		INT = 0,
-	@LoginIP	VARCHAR(20)='',
-	@ErrCode	INT = 0 OUTPUT,
-	@ErrMsg		NVARCHAR(4000) = '' OUTPUT,
-	@UserID		INT
+	@CustID			INT = 0,
+	@HeadlineID_Old INT = 0,
+	@Username		VARCHAR(30) = '',
+	@Case			INT = 0,
+	@LoginIP		VARCHAR(20)='',
+	@ErrCode		INT = 0 OUTPUT,
+	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
+	@UserID			INT
 AS
 /*
 Created: 20200717@Malcolm
@@ -22,47 +23,36 @@ Original:
 			  = 2 :
 			  = 3 :
 			  = 4 :
-		
-		
+				
 */
 BEGIN 
 	SET NOCOUNT ON
 
-	DECLARE @GroupId INT, @HeadlineId INT
-
+	DECLARE @XML XML = NULL, @NewValues	XML = NULL, @OldValues	XML = NULL, @HeadlineName_Old VARCHAR(30)
+			
 	SELECT @CustID = ISNULL(@CustID,0), @Username = ISNULL(@Username,'')
 
 	IF @CustID = 0
-	BEGIN
 		SELECT @CustID = CustId FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE username = @Username
-	END
-
-	SELECT @GroupId = ISNULL(GroupId,0) FROM bodb02.dbo.custAccount WITH(NOLOCK) WHERE custid = @CustID
-
-	SELECT @HeadlineId = CustId FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE GroupID = @GroupId
-
-	IF @Case = 0
-		RETURN
+	ELSE 
+		SELECT @Username = UserName FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid = @CustID
 
 	IF @Case IN (3,4)
 	BEGIN
-		UPDATE dbo.crmPICHeadline
+	
+		UPDATE dbo.crmPICHeadline WITH(ROWLOCK, UPDLOCK)
 		SET HeadlineID = @CustID
-		WHERE EXISTS (
-			SELECT 1 
-			FROM bodb02.dbo.custAccount
-			WHERE groupID = @GroupId AND custid = HeadlineID)
+		WHERE HeadlineID = @HeadlineID_Old
 
-		UPDATE dbo.crmPICDefault
+		UPDATE dbo.crmPICDefault WITH(ROWLOCK, UPDLOCK)
 		SET HeadlineID = @CustID
-		WHERE EXISTS (
-			SELECT 1 
-			FROM bodb02.dbo.custAccount
-			WHERE groupID = @GroupId AND custid = HeadlineID)
+		WHERE HeadlineID = @HeadlineID_Old
+
 	END
 
 	IF @Case IN (1,4)
-	BEGIN
+	BEGIN	
+
 		DELETE dbo.crmPicManagement
 		WHERE CustID = @CustID
 
@@ -75,16 +65,61 @@ BEGIN
 			@CustID, 
 			PicID
 		FROM dbo.crmPICDefault WITH(NOLOCK)
-		WHERE HeadlineID = @HeadlineId
+		WHERE (@Case = 1 AND HeadlineID = @HeadlineID_Old)
+			OR (@Case = 4 AND HeadlineID = @CustID)
 	END
 
 	IF @Case = 2
-	BEGIN
+	BEGIN	
+
 		DELETE dbo.crmPicManagement
 		WHERE CustID = @CustID
 
 		DELETE dbo.crmPICHeadline
 		WHERE HeadlineID = @CustID
+		
+		DELETE dbo.crmPICDefault
+		WHERE HeadlineID = @CustID		
 	END
+
+	-- Write log
+
+    IF @Case IN (3, 4, 2)
+	BEGIN
+		SELECT @XML	=  (SELECT p.PicID AS 'PicID', P.Username AS 'PicName', s.SettingValue AS 'RoleName'
+					FROM dbo.crmPICHeadline h WITH(NOLOCK)
+						INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON h.PicID = p.PicID
+						INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
+					WHERE h.HeadlineID = @CustID
+					FOR XML PATH('PIC'))	    
+
+		SELECT @OldValues  =  (SELECT @CustID   AS 'HeadlineID',
+								      @Username AS 'HeadlineName',
+									  @XML
+							   FOR XML PATH('Acc_CRM_HeadlineUpd')) --906
+		IF @Case IN (3, 4)
+		BEGIN
+		    SELECT @HeadlineName_Old = UserName 
+			FROM bodb02.dbo.Customer WITH(NOLOCK) 
+			WHERE custid = @HeadlineID_Old
+
+		    SELECT @NewValues = @OldValues 
+
+			SELECT @OldValues  =  (SELECT @HeadlineID_Old   AS 'HeadlineId',
+										  @HeadlineName_Old AS 'HeadlineName',
+										  @XML
+								   FOR XML PATH('Acc_CRM_HeadlineUpd')) -- 906
+		END
+		
+			
+	END											 
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustId = @CustId,
+			@ActionID = @ActionID,
+			@IP = @LoginIP,
+			@NewValues = @NewValues,
+			@OldValues = @OldValues
 
 END

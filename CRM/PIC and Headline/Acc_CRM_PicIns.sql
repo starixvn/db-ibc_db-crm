@@ -19,6 +19,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: insert a new PIC [Redmine: #108739]
+		- 20200723@Malcolm : change log [RedmineId : #137144]
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -102,6 +103,12 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT  @ErrCode = ERROR_NUMBER(),@ErrMsg = ERROR_MESSAGE()
+
+		IF @PicID <> 0
+		BEGIN
+			DELETE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+			WHERE PicID = @PicID
+		END
 		RETURN
 	END CATCH
 
@@ -123,9 +130,9 @@ BEGIN
 				WHERE SettingID IN (SELECT Val FROM bodb02.dbo.strSplit(@Language,','))
 				FOR XML PATH('Language'))
 
-	SELECT @NewValues =	(SELECT @PicID          AS '@PicID',
-								@PicName        AS '@PicName',
+	SELECT @NewValues =	(SELECT @PicName        AS '@PicName',
 								@Remark	  		AS '@Remark',
+								1               AS '@Active',
 								@RoleXML,
 								@CountryXML,
 								@LanguageXML,								
@@ -139,6 +146,7 @@ BEGIN
     
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
+			@CustID = @PicID,
 			@ActionID = 901,
 			@IP = @LoginIP,
 			@NewValues = @NewValues

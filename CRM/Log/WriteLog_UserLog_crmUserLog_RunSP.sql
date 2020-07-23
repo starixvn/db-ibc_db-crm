@@ -5,7 +5,7 @@ ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmUserLog_RunSP]
 	@CustId     INT,
 	@ActionID	INT, 
 	@IP			VARCHAR(15),	
-	@NewValues	xml,
+	@NewValues	xml = NULL,
 	@OldValues	xml = NULL
 )
 AS

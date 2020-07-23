@@ -28,6 +28,9 @@ Original:
 BEGIN 
 	SET NOCOUNT ON
 
+
+	DECLARE @TmpLog TABLE (Type INT, PicID INT, CustID INT)
+
 	DECLARE @XML XML = NULL, @NewValues	XML = NULL, @OldValues	XML = NULL, @HeadlineName_Old VARCHAR(30)
 			
 	SELECT @CustID = ISNULL(@CustID,0), @Username = ISNULL(@Username,'')
@@ -39,47 +42,96 @@ BEGIN
 
 	IF @Case IN (3,4)
 	BEGIN
-	
-		UPDATE dbo.crmPICHeadline WITH(ROWLOCK, UPDLOCK)
-		SET HeadlineID = @CustID
-		WHERE HeadlineID = @HeadlineID_Old
+	    BEGIN TRY
+			UPDATE dbo.crmPICHeadline WITH(ROWLOCK)
+			SET HeadlineID = @CustID
+			OUTPUT deleted.HeadlineID, deleted.PicID, 2
+				INTO @TmpLog(CustID, PicID, Type)
+			WHERE HeadlineID = @HeadlineID_Old
 
-		UPDATE dbo.crmPICDefault WITH(ROWLOCK, UPDLOCK)
-		SET HeadlineID = @CustID
-		WHERE HeadlineID = @HeadlineID_Old
-
+			UPDATE dbo.crmPICDefault WITH(ROWLOCK)
+			SET HeadlineID = @CustID
+			WHERE HeadlineID = @HeadlineID_Old
+		END TRY
+		BEGIN CATCH
+		    SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()		
+			IF EXISTS(SELECT 1 FROM @TmpLog)
+			BEGIN
+				UPDATE dbo.crmPICHeadline WITH(ROWLOCK)
+				SET HeadlineID = @HeadlineID_Old
+				WHERE HeadlineID = @CustID
+			END
+			RETURN
+		END CATCH		
 	END
 
 	IF @Case IN (1,4)
 	BEGIN	
+	    BEGIN TRY
+			DELETE dbo.crmPicManagement WITH(ROWLOCK, UPDLOCK)
+			OUTPUT deleted.PicID, deleted.CustID, 1
+				INTO @TmpLog (PicID, CustID, Type)
+			WHERE CustID = @CustID
 
-		DELETE dbo.crmPicManagement
-		WHERE CustID = @CustID
-
-		INSERT INTO dbo.crmPicManagement
-		(
-			CustID,
-			PicID
-		)
-		SELECT 
-			@CustID, 
-			PicID
-		FROM dbo.crmPICDefault WITH(NOLOCK)
-		WHERE (@Case = 1 AND HeadlineID = @HeadlineID_Old)
-			OR (@Case = 4 AND HeadlineID = @CustID)
+			INSERT INTO dbo.crmPicManagement
+			(
+				CustID,
+				PicID
+			)
+			OUTPUT inserted.CustID, inserted.PicID, 2
+				INTO @TmpLog (CustID, PicID, Type)
+			SELECT @CustID, PicID
+			FROM dbo.crmPICDefault WITH(NOLOCK)
+			WHERE (@Case = 1 AND HeadlineID = @HeadlineID_Old)
+				OR (@Case = 4 AND HeadlineID = @CustID)
+		END TRY
+		BEGIN CATCH
+			SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
+			IF EXISTS(SELECT 1 FROM @TmpLog)
+			BEGIN
+				INSERT INTO dbo.crmPicManagement(CustID, PicID)
+				SELECT CustID, PicID
+				FROM @TmpLog
+			END
+			RETURN
+		END CATCH	
 	END
 
 	IF @Case = 2
 	BEGIN	
+	    BEGIN TRY
+			DELETE dbo.crmPicManagement WITH(ROWLOCK, UPDLOCK)
+			OUTPUT deleted.CustID, deleted.PicID, 1
+				INTO @TmpLog (CustID, PicID, Type)
+			WHERE CustID = @CustID
 
-		DELETE dbo.crmPicManagement
-		WHERE CustID = @CustID
-
-		DELETE dbo.crmPICHeadline
-		WHERE HeadlineID = @CustID
+			DELETE dbo.crmPICHeadline WITH(ROWLOCK, UPDLOCK)
+			OUTPUT deleted.HeadlineID, deleted.PicID, 2
+				INTO @TmpLog (CustID, PicID, Type)
+			WHERE HeadlineID = @CustID
 		
-		DELETE dbo.crmPICDefault
-		WHERE HeadlineID = @CustID		
+			DELETE dbo.crmPICDefault WITH(ROWLOCK, UPDLOCK)
+			WHERE HeadlineID = @CustID	
+		END TRY
+		BEGIN CATCH
+			SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
+			BEGIN
+				INSERT INTO dbo.crmPICHeadline(HeadlineID, PicID)
+				SELECT CustID, PicID
+				FROM @TmpLog 
+				WHERE Type = 2
+			END
+
+			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 1)
+			BEGIN
+				INSERT INTO dbo.crmPicManagement(CustID, PicID)
+				SELECT CustID, PicID
+				FROM @TmpLog
+				WHERE Type = 1
+			END
+			RETURN
+		END CATCH			
 	END
 
 	-- Write log
@@ -87,10 +139,10 @@ BEGIN
     IF @Case IN (3, 4, 2)
 	BEGIN
 		SELECT @XML	=  (SELECT p.PicID AS 'PicID', P.Username AS 'PicName', s.SettingValue AS 'RoleName'
-					FROM dbo.crmPICHeadline h WITH(NOLOCK)
+					FROM @TmpLog h 
 						INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON h.PicID = p.PicID
 						INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
-					WHERE h.HeadlineID = @CustID
+					WHERE h.Type = 2
 					FOR XML PATH('PIC'))	    
 
 		SELECT @OldValues  =  (SELECT @CustID   AS 'HeadlineID',
@@ -117,7 +169,7 @@ BEGIN
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
 			@CustId = @CustId,
-			@ActionID = @ActionID,
+			@ActionID = 906,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,
 			@OldValues = @OldValues

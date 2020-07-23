@@ -20,27 +20,33 @@ Original:
 BEGIN 
 	SET NOCOUNT ON
 
-	DECLARE @HeadlineName VARCHAR(20), @NewValues XML
+	DECLARE @HeadlineName VARCHAR(20), @NewValues XML = NULL
+
 
 	SELECT @HeadlineName = Username FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid = @HeadlineID
 
-	SELECT @NewValues =	(SELECT  @HeadlineID	AS '@HeadlineID',
-								 @HeadlineName	AS '@HeadlineName',
-								 d.PicID		AS '@PicID',
+	SELECT @NewValues =	(SELECT  d.PicID		AS '@PicID',
 								 P.Username		AS '@PicName'
 						FROM dbo.crmPICDefault d WITH(NOLOCK)
 							INNER JOIN dbo.crmPIC p WITH(NOLOCK)  ON d.PicID = p.PicID
 						WHERE HeadlineID = @HeadlineID
-						FOR XML PATH('DefaultPIC'),ROOT('Acc_CRM_PicDefaultDel'))
+						FOR XML PATH('PIC'),ROOT('Acc_CRM_PicDefaultDel'))
 
-	DELETE dbo.crmPICDefault
-	WHERE HeadlineID = @HeadlineID
+	BEGIN TRY
+		DELETE dbo.crmPICDefault
+		WHERE HeadlineID = @HeadlineID
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END CATCH	
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-				@UserID = @UserID,
-				@ActionID = 910,
-				@IP = @LoginIP,
-				@NewValues = @NewValues
+			@UserID = @UserID,
+			@CustId = @HeadlineID,
+			@ActionID = 908,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
 
 END
 GO

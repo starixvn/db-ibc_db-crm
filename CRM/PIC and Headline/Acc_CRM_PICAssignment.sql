@@ -18,6 +18,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
+		- 20200723@Malcolm : change log [RedmineId : #137144]
 	Param's Explanation:
 	
 		
@@ -27,27 +28,20 @@ BEGIN
 	
 	CREATE TABLE #DirectAccountTmp (CustID INT, Username VARCHAR(30))
 
-	CREATE TABLE #LogForNewAssignPIC
+	CREATE TABLE #TmpLog
 	(
-		ID INT IDENTITY(1,1) PRIMARY KEY,
 		HeadlineName VARCHAR(30), 
 		PicName NVARCHAR(200), 
 		PicID INT, 
 		Username VARCHAR(30), 
-		CustID INT
+		CustID INT,
+		Type INT
 	)
 
-	CREATE TABLE #LogForRemovePIC
-	(
-		ID INT IDENTITY(1,1) PRIMARY KEY,
-		HeadlineName VARCHAR(30), 
-		PicName NVARCHAR(200), 
-		PicID INT, 
-		Username VARCHAR(30), 
-		CustID INT
-	)
+	DECLARE @Tmp_Cust TABLE (CustID INT)
 
-	DECLARE @HeadlineName VARCHAR(30) = '', @GroupID INT = 0,@NewValues XML, @OldValues XML, @RowTotal INT = 0, @CurrentRow INT = 1, @CustId INT = 0
+	DECLARE @HeadlineName VARCHAR(30) = '', @GroupID INT = 0,@NewValues XML, @OldValues XML, 
+			@RowTotal INT = 0, @CurrentRow INT = 1, @CustId INT = 0, @Xml XML, @_CustID INT
 	
 	SELECT @HeadlineID = ISNULL(@HeadlineID,0)
 
@@ -70,21 +64,22 @@ BEGIN
 
 	SET @IsKeepAssign = ISNULL(@IsKeepAssign,0)
 
-	BEGIN TRY
-		IF @IsKeepAssign = 0 
-		BEGIN
-		
+	IF @IsKeepAssign = 0 
+	BEGIN
+	    BEGIN TRY
 			DELETE m
-			OUTPUT @HeadlineName, p.Username, p.PicID,t.Username, t.CustID
-			INTO #LogForRemovePIC
-			FROM dbo.crmPicManagement m WITH(NOLOCK)
+			OUTPUT @HeadlineName, p.Username, p.PicID,t.Username, t.CustID, 1
+				INTO #TmpLog (HeadlineName, PicName, PicID, Username, CustID, Type)
+			FROM dbo.crmPicManagement m WITH(ROWLOCK, UPDLOCK)
 				INNER JOIN #DirectAccountTmp t ON m.CustID = t.CustID
 				LEFT JOIN  dbo.crmPIC p WITH(NOLOCK) ON p.PicID = m.PicID
 
 			DELETE h
-			FROM dbo.crmPICHeadline h
+			OUTPUT deleted.HeadlineID, deleted.PicID, 2
+				INTO #TmpLog (CustID, PicID, Type)
+			FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
 			WHERE h.HeadlineID = @HeadlineID  
-				AND h.PicID IN (SELECT PicID FROM #LogForRemovePIC)
+				AND h.PicID IN (SELECT PicID FROM #TmpLog WHERE type = 1)
 
 			INSERT INTO dbo.crmPICHeadline
 			(
@@ -95,41 +90,71 @@ BEGIN
 			FROM dbo.crmPicManagement m WITH(NOLOCK)
 				INNER JOIN bodb02.dbo.CustAccount c WITH(NOLOCK) ON m.CustID = c.custid
 			WHERE  c.groupID = @GroupID  AND @GroupID <> 0
-				AND m.PicID IN (SELECT PicID FROM #LogForRemovePIC)			
-		END
+				AND m.PicID IN (SELECT PicID FROM #TmpLog WHERE Type = 1)	
+		END TRY
+		BEGIN CATCH
+			SELECT @ErrorCode = @@ERROR, @ErrorMsg = ERROR_MESSAGE()
 
-		INSERT INTO #LogForNewAssignPIC
-		(
-				HeadlineName,
-				PicName,
-				PicID,
-				Username,
-				CustID
-		)		
-		SELECT	@HeadlineName,
-				l.PicName,
-				l.PicID, 
-				t.Username,		
-				t.CustID
-		FROM #DirectAccountTmp t
-		   CROSS APPLY(
-			SELECT Val AS PicID , r.Username AS PicName
-			FROM bodb02.dbo.strSplit(@PicID,',') AS s
-				INNER JOIN dbo.crmPIC r WITH(NOLOCK) ON s.val = r.PicID
-		)l
+			IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 1)
+			BEGIN
+				INSERT INTO dbo.crmPicManagement(CustID, PicID)
+				SELECT CustID, PicID
+				FROM #TmpLog
+				WHERE Type = 1
+			END
 
+			IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 2)
+			BEGIN
+				INSERT INTO dbo.crmPICHeadline(HeadlineID, PicID)
+				SELECT CustID, PicID
+				FROM #TmpLog 
+				WHERE Type = 2
+			END
+
+			RETURN
+		END CATCH
+				
+	END
+
+	DELETE #TmpLog WHERE Type = 2
+
+	INSERT INTO #TmpLog
+	(
+			HeadlineName,
+			PicName,
+			PicID,
+			Username,
+			CustID,
+			Type
+	)		
+	SELECT	@HeadlineName,
+			l.PicName,
+			l.PicID, 
+			t.Username,		
+			t.CustID,
+			3
+	FROM #DirectAccountTmp t
+	   CROSS APPLY(
+		SELECT Val AS PicID , r.Username AS PicName
+		FROM bodb02.dbo.strSplit(@PicID,',') AS s
+			INNER JOIN dbo.crmPIC r WITH(NOLOCK) ON s.val = r.PicID
+	)l
+
+	BEGIN TRY
 		INSERT INTO dbo.crmPicManagement
 		(
 				PicID,
 				CustID
-		)		
+		)	
+		OUTPUT inserted.PicID, inserted.CustID, 4
+			INTO #TmpLog (PicID, CustID, Type)
 		SELECT	PicID,
 				CustID
-		FROM #LogForNewAssignPIC l
-		WHERE @IsKeepAssign = 0 
-		OR NOT EXISTS(SELECT 1 
+		FROM #TmpLog l
+		WHERE (@IsKeepAssign = 0 
+			OR NOT EXISTS(SELECT 1 
 			FROM dbo.crmPicManagement WITH(NOLOCK) 
-			WHERE PicID = l.PicID AND CustID = l.CustID)
+			WHERE PicID = l.PicID AND CustID = l.CustID)) AND l.Type = 3
 
 		INSERT INTO dbo.crmPICHeadline
 		(
@@ -137,72 +162,104 @@ BEGIN
 			PicID
 		)
 		SELECT DISTINCT @HeadlineID,l.PicID
-		FROM #LogForNewAssignPIC l
+		FROM #TmpLog l
 		WHERE NOT EXISTS(
 			SELECT 1 
 			FROM dbo.crmPICHeadline h WITH(NOLOCK) 
 			WHERE h.HeadlineID = @HeadlineID AND h.PicID = l.PicID
-		) AND @HeadlineID <> 0
-
+		) AND @HeadlineID <> 0 AND l.Type = 3
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrorCode = ERROR_NUMBER(), @ErrorMsg = ERROR_MESSAGE()
+		SELECT @ErrorCode = @@ERROR, @ErrorMsg = ERROR_MESSAGE()
+
+		IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 4)
+		BEGIN
+			DELETE m 
+			FROM dbo.crmPicManagement m WITH(ROWLOCK, UPDLOCK)
+			WHERE EXISTS(SELECT 1 
+						 FROM #TmpLog t WHERE Type = 4 
+						 AND m.CustID = t.CustID 
+						 AND m.PicID = t.PicID)
+		END
+
 		RETURN
-	END CATCH
+	END CATCH 
 	
-	--IF @IsKeepAssign = 0
-	--BEGIN
-	--	SELECT @RowTotal = COUNT(*) FROM #LogForRemovePIC
+	DELETE #TmpLog WHERE Type = 4
 
-	--	SELECT @CurrentRow = 1
+	IF @IsKeepAssign = 0
+	BEGIN
+	    
+		INSERT INTO @Tmp_Cust
+		(
+			CustID
+		)
+		SELECT DISTINCT CustID
+		FROM #TmpLog
+		WHERE Type = 1
 
-	--	WHILE @RowTotal >= @CurrentRow
-	--	BEGIN			
-	--		SELECT @CustId = CustId FROM #LogForRemovePIC WHERE ID = @CurrentRow
+		DECLARE cursor_custid CURSOR FOR SELECT CustID FROM @Tmp_Cust 
+		OPEN cursor_custid 
+		FETCH NEXT FROM cursor_custid INTO @_CustID
 
-	--		SELECT @NewValues =	(SELECT PicID			AS 'PicID',
-	--									PicName			AS 'PicName'
-	--							FROM #LogForRemovePIC
-	--							WHERE ID = @CurrentRow
-	--							FOR XML PATH('Acc_CRM_PICAssignment'))			
+		WHILE @@FETCH_STATUS = 0
+		BEGIN			
+			SELECT @NewValues  = (SELECT PicID			AS '@PicID',
+										 PicName		AS '@PicName'
+								  FROM #TmpLog
+								  WHERE CustID = @_CustID AND Type = 1
+								  FOR XML PATH('PIC'), ROOT('Acc_CRM_PICAssignment'))	
 
-	--		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-	--				@UserID = @UserID,
-	--				@CustId = @CustId,
-	--				@ActionID = 904,
-	--				@IP = @LoginIP,
-	--				@NewValues = @NewValues
+			EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+					@UserID = @UserID,
+					@CustId = @_CustID,
+					@ActionID = 904,
+					@IP = @LoginIP,
+					@NewValues = @NewValues
 
-	--		SELECT @CurrentRow = @CurrentRow + 1
-	--	END		
-		
-	--	SELECT @RowTotal = 0,@CurrentRow = 1,@NewValues = NULL
-	--END 
+			FETCH NEXT FROM cursor_custid INTO @_CustID
 
-	--SELECT @RowTotal = COUNT(*) FROM #LogForNewAssignPIC
+		END
+		CLOSE cursor_custid
+		DEALLOCATE cursor_custid
+	END 
 
-	--WHILE @RowTotal >= @CurrentRow
-	--BEGIN
-	--	SELECT @CustId = CustId FROM #LogForNewAssignPIC WHERE ID = @CurrentRow
+	DELETE @Tmp_Cust
 
-	--	SELECT @NewValues =	(SELECT PicID			AS 'PicID',
-	--							    PicName			AS 'PicName'
-	--						FROM #LogForNewAssignPIC
-	--						WHERE ID = @CurrentRow
-	--						FOR XML PATH('Acc_CRM_PICAssignment'))
+	DELETE #TmpLog WHERE Type <> 3
+
+	INSERT INTO @Tmp_Cust
+	(
+		CustID
+	)
+	SELECT DISTINCT CustID
+	FROM #TmpLog
+	WHERE Type = 3
+
+	DECLARE cursor_custid_ CURSOR FOR SELECT CustID FROM @Tmp_Cust 
+	OPEN cursor_custid_ 
+	FETCH NEXT FROM cursor_custid_ INTO @_CustID
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN
+		SELECT @NewValues =	(SELECT PicID			AS 'PicID',
+								    PicName			AS 'PicName'
+							FROM #TmpLog
+							WHERE CustID = @_CustID
+							FOR XML PATH('PIC'),ROOT('Acc_CRM_PICAssignment'))
 	
-	--	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-	--			@UserID = @UserID,
-	--			@CustId = @CustId,
-	--			@ActionID = 905,
-	--			@IP = @LoginIP,
-	--			@NewValues = @NewValues  
+		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+				@UserID = @UserID,
+				@CustId = @_CustId,
+				@ActionID = 905,
+				@IP = @LoginIP,
+				@NewValues = @NewValues  
 
-	--	SELECT @CurrentRow = @CurrentRow + 1
-	--END
-	
-    
+		FETCH NEXT FROM cursor_custid_ INTO @_CustID
+	END
+	CLOSE cursor_custid_
+	DEALLOCATE cursor_custid_
+	    
 	DROP TABLE #DirectAccountTmp
-	DROP TABLE #LogForNewAssignPIC
-	DROP TABLE #LogForRemovePIC
+	DROP TABLE #TmpLog
 END

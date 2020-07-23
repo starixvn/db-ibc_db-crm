@@ -15,6 +15,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: Update status of PIC [Redmine: #108739]
+		- 20200723@Malcolm : change log [RedmineId : #137144]
 	Param's Explanation:
 	
 		
@@ -24,24 +25,44 @@ BEGIN
 
 	DECLARE @OldValues NVARCHAR(MAX) = '', @NewValues NVARCHAR(MAX) = '', @Old_IsActive BIT = 0, @PicName NVARCHAR(200) = '',@RemovedPICs NVARCHAR(MAX)
 
+
 	SELECT @Old_IsActive = IsActive, @PicName =Username FROM dbo.crmPIC WITH(NOLOCK) WHERE PicID = @PicID
+
+	DECLARE @TmpLog TABLE (CustID INT, PicID INT)
 
 	SELECT @IsActive = ISNULL(@IsActive,0)
 
 	IF @IsActive = 0
 	BEGIN
-		
-		SELECT @RemovedPICs = '<ROOT><RemovedPIC HeadlineID = "0" CustID = "0"  PicID = "'+ CONVERT(VARCHAR(20),@PicID) +'"/></ROOT>'
+		SELECT	@OldValues  =  (SELECT c.custid AS CustID, c.username AS UserName
+								FROM dbo.crmPicManagement m WITH(NOLOCK)
+									INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON m.CustID = c.custid
+								WHERE PicID = @PicID
+								FOR XML PATH('DirectAccount'))
+		BEGIN TRY
+			DELETE t
+			OUTPUT deleted.CustID, deleted.PicID
+				INTO @TmpLog (CustID, PicID)
+			FROM dbo.crmPicManagement t WITH(ROWLOCK, UPDLOCK)
+			WHERE t.PicID = @PicID
 
-		EXEC dbo.Acc_CRM_PICAssignmentDel	@RemovedPICs	= @RemovedPICs, 
-											@InActivatedPIC = 1, 											
-											@LoginIP		= @LoginIP,
-											@UserID			= @UserID,
-											@ErrCode		= @ErrCode OUTPUT, 
-											@ErrMsg			= @ErrMsg OUTPUT
-		IF @ErrCode <> 0
-			RETURN	    
-	END
+			DELETE t
+			FROM dbo.crmPICHeadline t WITH(ROWLOCK, UPDLOCK)
+			WHERE PicID = @PicID
+		END TRY
+		BEGIN CATCH
+			SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
+
+			IF EXISTS(SELECT 1 FROM @TmpLog)
+			BEGIN
+				INSERT INTO dbo.crmPicManagement (CustID, PicID)
+				SELECT CustID, PicID
+				FROM @TmpLog
+			END
+
+			RETURN
+		END CATCH
+	END 
 
 	BEGIN TRY
 		UPDATE t
@@ -51,14 +72,16 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
+		RETURN
 	END CATCH
 
-	SELECT @OldValues = (SELECT @PicID AS '@CountryID', @PicName AS '@PicName' ,@Old_IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_PICStatusUpd'))
+	SELECT @OldValues = (SELECT @Old_IsActive AS '@IsActive', @OldValues FOR XML PATH('Acc_CRM_PICStatusUpd'))
 
-	SELECT @NewValues = (SELECT @PicID AS '@CountryID', @PicName AS '@PicName' ,@IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_PICStatusUpd'))
+	SELECT @NewValues = (SELECT @IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_PICStatusUpd'))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
+			@CustID = @PicID,
 			@ActionID = 903,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

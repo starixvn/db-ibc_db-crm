@@ -20,6 +20,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: Update information of PIC [Redmine: #108739]
+		- 20200723@Malcolm : change log [RedmineId : #137144]
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -107,8 +108,7 @@ BEGIN
 				WHERE SettingID IN (SELECT Val FROM bodb02.dbo.strSplit(@Language_Old,','))
 				FOR XML PATH('Language'))
 
-	SELECT @OldValues =	(SELECT	@PicID          AS '@PicID',
-								@PicName_Old    AS '@PicName',
+	SELECT @OldValues =	(SELECT	@PicName_Old    AS '@PicName',
 								@Remark	  		AS '@Remark',
 								@RoleXML,
 								@CountryXML,
@@ -131,8 +131,14 @@ BEGIN
 			P.Country   = @Country
 		FROM dbo.crmPIC AS p
 		WHERE p.PicID = @PicID;
-			
-		MERGE dbo.crmPICCommunication AS TARGET
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END CATCH	
+
+	BEGIN TRY		
+		;MERGE dbo.crmPICCommunication AS TARGET
 			USING #input AS SOURCE
 				ON (TARGET.PicID = @PicID AND TARGET.CommunicationID = SOURCE.SettingID)
 		WHEN MATCHED THEN 
@@ -166,8 +172,7 @@ BEGIN
 				WHERE SettingID IN (SELECT Val FROM bodb02.dbo.strSplit(@Language,','))
 				FOR XML PATH('Language'))
 
-	SELECT @NewValues =	(SELECT @PicID          AS '@PicID',
-								@PicName        AS '@PicName',
+	SELECT @NewValues =	(SELECT @PicName        AS '@PicName',
 								@Remark	  		AS '@Remark',
 								@RoleXML,
 								@CountryXML,
@@ -183,6 +188,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
+			@CustId = @PicID,
 			@ActionID = 902,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

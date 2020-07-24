@@ -1,12 +1,12 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmUserLog_RunSP]
 (
-	@UserID		VARCHAR(50), 
-	@CustId     INT,
-	@ActionID	INT, 
-	@IP			VARCHAR(15),	
-	@NewValues	xml = NULL,
-	@OldValues	xml = NULL
+	@UserID			INT, 
+	@CustId     	INT,
+	@ActionID		INT, 
+	@IP				VARCHAR(20),	
+	@NewValues		NVARCHAR(MAX) ='',
+	@OldValues		NVARCHAR(MAX) =''
 )
 AS
 /*
@@ -36,7 +36,7 @@ BEGIN
 				)
 			VALUES
 				(
-					getdate(), 
+					DATEADD(HOUR,8,GETUTCDATE()), 
 					@UserID, 
 					@CustId,
 					@ActionID, 

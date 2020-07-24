@@ -14,7 +14,7 @@ Original:
 
 	Revisions:
 		- 20200513@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
-		- 20200723@Malcolm : change log [RedmineId : #137144]
+		- 20200723@Malcolm : change logs [RedmineId : #137144]
 	Param's Explanation:
 	- @RemovedPICs:		
 		<ROOT>
@@ -29,9 +29,9 @@ BEGIN
 	IF @RemovedPICs  = ''
 		RETURN
 
-	DECLARE @iDOC INT, @NewValues XML,@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0
+	DECLARE @iDOC INT, @NewValues NVARCHAR(MAX),@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0
 
-	DECLARE @TmpLog TABLE (CustID INT, PicID INT, Type INT)
+	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT, Type INT)
 
     CREATE TABLE #TmpLog
 	(
@@ -41,12 +41,12 @@ BEGIN
 
 	CREATE TABLE #input 
 	(
-		HeadlineID		INT,
-		HeadlineName	VARCHAR(30),
+		HeadlineID      INT,
 		CustID			INT,
-		UserName        VARCHAR(30),
 		PICName			NVARCHAR(200),
-		PicID			INT
+		PicID			INT,
+		RoleName        NVARCHAR(100),
+		RoleID          INT
 	)
 
 	BEGIN TRY
@@ -73,23 +73,20 @@ BEGIN
 	
 	UPDATE t
 		SET t.PICName = p.Username,
-			t.HeadlineName = h.username,
-			t.UserName = m.username
+			t.RoleID = p.Role
 	FROM #input t 
 		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = p.PicID
-		LEFT JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON h.custid = t.HeadlineID
-		INNER JOIN bodb02.dbo.Customer m WITH(NOLOCK) ON m.custid = t.CustID
 	
 	BEGIN TRY
 		DELETE t
-		OUTPUT deleted.CustID, deleted.PicID, 1
-			INTO @TmpLog (CustID, PicID, Type)
+		OUTPUT deleted.HeadlineID, deleted.CustID, deleted.PicID, 1
+			INTO @TmpLog (HeadlineID, CustID, PicID, Type)
 		FROM dbo.crmPicManagement t WITH(ROWLOCK, UPDLOCK)
 			INNER JOIN #input i ON t.CustID = i.CustID AND t.PicID = i.PicID
 	
 		DELETE t
 		OUTPUT deleted.HeadlineID, deleted.PicID, 2
-			INTO @TmpLog(CustID, PicID, Type)
+			INTO @TmpLog(HeadlineID, PicID, Type)
 		FROM dbo.crmPICHeadline t WITH(ROWLOCK, UPDLOCK)
 			INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON t.HeadlineID = h.CustID
 			INNER JOIN #input i ON t.HeadlineID = i.HeadlineID AND t.PicID = i.PicID	
@@ -106,15 +103,15 @@ BEGIN
 		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
 		BEGIN
 			INSERT INTO dbo.crmPICHeadline (HeadlineID, PicID)
-			SELECT CustID, PicID
+			SELECT HeadlineID, PicID
 			FROM @TmpLog 
 			WHERE Type = 2
 		END
 
 		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 1)
 		BEGIN
-			INSERT INTO dbo.crmPicManagement (CustID, PicID)
-			SELECT CustID, PicID
+			INSERT INTO dbo.crmPicManagement (HeadlineID, CustID, PicID)
+			SELECT HeadlineID, CustID, PicID
 			FROM @TmpLog
 			WHERE Type = 1
 		END
@@ -130,6 +127,11 @@ BEGIN
 	SELECT DISTINCT CustID
 	FROM #input
 
+	UPDATE i
+	SET i.RoleName = s.SettingValue
+	FROM #input i
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON i.RoleID = s.SettingID
+
 	DECLARE @_CustID INT
 
 	DECLARE cursor_custid CURSOR FOR SELECT CustID FROM #TmpLog
@@ -139,11 +141,13 @@ BEGIN
 	WHILE @@FETCH_STATUS = 0
 	BEGIN	
 	
-			SELECT @NewValues =	(SELECT PicID			AS 'PicID',
-										PicName			AS 'PicName'
-								 FROM #input
-								 WHERE CustID = @_CustID
-								 FOR XML PATH('PIC'),ROOT('Acc_CRM_PICAssignmentDel'))
+			SELECT @NewValues =	CAST((SELECT PicID			AS '@PicID',
+											 PicName		AS '@PicName',
+											 RoleID         AS '@RoleID',
+											 RoleName       AS '@RoleName'
+									 FROM #input i																	
+									 WHERE CustID = @_CustID
+									 FOR XML PATH('PIC'),ROOT('Acc_CRM_PICAssignmentDel')) AS NVARCHAR(MAX))
 
 			EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 				@UserID = @UserID,

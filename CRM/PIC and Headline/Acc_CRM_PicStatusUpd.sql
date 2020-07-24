@@ -15,7 +15,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: Update status of PIC [Redmine: #108739]
-		- 20200723@Malcolm : change log [RedmineId : #137144]
+		- 20200723@Malcolm : change logs [RedmineId : #137144]
 	Param's Explanation:
 	
 		
@@ -23,26 +23,26 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @OldValues NVARCHAR(MAX) = '', @NewValues NVARCHAR(MAX) = '', @Old_IsActive BIT = 0, @PicName NVARCHAR(200) = '',@RemovedPICs NVARCHAR(MAX)
-
+	DECLARE @OldValues NVARCHAR(MAX) = '', @NewValues NVARCHAR(MAX) = '', @Old_IsActive BIT = 0, @PicName NVARCHAR(200) = '',
+			@RemovedPICs NVARCHAR(MAX), @XML XML 
 
 	SELECT @Old_IsActive = IsActive, @PicName =Username FROM dbo.crmPIC WITH(NOLOCK) WHERE PicID = @PicID
 
-	DECLARE @TmpLog TABLE (CustID INT, PicID INT)
+	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT)
 
 	SELECT @IsActive = ISNULL(@IsActive,0)
 
 	IF @IsActive = 0
 	BEGIN
-		SELECT	@OldValues  =  (SELECT c.custid AS CustID, c.username AS UserName
-								FROM dbo.crmPicManagement m WITH(NOLOCK)
-									INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON m.CustID = c.custid
-								WHERE PicID = @PicID
-								FOR XML PATH('DirectAccount'))
+		SELECT	@XML  =  (SELECT c.custid AS '@Id', c.username AS '@Name'
+						 FROM dbo.crmPicManagement m WITH(NOLOCK)
+							 INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON m.CustID = c.custid
+						 WHERE PicID = @PicID
+						 FOR XML PATH('DirectAccount'))
 		BEGIN TRY
 			DELETE t
-			OUTPUT deleted.CustID, deleted.PicID
-				INTO @TmpLog (CustID, PicID)
+			OUTPUT deleted.HeadlineID, deleted.CustID, deleted.PicID
+				INTO @TmpLog (HeadlineID, CustID, PicID)
 			FROM dbo.crmPicManagement t WITH(ROWLOCK, UPDLOCK)
 			WHERE t.PicID = @PicID
 
@@ -55,8 +55,8 @@ BEGIN
 
 			IF EXISTS(SELECT 1 FROM @TmpLog)
 			BEGIN
-				INSERT INTO dbo.crmPicManagement (CustID, PicID)
-				SELECT CustID, PicID
+				INSERT INTO dbo.crmPicManagement (HeadlineID, CustID, PicID)
+				SELECT HeadlineID ,CustID, PicID
 				FROM @TmpLog
 			END
 
@@ -67,7 +67,7 @@ BEGIN
 	BEGIN TRY
 		UPDATE t
 		SET t.IsActive = @IsActive
-		FROM dbo.crmPIC t
+		FROM dbo.crmPIC t WITH(ROWLOCK)
 		WHERE t.PicID = @PicID
 	END TRY
 	BEGIN CATCH
@@ -75,9 +75,9 @@ BEGIN
 		RETURN
 	END CATCH
 
-	SELECT @OldValues = (SELECT @Old_IsActive AS '@IsActive', @OldValues FOR XML PATH('Acc_CRM_PICStatusUpd'))
+	SELECT @OldValues = CAST((SELECT @Old_IsActive AS '@IsActive', @XML FOR XML PATH('Acc_CRM_PICStatusUpd')) AS NVARCHAR(MAX))
 
-	SELECT @NewValues = (SELECT @IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_PICStatusUpd'))
+	SELECT @NewValues = CAST((SELECT @IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_PICStatusUpd')) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,

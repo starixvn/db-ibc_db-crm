@@ -19,7 +19,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: insert a new PIC [Redmine: #108739]
-		- 20200723@Malcolm : change log [RedmineId : #137144]
+		- 20200723@Malcolm : change logs [RedmineId : #137144]
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -35,7 +35,7 @@ BEGIN
 	
 	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML
 
-	DECLARE  @NewValues XML, @PicID INT = 0, @Username NVARCHAR(200)
+	DECLARE  @NewValues NVARCHAR(MAX), @PicID INT = 0, @Username NVARCHAR(200)
 
 
 	CREATE TABLE #input
@@ -113,36 +113,38 @@ BEGIN
 	END CATCH
 
 	SELECT @RoleXML = (
-				SELECT SettingID AS '@RoleID', SettingValue AS '@RoleName' 
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID = @Role
 				FOR XML PATH('Role'))
 
 	SELECT @CountryXML = (
-				SELECT CountryID AS '@CountryID', CountryName AS '@CountryName' 
+				SELECT CountryID AS '@Id', CountryName AS '@Name' 
 				FROM crmCountry WITH(NOLOCK) 
 				WHERE CountryID = @Country
 				FOR XML PATH('Country'))
 
 	SELECT @LanguageXML = (
-				SELECT SettingID AS '@LanguageID', SettingValue AS '@LanguageName' 
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID IN (SELECT Val FROM bodb02.dbo.strSplit(@Language,','))
 				FOR XML PATH('Language'))
 
-	SELECT @NewValues =	(SELECT @PicName        AS '@PicName',
-								@Remark	  		AS '@Remark',
-								1               AS '@Active',
-								@RoleXML,
-								@CountryXML,
-								@LanguageXML,								
-								(
-									 SELECT	SettingID	 AS '@SettingID', 
-										    SettingValue AS '@SettingValue'
-									 FROM #input
-									 FOR XML PATH('CommunicationTool'),TYPE
-								 )
-						FOR XML PATH('Acc_CRM_PicIns'))
+	SELECT @NewValues =	CAST((SELECT	@PicName        AS '@PicName',
+										@Remark	  		AS '@Remark',
+										1               AS '@Active',
+										@RoleXML,
+										@CountryXML,
+										@LanguageXML,								
+										(
+											 SELECT	i.SettingID	 AS '@Id', 
+												    i.SettingValue AS '@Value',
+													s.SettingValue AS '@Name'
+											 FROM #input i
+												INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON i.SettingID = s.SettingID
+											 FOR XML PATH('CommunicationTool'),TYPE
+										)
+								FOR XML PATH('Acc_CRM_PicIns')) AS NVARCHAR(MAX))
     
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,

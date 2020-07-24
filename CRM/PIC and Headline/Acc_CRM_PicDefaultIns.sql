@@ -21,9 +21,17 @@ Original:
 BEGIN 
 	SET NOCOUNT ON
 
-	DECLARE @TmpLog TABLE (HeadlineID INT, PicID INT, Type INT)
+	DECLARE @TmpLog TABLE 
+	(
+		HeadlineID	INT,
+		PicID		INT, 
+		PicName		NVARCHAR(200),
+		RoleID		INT,
+		RoleName	NVARCHAR(100),
+		Type		INT
+	)
 
-	DECLARE @OldValues XML = NULL, @NewValues XML = NULL
+	DECLARE @OldValues NVARCHAR(MAX) = '', @NewValues NVARCHAR(MAX) = ''
 	
 	BEGIN TRY
 		DELETE dbo.crmPICDefault WITH(ROWLOCK, UPDLOCK)
@@ -47,17 +55,29 @@ BEGIN
 		RETURN
 	END CATCH
 
-	SELECT @OldValues = (SELECT p.PicID, p.Username 
-						 FROM @TmpLog t	
-							 INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = p.PicID
-						 WHERE Type = 1
-						 FOR XML PATH('PIC'), ROOT('Acc_CRM_PicDefaultIns'))
+	UPDATE t
+	SET t.RoleID	= p.Role,
+		t.RoleName	= s.SettingValue,
+		t.PicName   = p.Username
+	FROM @TmpLog t
+		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = p.PicID
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
 
-	SELECT @OldValues = (SELECT p.PicID, p.Username 
-						 FROM @TmpLog t	
-							 INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = p.PicID
-						 WHERE Type = 2
-						 FOR XML PATH('PIC'), ROOT('Acc_CRM_PicDefaultIns'))
+	SELECT @OldValues = CAST((SELECT	t.PicID		AS '@PicID',
+										t.PicName	AS '@PicName',
+										t.RoleID	AS '@RoleID',
+										t.RoleName	AS '@RoleName'
+							 FROM @TmpLog t	
+							 WHERE Type = 1
+							 FOR XML PATH('PIC'), ROOT('Acc_CRM_PicDefaultIns')) AS NVARCHAR(MAX))
+
+	SELECT @NewValues = CAST((SELECT	t.PicID		AS '@PicID',
+										t.PicName	AS '@PicName',
+										t.RoleID	AS '@RoleID',
+										t.RoleName	AS '@RoleName'
+							 FROM @TmpLog t								
+							 WHERE Type = 2
+							 FOR XML PATH('PIC'), ROOT('Acc_CRM_PicDefaultIns')) AS NVARCHAR(MAX))
 
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP

@@ -20,17 +20,20 @@ Original:
 BEGIN 
 	SET NOCOUNT ON
 
-	DECLARE @HeadlineName VARCHAR(20), @NewValues XML = NULL
+	DECLARE @HeadlineName VARCHAR(20), @NewValues NVARCHAR(MAX) = ''
 
 
 	SELECT @HeadlineName = Username FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid = @HeadlineID
 
-	SELECT @NewValues =	(SELECT  d.PicID		AS '@PicID',
-								 P.Username		AS '@PicName'
-						FROM dbo.crmPICDefault d WITH(NOLOCK)
-							INNER JOIN dbo.crmPIC p WITH(NOLOCK)  ON d.PicID = p.PicID
-						WHERE HeadlineID = @HeadlineID
-						FOR XML PATH('PIC'),ROOT('Acc_CRM_PicDefaultDel'))
+	SELECT @NewValues =	CAST((SELECT	d.PicID			AS '@PicID',
+										p.Username		AS '@PicName',
+										p.Role			AS '@RoleID',
+										s.SettingValue	AS '@RoleName'
+							  FROM dbo.crmPICDefault d WITH(NOLOCK)
+								 INNER JOIN dbo.crmPIC p WITH(NOLOCK)  ON d.PicID = p.PicID
+								 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
+							  WHERE HeadlineID = @HeadlineID
+							  FOR XML PATH('PIC'),ROOT('Acc_CRM_PicDefaultDel')) AS NVARCHAR(MAX))
 
 	BEGIN TRY
 		DELETE dbo.crmPICDefault

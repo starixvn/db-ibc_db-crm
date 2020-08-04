@@ -43,6 +43,8 @@ BEGIN
 
 	SELECT @UserName = ISNULL(@UserName, ''), @EditBy = ISNULL(@EditBy, '')
 
+	SELECT @FromDate = DATEADD(HOUR,-12,@FromDate), @ToDate = DATEADD(HOUR,-12,@ToDate)
+
 	INSERT INTO @Tmp
 	(
 		LogID,			
@@ -57,14 +59,14 @@ BEGIN
 	)
 	SELECT 
 		r.LogID,
-		r.LogDate,
+		DATEADD(HOUR,12,r.LogDate) AS LogDate,
 		e.username AS EditBy,
 		c.username AS DirectAccount,
 		l.ActionNameEN AS Action,
 		r.ActionID,
 		r.OldValues,
 		r.NewValues,
-		ROW_NUMBER() OVER(ORDER BY r.LogDate) AS RowNum
+		ROW_NUMBER() OVER(ORDER BY r.LogDate DESC, r.LogId DESC) AS RowNum
 	FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = r.CustID
 		INNER JOIN bodb02.dbo.Customer e WITH(NOLOCK) ON e.custid = r.UserID
@@ -90,5 +92,6 @@ BEGIN
 			OldValues,		
 			NewValues
 	FROM @Tmp
+	ORDER BY LogDate DESC, LogID DESC
 	
 END

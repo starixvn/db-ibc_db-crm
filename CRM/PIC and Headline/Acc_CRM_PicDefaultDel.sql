@@ -22,6 +22,11 @@ BEGIN
 
 	DECLARE @HeadlineName VARCHAR(20), @NewValues NVARCHAR(MAX) = ''
 
+	IF NOT EXISTS(SELECT 1 FROM dbo.crmPICDefault WITH(NOLOCK) WHERE HeadlineID = @HeadlineID)
+	BEGIN
+		SELECT @ErrCode = 100, @ErrMsg = 'There are some updates on PIC assignment. Please submit again to get the lastest updates!'
+		RETURN
+	END
 
 	SELECT @HeadlineName = Username FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid = @HeadlineID
 

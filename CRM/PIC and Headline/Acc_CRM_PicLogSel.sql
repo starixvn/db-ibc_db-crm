@@ -44,6 +44,8 @@ BEGIN
 
 	SELECT @PageIndex = @PageIndex - 1, @RowStart = @PageIndex * @PageSize + 1,@RowEnd = @RowStart + @PageSize - 1
 
+	SELECT @FromDate = DATEADD(HOUR,-12,@FromDate), @ToDate = DATEADD(HOUR,-12,@ToDate)
+
 	INSERT INTO @Tmp
 	(
 		LogID,
@@ -57,17 +59,18 @@ BEGIN
 	)
 	SELECT 
 		r.LogID, 
-		r.LogDate, 
+		DATEADD(HOUR,12,r.LogDate) AS LogDate, 
 		c.username AS Edit_By, 
 		p.Username AS PIC, 
 		r.ActionID,
 		r.NewValues,
 		r.OldValues,
-	    ROW_NUMBER() OVER(ORDER BY r.LogDate) AS RowNum
+	    ROW_NUMBER() OVER(ORDER BY r.LogDate DESC, r.LogId DESC) AS RowNum
 	FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
 		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON r.CustID = p.PicID 
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
-	WHERE r.ActionID IN (901, 902, 903) AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate 
+		INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
+	WHERE l.ActionTypeID = 1 AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate 
 		AND (@PicName = '' OR p.Username = @PicName) 
 		AND (@EditBy = '' OR c.username = @EditBy)
 
@@ -89,5 +92,6 @@ BEGIN
 		t.OldValues
 	FROM @Tmp t
 		INNER JOIN dbo.crmLogAction a WITH(NOLOCK) ON t.ActionID = a.ActionID
+	ORDER BY t.LogDate DESC, t.LogID DESC
 
 END

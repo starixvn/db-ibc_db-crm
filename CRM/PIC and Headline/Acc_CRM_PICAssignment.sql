@@ -6,8 +6,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PICAssignment]
 	@IsKeepAssign   BIT = 1,
 	@UserID			INT,
 	@LoginIP        VARCHAR(20) ='',
-	@ErrorCode      INT = 0 OUTPUT,
-	@ErrorMsg       NVARCHAR(MAX) = '' OUTPUT
+	@ErrCode        INT = 0 OUTPUT,
+	@ErrMsg         NVARCHAR(MAX) = '' OUTPUT
 	
 AS
 /*
@@ -43,10 +43,6 @@ BEGIN
 
 	DECLARE @HeadlineName VARCHAR(30) = '', @GroupID INT = 0,@NewValues NVARCHAR(MAX), 
 			@RowTotal INT = 0, @CurrentRow INT = 1, @CustId INT = 0, @Xml XML, @_CustID INT
-	
-	SELECT @HeadlineID = ISNULL(@HeadlineID,0)
-
-	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID
 
 	DECLARE @DirectAccounts TABLE (username VARCHAR(50))
 	INSERT INTO @DirectAccounts (username)
@@ -61,6 +57,20 @@ BEGIN
 	FROM bodb02.dbo.Customer c WITH(NOLOCK)
 	WHERE EXISTS (SELECT 1 FROM @DirectAccounts d WHERE c.username = d.username)
 
+	SELECT @HeadlineID = ISNULL(@HeadlineID,0)
+
+	SELECT @GroupID = GroupID FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE custid = @HeadlineID	
+
+	SELECT @GroupID = ISNULL(@GroupID,0)
+
+	IF EXISTS(SELECT 1 FROM bodb02.dbo.custAccount ca WITH(NOLOCK)
+			  WHERE ca.custid IN (SELECT custid from #DirectAccountTmp)
+				 AND ca.groupID <> @GroupID) OR (@HeadlineID  <> 0 AND @GroupID = 0)
+	BEGIN
+		SELECT @ErrCode = 100, @ErrMsg = 'There are some updates on PIC assignment. Please submit again to get the lastest updates!'
+		RETURN
+	END
+	
 	SET @IsKeepAssign = ISNULL(@IsKeepAssign,0)
 
 	IF @IsKeepAssign = 0 
@@ -72,29 +82,18 @@ BEGIN
 			FROM dbo.crmPicManagement m WITH(ROWLOCK, UPDLOCK)
 				INNER JOIN #DirectAccountTmp t ON m.CustID = t.CustID
 
-
 			DELETE h
 			OUTPUT deleted.HeadlineID, deleted.PicID, 2
 				INTO #TmpLog (HeadlineID, PicID, Type)
 			FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
-			WHERE h.HeadlineID = @HeadlineID  
-				AND h.PicID IN (SELECT PicID FROM #TmpLog WHERE type = 1)
+				INNER JOIN #TmpLog t ON h.HeadlineID = t.HeadlineID AND t.PicID = h.PicID
+			WHERE NOT EXISTS(SELECT 1 
+							 FROM dbo.crmPicManagement m WITH(NOLOCK)
+							 WHERE m.HeadlineID = h.HeadlineID AND m.PicID = h.PicID)
 
-			INSERT INTO dbo.crmPICHeadline
-			(
-				HeadlineID,
-				PicID
-			)
-			OUTPUT inserted.HeadlineID, inserted.PicID, 3
-				INTO #TmpLog (HeadlineID, PicID, Type)
-			SELECT DISTINCT @HeadlineID, m.PicID
-			FROM dbo.crmPicManagement m WITH(NOLOCK)
-				INNER JOIN bodb02.dbo.CustAccount c WITH(NOLOCK) ON m.CustID = c.custid
-			WHERE  c.groupID = @GroupID  AND @GroupID <> 0
-				AND m.PicID IN (SELECT PicID FROM #TmpLog WHERE Type = 1)	
 		END TRY
 		BEGIN CATCH
-			SELECT @ErrorCode = @@ERROR, @ErrorMsg = ERROR_MESSAGE()
+			SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
 
 			IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 1)
 			BEGIN
@@ -102,14 +101,6 @@ BEGIN
 				SELECT CustID, PicID, @HeadlineID
 				FROM #TmpLog
 				WHERE Type = 1
-			END
-
-			IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 2)
-			BEGIN
-				INSERT INTO dbo.crmPICHeadline(HeadlineID, PicID)
-				SELECT HeadlineID, PicID
-				FROM #TmpLog 
-				WHERE Type = 2
 			END
 
 			RETURN
@@ -171,7 +162,7 @@ BEGIN
 		) AND @HeadlineID <> 0 AND l.Type = 4
 	END TRY
 	BEGIN CATCH
-		SELECT @ErrorCode = @@ERROR, @ErrorMsg = ERROR_MESSAGE()
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
 
 		IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 1)
 			BEGIN
@@ -188,17 +179,6 @@ BEGIN
 			FROM #TmpLog 
 			WHERE Type = 2
 		END
-
-		IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 3)
-		BEGIN
-			DELETE h
-			FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
-				WHERE EXISTS(SELECT 1 
-						 FROM #TmpLog t WHERE Type = 3
-						 AND t.CustID = t.CustID 
-						 AND t.PicID = t.PicID)
-		END
-
 
 		IF EXISTS(SELECT 1 FROM #TmpLog WHERE Type = 5)
 		BEGIN

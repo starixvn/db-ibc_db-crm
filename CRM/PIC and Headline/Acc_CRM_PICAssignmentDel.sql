@@ -29,15 +29,11 @@ BEGIN
 	IF @RemovedPICs  = ''
 		RETURN
 
-	DECLARE @iDOC INT, @NewValues NVARCHAR(MAX),@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0
+	DECLARE @iDOC INT, @NewValues NVARCHAR(MAX),@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0,@IsErr BIT = 0
 
 	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT, Type INT)
 
-    CREATE TABLE #TmpLog
-	(
-		ID		INT IDENTITY(1,1) PRIMARY KEY,
-		CustID	INT
-	)
+    CREATE TABLE #TmpLog(CustID	INT)
 
 	CREATE TABLE #input 
 	(
@@ -70,6 +66,15 @@ BEGIN
 		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
 		RETURN
 	END CATCH	
+
+	SELECT @IsErr = 1
+	FROM #input i 
+	WHERE NOT EXISTS(SELECT 1 FROM dbo.crmPicManagement m WITH(NOLOCK)
+					 WHERE m.HeadlineID = i.HeadlineID AND m.CustID = i.CustID AND m.PicID = i.PicID)
+	IF @IsErr = 1
+	BEGIN
+		SELECT @ErrCode = 100, @ErrMsg = 'There are some updates on PIC assignment. Please submit again to get the lastest updates!'
+	END
 	
 	UPDATE t
 		SET t.PICName = p.Username,
@@ -84,18 +89,18 @@ BEGIN
 		FROM dbo.crmPicManagement t WITH(ROWLOCK, UPDLOCK)
 			INNER JOIN #input i ON t.CustID = i.CustID AND t.PicID = i.PicID
 	
-		DELETE t
+		DELETE h
 		OUTPUT deleted.HeadlineID, deleted.PicID, 2
 			INTO @TmpLog(HeadlineID, PicID, Type)
-		FROM dbo.crmPICHeadline t WITH(ROWLOCK, UPDLOCK)
-			INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON t.HeadlineID = h.CustID
-			INNER JOIN #input i ON t.HeadlineID = i.HeadlineID AND t.PicID = i.PicID	
+		FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
+			INNER JOIN @TmpLog t ON h.HeadlineID = t.HeadlineID AND h.PicID = t.PicID	
 		WHERE NOT EXISTS(
 			SELECT 1
-			FROM bodb02.dbo.custAccount c WITH(NOLOCK)
-				INNER JOIN dbo.crmPicManagement p WITH(NOLOCK) ON p.CustID = c.custid
-			WHERE c.groupID = h.GroupID AND p.PicID = i.PicID
-		)
+			FROM dbo.crmPicManagement p WITH(NOLOCK) 
+			WHERE P.HeadlineID = t.HeadlineID 
+				AND p.PicID = t.PicID
+		)AND t.Type = 1
+
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()

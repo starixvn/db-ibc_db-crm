@@ -20,10 +20,10 @@ Original:
 		- 20200717@Malcolm:  Integrate Credit Term & Staff/Boss Management  [Redmine: #137144]
 	Param's Explanation:
 		@Case = 0 : No change
-		      = 1 : IsGroupHeadline 0-> 0, Users change group
+		      = 1 : IsGroupHeadline 0-> 0, the user change group
 			  = 2 : IsGroupHeadline 1-> 0
-			  = 3 : IsGroupHeadline 0-> 1, Users don't change group
-			  = 4 : IsGroupHeadline 0-> 1, Users change group
+			  = 3 : IsGroupHeadline 0-> 1, the user don't change group
+			  = 4 : IsGroupHeadline 0-> 1, the user change group
 				
 */
 BEGIN 
@@ -32,10 +32,11 @@ BEGIN
 
 	DECLARE @TmpLog TABLE (Type INT, PicID INT, CustID INT, HeadlineID INT)
 
-	DECLARE @XML XML = NULL, @NewValues	NVARCHAR(MAX) = '', @OldValues	NVARCHAR(MAX) = '', @New_HeadlineName VARCHAR(30), @HeadineID INT
+	DECLARE @XML XML = NULL, @NewValues	NVARCHAR(MAX) = '', @OldValues	NVARCHAR(MAX) = '', @New_HeadlineName VARCHAR(30), @HeadineID INT,
+			@ActionID INT = 906
 			
 	SELECT @CustID = ISNULL(@CustID,0), @Username = ISNULL(@Username,''), @Case = ISNULL(@Case,0),
-			@Old_Headline = ISNULL(@Old_Headline,0), @New_Headline = ISNULL(@New_Headline,0)
+		   @Old_Headline = ISNULL(@Old_Headline,0), @New_Headline = ISNULL(@New_Headline,0)
 
 	IF @Case = 0
 		RETURN
@@ -59,13 +60,13 @@ BEGIN
 			UPDATE dbo.crmPICHeadline WITH(ROWLOCK)
 			SET HeadlineID = @CustID
 			OUTPUT deleted.HeadlineID, deleted.PicID, 3
-				INTO @TmpLog(CustID, PicID, Type)
+				INTO @TmpLog(HeadlineID, PicID, Type)
 			WHERE HeadlineID = @New_Headline
 
 			UPDATE dbo.crmPICDefault WITH(ROWLOCK)
 			SET HeadlineID = @CustID
 			OUTPUT deleted.HeadlineID, deleted.PicID, 4
-				INTO @TmpLog(CustID, PicID, Type)
+				INTO @TmpLog(HeadlineID, PicID, Type)
 			WHERE HeadlineID = @New_Headline
 
 			UPDATE dbo.crmPicManagement WITH(ROWLOCK)
@@ -137,12 +138,9 @@ BEGIN
 			FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
 				INNER JOIN @TmpLog t ON t.PicID = h.PicID 
 			WHERE h.HeadlineID = @Old_Headline AND t.type = 1
-			AND NOT EXISTS(SELECT 1 
-						   FROM dbo.crmPicManagement m WITH(NOLOCK) 
-						   WHERE m.HeadlineID = @Old_Headline 
-						   AND m.PicID = t.PicID)
-			AND @Old_Headline <> 0
-			
+			AND NOT EXISTS(SELECT 1 FROM dbo.crmPicManagement m WITH(NOLOCK) 
+						   WHERE m.HeadlineID = @Old_Headline AND m.PicID = t.PicID)
+			AND @Old_Headline <> 0			
 		END TRY
 		BEGIN CATCH
 			SELECT @ErrCode = 102, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
@@ -187,11 +185,8 @@ BEGIN
 			BEGIN
 				DELETE h
 				FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
-				WHERE EXISTS(SELECT 1 
-							 FROM @TmpLog t 
-							 WHERE t.Type = 6 
-								AND t.HeadlineID = h.HeadlineID 
-								AND t.PicID = h.PicID)
+				WHERE EXISTS(SELECT 1 FROM @TmpLog t 
+						     WHERE t.Type = 6 AND t.HeadlineID = h.HeadlineID AND t.PicID = h.PicID)
 			END
 			RETURN
 		END CATCH	
@@ -207,10 +202,12 @@ BEGIN
 
 			DELETE dbo.crmPICHeadline WITH(ROWLOCK, UPDLOCK)
 			OUTPUT deleted.HeadlineID, deleted.PicID, 2
-				INTO @TmpLog (CustID, PicID, Type)
+				INTO @TmpLog (HeadlineID, PicID, Type)
 			WHERE HeadlineID = @CustID
 		
 			DELETE dbo.crmPICDefault WITH(ROWLOCK, UPDLOCK)
+			OUTPUT deleted.HeadlineID, deleted.PicID, 7
+				INTO @TmpLog(HeadlineID, PicID, Type)
 			WHERE HeadlineID = @CustID	
 		END TRY
 		BEGIN CATCH
@@ -218,7 +215,7 @@ BEGIN
 			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
 			BEGIN
 				INSERT INTO dbo.crmPICHeadline(HeadlineID, PicID)
-				SELECT CustID, PicID
+				SELECT HeadlineID, PicID
 				FROM @TmpLog 
 				WHERE Type = 2
 			END
@@ -226,7 +223,7 @@ BEGIN
 			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 1)
 			BEGIN
 				INSERT INTO dbo.crmPicManagement(HeadlineID, CustID, PicID)
-				SELECT HeadlineID ,CustID, PicID
+				SELECT HeadlineID, CustID, PicID
 				FROM @TmpLog
 				WHERE Type = 1
 			END
@@ -236,8 +233,132 @@ BEGIN
 
 	-- Write log
 
+	IF @Case IN (1, 4)
+	BEGIN
+		--Remove direct account from PIC	
+		SELECT @NewValues = NULL
+
+		SELECT @NewValues = CAST((SELECT t.PicID			AS '@PicID',
+										 p.Username			AS '@PicName',
+									     p.Role				AS '@RoleID',
+										 s.SettingValue     AS '@RoleName'
+							      FROM @TmpLog t
+									INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = P.PicID
+									INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
+							      WHERE Type = 1
+						      FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
+		IF ISNULL(@NewValues,'') <> ''
+		BEGIN
+			BEGIN TRY
+				EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+					@UserID = @UserID,
+					@CustId = @CustId,
+					@ActionID = 904,
+					@IP = @LoginIP,
+					@NewValues = @NewValues
+			END TRY
+			BEGIN CATCH
+				SELECT @ErrCode = 104, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
+				RETURN
+			END CATCH
+		END
+		
+
+		--Assign direct account to PIC		
+		SET @NewValues = NULL
+
+		SELECT @NewValues = CAST((SELECT t.PicID			AS '@PicID',
+										 p.Username			AS '@PicName',
+									     p.Role				AS '@RoleID',
+										 s.SettingValue     AS '@RoleName'
+							      FROM @TmpLog t
+									INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = P.PicID
+									INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
+							      WHERE Type = 2
+							      FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
+	    IF ISNULL(@NewValues,'') <> ''
+		BEGIN
+			BEGIN TRY
+			EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+				@UserID = @UserID,
+				@CustId = @CustId,
+				@ActionID = 905,
+				@IP = @LoginIP,
+				@NewValues = @NewValues
+			END TRY
+			BEGIN CATCH
+				SELECT @ErrCode = 104, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
+				RETURN
+			END CATCH	
+		END
+	END
+	
+	IF @Case = 2
+	BEGIN
+		--Write log Remove Default PIC for a group headline (908)
+		SELECT @NewValues = NULL, @OldValues = NULL
+
+		SELECT @NewValues = CAST((SELECT 
+								p.PicID			AS '@PicID'
+								,p.Username		AS '@PicName'
+								,p.Role			AS '@RoleId'
+								,s.SettingValue AS '@RoleName'		
+							FROM @TmpLog t
+								INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicID
+								INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
+							WHERE Type = 7 
+							FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
+		BEGIN TRY
+			IF ISNULL(@NewValues,'') <> ''
+			BEGIN
+				EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+					@UserID = @UserID,
+					@CustId = @CustId,
+					@ActionID = 908,
+					@IP = @LoginIP,
+					@NewValues = @NewValues,
+					@OldValues = @OldValues
+			END
+		END TRY
+		BEGIN CATCH
+			SELECT @ErrCode = 104, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
+			RETURN
+		END CATCH
+		--Remove direct account from PIC	
+		SET @NewValues = NULL
+
+		SELECT @NewValues = CAST((SELECT 
+								p.PicID			AS '@PicID'
+								,p.Username		AS '@PicName'
+								,p.Role			AS '@RoleId'
+								,s.SettingValue AS '@RoleName'		
+							FROM @TmpLog t
+								INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicID
+								INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
+							WHERE Type = 1
+							FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
+		BEGIN TRY
+			IF ISNULL(@NewValues,'') <> ''
+			BEGIN
+				EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+					@UserID = @UserID,
+					@CustId = @CustId,
+					@ActionID = 904,
+					@IP = @LoginIP,
+					@NewValues = @NewValues,
+					@OldValues = @OldValues
+			END
+		END TRY
+		BEGIN CATCH
+			SELECT @ErrCode = 104, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
+			RETURN
+		END CATCH
+	END
+
     IF @Case IN (3, 4, 2)
-	BEGIN	    
+	BEGIN	
+		SELECT @OldValues = NULL, @NewValues = NULL
+
 		SELECT @OldValues  = CAST((SELECT @CustID   AS '@HeadlineID',
 								      @Username AS '@HeadlineName',
 									  @XML
@@ -269,7 +390,8 @@ BEGIN
 										   FOR XML PATH('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX)) --906
 			END
 		END
-		
+
+		IF ISNULL(@NewValues,'') <> '' OR ISNULL(@OldValues,'') <> ''
 		BEGIN TRY
 			EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 				@UserID = @UserID,
@@ -282,6 +404,6 @@ BEGIN
 		BEGIN CATCH
 			SELECT @ErrCode = 104, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
 			RETURN
-		END CATCH				
-	END											 	
+		END CATCH							
+	END		
 END

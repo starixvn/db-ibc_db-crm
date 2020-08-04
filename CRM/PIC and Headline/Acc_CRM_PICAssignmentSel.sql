@@ -24,6 +24,8 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
+		- 20200814@Malcolm: Get default Pics [Redmine: #137144]
+
 	Param's Explanation:
 		@HeadlineType = 0 : Normal
 		              = 1 : VIP
@@ -155,7 +157,7 @@ BEGIN
 		WHERE NOT EXISTS(
 			SELECT 1 
 			FROM bodb02.dbo.CustGroupHeadline h WITH(NOLOCK)
-				INNER JOIN dbo.crmCustomer c WITH(NOLOCK) ON h.CustID = c.CustID
+				LEFT JOIN dbo.crmCustomer c WITH(NOLOCK) ON h.CustID = c.CustID
 			WHERE h.GroupID = t.GroupID AND ISNULL(c.IsVIP,0) = @HeadlineType AND t.GroupID <> 0
 		)
 	END

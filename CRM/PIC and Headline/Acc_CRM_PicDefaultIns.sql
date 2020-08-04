@@ -20,6 +20,12 @@ Original:
 */
 BEGIN 
 	SET NOCOUNT ON
+	
+	IF NOT EXISTS(SELECT 1 FROM bodb02.dbo.CustGroupHeadline WITH(NOLOCK) WHERE CustID = @HeadlineID)
+	BEGIN
+		SELECT @ErrCode = 100, @ErrMsg = 'There are some updates on PIC assignment. Please submit again to get the lastest updates!'
+		RETURN
+	END
 
 	DECLARE @TmpLog TABLE 
 	(

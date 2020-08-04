@@ -36,7 +36,7 @@ BEGIN
 				)
 			VALUES
 				(
-					DATEADD(HOUR,8,GETUTCDATE()), 
+					GETDATE(), 
 					@UserID, 
 					@CustId,
 					@ActionID, 

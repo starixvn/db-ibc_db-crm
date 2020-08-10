@@ -1,21 +1,27 @@
-USE bodb_CRM
-GO
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 
---ALTER DATABASE bodb_CRM ADD FILEGROUP DataChatBot
---GO
---ALTER DATABASE bodb_CRM ADD FILE (NAME = DataChatBot, FILENAME = 'D:\IBC_DB\bodb_CRM\DataChatBot.ndf', SIZE = 3072 KB, MAXSIZE = UNLIMITED, FILEGROWTH = 1024 KB) TO FILEGROUP DataChatBot
---GO
+/*
+Created: 20200810@Malcolm
+Task : Create new tables
+DB: DBCRM/bodb_CRM
+*/
+
+ALTER DATABASE bodb_CRM ADD FILEGROUP DataChatBot
+GO
+ALTER DATABASE bodb_CRM ADD FILE (NAME = DataChatBot, FILENAME = 'D:\IBC_DB\bodb_CRM\DataChatBot.ndf', SIZE = 3072 KB, MAXSIZE = UNLIMITED, FILEGROWTH = 1024 KB) TO FILEGROUP DataChatBot
+GO
 
 CREATE TABLE dbo.crmNotification
 (
-	NotificationId		INT NOT NULL IDENTITY(1, 1)
-	,MessageId			INT
-	,NotificationTypeId	SMALLINT
-	,Sender				INT
-	,SendDate			DATETIME
-	,Title				NVARCHAR(2000)
-	,Content			NVARCHAR(MAX)
-	,Status				VARCHAR(20)
+	NotificationId			INT NOT NULL IDENTITY(1, 1)
+	,MessageId				INT
+	,NotificationTypeId		SMALLINT
+	,Sender					INT
+	,SendDate				DATETIME
+	,Title					NVARCHAR(2000)
+	,Content				NVARCHAR(MAX)
+	,Status					VARCHAR(20)
+	,ResolvedRemark         NVARCHAR(2000)
 	,CONSTRAINT PK_crmNotification PRIMARY KEY NONCLUSTERED
 	(
 		NotificationId ASC
@@ -23,39 +29,10 @@ CREATE TABLE dbo.crmNotification
 ) ON DataChatBot
 GO
 
-CREATE TABLE dbo.crmNotificationHeadline
-(
-	NotificationId	INT NOT NULL
-	,HeadlineId		INT NOT NULL
-	,CONSTRAINT PK_crmNotificationHeadline PRIMARY KEY CLUSTERED
-	(
-		NotificationId	ASC
-		,HeadlineId		ASC
-	)
-) ON DataChatBot
-GO
-
-CREATE TABLE dbo.crmNotificationPIC
-(
-	NotificationId	INT NOT NULL
-	,PicId			INT NOT NULL
-	,CONSTRAINT PK_crmNotificationPIC PRIMARY KEY CLUSTERED
-	(
-		NotificationId	ASC
-		,PicId			ASC
-	)
-) ON DataChatBot
-GO
-
---DROP TABLE dbo.crmNotificationType
---GO
-
 CREATE TABLE dbo.crmNotificationType
 (
 	NotificationTypeId		TINYINT NOT NULL IDENTITY(1, 1)
 	,NotificationTypeName	NVARCHAR(500)
-	,RecipientTypeId		TINYINT
-	,ChatTypeId				TINYINT
 	,SystemId				TINYINT
 	,CONSTRAINT PK_crmNotificationType PRIMARY KEY CLUSTERED
 	(
@@ -63,6 +40,32 @@ CREATE TABLE dbo.crmNotificationType
 	)
 ) ON DataChatBot
 GO
+
+CREATE TABLE dbo.crmNotificationRecipientType
+(
+	NotificationTypeId	TINYINT NOT NULL
+	,RecipientTypeId    TINYINT NOT NULL
+	,CONSTRAINT PK_crmNotificationRecipientType PRIMARY KEY CLUSTERED
+	(
+		NotificationTypeId,
+		RecipientTypeId
+	)
+) ON DataChatBot
+GO
+
+
+CREATE TABLE dbo.crmNotificationChatType
+(
+	NotificationTypeId TINYINT NOT NULL
+	,ChatTypeId		   TINYINT NOT NULL
+	,CONSTRAINT PK_crmNotificationChatType PRIMARY KEY CLUSTERED
+	(
+		NotificationTypeId,
+		ChatTypeId
+	)
+) ON DataChatBot
+GO
+
 
 CREATE TABLE dbo.crmRecipientType
 (
@@ -74,6 +77,19 @@ CREATE TABLE dbo.crmRecipientType
 	)
 ) ON DataChatBot
 GO
+
+
+CREATE TABLE dbo.crmRecipient
+(
+	RecipientId INT NOT NULL IDENTITY(1,1)
+	,RecipientTypeId TINYINT NOT NULL
+	,SourceId INT
+	,DataSource VARCHAR(128)
+	,CONSTRAINT PK_crmRecipient PRIMARY KEY CLUSTERED
+	(
+		RecipientId ASC
+	)
+) ON DataChatBot
 
 CREATE TABLE dbo.crmChatType
 (
@@ -97,13 +113,13 @@ CREATE TABLE dbo.crmSystem
 ) ON DataChatBot
 GO
 
+
 CREATE TABLE dbo.crmNotificationTemplate
 (
 	NotificationTemplateId		SMALLINT NOT NULL IDENTITY(1, 1)
 	,NotificationTemplateName	NVARCHAR(1000)
 	,NotificationTypeId			TINYINT
 	,Title						NVARCHAR(2000)
-	,Content					NVARCHAR(MAX)
 	,CONSTRAINT PK_crmNotificationTemplate PRIMARY KEY CLUSTERED
 	(
 		NotificationTemplateId ASC
@@ -111,20 +127,29 @@ CREATE TABLE dbo.crmNotificationTemplate
 ) ON DataChatBot
 GO
 
-CREATE TABLE dbo.crmConversationBot
+CREATE TABLE dbo.crmNotificationTemplateContent 
 (
-	ConversationBotId		TINYINT NOT NULL IDENTITY (1, 1)
-	,ConversationId			VARCHAR(200)
-	,ConversationBotName	NVARCHAR(1000)
-	,CONSTRAINT PK_crmConversationBot PRIMARY KEY CLUSTERED
+	NotificationTemplateId  SMALLINT NOT NULL
+	,LanguageId             INT NOT NULL
+	,Content                NVARCHAR(MAX)
+	,CONSTRAINT PK_crmNotificationTemplateContent PRIMARY KEY CLUSTERED
 	(
-		ConversationBotId ASC
+		NotificationTemplateId,
+		LanguageId
 	)
 ) ON DataChatBot
 GO
 
---DROP TABLE dbo.crmConversationGroup
---GO
+CREATE TABLE dbo.crmConversationBot
+(
+	BotId		INT NOT NULL 
+	,BotName	NVARCHAR(1000)
+	,CONSTRAINT PK_crmConversationBot PRIMARY KEY CLUSTERED
+	(
+		BotId ASC
+	)
+) ON DataChatBot
+GO
 
 CREATE TABLE dbo.crmConversationGroup
 (
@@ -132,10 +157,11 @@ CREATE TABLE dbo.crmConversationGroup
 	,ConversationId			VARCHAR(200)
 	,ConversationGroupName	NVARCHAR(1000)
 	,ChatTypeId				TINYINT
-	,Channel				VARCHAR(50)
 	,Creator				INT
 	,CreatedDate			DATETIME CONSTRAINT DF_crmConversationGroup_CreatedDate DEFAULT (GETDATE())
 	,UpdatedDate			DATETIME CONSTRAINT DF_crmConversationGroup_UpdatedDate DEFAULT (GETDATE())
+	,LanguageId             INT
+	,Remark                 NVARCHAR(2000)
 	,IsActive				BIT CONSTRAINT DF_crmConversationGroup_IsActive DEFAULT ((0))
 	,CONSTRAINT PK_crmConversationGroup PRIMARY KEY CLUSTERED
 	(
@@ -147,11 +173,24 @@ GO
 CREATE TABLE dbo.crmConversationGroupBot
 (
 	ConversationGroupId SMALLINT NOT NULL
-	,ConversationBotId	TINYINT NOT NULL
+	,BotId	INT NOT NULL
 	,CONSTRAINT PK_crmConversationGroupBot PRIMARY KEY CLUSTERED
 	(
 		ConversationGroupId ASC
-		,ConversationBotId	ASC
+		,BotId	ASC
+	)
+) ON DataChatBot
+GO
+
+
+CREATE TABLE dbo.crmConversationGroupRecipient
+(
+	ConversationGroupId SMALLINT NOT NULL
+	,RecipientId		INT NOT NULL
+	,CONSTRAINT PK_crmConversationGroupRecipient PRIMARY KEY CLUSTERED
+	(
+		ConversationGroupId ASC
+		,RecipientId	ASC
 	)
 ) ON DataChatBot
 GO
@@ -163,19 +202,44 @@ CREATE TABLE dbo.crmConversationGroupHeadline
 	,CONSTRAINT PK_crmConversationGroupHeadline PRIMARY KEY CLUSTERED
 	(
 		ConversationGroupId ASC
-		,HeadlineId			ASC
+		,HeadlineId	ASC
 	)
 ) ON DataChatBot
 GO
 
-CREATE TABLE dbo.crmConversationGroupPIC
+CREATE TABLE dbo.crmNotificationRecipient
 (
-	ConversationGroupId SMALLINT NOT NULL
-	,PicId				INT NOT NULL
-	,CONSTRAINT PK_crmConversationGroupPIC PRIMARY KEY CLUSTERED
+	NotificationId	INT NOT NULL
+	,RecipientId	INT NOT NULL
+	,ConversationGroupId SMALLINT
+	,CONSTRAINT PK_crmNotificationRecipient PRIMARY KEY CLUSTERED
 	(
-		ConversationGroupId ASC
-		,PicId				ASC
+		NotificationId ASC
+		,RecipientId   ASC
+	)
+) ON DataChatBot
+GO
+
+CREATE TABLE dbo.crmNotificationHeadline
+(
+	NotificationId	INT NOT NULL
+	,HeadlineId		INT NOT NULL
+	,CONSTRAINT PK_crmNotificationHeadline PRIMARY KEY CLUSTERED
+	(
+		NotificationId ASC
+		,HeadlineId   ASC
+	)
+) ON DataChatBot
+GO
+
+CREATE TABLE dbo.crmNotificationError
+(
+	NotificationId INT NOT NULL
+	,ConversationGroupId SMALLINT NOT NULL
+	,Reason NVARCHAR(MAX)
+	,CONSTRAINT PK_crmNotificationError PRIMARY KEY CLUSTERED
+	(
+		NotificationId ASC
 	)
 ) ON DataChatBot
 GO

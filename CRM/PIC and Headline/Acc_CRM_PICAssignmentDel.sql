@@ -1,7 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PICAssignmentDel]
 	@RemovedPICs	NVARCHAR(MAX),
-	@InActivatedPIC BIT = 0,
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
 	@LoginIP		VARCHAR(20),
@@ -15,6 +14,7 @@ Original:
 
 	Revisions:
 		- 20200513@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
+		- 20200723@Malcolm : change logs [RedmineId : #137144]
 	Param's Explanation:
 	- @RemovedPICs:		
 		<ROOT>
@@ -29,16 +29,20 @@ BEGIN
 	IF @RemovedPICs  = ''
 		RETURN
 
-	DECLARE @iDOC INT, @NewValues XML,@PicID INT,@PicName NVARCHAR(200)
+	DECLARE @iDOC INT, @NewValues NVARCHAR(MAX),@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0,@IsErr BIT = 0
+
+	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT, Type INT)
+
+    CREATE TABLE #TmpLog(CustID	INT)
 
 	CREATE TABLE #input 
 	(
-		HeadlineID		INT,
-		HeadlineName	VARCHAR(30),
+		HeadlineID      INT,
 		CustID			INT,
-		UserName        VARCHAR(30),
 		PICName			NVARCHAR(200),
-		PicID			INT
+		PicID			INT,
+		RoleName        NVARCHAR(100),
+		RoleID          INT
 	)
 
 	BEGIN TRY
@@ -61,91 +65,109 @@ BEGIN
 	BEGIN CATCH
 		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
 		RETURN
-	END CATCH
-	
-	SELECT @InActivatedPIC = ISNULL(@InActivatedPIC,0)
+	END CATCH	
 
-	IF @InActivatedPIC = 1
+	SELECT @IsErr = 1
+	FROM #input i 
+	WHERE NOT EXISTS(SELECT 1 FROM dbo.crmPicManagement m WITH(NOLOCK)
+					 WHERE m.HeadlineID = i.HeadlineID AND m.CustID = i.CustID AND m.PicID = i.PicID)
+	IF @IsErr = 1
 	BEGIN
-	    SELECT @PicID = PicID FROM #input WHERE CustID = 0 AND HeadlineID = 0
-
-		SELECT @PicName = Username FROM  dbo.crmPIC WITH(NOLOCK) WHERE PicID = @PicID
-
-		INSERT INTO #input
-		(
-			HeadlineID,
-			CustID,
-			PicID
-		)
-		SELECT	h.CustID,
-				m.CustID,
-				@PicID
-		FROM dbo.crmPicManagement m WITH(NOLOCK)
-			LEFT JOIN bodb02.dbo.custAccount a WITH(NOLOCK) ON m.CustID = a.custid
-			LEFT JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON h.GroupID = a.groupID AND h.GroupID <> 0
-		WHERE m.PicID = @PicID
-		
-		DELETE #input
-		WHERE CustID = 0
-
-		DELETE t
-		FROM dbo.crmPicManagement t
-		WHERE t.PicID = @PicID
-
-		DELETE t
-		FROM dbo.crmPICHeadline t
-		WHERE PicID = @PicID
-
+		SELECT @ErrCode = 100, @ErrMsg = 'There are some updates on PIC assignment. Please submit again to get the lastest updates!'
 	END
-
+	
 	UPDATE t
 		SET t.PICName = p.Username,
-			t.HeadlineName = h.username,
-			t.UserName = m.username
+			t.RoleID = p.Role
 	FROM #input t 
 		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = p.PicID
-		LEFT JOIN bodb02.dbo.Customer h WITH(NOLOCK) ON h.custid = t.HeadlineID
-		INNER JOIN bodb02.dbo.Customer m WITH(NOLOCK) ON m.custid = t.CustID
-
-	IF @InActivatedPIC = 0
-	BEGIN
+	
+	BEGIN TRY
 		DELETE t
-		FROM dbo.crmPicManagement t
+		OUTPUT deleted.HeadlineID, deleted.CustID, deleted.PicID, 1
+			INTO @TmpLog (HeadlineID, CustID, PicID, Type)
+		FROM dbo.crmPicManagement t WITH(ROWLOCK, UPDLOCK)
 			INNER JOIN #input i ON t.CustID = i.CustID AND t.PicID = i.PicID
-
-		DELETE t
-		FROM dbo.crmPICHeadline t
-			INNER JOIN bodb02.dbo.CustGroupHeadline h WITH(NOLOCK) ON t.HeadlineID = h.CustID
-			INNER JOIN #input i ON t.HeadlineID = i.HeadlineID AND t.PicID = i.PicID	
+	
+		DELETE h
+		OUTPUT deleted.HeadlineID, deleted.PicID, 2
+			INTO @TmpLog(HeadlineID, PicID, Type)
+		FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
+			INNER JOIN @TmpLog t ON h.HeadlineID = t.HeadlineID AND h.PicID = t.PicID	
 		WHERE NOT EXISTS(
 			SELECT 1
-			FROM bodb02.dbo.custAccount c WITH(NOLOCK)
-				INNER JOIN dbo.crmPicManagement p WITH(NOLOCK) ON p.CustID = c.custid
-			WHERE c.groupID = h.GroupID AND p.PicID = i.PicID
-		)
-	END	
+			FROM dbo.crmPicManagement p WITH(NOLOCK) 
+			WHERE P.HeadlineID = t.HeadlineID 
+				AND p.PicID = t.PicID
+		)AND t.Type = 1
 
-	SELECT @NewValues =	(SELECT HeadlineID		AS 'GroupHeadline/@HeadlineID',
-								HeadlineName	AS 'GroupHeadline/@HeadlineName',
-								PicID			AS 'Pic/@PicID',
-								PicName			AS 'Pic/@PicName', 
-								CustID			AS 'DirectAccount/@CustID',
-								UserName		AS 'DirectAccount/@Username'
-						 FROM #input
-						 FOR XML PATH('RemovedPIC'),ROOT('Acc_CRM_PICAssignmentDel'))
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
 
-    IF @InActivatedPIC = 1 AND @NewValues IS NULL
-	BEGIN
-		DROP TABLE #input
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
+		BEGIN
+			INSERT INTO dbo.crmPICHeadline (HeadlineID, PicID)
+			SELECT HeadlineID, PicID
+			FROM @TmpLog 
+			WHERE Type = 2
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 1)
+		BEGIN
+			INSERT INTO dbo.crmPicManagement (HeadlineID, CustID, PicID)
+			SELECT HeadlineID, CustID, PicID
+			FROM @TmpLog
+			WHERE Type = 1
+		END
+
 		RETURN
+	END CATCH
+	
+	
+	INSERT INTO #TmpLog
+	(
+		CustID
+	)
+	SELECT DISTINCT CustID
+	FROM #input
+
+	UPDATE i
+	SET i.RoleName = s.SettingValue
+	FROM #input i
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON i.RoleID = s.SettingID
+
+	DECLARE @_CustID INT
+
+	DECLARE cursor_custid CURSOR FOR SELECT CustID FROM #TmpLog
+	OPEN cursor_custid
+	FETCH NEXT FROM cursor_custid INTO @_CustID 
+
+	WHILE @@FETCH_STATUS = 0
+	BEGIN	
+	
+			SELECT @NewValues =	CAST((SELECT PicID			AS '@PicID',
+											 PicName		AS '@PicName',
+											 RoleID         AS '@RoleID',
+											 RoleName       AS '@RoleName'
+									 FROM #input i																	
+									 WHERE CustID = @_CustID
+									 FOR XML PATH('PIC'),ROOT('Acc_CRM_PICAssignmentDel')) AS NVARCHAR(MAX))
+
+			EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+				@UserID = @UserID,
+				@CustId = @_CustID,
+				@ActionID = 904,
+				@IP = @LoginIP,
+				@NewValues = @NewValues
+		   
+		    FETCH NEXT FROM cursor_custid INTO @_CustID 
+
 	END
-	ELSE
-	BEGIN
-		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-			@UserID = @UserID,
-			@ActionID = 904,
-			@IP = @LoginIP,
-			@NewValues = @NewValues
-	DROP TABLE #input
-	END
+	CLOSE cursor_custid
+	DEALLOCATE cursor_custid
+		
+	DROP TABLE #input	
+
+	DROP TABLE #TmpLog
 END

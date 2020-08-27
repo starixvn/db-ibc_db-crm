@@ -15,6 +15,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
+		- 20200814@Malcolm: Sort Ouput by IsActive ,Username [Redmine: #137144]
 	Param's Explanation:	
 		
 */
@@ -98,7 +99,7 @@ BEGIN
 	SET x.RowNum = x.NewRowNum
 	FROM(
 		SELECT RowNum, 
-			   ROW_NUMBER() OVER(ORDER BY t.Username) AS NewRowNum
+			   ROW_NUMBER() OVER(ORDER BY t.IsActive DESC,t.Username) AS NewRowNum
 		FROM #Tmp t
 	)x
 

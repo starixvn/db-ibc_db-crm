@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_PICAssignmentSel]
+ALTER PROCEDURE [dbo].[Acc_CRM_PICAssignmentSel]
 	@Site			    VARCHAR(MAX) = '',
 	@Currency			VARCHAR(1000) = '',
 	@Status				VARCHAR(100) = '',
@@ -24,6 +24,8 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
+		- 20200814@Malcolm: Get default Pics [Redmine: #137144]
+
 	Param's Explanation:
 		@HeadlineType = 0 : Normal
 		              = 1 : VIP
@@ -155,7 +157,7 @@ BEGIN
 		WHERE NOT EXISTS(
 			SELECT 1 
 			FROM bodb02.dbo.CustGroupHeadline h WITH(NOLOCK)
-				INNER JOIN dbo.crmCustomer c WITH(NOLOCK) ON h.CustID = c.CustID
+				LEFT JOIN dbo.crmCustomer c WITH(NOLOCK) ON h.CustID = c.CustID
 			WHERE h.GroupID = t.GroupID AND ISNULL(c.IsVIP,0) = @HeadlineType AND t.GroupID <> 0
 		)
 	END
@@ -226,7 +228,8 @@ BEGIN
 			t.Site,
 			ex.currency,		
 			t.Position,
-	        l.PIC AS PIC
+	        l.PIC AS PIC,
+			d.PIC AS DefaultPIC
 
 	FROM #Tmp_DirectAccount t 
 		LEFT JOIN dbo.crmCustomer c WITH (NOLOCK) ON t.HeadlineID = c.CustID
@@ -241,6 +244,16 @@ BEGIN
 					FOR XML PATH('PIC'),ROOT('ROOT')))
 				  )
 	)l(PIC)
+	OUTER APPLY(
+		  SELECT  (		
+					CONVERT(XML,(SELECT p.Username AS '@PicName', ISNULL(r.SettingValue,'') AS '@Role', p.PicID AS '@PicID',p.Role AS '@RoleId'
+					FROM dbo.crmPICDefault c WITH(NOLOCK) 
+						INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON c.PicID = p.PicID
+						LEFT JOIN dbo.crmSetting r WITH(NOLOCK) ON r.SettingID = p.Role 
+					WHERE c.HeadlineID = t.HeadlineID 
+					FOR XML PATH('PIC'),ROOT('ROOT')))
+				  )
+	)d(PIC)
 
 	DROP TABLE #Tmp_DirectAccount
 END

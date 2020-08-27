@@ -1,11 +1,12 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmUserLog_RunSP]
 (
-	@UserID		VARCHAR(50), 
-	@ActionID	INT, 
-	@IP			VARCHAR(15),	
-	@NewValues	xml,
-	@OldValues	xml = NULL
+	@UserID			INT, 
+	@CustId     	INT,
+	@ActionID		INT, 
+	@IP				VARCHAR(20),	
+	@NewValues		NVARCHAR(MAX) ='',
+	@OldValues		NVARCHAR(MAX) =''
 )
 AS
 /*
@@ -15,7 +16,8 @@ DB: DBCRM/bodb_CRM
 Original:
 
 	Revisions:
-		- 20200506@Malcolm: write log to crmUserLog_RunSP table [Redmine: #108739]
+		- 20200506@Malcolm: write log to crmUserLog_RunSP table [RedmineId: #108739]
+		- 20200722@Malcolm: Add CustId [RedmineId : #137144]
 	Param's Explanation:
 		
 */
@@ -26,6 +28,7 @@ BEGIN
 				(
 					LogDate, 
 					UserID, 
+					CustID,
 					ActionID,  
 					IP, 
 					NewValues,
@@ -33,8 +36,9 @@ BEGIN
 				)
 			VALUES
 				(
-					getdate(), 
+					GETDATE(), 
 					@UserID, 
+					@CustId,
 					@ActionID, 
 					@IP, 
 					@NewValues,

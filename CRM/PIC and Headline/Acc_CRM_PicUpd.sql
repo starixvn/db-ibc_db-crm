@@ -20,6 +20,7 @@ Original:
 
 	Revisions:
 		- 20200506@Malcolm: Update information of PIC [Redmine: #108739]
+		- 20200723@Malcolm : change logs [RedmineId : #137144]
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -36,7 +37,7 @@ BEGIN
 	
 	DECLARE @idoc INT
 
-	DECLARE	@NewValues XML,@OldValues XML, @CountryXML XML, @LanguageXML XML,@RoleXML XML
+	DECLARE	@NewValues NVARCHAR(MAX),@OldValues NVARCHAR(MAX), @CountryXML XML, @LanguageXML XML,@RoleXML XML
 	
 	DECLARE @CountryXML_Old XML, @LanguageXML_Old XML, @RoleXML_Old XML
 
@@ -90,37 +91,38 @@ BEGIN
 
 
 	SELECT @RoleXML_Old = (
-				SELECT SettingID AS '@RoleID', SettingValue AS '@RoleName' 
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID = @Role_Old
 				FOR XML PATH('Role'))
 
 	SELECT @CountryXML_Old = (
-				SELECT CountryID AS '@CountryID', CountryName AS '@CountryName' 
+				SELECT CountryID AS '@Id', CountryName AS '@Name' 
 				FROM crmCountry WITH(NOLOCK) 
 				WHERE CountryID = @Country_Old
 				FOR XML PATH('Country'))
 
 	SELECT @LanguageXML_Old = (
-				SELECT SettingID AS '@LanguageID', SettingValue AS '@LanguageName' 
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID IN (SELECT Val FROM bodb02.dbo.strSplit(@Language_Old,','))
 				FOR XML PATH('Language'))
 
-	SELECT @OldValues =	(SELECT	@PicID          AS '@PicID',
-								@PicName_Old    AS '@PicName',
-								@Remark	  		AS '@Remark',
-								@RoleXML,
-								@CountryXML,
-								@LanguageXML,
-								(
-									 SELECT	CommunicationID		AS '@SettingID', 
-										    CommunicationValue	AS '@SettingValue'
-									 FROM  dbo.crmPICCommunication c WITH(NOLOCK)
-									 WHERE c.PicID = @PicID
-									 FOR XML PATH('CommunicationTool'),TYPE
-								 )
-						FOR XML PATH('Acc_CRM_PicUpd'))
+	SELECT @OldValues =	CAST((SELECT	@PicName_Old    AS '@PicName',
+										@Remark_Old	  	AS '@Remark',
+										@RoleXML_Old,
+										@CountryXML_Old,
+										@LanguageXML_Old,
+										(
+											SELECT	CommunicationID		AS '@Id', 
+													CommunicationValue	AS '@Value',
+													s.SettingValue      AS '@Name'
+											FROM  dbo.crmPICCommunication c WITH(NOLOCK)
+												INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON c.CommunicationID = s.SettingID
+											WHERE c.PicID = @PicID
+											FOR XML PATH('CommunicationTool'),TYPE
+										)
+								FOR XML PATH('Acc_CRM_PicUpd')) AS NVARCHAR(MAX))
 
 	BEGIN TRY
 		UPDATE p
@@ -129,10 +131,16 @@ BEGIN
 			p.Remark	= @Remark,
 			P.Language  = @Language,
 			P.Country   = @Country
-		FROM dbo.crmPIC AS p
+		FROM dbo.crmPIC AS p WITH(ROWLOCK)
 		WHERE p.PicID = @PicID;
-			
-		MERGE dbo.crmPICCommunication AS TARGET
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END CATCH	
+
+	BEGIN TRY		
+		;MERGE dbo.crmPICCommunication AS TARGET
 			USING #input AS SOURCE
 				ON (TARGET.PicID = @PicID AND TARGET.CommunicationID = SOURCE.SettingID)
 		WHEN MATCHED THEN 
@@ -149,40 +157,42 @@ BEGIN
 	END CATCH	
 
 	SELECT @RoleXML = (
-				SELECT SettingID AS '@RoleID', SettingValue AS '@RoleName' 
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID = @Role
 				FOR XML PATH('Role'))
 
 	SELECT @CountryXML = (
-				SELECT CountryID AS '@CountryID', CountryName AS '@CountryName' 
+				SELECT CountryID AS '@Id', CountryName AS '@Name' 
 				FROM crmCountry WITH(NOLOCK) 
 				WHERE CountryID = @Country
 				FOR XML PATH('Country'))
 
 	SELECT @LanguageXML = (
-				SELECT SettingID AS '@LanguageID', SettingValue AS '@LanguageName' 
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID IN (SELECT Val FROM bodb02.dbo.strSplit(@Language,','))
 				FOR XML PATH('Language'))
 
-	SELECT @NewValues =	(SELECT @PicID          AS '@PicID',
-								@PicName        AS '@PicName',
-								@Remark	  		AS '@Remark',
-								@RoleXML,
-								@CountryXML,
-								@LanguageXML,								
-								(
-									 SELECT	SettingID	 AS '@SettingID', 
-										    SettingValue AS '@SettingValue'
-									 FROM #input
-									 FOR XML PATH('CommunicationTool'),TYPE
-								 )
-						FOR XML PATH('Acc_CRM_PicUpd'))
+	SELECT @NewValues =	CAST((SELECT	@PicName        AS '@PicName',
+										@Remark	  		AS '@Remark',
+										@RoleXML,
+										@CountryXML,
+										@LanguageXML,								
+										(
+											 SELECT	i.SettingID	   AS '@Id', 
+												    i.SettingValue AS '@Value',
+													s.SettingValue AS '@Name'
+											 FROM #input i
+												INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = i.SettingID
+											 FOR XML PATH('CommunicationTool'),TYPE
+										)
+								FOR XML PATH('Acc_CRM_PicUpd')) AS NVARCHAR(MAX))
 	
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
+			@CustId = @PicID,
 			@ActionID = 902,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

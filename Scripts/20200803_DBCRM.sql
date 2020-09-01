@@ -31,7 +31,7 @@ GO
 
 CREATE TABLE dbo.crmNotificationType
 (
-	NotificationTypeId		TINYINT NOT NULL IDENTITY(1, 1)
+	NotificationTypeId		SMALLINT NOT NULL IDENTITY(1, 1)
 	,NotificationTypeName	NVARCHAR(500)
 	,SystemId				TINYINT
 	,CONSTRAINT PK_crmNotificationType PRIMARY KEY CLUSTERED
@@ -43,7 +43,7 @@ GO
 
 CREATE TABLE dbo.crmNotificationRecipientType
 (
-	NotificationTypeId	TINYINT NOT NULL
+	NotificationTypeId	SMALLINT NOT NULL
 	,RecipientTypeId    TINYINT NOT NULL
 	,CONSTRAINT PK_crmNotificationRecipientType PRIMARY KEY CLUSTERED
 	(
@@ -56,7 +56,7 @@ GO
 
 CREATE TABLE dbo.crmNotificationChatType
 (
-	NotificationTypeId TINYINT NOT NULL
+	NotificationTypeId SMALLINT NOT NULL
 	,ChatTypeId		   TINYINT NOT NULL
 	,CONSTRAINT PK_crmNotificationChatType PRIMARY KEY CLUSTERED
 	(
@@ -118,7 +118,7 @@ CREATE TABLE dbo.crmNotificationTemplate
 (
 	NotificationTemplateId		SMALLINT NOT NULL IDENTITY(1, 1)
 	,NotificationTemplateName	NVARCHAR(1000)
-	,NotificationTypeId			TINYINT
+	,NotificationTypeId			SMALLINT
 	,Title						NVARCHAR(2000)
 	,CONSTRAINT PK_crmNotificationTemplate PRIMARY KEY CLUSTERED
 	(

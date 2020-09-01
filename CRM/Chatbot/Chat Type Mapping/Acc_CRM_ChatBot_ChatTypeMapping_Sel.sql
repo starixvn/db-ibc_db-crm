@@ -101,29 +101,22 @@ BEGIN
 	BEGIN
 		DELETE t
 		FROM #Tmp t
-			INNER JOIN dbo.crmConversationGroupRecipient cgb WITH(NOLOCK) ON cgb.ConversationGroupId = t.ConversationGroupId 
-			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgb.RecipientId
+			LEFT JOIN dbo.crmConversationGroupRecipient cgb WITH(NOLOCK) ON cgb.ConversationGroupId = t.ConversationGroupId 
+			LEFT JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgb.RecipientId
 		WHERE NOT EXISTS(
 			SELECT 1
 			FROM dbo.crmPIC p WITH(NOLOCK)
 			WHERE r.SourceId = p.PicID
 				AND p.Username LIKE '%' + @RecipientName + '%'
-		) AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+		)
 	END
 
 	IF @LetstalkID <> ''
-	BEGIN
+	BEGIN		
 		DELETE t
 		FROM #Tmp t
-		    INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
-			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
-		WHERE NOT EXISTS(
-			SELECT 1
-			FROM dbo.crmPICCommunication p WITH(NOLOCK)
-			WHERE r.SourceId = p.PicID
-				AND p.CommunicationID = @PICCommunicationLetStalkId
-				AND (',' + p.CommunicationValue + ',' LIKE '%,' + @LetstalkID + ',%')
-		) AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+		WHERE (t.ConversationId NOT LIKE '%' + @LetstalkID + '%' AND t.ChatTypeId = 2)
+			OR t.ChatTypeId = 1
 	END
 
 	
@@ -239,7 +232,7 @@ BEGIN
 		,t.MappingStatusID
 		,t.Remark
 	FROM #Tmp t
-	ORDER BY t.ChatTypeId DESC, t.conversationGroupId  
+	ORDER BY t.ChatTypeId DESC, t.ConversationGroupName  
 
 	SELECT 
 		t.ConversationGroupId,

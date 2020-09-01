@@ -45,7 +45,10 @@ BEGIN
 	IF @RecipientName <> ''
 	BEGIN
 		--For DataSource = 'bodb_CRM.dbo.crmPIC'
-		SELECT @RecipientId = PicID FROM dbo.crmPIC WITH(NOLOCK) WHERE Username = @RecipientName
+		SELECT @RecipientId = r.RecipientId 
+		FROM dbo.crmPIC p WITH(NOLOCK) 
+			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = p.PicID
+		WHERE Username = @RecipientName
 	END
 	
 
@@ -130,7 +133,7 @@ BEGIN
 	SET x.RowNum = x.NewRowNum
 	FROM(
 		SELECT RowNum,
-			   ROW_NUMBER() OVER(ORDER BY t.NotificationId) AS NewRowNum
+			   ROW_NUMBER() OVER(ORDER BY t.NotificationId DESC) AS NewRowNum
 		FROM #Tmp t
 	)x
 
@@ -156,6 +159,7 @@ BEGIN
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationError nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender
+	ORDER BY t.NotificationId DESC
 
 	SELECT 
 		t.NotificationId		
@@ -174,7 +178,7 @@ BEGIN
     SELECT 
 		t.NotificationId
 		,nh.HeadlineId
-		,c.username AS HeadlineName
+		,CASE WHEN nh.HeadlineId = 0 THEN 'Not Assigned Group' ELSE c.username END  HeadlineName
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationHeadline nh WITH(NOLOCK) ON nh.NotificationId = t.NotificationId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON nh.HeadlineId = c.custid

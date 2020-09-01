@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Upd]
 	@UserId					INT
-	,@NotificationTypeId	TINYINT
+	,@NotificationTypeId	SMALLINT
 	,@NotificationTypeName	NVARCHAR(500)
 	,@RecipientTypeIds	    VARCHAR(200)
 	,@ChatTypeIds			VARCHAR(200)
@@ -24,7 +24,7 @@ BEGIN
 
 	DECLARE @Tmp TABLE 
 	(
-		NotificationTypeId		TINYINT
+		NotificationTypeId		SMALLINT
 		,NotificationTypeName	NVARCHAR(500)
 		,SystemId				TINYINT
 		,RecipientTypeId		TINYINT

@@ -62,7 +62,9 @@ BEGIN
 	FROM #Customer c
 		INNER JOIN bodb02.dbo.Customer ct WITH(NOLOCK) ON c.CustId = ct.custid
 	WHERE HeadlineId = 0
+	ORDER BY ct.username
 
 	DROP TABLE #Headlines
+	DROP TABLE #Customer
 END
 GO

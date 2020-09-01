@@ -23,7 +23,7 @@ BEGIN
 
 	SELECT @MsgContentsType = CAST(Value AS XML)
 	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'MsgContentsType'
+	WHERE SettingName = 'NotificationTemplate'
 
 	INSERT INTO #NotificationTemplate(NotificationTemplateId)
 	SELECT  T.c.value('@NotificationTemplateID', 'INT')

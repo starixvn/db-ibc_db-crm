@@ -39,7 +39,7 @@ BEGIN
 
 	IF ISNULL(@Existing_GroupName,'') <> ''
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'The ' + @Existing_GroupName  +' has been set ' + @LetstalkID +' to receive notification!'
+		SELECT @ErrCode = 101, @ErrMsg = 'The Letstalk ID ' + @LetstalkID  +' has been set to receive notification already!'
 		RETURN
 	END
 

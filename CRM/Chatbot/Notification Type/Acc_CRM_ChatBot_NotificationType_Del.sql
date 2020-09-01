@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Del]
 	@UserId					INT
-	,@NotificationTypeId	TINYINT
+	,@NotificationTypeId	SMALLINT
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 AS
@@ -20,7 +20,7 @@ BEGIN
 
 	DECLARE @Tmp TABLE 
 	(
-		NotificationTypeId		TINYINT
+		NotificationTypeId		SMALLINT
 		,NotificationTypeName	NVARCHAR(500)
 		,SystemId				TINYINT
 		,RecipientTypeId		TINYINT
@@ -33,7 +33,7 @@ BEGIN
 
 	SELECT @MsgContentsType = CAST(Value AS XML)
 	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'MsgContentsType'
+	WHERE SettingName = 'NotificationTemplate'
 
 	INSERT INTO #NotificationTemplate(NotificationTemplateId)
 	SELECT  T.c.value('@NotificationTemplateID', 'INT')

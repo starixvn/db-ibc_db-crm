@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Sel]
 	@NotificationTemplateId		SMALLINT = NULL
 	,@NotificationTemplateName	NVARCHAR(1000) = NULL
-	,@NotificationTypeId		INT = NULL
+	,@NotificationTypeId		SMALLINT = NULL
 	,@PageSize					INT = 0
 	,@PageIndex					INT = 0
 	,@TotalRows					INT = 0 OUTPUT
@@ -29,7 +29,7 @@ BEGIN
 	(
 		NotificationTemplateId		SMALLINT
 		,NotificationTemplateName	NVARCHAR(1000)
-		,NotificationTypeId			TINYINT
+		,NotificationTypeId			SMALLINT
 		,NotificationTypeName       NVARCHAR(500)
 		,Title						NVARCHAR(2000)
 		,RowNum						INT

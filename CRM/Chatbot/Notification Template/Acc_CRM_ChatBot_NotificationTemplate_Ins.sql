@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Ins]
 	@UserId						INT
 	,@NotificationTemplateName	NVARCHAR(1000) = NULL
-	,@NotificationTypeId		TINYINT = NULL
+	,@NotificationTypeId		SMALLINT = NULL
 	,@Title						NVARCHAR(2000)
 	,@Contents					NVARCHAR(MAX) 
 	,@ErrCode					INT = 0 OUTPUT
@@ -27,19 +27,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Check permission
-	CREATE TABLE #RequiredParameters(Value NVARCHAR(300), LanguageId INT)
-
 	DECLARE @NotificationTemplateId SMALLINT = 0, @iDoc INT, @MsgContentsType XML
-
-	SELECT @MsgContentsType = CAST(Value AS XML)
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'MsgContentsType'
-
-	INSERT INTO #RequiredParameters(Value, LanguageId)
-	SELECT 
-		T.c.value('@Value', 'NVARCHAR(200)') AS [Value],
-		T.c.value('@LanguageId', 'INT')		
-	FROM @MsgContentsType.nodes('root/r/TemplateRequiredParam') AS T(c)
 
 	-- Check exists NotificationTemplateName
 	IF EXISTS (SELECT 1 FROM dbo.crmNotificationTemplate WITH (NOLOCK) WHERE NotificationTemplateName = @NotificationTemplateName)
@@ -75,15 +63,6 @@ BEGIN
 		RETURN
 	END CATCH
 
-	-- Check required parameters 
-	IF EXISTS(SELECT 1
-			  FROM #Contents c 
-				  INNER JOIN #RequiredParameters r ON r.LanguageId = c.LanguageId
-			  WHERE c.Value NOT LIKE '%' + r.Value + '%')
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'You cannot remove predefined param(s).'
-		RETURN
-	END
 	-- Insert process
 	BEGIN TRY
 		INSERT INTO dbo.crmNotificationTemplate (NotificationTemplateName, NotificationTypeId, Title)
@@ -105,7 +84,6 @@ BEGIN
 	END CATCH
 
 	DROP TABLE #Contents
-	DROP TABLE #RequiredParameters
 	-- Write log
 END
 GO

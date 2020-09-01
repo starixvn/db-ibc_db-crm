@@ -27,7 +27,7 @@ BEGIN
 
 	CREATE TABLE #Tmp 
 	(
-		NotificationTypeId		TINYINT PRIMARY KEY CLUSTERED,
+		NotificationTypeId		SMALLINT PRIMARY KEY CLUSTERED,
 		NotificationTypeName	NVARCHAR(500),
 		SystemId			    TINYINT,
 		RowNum					INT

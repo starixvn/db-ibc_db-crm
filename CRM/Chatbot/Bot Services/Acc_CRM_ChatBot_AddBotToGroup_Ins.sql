@@ -22,60 +22,76 @@ BEGIN
 	DECLARE @ConversationGroupId INT = 0
 		,@GroupChatType INT = 1
 		,@StarixIT INT = 10278938
+		,@IsExistedGroup INT = 0
 
-	BEGIN TRY
-		IF (
-				NOT EXISTS (
-					SELECT 1
-					FROM dbo.crmConversationBot b WITH (NOLOCK)
-					WHERE b.BotId = @BotId
-					)
+	IF (
+			NOT EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationBot b WITH (NOLOCK)
+				WHERE b.BotId = @BotId
 				)
-			BEGIN
-				INSERT INTO dbo.crmConversationBot (
-					BotId
-					,BotName
-					)
-				VALUES (
-					@BotId
-					,@BotName
-					)
-			END
+			)
+	BEGIN
+		INSERT INTO dbo.crmConversationBot (
+			BotId
+			,BotName
+			)
+		VALUES (
+			@BotId
+			,@BotName
+			)
+	END
 
-		BEGIN
-			INSERT INTO dbo.crmConversationGroup (
-				ConversationId
-				,ConversationGroupName
-				,ChatTypeId
-				,Creator
-				,CreatedDate
-				,IsActive
+	IF (
+			NOT EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroup cg WITH (NOLOCK)
+				WHERE cg.ConversationId = @ConversationId
 				)
-			VALUES (
-				@ConversationId
-				,@GroupName
-				,@GroupChatType
-				,@StarixIT
-				,GETDATE()
-				,1
-				)
+			)
+	BEGIN
+		INSERT INTO dbo.crmConversationGroup (
+			ConversationId
+			,ConversationGroupName
+			,ChatTypeId
+			,Creator
+			,CreatedDate
+			,IsActive
+			)
+		VALUES (
+			@ConversationId
+			,@GroupName
+			,@GroupChatType
+			,@StarixIT
+			,GETDATE()
+			,1
+			)
 
-			SELECT @ConversationGroupId = SCOPE_IDENTITY()
+		SELECT @ConversationGroupId = SCOPE_IDENTITY()
+	END
+	ELSE
+	BEGIN
+		SELECT @ConversationGroupId = cg.ConversationGroupId
+			,@IsExistedGroup = 1
+		FROM dbo.crmConversationGroup cg WITH (NOLOCK)
+		WHERE cg.ConversationId = @ConversationId
+	END
 
-			INSERT INTO dbo.crmConversationGroupBot (
-				ConversationGroupId
-				,BotId
-				)
-			VALUES (
-				@ConversationGroupId
-				,@BotId
-				)
-		END
-	END TRY
+	BEGIN
+		INSERT INTO dbo.crmConversationGroupBot (
+			ConversationGroupId
+			,BotId
+			)
+		VALUES (
+			@ConversationGroupId
+			,@BotId
+			)
+	END
 
-	BEGIN CATCH
+	IF @@ERROR <> 0
+	BEGIN
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = ERROR_NUMBER()
+			,@ErrMsg = '[Acc_CRM_ChatBot_AddBotToGroup_Ins] The errors occurred.'
 
 		IF @ConversationGroupId <> 0
 		BEGIN
@@ -85,6 +101,7 @@ BEGIN
 					,UPDLOCK
 					)
 			WHERE ConversationGroupId = @ConversationGroupId
+				AND @IsExistedGroup = 1
 
 			DELETE dbo.crmConversationGroupBot
 			WITH (
@@ -93,7 +110,7 @@ BEGIN
 					)
 			WHERE ConversationGroupId = @ConversationGroupId
 		END
-	END CATCH
-		-- Write Logs
+	END
+	-- Write Logs
 END
 GO

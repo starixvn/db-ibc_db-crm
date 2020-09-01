@@ -58,7 +58,6 @@ BEGIN
 	ORDER BY CASE WHEN h.HeadlineId = 0 THEN 1 ELSE 0 END, h.HeadlineName ASC
 
 	SELECT
-		c.CustId, 
 		ct.username
 	FROM #Customer c
 		INNER JOIN bodb02.dbo.Customer ct WITH(NOLOCK) ON c.CustId = ct.custid

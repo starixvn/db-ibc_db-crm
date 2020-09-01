@@ -91,7 +91,7 @@ BEGIN
 	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = '[Acc_CRM_ChatBot_AddBotToGroup_Ins] The errors occurred.'
+			,@ErrMsg = '[Acc_CRM_ChatBot_AddBotToGroup_Ins]' + ERROR_MESSAGE()
 
 		IF @ConversationGroupId <> 0
 		BEGIN

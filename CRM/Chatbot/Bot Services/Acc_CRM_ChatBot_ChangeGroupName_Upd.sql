@@ -44,7 +44,7 @@ BEGIN
 	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = '[Acc_CRM_ChatBot_ChangeGroupName_Upd] The error occured. Cannot update name'
+			,@ErrMsg = '[Acc_CRM_ChatBot_ChangeGroupName_Upd]' + ERROR_MESSAGE()
 	END
 			-- Write Logs
 END

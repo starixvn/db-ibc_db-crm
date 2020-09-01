@@ -49,7 +49,7 @@ BEGIN
 	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = '[Acc_CRM_ChatBot_KickOutBotFromGroup_Del] The errors occurred.'
+			,@ErrMsg = '[Acc_CRM_ChatBot_KickOutBotFromGroup_Del]' + ERROR_MESSAGE()
 	END
 			-- Write Logs
 END

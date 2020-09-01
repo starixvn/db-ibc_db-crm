@@ -31,16 +31,18 @@ BEGIN
 					WHERE b.BotId = @BotId
 					)
 				)
-		BEGIN
-			INSERT INTO dbo.crmConversationBot (
-				BotId
-				,BotName
-				)
-			VALUES (
-				@BotId
-				,@BotName
-				)
+			BEGIN
+				INSERT INTO dbo.crmConversationBot (
+					BotId
+					,BotName
+					)
+				VALUES (
+					@BotId
+					,@BotName
+					)
+			END
 
+		BEGIN
 			INSERT INTO dbo.crmConversationGroup (
 				ConversationId
 				,ConversationGroupName

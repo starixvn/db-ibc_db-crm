@@ -1,2 +1,3 @@
-CRM\Customer-Feedback\Acc_CRM_CustomerFeedbackIns.sql
-CRM\Customer-Feedback\Acc_CRM_GuestFeedbackIns_Multiple.sql
+CRM\InformHeadline\Acc_CRM_InformHeadlineIns.sql
+CRM\InformHeadline\Acc_CRM_InformHeadlineSel.sql
+CRM\InformHeadline\Acc_CRM_InformHeadlineSearchSel.sql

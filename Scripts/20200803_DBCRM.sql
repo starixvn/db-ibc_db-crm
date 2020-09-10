@@ -1,10 +1,13 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM"></info>*/
 
 /*
-Created: 20200810@Malcolm
-Task : Create new tables
-DB: DBCRM/bodb_CRM
+	Created: 20200810@Malcolm
+	DB: DBCRM-bodb_CRM
+	Task: Chatbot for CRM - New structure
 */
+
+USE bodb_CRM
+GO
 
 ALTER DATABASE bodb_CRM ADD FILEGROUP DataChatBot
 GO
@@ -20,14 +23,17 @@ CREATE TABLE dbo.crmNotification
 	,SendDate				DATETIME
 	,Title					NVARCHAR(2000)
 	,Content				NVARCHAR(MAX)
-	,Status					VARCHAR(20)
+	,[Status]				VARCHAR(20)
 	,ResolvedRemark         NVARCHAR(2000)
-	,RelatedNotificationIds NVARCHAR(1000)
+	,RelatedNotificationIds VARCHAR(1000)
 	,CONSTRAINT PK_crmNotification PRIMARY KEY NONCLUSTERED
 	(
 		NotificationId ASC
 	)
 ) ON DataChatBot
+GO
+
+CREATE CLUSTERED INDEX CIX_crmNotification ON dbo.crmNotification (SendDate) ON DataChatBot
 GO
 
 CREATE TABLE dbo.crmNotificationType
@@ -82,7 +88,7 @@ GO
 
 CREATE TABLE dbo.crmRecipient
 (
-	RecipientId INT NOT NULL IDENTITY(1,1)
+	RecipientId INT NOT NULL IDENTITY(1, 1)
 	,RecipientTypeId TINYINT NOT NULL
 	,SourceId INT
 	,DataSource VARCHAR(128)
@@ -91,6 +97,10 @@ CREATE TABLE dbo.crmRecipient
 		RecipientId ASC
 	)
 ) ON DataChatBot
+GO
+
+CREATE NONCLUSTERED INDEX IX_SourceId ON dbo.crmRecipient (SourceId) INCLUDE (DataSource) ON DataChatBot
+GO
 
 CREATE TABLE dbo.crmChatType
 (
@@ -233,14 +243,32 @@ CREATE TABLE dbo.crmNotificationHeadline
 ) ON DataChatBot
 GO
 
-CREATE TABLE dbo.crmNotificationError
+CREATE TABLE dbo.crmNotificationGroup
 (
 	NotificationId INT NOT NULL
 	,ConversationGroupId SMALLINT NOT NULL
+	,[Status] VARCHAR(20)
 	,Reason NVARCHAR(MAX)
+	,RetryTime TINYINT CONSTRAINT DF_crmNotificationGroup_RetryTime DEFAULT ((0))
 	,CONSTRAINT PK_crmNotificationError PRIMARY KEY CLUSTERED
 	(
 		NotificationId ASC
 	)
 ) ON DataChatBot
+GO
+
+CREATE TABLE dbo.crmJobException
+(
+	RequestId INT NOT NULL
+	,ServiceName VARCHAR(100) NOT NULL
+	,CreatedDate DATETIME CONSTRAINT DF_crmException_CreatedDate DEFAULT (GETDATE())
+	,CONSTRAINT PK_crmException PRIMARY KEY CLUSTERED
+	(
+		RequestId ASC
+		,ServiceName ASC
+	)
+) ON DataChatBot
+GO
+
+CREATE NONCLUSTERED INDEX IX_ChatBotProcessed ON dbo.crmMessageImport (IsChatBotProcessed)
 GO

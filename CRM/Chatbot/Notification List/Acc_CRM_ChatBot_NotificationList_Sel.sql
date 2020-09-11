@@ -161,7 +161,7 @@ BEGIN
 		,nr.Reason
 		,t.RelatedNotificationIds
 	FROM #Tmp t
-		LEFT JOIN dbo.crmNotificationError nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
+		LEFT JOIN dbo.crmNotificationGroup nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender
 	ORDER BY t.NotificationId DESC
 

@@ -24,7 +24,7 @@ BEGIN
 	
 	SELECT 
 		DISTINCT nr.NotificationId
-	FROM dbo.crmNotificationError nr WITH(NOLOCK)	
+	FROM dbo.crmNotificationGroup nr WITH(NOLOCK)	
 		INNER JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON nr.ConversationGroupId = cg.ConversationGroupId
 	WHERE EXISTS(SELECT 1 FROM #NotificationIds n WHERE n.ID = nr.NotificationId) 	
 		AND cg.IsActive = 0
@@ -33,7 +33,7 @@ BEGIN
 		nr.NotificationId
 		,cg.ConversationId
 		,n.Content
-	FROM dbo.crmNotificationError nr WITH(NOLOCK)	
+	FROM dbo.crmNotificationGroup nr WITH(NOLOCK)	
 		INNER JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON nr.ConversationGroupId = cg.ConversationGroupId
 		INNER JOIN dbo.crmNotification n WITH(NOLOCK) ON nr.NotificationId = n.NotificationId
 	WHERE EXISTS(SELECT 1 FROM #NotificationIds n WHERE n.ID = nr.NotificationId) 	

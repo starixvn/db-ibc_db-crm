@@ -69,6 +69,7 @@ BEGIN
 		,Content				NVARCHAR(MAX)
 		,Status					VARCHAR(20)
 		,ResolvedRemark			NVARCHAR(2000)
+		,RelatedNotificationIds NVARCHAR(1000)
 		,RowNum					INT
 	)
 
@@ -84,6 +85,7 @@ BEGIN
 		,Content				
 		,Status	
 		,ResolvedRemark
+		,RelatedNotificationIds
 	)
 	SELECT 
 		n.NotificationId,
@@ -95,7 +97,8 @@ BEGIN
 		n.Title,
 		n.Content,
 		n.Status,
-		n.ResolvedRemark
+		n.ResolvedRemark,
+		n.RelatedNotificationIds
 	FROM dbo.crmNotification n WITH(NOLOCK)
 		INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
 	WHERE (n.MessageId = @MessageId OR @MessageId IS NULL)
@@ -156,6 +159,7 @@ BEGIN
 		,t.Status
 		,t.ResolvedRemark
 		,nr.Reason
+		,t.RelatedNotificationIds
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationError nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender

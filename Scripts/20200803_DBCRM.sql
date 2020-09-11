@@ -22,6 +22,7 @@ CREATE TABLE dbo.crmNotification
 	,Content				NVARCHAR(MAX)
 	,Status					VARCHAR(20)
 	,ResolvedRemark         NVARCHAR(2000)
+	,RelatedNotificationIds NVARCHAR(1000)
 	,CONSTRAINT PK_crmNotification PRIMARY KEY NONCLUSTERED
 	(
 		NotificationId ASC

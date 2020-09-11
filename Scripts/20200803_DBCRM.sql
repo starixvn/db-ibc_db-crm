@@ -226,7 +226,7 @@ CREATE TABLE dbo.crmNotificationRecipient
 	,CONSTRAINT PK_crmNotificationRecipient PRIMARY KEY CLUSTERED
 	(
 		NotificationId ASC
-		,RecipientId   ASC
+		,ConversationGroupId   ASC
 	)
 ) ON DataChatBot
 GO
@@ -250,9 +250,10 @@ CREATE TABLE dbo.crmNotificationGroup
 	,[Status] VARCHAR(20)
 	,Reason NVARCHAR(MAX)
 	,RetryTime TINYINT CONSTRAINT DF_crmNotificationGroup_RetryTime DEFAULT ((0))
-	,CONSTRAINT PK_crmNotificationError PRIMARY KEY CLUSTERED
+	,CONSTRAINT PK_crmNotificationGroup PRIMARY KEY CLUSTERED
 	(
-		NotificationId ASC
+		NotificationId ASC,
+		ConversationGroupId ASC
 	)
 ) ON DataChatBot
 GO
@@ -268,6 +269,27 @@ CREATE TABLE dbo.crmJobException
 		,ServiceName ASC
 	)
 ) ON DataChatBot
+GO
+
+CREATE TABLE dbo.crmNotificationMsgLog
+(
+	LogId BIGINT NOT NULL IDENTITY (1, 1)
+	,NotificationId	INT NOT NULL
+	,BotId	INT
+	,ConversationId VARCHAR(200)
+	,Content NVARCHAR(MAX)
+	,SentTime DATETIME CONSTRAINT DF_crmNotificationMsgLog_SentTime DEFAULT (GETDATE())
+	,IsSuccess BIT CONSTRAINT DF_crmNotificationMsgLog_IsSuccess DEFAULT ((0))
+	,IsBotBlocked BIT CONSTRAINT DF_crmNotificationMsgLog_IsBotBlocked DEFAULT ((0))
+	,ErrMsg NVARCHAR(4000)
+	,CONSTRAINT PK_crmNotificationMsgLog PRIMARY KEY NONCLUSTERED
+	(
+		LogId ASC
+	)
+) ON DataChatBot
+GO
+
+CREATE CLUSTERED INDEX CIX_crmNotificationMsgLog ON dbo.crmNotificationMsgLog (NotificationId) ON DataChatBot
 GO
 
 CREATE NONCLUSTERED INDEX IX_ChatBotProcessed ON dbo.crmMessageImport (IsChatBotProcessed)

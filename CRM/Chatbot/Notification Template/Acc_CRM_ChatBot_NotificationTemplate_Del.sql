@@ -2,6 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Del]
 	@UserId						INT
 	,@NotificationTemplateId	SMALLINT
+	,@NotificationTemplateName  NVARCHAR(1000)
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
 AS
@@ -33,7 +34,7 @@ BEGIN
 	-- Check exists NotificationTemplateId
 	IF NOT EXISTS (SELECT 1 FROM dbo.crmNotificationTemplate WITH (NOLOCK) WHERE NotificationTemplateId = @NotificationTemplateId)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'The Notification Template has been deleted, please check again!'
+		SELECT @ErrCode = 101, @ErrMsg = @NotificationTemplateName + ' has been deleted, please check!'
 		RETURN
 	END
 

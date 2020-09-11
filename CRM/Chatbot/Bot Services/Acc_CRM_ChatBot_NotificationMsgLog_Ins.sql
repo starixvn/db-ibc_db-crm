@@ -1,14 +1,11 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_LetstalkMessageLog_Ins] @NotificationId INT
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationMsgLog_Ins] @NotificationId INT
 	,@BotId INT
-	,@LetstalkId NVARCHAR(200)
+	,@ConversationId VARCHAR(200)
 	,@Content NVARCHAR(MAX)
-	,@IsBlocked BIT = 0
+	,@IsBotBlocked BIT = 0
 	,@IsSuccess BIT = 0
-	,@ErrorMessage NVARCHAR(1000)
-	,@IsGroup BIT
-	,@ErrCode INT = 0 OUTPUT
-	,@ErrMsg NVARCHAR(200) = '' OUTPUT
+	,@ErrMsg NVARCHAR(4000)
 AS
 /*
 Created: 20200911@Oliver.Dang
@@ -21,26 +18,27 @@ Original:
 		
 */
 BEGIN
-	INSERT INTO dbo.crmLetstalkMessageLog (
+	SET NOCOUNT ON
+
+	INSERT INTO dbo.crmNotificationMsgLog(
 		NotificationId
 		,BotId
-		,LetstalkId
+		,ConversationId
 		,Content
-		,IsSuccess
-		,IsBlocked.ErrorMessage
 		,SentTime
-		,IsGroup
+		,IsSuccess
+		,IsBotBlocked
+		,ErrMsg
 		)
 	VALUES (
 		@NotificationId
 		,@BotId
-		,@LetstalkId
+		,@ConversationId
 		,@Content
-		,@IsSuccess
-		,@IsBlocked
-		,@ErrorMessage
 		,GETDATE()
-		,@IsGroup
+		,@IsSuccess
+		,@IsBotBlocked
+		,@ErrMsg
 		)
 END
 GO

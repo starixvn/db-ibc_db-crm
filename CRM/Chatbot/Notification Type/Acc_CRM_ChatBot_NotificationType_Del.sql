@@ -2,6 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Del]
 	@UserId					INT
 	,@NotificationTypeId	SMALLINT
+	,@NotificationTypeName	NVARCHAR(500)
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 AS
@@ -44,7 +45,7 @@ BEGIN
 	-- Check exists NotificationTypeId
 	IF NOT EXISTS (SELECT 1 FROM dbo.crmNotificationType WITH (NOLOCK) WHERE NotificationTypeId = @NotificationTypeId)
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'The Notification Type does not exists, please check again!'
+		SELECT @ErrCode = 101, @ErrMsg = @NotificationTypeName + ' has been deleted. Please check!'
 		RETURN
 	END
 

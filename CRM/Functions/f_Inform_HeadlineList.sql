@@ -11,7 +11,8 @@ AS
 	Task: Get Inform Headline
 	DB: DBCRM/bodb_CRM
 	Revisions:	
-		-20190311@Winnie: CRM - Enhance Inform Headline RedmineID:#109775	
+		- 20190311@Winnie: CRM - Enhance Inform Headline [RedmineID:#109775]	
+		- 20200910@Johnson: get hl has account belong to active currency [redmine:#141329]
 */
 BEGIN
 	DECLARE @tmpCurrency TABLE (currency INT)	
@@ -51,11 +52,14 @@ BEGIN
 				INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
 				INNER JOIN bodb02.dbo.Customer agent WITH (NOLOCK) ON agent.custid = ch.recommend
 				INNER JOIN bodb02.dbo.CustAgent ca WITH(NOLOCK) ON agent.custid=ca.custid AND ca.IsInternal=0
-			WHERE hl.IsGroupHeadLine=1 AND ch.roleid=1 AND		
-				ch.currency IN (SELECT currency FROM @tmpCurrency) AND agent.site IN (SELECT Site FROM @tmpSite)
-				AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
-											INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
-										 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
+			WHERE hl.IsGroupHeadLine=1 AND ch.roleid=1 
+				AND agent.site IN (SELECT Site FROM @tmpSite)
+				AND EXISTS(SELECT TOP 1 1 
+							FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
+								INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
+							WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1
+								AND ci.currency IN (SELECT currency FROM @tmpCurrency)
+						)
 			
 		END
 
@@ -84,11 +88,14 @@ BEGIN
 		FROM bodb02.dbo.custAccount hl WITH (NOLOCK)  
 			INNER JOIN bodb02.dbo.Customer ch WITH (NOLOCK) ON hl.custid = ch.custid
 			INNER JOIN @tmpLevel t ON ch.roleid= t.roleID
-		WHERE hl.IsGroupHeadLine=1 AND		
-			ch.currency IN (SELECT currency FROM @tmpCurrency) AND ch.site IN (SELECT Site FROM @tmpSite)
-			AND EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
-										INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
-									 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1)
+		WHERE hl.IsGroupHeadLine=1 
+			AND ch.site IN (SELECT Site FROM @tmpSite)
+			AND EXISTS(SELECT TOP 1 1 
+						FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
+							INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
+						 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1
+							AND	ci.currency IN (SELECT currency FROM @tmpCurrency) 
+						)
 			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustSuper cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
 			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustMaster cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
 			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustAgent cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)

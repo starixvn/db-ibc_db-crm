@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoFeedbackInfoUpd]	
-	@MessageID 	INT,
+	@MessageID 	INT,	
+	@RequestIDs	VARCHAR(100),
 	@Custids 	VARCHAR(MAX),
 	@Status 	VARCHAR(20),
 	@Description VARCHAR(1000)
@@ -15,17 +16,24 @@ AS
 		- 20200519@Johnson: Initial sp [redmine:#134220]
 		- 20200604@Johnson: update retrycount when fail [redmine:#135337]
 		- 20200612@Johnson: enhance to check missing feedback [redmine:#135719]
+		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 	Param's Explanation:		
 		- @custids: list custids for each feedback
+		- @RequestIDs : void requestid of this msg
 */
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @tmpCust TABLE (custid INT)
+	DECLARE @tmpCust TABLE (custid INT)	
+	DECLARE @tmpRequest TABLE (RequestID INT)	
 	
 	INSERT INTO @tmpCust(custid)
 	SELECT val 
 	FROM dbo.f_CRM_strSplit(@Custids,',')
+	
+	INSERT INTO @tmpRequest(requestID)
+	SELECT val 
+	FROM dbo.f_CRM_strSplit(@RequestIDs,',')
 	
 	UPDATE crmAutoFeedbackInfo WITH(UPDLOCK,ROWLOCK)
 	SET status = @status,
@@ -33,10 +41,12 @@ BEGIN
 		Description = @Description,
 		UpdatedTime = GETDATE()
 	WHERE MessageID = @MessageID
+		AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 		AND custid IN (SELECT custid FROM @tmpCust)
 	
 	UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
 	SET isProcessed = 1		
 	WHERE MessageID = @MessageID
+		AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 		AND isProcessed = 0
 END	

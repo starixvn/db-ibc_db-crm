@@ -10,20 +10,30 @@ AS
 
 	Revisions:
 		- 20200612@Johnson: Initial sp [redmine:#135719]		
+		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 	Param's Explanation:
+		- @MessageIds = '<ROOT>
+						<r MsgID="123" ReqID="1" />
+						<r MsgID="123" ReqID="2" />
+						<r MsgID="345" ReqID="1" />
+						</ROOT>'
 		
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	DECLARE @tmpMessage TABLE (MessageId INT)
-		
-	INSERT INTO @tmpMessage (MessageId)
-	SELECT val
-	FROM f_CRM_strSplit(@MessageIds,',')
+	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT)
+	DECLARE @xml XML = CAST(@MessageIds AS XML)	
 	
-	UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
+	INSERT INTO @tmpMessage (MessageId,RequestID)
+	SELECT t.c.value('@MsgID[1]','int') MsgID,
+		t.c.value('@ReqID[1]','int') ReqID
+	FROM @xml.nodes('/ROOT/r') t(c)	
+	
+	UPDATE cm
 	SET isProcessed = 1		
-	WHERE MessageID IN (SELECT MessageID FROM @tmpMessage)
-		AND isProcessed = 0
+	FROM crmMessageImport cm WITH(UPDLOCK,ROWLOCK)
+		INNER JOIN @tmpMessage t ON cm.MessageID = t.MessageID
+									AND cm.RequestID = t.RequestID
+	WHERE isProcessed = 0
 END	

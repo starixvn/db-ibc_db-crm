@@ -31,6 +31,7 @@ BEGIN
 	SET s.Value = t.value
 	FROM SystemSetting s WITH(UPDLOCK,ROWLOCK)
 		INNER JOIN @tmpSetting t ON s.SettingName = t.SettingName
+	WHERE ServiceName = 'AutoFB'	
 		
 		
 END	

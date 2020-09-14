@@ -12,17 +12,18 @@ AS
 		- 20200518@Johnson: Initial sp [redmine:#134220]
 	Param's Explanation:		
 		- @xml = <ROOT>
-						<r msgid="100" custid="1" hl="100" related="1" event="A -vs- B" />
-						<r msgid="100" custid="2" hl="100" related="2" event="A -vs- B" />
+						<r msgid="100" reqid="1" custid="1" hl="100" related="1" event="A -vs- B" />
+						<r msgid="100" reqid="1" custid="2" hl="100" related="2" event="A -vs- B" />
 					</ROOT>	
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	DECLARE @tmpCust TABLE (MessageID INT, event VARCHAR(500), custid INT, headlineID INT, relatedCustid INT)
+	DECLARE @tmpCust TABLE (MessageID INT, RequestID INT, event VARCHAR(500), custid INT, headlineID INT, relatedCustid INT)
 		
-	INSERT INTO @tmpCust(MessageID,custid,HeadlineID,relatedCustid,event)
-	SELECT t.c.value('@msgid[1]','int') msgid,		
+	INSERT INTO @tmpCust(MessageID,RequestID,custid,HeadlineID,relatedCustid,event)
+	SELECT t.c.value('@msgid[1]','int') msgid,
+		t.c.value('@reqid[1]','int') reqid,	
 		t.c.value('@custid[1]','int') custid,
 		t.c.value('@hl[1]','int') hl,
 		t.c.value('@related[1]','int') related,
@@ -30,18 +31,22 @@ BEGIN
 	FROM @xml.nodes('/ROOT/r') t(c)	
 	
 	--insert feedback info for new messages
-	INSERT INTO crmAutoFeedbackInfo(MessageID,custid,HeadlineID,relatedCustid,eventInfo,status,CreatedDate,retryCount)
-	SELECT t.MessageID, t.custid, t.HeadlineID, t.relatedCustid, t.event,'initial', GETDATE(), 0
+	INSERT INTO crmAutoFeedbackInfo(MessageID,RequestID,custid,HeadlineID,relatedCustid,eventInfo,status,CreatedDate,retryCount)
+	SELECT t.MessageID, t.RequestID, t.custid, t.HeadlineID, t.relatedCustid, t.event,'initial', GETDATE(), 0
 	FROM @tmpCust t
 		LEFT JOIN crmAutoFeedbackInfo c WITH(NOLOCK) ON t.MessageID = c.MessageID
+													AND t.RequestID = c.RequestID
 													AND t.custid = c.custid
+													AND t.headlineID = c.HeadlineID
 	WHERE c.custid IS NULL	
 	
 	--get all msg & custid with status = 'initial'
-	SELECT c.MessageID, c.custid
+	SELECT c.MessageID, c.RequestID, c.custid
 	FROM crmAutoFeedbackInfo c WITH(NOLOCK)
 		INNER JOIN @tmpCust t ON c.MessageID = t.MessageID
+								AND c.RequestID = t.RequestID
 								AND c.custid = t.custid
+								AND c.headlineID = t.HeadlineID
 	WHERE status IN ('initial','fail')	
 		AND retryCount < 5
 END	

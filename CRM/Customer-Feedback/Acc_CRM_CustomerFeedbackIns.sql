@@ -72,6 +72,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
 				,	@ProvinceID					INT				= NULL
 				,	@NoInquiries				SMALLINT		= NULL
 				,	@MessageID 					INT 			= 0
+				,	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs 			VARCHAR(MAX)	= ''
 				)
 AS
@@ -103,6 +104,7 @@ AS
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer: #113305
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
+		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
@@ -325,6 +327,7 @@ BEGIN
 			,	@ProvinceID				= @ProvinceID
 			,	@NoInquiries			= @NoInquiries
 			, 	@MessageID				= @MessageID
+			,	@RequestIDs				= @RequestIDs
 			,	@ListOrigCustIDs		= @ListOrigCustIDs
 			,	@ErrCode				= @ErrCode OUTPUT
 			,	@ErrMsg					= @ErrMsg OUTPUT;

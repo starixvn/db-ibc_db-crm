@@ -11,28 +11,43 @@ AS
 
 	Revisions:
 		- 20200612@Johnson: Initial sp [redmine:#135719]		
+		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 	Param's Explanation:
-		
+		- @MessageIds = '<ROOT>
+						<r MsgID="123" ReqID="1" />
+						<r MsgID="123" ReqID="2" />
+						<r MsgID="345" ReqID="1" />
+						</ROOT>'
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	DECLARE @tmpMessage TABLE (MessageId INT)
-		
-	INSERT INTO @tmpMessage (MessageId)
-	SELECT val
-	FROM f_CRM_strSplit(@MessageIds,',')
+	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT)
+	DECLARE @xml XML = CAST(@MessageIds AS XML)	
 	
-	INSERT INTO crmMessageImport(MessageId,CreatedDate,isProcessed)
-	SELECT t.MessageId, GETDATE(), 0
+	INSERT INTO @tmpMessage (MessageId,RequestID)
+	SELECT t.c.value('@MsgID[1]','int') MsgID,
+		t.c.value('@ReqID[1]','int') ReqID
+	FROM @xml.nodes('/ROOT/r') t(c)								
+	
+	INSERT INTO crmMessageImport(MessageId,RequestID,CreatedDate,isProcessed)
+	SELECT t.MessageId, t.RequestID, GETDATE(), 0
 	FROM @tmpMessage t
 		LEFT JOIN crmMessageImport m WITH(NOLOCK) ON t.MessageId = m.MessageId
+													AND t.RequestID = m.RequestID
 	WHERE m.MessageId IS NULL	
 	
 	--Get top new messages
-	SELECT TOP (@BatchSize) MessageId
-	FROM crmMessageImport WITH(NOLOCK)
-	WHERE isProcessed = 0		
-	ORDER BY MessageId ASC
+	;WITH tmp AS 
+	(	
+		SELECT DISTINCT TOP (@BatchSize) MessageId
+		FROM crmMessageImport WITH(NOLOCK)
+		WHERE isProcessed = 0		
+		ORDER BY MessageId ASC
+	)
+	SELECT MessageId, RequestID
+	FROM crmMessageImport c WITH(NOLOCK)
+	WHERE MessageId IN (SELECT MessageId FROM tmp)
+		AND isProcessed = 0
 END
 GO	

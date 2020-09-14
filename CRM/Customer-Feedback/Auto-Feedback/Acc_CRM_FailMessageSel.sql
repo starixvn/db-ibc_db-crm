@@ -10,12 +10,13 @@ AS
 	Revisions:
 		- 20200519@Johnson: Initial sp [redmine:#134220]
 		- 20200604@Johnson: update retryCount after process done [redmine:]
+		- 20200831@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 	Param's Explanation:		
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	SELECT DISTINCT MessageID 
+	SELECT DISTINCT MessageID, RequestID 
 	FROM dbo.crmAutoFeedbackInfo WITH(NOLOCK)
 	WHERE status IN ('initial','fail')
 		AND retryCount < 5	

@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20200417@Johnson: Initial sp [redmine:#130949]
+		- 20200831@Johnson: remove temp table [redmine:#139158]
 	Param's Explanation:
 		
 */
@@ -183,4 +184,5 @@ BEGIN
 		HeadlineName
 	FROM @tblCust 
 	
+	DROP TABLE #GroupHeadline
 END	

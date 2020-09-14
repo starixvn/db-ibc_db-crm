@@ -12,22 +12,28 @@ AS
 
 	Revisions:
 		- 20200416@Johnson: Initial sp [redmine:#130949]
+		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
-		'100,101,102'
+		@MessageIds = '<ROOT>
+						<r MsgID="123" ReqID="1" />
+						<r MsgID="123" ReqID="2" />
+						<r MsgID="345" ReqID="1" />
+						</ROOT>'
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
 */
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT)
-	CREATE TABLE #tmpTrans (transid BIGINT)
+	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT)	
+	DECLARE @xml XML = CAST(@MessageIds AS XML)	
 	
-	INSERT INTO @tmpMessage (MessageId)
-	SELECT val
-	FROM strSplit(@MessageIDs,',')
-	
+	INSERT INTO @tmpMessage (MessageId,RequestID)
+	SELECT t.c.value('@MsgID[1]','int') MsgID,
+		t.c.value('@ReqID[1]','int') ReqID
+	FROM @xml.nodes('/ROOT/r') t(c)	
+		
 	CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT)
 		
 	INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId)
@@ -36,7 +42,7 @@ BEGIN
 		CROSS APPLY (
 			SELECT val AS TransId FROM dbo.strSplit(vh.TransIds, ',')
 		) t
-	WHERE EXISTS (SELECT 1 FROM @tmpMessage m WHERE vh.MessageId = m.MessageId)
+	WHERE EXISTS (SELECT 1 FROM @tmpMessage m WHERE vh.MessageId = m.MessageId AND vh.RequestID = m.RequestID)
 		AND vh.StatusId = 2 --tickets void successfully
 			
 	--event info
@@ -74,6 +80,7 @@ BEGIN
 				
 	--tickets info	
 	DECLARE @tblTrans TABLE (MessageId INT, 
+							RequestID INT,
 							TransID BIGINT,
 							custid INT, 
 							username VARCHAR(50),
@@ -81,8 +88,9 @@ BEGIN
 							recommend INT,
 							bettype SMALLINT)
 	
-	INSERT INTO @tblTrans (MessageId, transid, custid, username,srecommend,recommend, bettype)
+	INSERT INTO @tblTrans (MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
 	SELECT vh.MessageId, 
+		vh.RequestID,
 		vh.transid,
 		custid, 
 		username, 
@@ -112,6 +120,7 @@ BEGIN
 	
 	--tickets info
 	SELECT MessageId, 
+		RequestID,
 		transid,
 		t.custid, 
 		t.username, 
@@ -121,6 +130,8 @@ BEGIN
 	FROM @tblTrans t
 		INNER JOIN bettype b WITH(NOLOCK) ON t.bettype = b.typeid
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
-	ORDER BY MessageId,isDeposit,custid
+	ORDER BY MessageId,RequestID,isDeposit,custid
+	
+	DROP TABLE #VoidingHistory
 END	
 

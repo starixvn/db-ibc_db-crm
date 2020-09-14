@@ -71,6 +71,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 				,	@NoInquiries				SMALLINT		= NULL
 				, 	@MessageID 					INT 			= 0
+				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
 AS
@@ -100,6 +101,7 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200615@Johnson: check missing feedback from auto service [redmine: #135719]
+		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -241,9 +243,14 @@ BEGIN
 	
 	--check msg from auto void service
 	DECLARE @tmpOrigCustID TABLE (custid INT)
-	
+	DECLARE @tmpRequest TABLE (RequestID INT)
+		
 	IF @MessageID > 0
 	BEGIN
+		INSERT INTO @tmpRequest(requestID)
+		SELECT val 
+		FROM dbo.f_CRM_strSplit(@RequestIDs,',')
+		
 		INSERT INTO @tmpOrigCustID(custid)
 		SELECT	CONVERT(INT, val)
 		FROM	dbo.f_CRM_strSplit(@ListOrigCustIDs, ',');
@@ -251,6 +258,7 @@ BEGIN
 		--check fb for these custids base on voiding tickets create yet
 		IF EXISTS (SELECT 1 FROM crmAutoFeedbackInfo WITH(NOLOCK)
 					WHERE MessageID = @MessageID
+						AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 						AND	HeadlineID = @custid
 						AND CustID IN (SELECT custid FROM @tmpOrigCustID)
 						AND status = 'completed'
@@ -514,6 +522,7 @@ BEGIN
 			UpdatedTime = GETDATE()
 		FROM crmAutoFeedbackInfo fb WITH(UPDLOCK,ROWLOCK)
 		WHERE MessageID = @MessageID
+			AND RequestID IN (SELECT requestID FROM @tmpRequest)
 			AND	HeadlineID = @custid
 			AND CustID IN (SELECT custid FROM @tmpOrigCustID)			
 		
@@ -532,6 +541,7 @@ BEGIN
 		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
 		SET isProcessed = 1		
 		WHERE MessageID = @MessageID
+			AND RequestID IN (SELECT requestID FROM @tmpRequest)
 			AND isProcessed = 0
 
 		IF	@@ERROR <> 0

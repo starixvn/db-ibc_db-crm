@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_crmMessageImport_Upd]
-	@MessageIds XML
+	@Messages XML
 AS
 
 /*
@@ -28,8 +28,8 @@ BEGIN
 	SELECT
 		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@RequestID', 'INT') AS RequestId
-	FROM @MessageIds.nodes('root/r') AS t(c)
-	OPTION (OPTIMIZE FOR (@MessageIds = NULL))
+	FROM @Messages.nodes('root/r') AS t(c)
+	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
 	UPDATE cm WITH (ROWLOCK)
 	SET cm.IsChatBotProcessed = 1
@@ -39,5 +39,7 @@ BEGIN
 	DELETE dbo.crmMessageImport WITH (ROWLOCK, UPDLOCK)
 	WHERE IsProcessed = 1 AND IsChatBotProcessed = 1
 		AND CreatedDate < DATEADD(MONTH, -1, GETDATE())
+
+	DROP TABLE #Messages
 END
 GO

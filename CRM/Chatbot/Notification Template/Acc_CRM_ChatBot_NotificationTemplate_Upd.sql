@@ -8,6 +8,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Upd]
 	,@Contents					NVARCHAR(MAX) = NULL
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP					NVARCHAR(20) = ''
 AS
 /*
 Created: 20200810@Malcolm
@@ -29,7 +30,10 @@ BEGIN
 
 	-- Check permission
 	CREATE TABLE #RequiredParameters(NotificationTemplateId SMALLINT ,[Value] NVARCHAR(300), LanguageId INT)
-	DECLARE @iDoc INT, @MsgContentsType XML
+
+	DECLARE @iDoc INT, @MsgContentsType XML, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
+			@_Contents XML, @Old_Title NVARCHAR(2000), @Old_NotificationTemplateName NVARCHAR(1000), 
+			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML
 
 	SELECT @MsgContentsType = CAST(Value AS XML)
 	FROM SystemSetting WITH(NOLOCK)
@@ -144,9 +148,9 @@ BEGIN
 			FROM crmNotificationTemplate t WITH(ROWLOCK)	
 			CROSS APPLY(
 				SELECT 
-						NotificationTemplateName,
-						NotificationTypeId,
-						Title
+					NotificationTemplateName,
+					NotificationTypeId,
+					Title
 				FROM #Tmp
 				WHERE Type = 1
 			) AS tmp
@@ -171,11 +175,63 @@ BEGIN
 		RETURN
 	END CATCH
 
+	-- Write log
+	--Old Values
+	SELECT	
+		@Old_NotificationTypeId = t.NotificationTypeId
+		,@Old_NotificationTemplateName = t.NotificationTemplateName 
+		,@Old_Title = t.Title
+	FROM #Tmp t
+	WHERE t.Type = 1
 
+	SELECT @NotificationTypeXML	=  (SELECT nt.NotificationTypeId AS '@Id', nt.NotificationTypeName AS '@Name'
+									FROM dbo.crmNotificationType nt WITH(NOLOCK)
+									WHERE nt.NotificationTypeId = @Old_NotificationTypeId
+									FOR XML PATH ('NotificationType'))
+
+	SELECT @_Contents = (SELECT t.LanguageId AS '@LanguagueId', s.SettingValue AS '@Language', t.Content AS '@Value'
+						 FROM #Tmp t
+							 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
+						 WHERE t.Type = 2
+						 FOR XML PATH('Content'), ROOT('Contents'))
+
+	SELECT @OldValues =	CAST((SELECT @NotificationTemplateId	AS '@Id'
+									,@NotificationTemplateName	AS '@Name'
+									,@NotificationTypeXML
+									,@Contents
+							  FOR XML PATH('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Upd')) AS NVARCHAR(MAX))
+
+	-- New Values
+	SELECT @NotificationTypeXML = NULL, @_Contents = NULL
+
+	SELECT @NotificationTypeXML = (SELECT nt.NotificationTypeId AS '@Id', nt.NotificationTypeName AS '@Name'
+								   FROM dbo.crmNotificationType nt WITH(NOLOCK)
+								   WHERE nt.NotificationTypeId = @NotificationTypeId
+								   FOR XML PATH('NotificationType'))
+
+	SELECT @_Contents = (SELECT c.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', c.Value AS '@Value'
+						 FROM #Contents c
+							 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = c.LanguageId
+					     FOR XML PATH('Content'), ROOT('Contents'))
+
+	SELECT @NewValues = CAST((SELECT @NotificationTemplateId	AS '@Id'
+									,@NotificationTemplateName	AS '@Name'
+									,@NotificationTypeXML
+									,@_Contents
+							 FOR XML PATH('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Upd')) AS NVARCHAR(MAX))
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1005,
+			@IP = @LoginIP,
+			@NewValues = @NewValues,
+			@OldValues = @OldValues
+							 
 	DROP TABLE #Contents
 	DROP TABLE #Tmp
 	DROP TABLE #RequiredParameters
 
-	-- Write log
+	
 END
 GO

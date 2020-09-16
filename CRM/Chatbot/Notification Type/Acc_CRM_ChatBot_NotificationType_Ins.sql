@@ -7,6 +7,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Ins]
 	,@SystemId				TINYINT
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP				NVARCHAR(20) = ''
 AS
 /*
 Created: 20200810@Malcolm
@@ -22,7 +23,8 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @NotificationTypeId TINYINT = 0
+	DECLARE @NotificationTypeId TINYINT = 0, @NewValues NVARCHAR(MAX), @RecipientTypeXML XML, @ChatTypeXML XML, @SystemXML XML 
+
 	-- Check permission
 
 	-- Check exists NotificationTypeName
@@ -79,5 +81,37 @@ BEGIN
 	END CATCH
 
 	-- Write log
+
+	SELECT @RecipientTypeXML = (
+					SELECT f.val AS '@Id', rt.RecipientTypeName AS '@Name'
+					FROM bodb02.dbo.f_StringSplit(@RecipientTypeIds,',') f
+						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = f.val
+					FOR XML PATH('RecipientType'))
+
+	SELECT @ChatTypeXML	= (
+					SELECT f.val AS '@Id', CASE WHEN f.val = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
+					FROM bodb02.dbo.f_StringSplit(@ChatTypeIds, ',') f
+					FOR XML PATH('ChatType'))
+
+	SELECT @SystemXML =	(
+					SELECT S.SystemId AS '@Id', s.SystemName AS '@Name'
+					FROM dbo.crmSystem  s WITH(NOLOCK)
+					WHERE s.SystemId = @SystemId
+					FOR XML PATH('System'))
+
+	SELECT @NewValues = CAST((SELECT	@NotificationTypeId AS '@Id',	
+										@NotificationTypeName AS '@Name',
+										@RecipientTypeXML,
+										@ChatTypeXML,
+										@SystemXML
+							 FOR XML PATH('NotificationType'), ROOT('Acc_CRM_ChatBot_NotificationType_Ins')) AS NVARCHAR(MAX))
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1001,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
+	   	
 END
 GO

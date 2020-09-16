@@ -7,6 +7,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Ins]
 	,@Contents					NVARCHAR(MAX) 
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP					NVARCHAR(20) = ''
 AS
 /*
 Created: 20200810@Malcolm
@@ -27,7 +28,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Check permission
-	DECLARE @NotificationTemplateId SMALLINT = 0, @iDoc INT, @MsgContentsType XML
+	DECLARE @NotificationTemplateId SMALLINT = 0, @iDoc INT, @MsgContentsType XML, @NewValues NVARCHAR(MAX), @NotificationTypeXML XML, @ContentXML XML
 
 	-- Check exists NotificationTemplateName
 	IF EXISTS (SELECT 1 FROM dbo.crmNotificationTemplate WITH (NOLOCK) WHERE NotificationTemplateName = @NotificationTemplateName)
@@ -63,6 +64,10 @@ BEGIN
 		RETURN
 	END CATCH
 
+	SELECT @NotificationTypeXML	=  (SELECT nt.NotificationTypeId AS '@Id', nt.NotificationTypeName AS '@Name'
+									FROM dbo.crmNotificationType nt WITH(NOLOCK)
+									WHERE nt.NotificationTypeId = @NotificationTypeId
+									FOR XML PATH('NotificationType'))
 	-- Insert process
 	BEGIN TRY
 		INSERT INTO dbo.crmNotificationTemplate (NotificationTemplateName, NotificationTypeId, Title)
@@ -82,8 +87,28 @@ BEGIN
 
 		RETURN
 	END CATCH
+	
+	-- Write logs
+	SELECT @ContentXML = (SELECT c.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', c.Value AS '@Value'
+						  FROM #Contents c 
+							  INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = c.LanguageId
+						  FOR XML PATH('Content'), ROOT('Contents'))
+
+	SELECT @NewValues =	CAST((SELECT	@NotificationTemplateId AS '@Id'
+										,@NotificationTemplateName AS '@Name'
+										,@Title AS '@Title'
+										,@ContentXML
+										,@NotificationTypeXML
+							 FOR XML PATH('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Ins')) AS NVARCHAR(MAX))
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1004,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
 
 	DROP TABLE #Contents
-	-- Write log
+	
 END
 GO

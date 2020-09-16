@@ -18,6 +18,8 @@ Original:
 
 	Revisions:
 		- 20200717@Malcolm:  Integrate Credit Term & Staff/Boss Management  [Redmine: #137144]
+		- 20200916@Malcolm : Update Chat Type Mapping [Redmine : #130544]
+
 	Param's Explanation:
 		@Case = 0 : No change
 		      = 1 : IsGroupHeadline 0-> 0, the user change group

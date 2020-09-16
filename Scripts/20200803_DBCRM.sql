@@ -36,6 +36,9 @@ GO
 CREATE CLUSTERED INDEX CIX_crmNotification ON dbo.crmNotification (SendDate) ON DataChatBot
 GO
 
+CREATE NONCLUSTERED INDEX IX_Status ON dbo.crmNotification (Status, NotificationId) ON DataChatBot
+GO
+
 CREATE TABLE dbo.crmNotificationType
 (
 	NotificationTypeId		SMALLINT NOT NULL IDENTITY(1, 1)
@@ -225,8 +228,9 @@ CREATE TABLE dbo.crmNotificationRecipient
 	,ConversationGroupId SMALLINT
 	,CONSTRAINT PK_crmNotificationRecipient PRIMARY KEY CLUSTERED
 	(
-		NotificationId ASC
-		,ConversationGroupId   ASC
+		NotificationId ASC		
+		,RecipientId ASC
+		,ConversationGroupId  ASC
 	)
 ) ON DataChatBot
 GO

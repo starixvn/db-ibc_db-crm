@@ -5,6 +5,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Del]
 	,@NotificationTypeName	NVARCHAR(500)
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP				NVARCHAR(20) = ''
 AS
 /*
 Created: 20200810@Malcolm
@@ -18,6 +19,9 @@ Original:
 */
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @NewValues NVARCHAR(MAX), @RecipientTypeXML XML, @ChatTypeXML XML, @SystemXML XML,
+			@Old_SystemId TINYINT
 
 	DECLARE @Tmp TABLE 
 	(
@@ -66,6 +70,10 @@ BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'This is the system template, so you cannot delete it.'
 		RETURN
 	END
+
+	SELECT @Old_SystemId = SystemId
+	FROM dbo.crmNotificationType nt WITH(NOLOCK)
+	WHERE nt.NotificationTypeId = @NotificationTypeId
 
 	-- Delete process
 	BEGIN TRY
@@ -116,5 +124,40 @@ BEGIN
 
 	DROP TABLE #NotificationTemplate
 	-- Write log
+
+
+	SELECT @RecipientTypeXML = (
+					SELECT t.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
+					FROM @Tmp t
+						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = t.RecipientTypeId
+					WHERE t.Type = 1
+					FOR XML PATH('RecipientType'))
+
+	SELECT @ChatTypeXML	= (
+					SELECT t.ChatTypeId AS '@Id', CASE WHEN t.ChatTypeId = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
+					FROM @Tmp t 
+					WHERE t.Type = 2
+					FOR XML PATH('ChatType'))
+
+	SELECT @SystemXML =	(
+					SELECT S.SystemId AS '@Id', s.SystemName AS '@Name'
+					FROM dbo.crmSystem  s WITH(NOLOCK)
+					WHERE s.SystemId = @Old_SystemId
+					FOR XML PATH('System'))
+
+	SELECT @NewValues = CAST((SELECT	@NotificationTypeId AS '@Id',	
+										@NotificationTypeName AS '@Name',
+										@RecipientTypeXML,
+										@ChatTypeXML,
+										@SystemXML
+							 FOR XML PATH('NotificationType'), ROOT('Acc_CRM_ChatBot_NotificationType_Upd')) AS NVARCHAR(MAX))
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1003,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
+
 END
 GO

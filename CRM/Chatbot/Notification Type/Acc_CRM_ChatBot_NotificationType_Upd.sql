@@ -8,6 +8,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Upd]
 	,@SystemId				TINYINT
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP				NVARCHAR(20) = ''
 AS
 /*
 Created: 20200810@Malcolm
@@ -21,6 +22,9 @@ Original:
 */
 BEGIN
 	SET NOCOUNT ON
+
+	DECLARE @NewValues NVARCHAR(MAX),  @OldValues NVARCHAR(MAX), @RecipientTypeXML XML, @ChatTypeXML XML, @SystemXML XML,
+			@Old_SystemId TINYINT, @Old_NotificationTypeName NVARCHAR(500)
 
 	DECLARE @Tmp TABLE 
 	(
@@ -46,6 +50,12 @@ BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'The Notification Type Name is not available, please check again!'
 		RETURN
 	END
+
+
+	SELECT 
+		@Old_SystemId = SystemId,
+		@Old_NotificationTypeName = NotificationTypeName
+	FROM dbo.crmNotificationType t WITH(NOLOCK)
 
 	-- Update process
 	BEGIN TRY
@@ -136,5 +146,68 @@ BEGIN
 	END CATCH
 
 	-- Write log
+
+	--New values
+	SELECT @RecipientTypeXML = (
+					SELECT f.val AS '@Id', rt.RecipientTypeName AS '@Name'
+					FROM bodb02.dbo.f_StringSplit(@RecipientTypeIds,',') f
+						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = f.val
+					FOR XML PATH('RecipientType'))
+
+	SELECT @ChatTypeXML	= (
+					SELECT f.val AS '@Id', CASE WHEN f.val = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
+					FROM bodb02.dbo.f_StringSplit(@ChatTypeIds, ',') f
+					FOR XML PATH('ChatType'))
+
+	SELECT @SystemXML =	(
+					SELECT S.SystemId AS '@Id', s.SystemName AS '@Name'
+					FROM dbo.crmSystem  s WITH(NOLOCK)
+					WHERE s.SystemId = @SystemId
+					FOR XML PATH('System'))
+
+	SELECT @NewValues = CAST((SELECT	@NotificationTypeId AS '@Id',	
+										@NotificationTypeName AS '@Name',
+										@RecipientTypeXML,
+										@ChatTypeXML,
+										@SystemXML
+							 FOR XML PATH('NotificationType'), ROOT('Acc_CRM_ChatBot_NotificationType_Upd')) AS NVARCHAR(MAX))
+
+	--Old values
+	SELECT @RecipientTypeXML = NULL, @ChatTypeXML = NULL, @SystemXML = NULL
+
+	SELECT @RecipientTypeXML = (
+					SELECT t.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
+					FROM @Tmp t
+						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = t.RecipientTypeId
+					WHERE t.Type = 2
+					FOR XML PATH('RecipientType'))
+
+	SELECT @ChatTypeXML	= (
+					SELECT t.ChatTypeId AS '@Id', CASE WHEN t.ChatTypeId = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
+					FROM @Tmp t 
+					WHERE t.Type = 3
+					FOR XML PATH('ChatType'))
+
+	SELECT @SystemXML =	(
+					SELECT S.SystemId AS '@Id', s.SystemName AS '@Name'
+					FROM dbo.crmSystem  s WITH(NOLOCK)
+					WHERE s.SystemId = @Old_SystemId
+					FOR XML PATH('System'))
+
+	SELECT @OldValues = CAST((SELECT	@NotificationTypeId AS '@Id',	
+										@Old_NotificationTypeName AS '@Name',
+										@RecipientTypeXML,
+										@ChatTypeXML,
+										@SystemXML
+							 FOR XML PATH('NotificationType'), ROOT('Acc_CRM_ChatBot_NotificationType_Upd')) AS NVARCHAR(MAX))
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1002,
+			@IP = @LoginIP,
+			@NewValues = @NewValues,
+			@OldValues = @OldValues
+
 END
 GO

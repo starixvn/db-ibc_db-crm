@@ -5,6 +5,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Del]
 	,@NotificationTemplateName  NVARCHAR(1000)
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP					NVARCHAR(20) = ''
 AS
 /*
 Created: 20200810@Malcolm
@@ -20,7 +21,7 @@ BEGIN
 
 	CREATE TABLE #NotificationTemplate(NotificationTemplateId INT)
 
-	DECLARE @MsgContentsType XML
+	DECLARE @MsgContentsType XML, @__Title NVARCHAR(200), @__NotificationTypeId SMALLINT, @__ContentXML XML, @__NotificationTypeXML XML, @NewValues NVARCHAR(MAX)
 
 	SELECT @MsgContentsType = CAST(Value AS XML)
 	FROM SystemSetting WITH(NOLOCK)
@@ -43,6 +44,11 @@ BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'This is the system template, so you cannot delete it.'
 		RETURN
 	END
+
+
+	SELECT @__Title = Title, @__NotificationTypeId = NotificationTemplateId
+	FROM dbo.crmNotificationTemplate nt WITH(NOLOCK)
+	WHERE nt.NotificationTemplateId = @NotificationTemplateId
 
 	CREATE TABLE #Tmp (NotificationTemplateId SMALLINT, LanguageId INT, Content NVARCHAR(MAX))
 	-- Delete process
@@ -74,6 +80,30 @@ BEGIN
 	END CATCH
 
 	-- Write log
+
+	SELECT @__NotificationTypeXML = (SELECT nt.NotificationTypeId AS '@Id', nt.NotificationTypeName AS '@Name'
+									 FROM dbo.crmNotificationType nt WITH(NOLOCK)
+									 WHERE nt.NotificationTypeId = @__NotificationTypeId 
+						             FOR XML PATH('NotificationType'))
+
+	SELECT @__ContentXML =	(SELECT t.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', t.Content AS '@Value'
+							 FROM #Tmp t
+								 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
+							 FOR XML PATH('Content'), ROOT('Contents'))
+
+	SELECT @NewValues =    (SELECT @NotificationTemplateId AS '@Id',
+								   @NotificationTemplateName AS '@Name',
+								   @__Title AS '@Title',
+								   @__NotificationTypeXML,
+								   @__ContentXML
+							FOR XML PATH ('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Del'))
+
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1004,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
 
 	-- Drop temp tables
 	DROP TABLE #Tmp

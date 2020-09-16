@@ -14,7 +14,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT BatchSize, ServiceFlag
+	SELECT CONVERT(INT, [BatchSize]) AS [BatchSize], CONVERT(BIT, ServiceFlag) AS ServiceFlag
 	FROM
 	(
 		SELECT SettingName, Value

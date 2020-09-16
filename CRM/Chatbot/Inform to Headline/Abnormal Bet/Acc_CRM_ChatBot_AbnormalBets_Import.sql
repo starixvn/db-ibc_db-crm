@@ -69,7 +69,15 @@ BEGIN
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 	IF @@ROWCOUNT = 0
+	BEGIN
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = 'Completed'
+		WHERE ServiceName = 'ChatBot - AbnormalBets'
+			AND SettingName = 'JobStatus'
+			AND Value = 'running'
+
 		RETURN
+	END
 
 	-- Get Job Setting
 	DECLARE @Xml XML
@@ -91,6 +99,13 @@ BEGIN
 	IF @@ROWCOUNT = 0
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = 'Completed'
+		WHERE ServiceName = 'ChatBot - AbnormalBets'
+			AND SettingName = 'JobStatus'
+			AND Value = 'running'
+
 		RETURN
 	END
 
@@ -111,10 +126,17 @@ BEGIN
 				ON		s.NotificationTemplateId = nt.NotificationTemplateId
 					AND s.NotificationTypeId = nt.NotificationTypeId
 					AND s.LanguageId = nt.LanguageId
-		WHERE s.TemplateRequiredParam NOT LIKE N'%' + nt.Content + N'%'
+		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
+		
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = 'Completed'
+		WHERE ServiceName = 'ChatBot - AbnormalBets'
+			AND SettingName = 'JobStatus'
+			AND Value = 'running'
+
 		RETURN
 	END
 
@@ -123,6 +145,7 @@ BEGIN
 	(
 		MessageId INT
 		,Username VARCHAR(50)
+		,HeadlineId INT
 		,IsTest BIT
 		,Content_en NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
@@ -130,8 +153,8 @@ BEGIN
 		,Content_vn NVARCHAR(4000)
 		,RecipientId INT
 	)
-	INSERT INTO #MessageRecipient (MessageId, Username, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
-	SELECT m.MessageId, m.Username, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
+	INSERT INTO #MessageRecipient (MessageId, Username, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
+	SELECT m.MessageId, m.Username, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
 	FROM #ImportMessage m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
@@ -163,13 +186,13 @@ BEGIN
 		INNER JOIN CTE_GroupPIC g ON t.ConversationGroupId = g.ConversationGroupId
 	WHERE t.NoRecipient < g.NoRecipient
 
-	CREATE TABLE #tmpResult (MessageId INT, ConversationGroupId SMALLINT, Username VARCHAR(50), IsTest BIT)
-	INSERT INTO #tmpResult (MessageId, ConversationGroupId, Username, IsTest)
-	SELECT m.MessageId, g.ConversationGroupId, m.Username, m.IsTest
+	CREATE TABLE #tmpResult (MessageId INT, ConversationGroupId SMALLINT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
+	INSERT INTO #tmpResult (MessageId, ConversationGroupId, Username, HeadlineId, IsTest)
+	SELECT m.MessageId, g.ConversationGroupId, m.Username, m.HeadlineId, m.IsTest
 	FROM dbo.crmConversationGroupRecipient cgr WITH (NOLOCK)
 		INNER JOIN #tmpGroup g ON g.ConversationGroupId = cgr.ConversationGroupId
 		INNER JOIN #MessageRecipient m ON m.MessageId = g.MessageId AND m.RecipientId = cgr.RecipientId
-	GROUP BY m.MessageId, g.ConversationGroupId, m.Username, m.IsTest
+	GROUP BY m.MessageId, g.ConversationGroupId, m.Username, m.HeadlineId, m.IsTest
 
 	CREATE TABLE #Result
 	(
@@ -183,6 +206,7 @@ BEGIN
 		,ChatTypeId TINYINT
 		,LanguageId INT
 		,AffectedList VARCHAR(MAX)
+		,HeadlineList VARCHAR(MAX)
 		,IsTest BIT
 		,Status VARCHAR(20)
 		,RelatedIds VARCHAR(1000)
@@ -192,26 +216,33 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #NotificationTemplate WHERE IsTest = 1)
 		SET @Status = 'Draft'
 
-	INSERT INTO #Result (MessageId, ConversationGroupId, AffectedList, IsTest, Status)
-	SELECT MessageId, ConversationGroupId
-		,STUFF(
-				(SELECT ',' + Username
-					FROM #tmpResult t2
-					WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId
-					FOR XML PATH ('')
-				), 1, 1, ''
-			) AS Usernames
-		,MAX(CONVERT(TINYINT, t1.IsTest))
-		,@Status
-	FROM #tmpResult t1
-	GROUP BY MessageId, ConversationGroupId
+	INSERT INTO #Result (MessageId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status)
+	SELECT t.MessageId, t.ConversationGroupId, cg.ChatTypeId, cg.LanguageId, t.AffectedList, t.HeadlineList, t.IsTest, t.Status
+	FROM (
+		SELECT MessageId, ConversationGroupId
+			,STUFF(
+					(SELECT ',' + Username
+						FROM #tmpResult t2
+						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS AffectedList
+			,STUFF(
+					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), HeadlineId)
+						FROM #tmpResult t2
+						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS HeadlineList
+			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
+			,@Status AS Status
+		FROM #tmpResult t1
+		GROUP BY MessageId, ConversationGroupId
+	) t
+		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
+	ORDER BY cg.ChatTypeId ASC
 
 	UPDATE #Result SET Status = 'Draft' WHERE IsTest = 1 AND Status = 'Planned'
-
-	UPDATE r
-	SET r.ChatTypeId = cg.ChatTypeId, r.LanguageId = cg.LanguageId
-	FROM #Result r
-		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON r.ConversationGroupId = cg.ConversationGroupId
 
 	UPDATE r
 	SET r.Content_en = m.Content_en, r.Content_cs = m.Content_cs, r.Content_th = m.Content_th, r.Content_vn = m.Content_vn
@@ -232,12 +263,13 @@ BEGIN
 				SELECT ',' + CONVERT(VARCHAR(10), r2.Id)
 				FROM #Result r2
 				WHERE r1.MessageId = r2.MessageId
-					AND r2.ChatTypeId = 2 -- Group
+					AND r2.ChatTypeId = 1 -- Group
 					AND r1.AffectedList = r2.AffectedList
 				FOR XML PATH('')
 			) AS RelatedIds
 		) r2
-	WHERE r1.ChatTypeId = 1 -- Personal
+	WHERE r1.ChatTypeId = 2 -- Personal
+		AND r2.RelatedIds IS NOT NULL
 		AND Status = 'Planned'
 
 	-- Import Notification
@@ -271,6 +303,22 @@ BEGIN
 		FROM dbo.crmConversationGroupRecipient cgr WITH (NOLOCK)
 			INNER JOIN #Result r ON r.ConversationGroupId = cgr.ConversationGroupId
 		WHERE r.Id = @Id
+
+		INSERT INTO dbo.crmNotificationHeadline (NotificationId, HeadlineId)
+		SELECT DISTINCT @NotificationId, f.val
+		FROM #Result r
+			CROSS APPLY dbo.f_CRM_strSplit(r.HeadlineList, ',') f
+		WHERE r.Id = @Id
+
+		UPDATE r
+		SET r.RelatedIds = RIGHT(LEFT(t.tmpRelatedIds, LEN(t.tmpRelatedIds) - 1), LEN(t.tmpRelatedIds) - 2)
+		FROM #Result r
+			CROSS APPLY (
+				SELECT tmpRelatedIds = REPLACE(',' + r.RelatedIds + ',', ',' + CONVERT(VARCHAR(20), @Id) + ',', ',' + CONVERT(VARCHAR(20), @NotificationId) + ',')
+			) t
+		WHERE r.Id > @Id
+			AND r.ChatTypeId = 2
+			AND ',' + r.RelatedIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), @Id) + ',%'
 
 		SELECT @Id = @Id + 1
 	END

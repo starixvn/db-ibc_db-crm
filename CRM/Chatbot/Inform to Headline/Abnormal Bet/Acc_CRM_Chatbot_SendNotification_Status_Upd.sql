@@ -26,6 +26,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	CREATE TABLE #tmpNotificationGroup (NotificationId INT, ConversationGroupId SMALLINT, Status VARCHAR(20), ErrMsg NVARCHAR(MAX))
+	CREATE TABLE #tmpNotification (NotificationId INT, Status VARCHAR(20))
+
 	INSERT INTO #tmpNotificationGroup (NotificationId, ConversationGroupId, Status, ErrMsg)
 	SELECT
 		t.c.value('@NotificationId', 'INT') AS NotificationId
@@ -38,26 +40,34 @@ BEGIN
 	IF @@ROWCOUNT = 0
 		RETURN
 
-	CREATE TABLE #tmpNotification (NotificationId INT, Status VARCHAR(20))
-	INSERT INTO #tmpNotification (NotificationId, Status)
-	SELECT NotificationId, Status
-	FROM (
-		SELECT NotificationId
-			,CASE WHEN Status = 'Retrying' THEN 'Sending' ELSE Status END AS Status
-			,ROW_NUMBER() OVER(PARTITION BY NotificationId ORDER BY CASE WHEN Status = 'Planned' THEN 1 ELSE 0 END) AS RowNum
-		FROM #tmpNotificationGroup
-	) t
-	WHERE RowNum = 1
-
+	-- Update NotificationGroup
 	UPDATE ng WITH (ROWLOCK)
 	SET ng.Status = CASE WHEN t.Status = 'Retrying' AND ng.RetryTime = 4 THEN 'Error' ELSE t.Status END
 		,ng.Reason = t.ErrMsg
 		,ng.RetryTime = ng.RetryTime + CASE WHEN t.Status = 'Retrying' THEN 1 ELSE 0 END
+	OUTPUT INSERTED.NotificationId, INSERTED.Status INTO #tmpNotification (NotificationId, Status)
 	FROM dbo.crmNotificationGroup ng
 		INNER JOIN #tmpNotificationGroup t
 			ON		ng.NotificationId = t.NotificationId
 				AND ng.ConversationGroupId = t.ConversationGroupId
-	
+
+	-- Update Notification
+	UPDATE #tmpNotification SET Status = 'Sending' WHERE Status = 'Retrying'
+
+	DELETE n
+	FROM (
+		SELECT NotificationId, Status
+			,ROW_NUMBER() OVER(	PARTITION BY NotificationId
+								ORDER BY
+										CASE Status WHEN 'Sending' THEN 1 -- first
+													WHEN 'Planned' THEN 99
+													WHEN 'Sent' THEN 100 -- last
+													ELSE 50 END -- Error, Bot Blocked, ...
+								) AS RowNum
+		FROM #tmpNotification
+	) n
+	WHERE RowNum > 1
+
 	UPDATE n WITH (ROWLOCK)
 	SET n.Status = t.Status
 	FROM dbo.crmNotification n

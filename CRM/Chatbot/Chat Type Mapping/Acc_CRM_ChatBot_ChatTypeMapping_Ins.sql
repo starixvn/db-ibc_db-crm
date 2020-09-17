@@ -138,52 +138,52 @@ BEGIN
 	END CATCH
 
 	-- Write Logs
-	SELECT @__ChatTypeXML = (SELECT @ChatTypeId AS '@Id', 
-									CASE WHEN @ChatTypeId = 1 THEN 'Group' 
-									ELSE 'Personal' END AS '@Name' 
-							 FOR XML PATH('ChatType'))
+	--SELECT @__ChatTypeXML = (SELECT @ChatTypeId AS '@Id', 
+	--								CASE WHEN @ChatTypeId = 1 THEN 'Group' 
+	--								ELSE 'Personal' END AS '@Name' 
+	--						 FOR XML PATH('ChatType'))
 
-	SELECT @__RecipientTypeXML = (SELECT rt.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
-								 FROM dbo.crmRecipientType rt WITH(NOLOCK)
-								 WHERE rt.RecipientTypeId = @RecipientTypeId
-								 FOR XML PATH('RecipientType'))
+	--SELECT @__RecipientTypeXML = (SELECT rt.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
+	--							 FROM dbo.crmRecipientType rt WITH(NOLOCK)
+	--							 WHERE rt.RecipientTypeId = @RecipientTypeId
+	--							 FOR XML PATH('RecipientType'))
 
-	SELECT @__HeadlineXML	= (SELECT  f.val AS '@Id', 
-									   CASE WHEN f.val = 0 THEN 'Not Assigned Group' 
-									   ELSE c.username END AS '@Name'
-							   FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
-								   LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.Id
-								FOR XML PATH('Headline'))
+	--SELECT @__HeadlineXML	= (SELECT  f.val AS '@Id', 
+	--								   CASE WHEN f.val = 0 THEN 'Not Assigned Group' 
+	--								   ELSE c.username END AS '@Name'
+	--						   FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
+	--							   LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.Id
+	--							FOR XML PATH('Headline'))
 
-	SELECT @__LanguageXML	=  (SELECT @LanguageId AS '@Id', s.SettingValue AS '@Name'
-								FROM dbo.crmSetting s WITH(NOLOCK)
-								WHERE s.SettingID = @LanguageId
-								FOR XML PATH('Language'))
+	--SELECT @__LanguageXML	=  (SELECT @LanguageId AS '@Id', s.SettingValue AS '@Name'
+	--							FROM dbo.crmSetting s WITH(NOLOCK)
+	--							WHERE s.SettingID = @LanguageId
+	--							FOR XML PATH('Language'))
 
-	SELECT @__RecipientXML	=	(SELECT r.RecipientId AS '@Id', p.Username AS '@Name'
-								FROM dbo.crmRecipient r WITH(NOLOCK)
-									INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-								WHERE r.RecipientId = @RecipientId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-								FOR XML PATH('Recipient'))
+	--SELECT @__RecipientXML	=	(SELECT r.RecipientId AS '@Id', p.Username AS '@Name'
+	--							FROM dbo.crmRecipient r WITH(NOLOCK)
+	--								INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+	--							WHERE r.RecipientId = @RecipientId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+	--							FOR XML PATH('Recipient'))
 
-	SELECT @NewValues = CAST((SELECT  @ConversationGroupId AS '@Id',
-									  @ConversationGroupName AS '@Name',
-									  @LetstalkID AS '@LetstalkID',
-									  @Remark AS '@Remark',
-									  1  AS '@IsActive',
-									  @__ChatTypeXML,
-									  @__RecipientTypeXML,
-									  @__HeadlineXML,
-									  @__RecipientXML
-							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
-						) AS NVARCHAR(MAX))
+	--SELECT @NewValues = CAST((SELECT  @ConversationGroupId AS '@Id',
+	--								  @ConversationGroupName AS '@Name',
+	--								  @LetstalkID AS '@LetstalkID',
+	--								  @Remark AS '@Remark',
+	--								  1  AS '@IsActive',
+	--								  @__ChatTypeXML,
+	--								  @__RecipientTypeXML,
+	--								  @__HeadlineXML,
+	--								  @__RecipientXML
+	--						 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
+	--					) AS NVARCHAR(MAX))
 
-	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-			@UserID = @UserID,
-			@CustID = NULL,
-			@ActionID = 1007,
-			@IP = @LoginIP,
-			@NewValues = @NewValues
+	--EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+	--		@UserID = @UserID,
+	--		@CustID = NULL,
+	--		@ActionID = 1007,
+	--		@IP = @LoginIP,
+	--		@NewValues = @NewValues
 END
 GO
 

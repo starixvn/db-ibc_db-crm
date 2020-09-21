@@ -166,6 +166,7 @@ BEGIN
 	SELECT m.MessageId, cgr.ConversationGroupId, COUNT(1) AS NoRecipient
 	FROM #MessageRecipient m
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId
+		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 	WHERE cg.IsActive = 1
 	GROUP BY m.MessageId, cgr.ConversationGroupId

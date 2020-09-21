@@ -302,7 +302,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @ConversationGroupId,
 			@ActionID = 1008,
 			@IP = @LoginIP,
 			@NewValues = @NewValues

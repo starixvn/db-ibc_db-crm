@@ -20,9 +20,15 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @__IsActive BIT, @OldValues NVARCHAR(MAX), @NewValues NVARCHAR(MAX)
+	DECLARE @__IsActive BIT, 
+			@__ConversationGroupName NVARCHAR(1000),
+			@OldValues NVARCHAR(MAX), 
+			@NewValues NVARCHAR(MAX)
 
-	SELECT @__IsActive = IsActive FROM dbo.crmConversationGroup cg WITH(NOLOCK) WHERE cg.ConversationGroupId = @ConversationGroupId
+	SELECT @__IsActive = IsActive
+		   ,@__ConversationGroupName= ConversationGroupName 
+	FROM dbo.crmConversationGroup cg WITH(NOLOCK) 
+	WHERE cg.ConversationGroupId = @ConversationGroupId
 
 	BEGIN TRY
 		UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
@@ -35,13 +41,19 @@ BEGIN
 	END CATCH
 	-- Write Logs
 
-	SELECT @OldValues = CAST((SELECT @__IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @OldValues = CAST((SELECT @__IsActive AS '@IsActive', 
+									 @ConversationGroupId AS '@ConversationGroupId', 
+									 @__ConversationGroupName AS '@ConversationGroupName' 
+							 FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
 
-	SELECT @NewValues = CAST((SELECT @IsActive AS '@IsActive' FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @NewValues = CAST((SELECT @IsActive AS '@IsActive', 
+									 @ConversationGroupId AS '@ConversationGroupId', 
+									 @__ConversationGroupName AS '@ConversationGroupName'  
+							  FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @ConversationGroupId,
 			@ActionID = 1009,
 			@IP = @LoginIP,
 			@NewValues = @NewValues

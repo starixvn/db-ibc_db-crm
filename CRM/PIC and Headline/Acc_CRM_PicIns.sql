@@ -20,6 +20,7 @@ Original:
 	Revisions:
 		- 20200506@Malcolm: insert a new PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
+		- 20200921@Malcolm : New PIC shall be inserted in table crmRecipient[RedmineId : #130544] 
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -111,6 +112,18 @@ BEGIN
 		END
 		RETURN
 	END CATCH
+
+	-- Insert Into crmRecipient Table 
+	BEGIN TRY
+		INSERT INTO dbo.crmRecipient (RecipientTypeId, SourceId, DataSource)
+		VALUES(1, @PicID, 'bodb_CRM.dbo.crmPIC')
+	END TRY
+	BEGIN CATCH
+		SELECT  @ErrCode = ERROR_NUMBER(),@ErrMsg = ERROR_MESSAGE()
+		RETURN
+	END CATCH
+	
+	--Write log
 
 	SELECT @RoleXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 

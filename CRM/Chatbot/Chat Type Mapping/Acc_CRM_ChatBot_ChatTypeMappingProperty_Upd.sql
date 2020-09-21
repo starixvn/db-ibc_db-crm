@@ -23,15 +23,15 @@ Original:
 BEGIN
 	
 
-	DECLARE @___GroupId				INT,
-			@___NumberOfRecipient	INT,
-			@___NumberOfHeadline	INT,
-			@___HeadlineXML			XML, 
-			@___RecipientXML		XML,
-			@___LanguageXML			XML,
-			@___BotXML				XML,
-			@___MaxId				INT,
-			@___Id					INT,
+	DECLARE @GroupId				INT,
+			@NumberOfRecipient		INT,
+			@NumberOfHeadline		INT,
+			@HeadlineXML			XML, 
+			@RecipientXML			XML,
+			@LanguageXML			XML,
+			@BotXML					XML,
+			@MaxId					INT,
+			@Id						INT,
 			@LetstalkID				VARCHAR(200),
 			@OldValues				NVARCHAR(MAX),
 			@NewValues              NVARCHAR(MAX)
@@ -70,19 +70,19 @@ BEGIN
 
 		OPEN cursor_TmpGroup_;
 
-		FETCH NEXT FROM cursor_TmpGroup_ INTO @___GroupId
+		FETCH NEXT FROM cursor_TmpGroup_ INTO @GroupId
 
 		WHILE @@FETCH_STATUS = 0
 		BEGIN
 			EXEC  dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd 
-							@ConversationGroupId = @___GroupId
+							@ConversationGroupId = @GroupId
 							,@IsActive = 0
 							,@UserId = @UserId		
 							,@ErrCode = @ErrCode		
 							,@ErrMsg = @ErrMsg		 	
 							,@LoginIP = @LoginIP
 
-			FETCH NEXT FROM Cursor_TmpGroup INTO @___GroupId;
+			FETCH NEXT FROM Cursor_TmpGroup INTO @GroupId;
 		END
 	
 	END
@@ -133,37 +133,37 @@ BEGIN
 
 		OPEN Cursor_TmpGroup;
 
-		FETCH NEXT FROM Cursor_TmpGroup INTO @___GroupId
+		FETCH NEXT FROM Cursor_TmpGroup INTO @GroupId
 
 		WHILE @@FETCH_STATUS = 0
 		BEGIN
-			SELECT @___NumberOfRecipient = COUNT(*) 
+			SELECT @NumberOfRecipient = COUNT(*) 
 			FROM dbo.crmConversationGroupRecipient  cgr WITH(NOLOCK) 
-			WHERE cgr.ConversationGroupId = @___GroupId
+			WHERE cgr.ConversationGroupId = @GroupId
 
-			SELECT @___NumberOfHeadline = COUNT(*)
+			SELECT @NumberOfHeadline = COUNT(*)
 			FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
-			WHERE cgh.ConversationGroupId = @___GroupId
+			WHERE cgh.ConversationGroupId = @GroupId
 
 			IF NOT EXISTS(SELECT 1
 					FROM dbo.crmPicManagement m WITH(NOLOCK)
 						INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = m.PicID
 						INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.RecipientId = r.RecipientId
-					WHERE cgr.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+					WHERE cgr.ConversationGroupId = @GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 					GROUP BY m.CustID
-					HAVING COUNT(PicId) = @___NumberOfRecipient)
+					HAVING COUNT(PicId) = @NumberOfRecipient)
 			BEGIN
-				IF @___NumberOfHeadline = 1
+				IF @NumberOfHeadline = 1
 				BEGIN
 					DELETE cgr
 					OUTPUT deleted.ConversationGroupId, deleted.RecipientId
 						INTO @TmpGroupRecipient(ConversationGroupId, RecipientId)
 					FROM dbo.crmConversationGroupRecipient cgr WITH(ROWLOCK, UPDLOCK)
-					WHERE cgr.ConversationGroupId = @___GroupId
+					WHERE cgr.ConversationGroupId = @GroupId
 
 					-- Deactive Group
 					EXEC  dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd 
-							@ConversationGroupId = @___GroupId
+							@ConversationGroupId = @GroupId
 							,@IsActive = 0
 							,@UserId = @UserId		
 							,@ErrCode = @ErrCode		
@@ -174,10 +174,10 @@ BEGIN
 				DELETE dbo.crmConversationGroupHeadline WITH(ROWLOCK, UPDLOCK)
 				OUTPUT deleted.ConversationGroupId, deleted.HeadlineId
 					INTO @TmpGroupHeadline(ConversationGroupId, HeadlineId)
-				WHERE ConversationGroupId = @___GroupId
+				WHERE ConversationGroupId = @GroupId
 			END
 
-			FETCH NEXT FROM Cursor_TmpGroup INTO @___GroupId;
+			FETCH NEXT FROM Cursor_TmpGroup INTO @GroupId;
 		END
 
 		CLOSE Cursor_TmpGroup
@@ -191,46 +191,46 @@ BEGIN
 
 	OPEN Cursor_Group;
 
-	FETCH NEXT FROM Cursor_Group INTO @___GroupId
+	FETCH NEXT FROM Cursor_Group INTO @GroupId
 
 	WHILE @@FETCH_STATUS = 0
 	BEGIN
-		SELECT @NewValues		= NULL,
+		SELECT @BotXML			= NULL,
+			   @NewValues		= NULL,
 			   @OldValues		= NULL,
-			   @___BotXML		= NULL,
-			   @___LanguageXML	= NULL, 			  
-			   @___HeadlineXML	= NULL, 
-			   @___RecipientXML = NULL
+			   @LanguageXML		= NULL, 			  
+			   @HeadlineXML		= NULL, 
+			   @RecipientXML	= NULL
 			   
 		--Both (Old/new values is unchanged)
 
-		SELECT @___LanguageXML = (
+		SELECT @LanguageXML = (
 						SELECT t.LanguageId AS '@Id', s.SettingValue AS '@Name'
 						FROM dbo.crmConversationGroup t WITH(NOLOCK)
 							INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
-						WHERE t.ConversationGroupId = @___GroupId
+						WHERE t.ConversationGroupId = @GroupId
 						FOR XML PATH('Language'))
 
-		SELECT @___BotXML = (
+		SELECT @BotXML = (
 						SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
 						FROM dbo.crmConversationGroupBot t WITH(NOLOCK)
 							INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
-						WHERE t.ConversationGroupId = @___GroupId
+						WHERE t.ConversationGroupId = @GroupId
 						FOR XML PATH('Bot'))
 
 		-- Old Values
-		SELECT @___HeadlineXML = (
+		SELECT @HeadlineXML = (
 						SELECT  t.HeadlineId AS '@Id', 
 								CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
 								ELSE c.username END AS '@Name'
 						FROM @TmpGroupHeadline t
 								LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-						WHERE t.ConversationGroupId = @___GroupId
+						WHERE t.ConversationGroupId = @GroupId
 						FOR XML PATH('Headline'))
 
-		IF EXISTS(SELECT 1 FROM @TmpGroupRecipient tgr WHERE tgr.ConversationGroupId = @___GroupId)
+		IF EXISTS(SELECT 1 FROM @TmpGroupRecipient tgr WHERE tgr.ConversationGroupId = @GroupId)
 		BEGIN
-			SELECT @___RecipientXML = (
+			SELECT @RecipientXML = (
 						SELECT t.RecipientId AS '@Id', 
 								 p.Username AS '@Name', 
 								 r.RecipientTypeId AS '@RecipientTypeId', 
@@ -239,12 +239,12 @@ BEGIN
 							INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
 							INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
  							INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-						WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+						WHERE t.ConversationGroupId = @GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 						FOR XML PATH('Recipient'))
 		END
 		ELSE 
 		BEGIN
-			SELECT @___RecipientXML = (
+			SELECT @RecipientXML = (
 						SELECT t.RecipientId AS '@Id', 
 								 p.Username AS '@Name', 
 								 r.RecipientTypeId AS '@RecipientTypeId', 
@@ -253,7 +253,7 @@ BEGIN
 							INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
 							INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
  							INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-						WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+						WHERE t.ConversationGroupId = @GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 						FOR XML PATH('Recipient'))
 		END
 
@@ -261,28 +261,28 @@ BEGIN
 								 t.ConversationGroupName AS '@Name',
 								 t.ConversationId AS '@LetstalkID',
 								 t.Remark AS '@Remark',
-								 @___BotXML,
-								 @___HeadlineXML,
-								 @___RecipientXML,
-								 @___LanguageXML
+								 @BotXML,
+								 @HeadlineXML,
+								 @RecipientXML,
+								 @LanguageXML
 						FROM dbo.crmConversationGroup t
-						WHERE t.ConversationGroupId = @___GroupId
+						WHERE t.ConversationGroupId = @GroupId
 						FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_HeadlineUpd'))
 					AS NVARCHAR(MAX))
 		-- New Values
 
-		SELECT @___HeadlineXML= NULL, @___RecipientXML = NULL
+		SELECT @HeadlineXML= NULL, @RecipientXML = NULL
 
-		SELECT @___HeadlineXML = (
+		SELECT @HeadlineXML = (
 						SELECT  t.HeadlineId AS '@Id', 
 								CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
 								ELSE c.username END AS '@Name'
 						FROM dbo.crmConversationGroupHeadline t
 								LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-						WHERE t.ConversationGroupId = @___GroupId
+						WHERE t.ConversationGroupId = @GroupId
 						FOR XML PATH('Headline'))
 
-		SELECT @___RecipientXML = (
+		SELECT @RecipientXML = (
 						SELECT t.RecipientId AS '@Id', 
 								 p.Username AS '@Name', 
 								 r.RecipientTypeId AS '@RecipientTypeId', 
@@ -291,31 +291,31 @@ BEGIN
 							INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
 							INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
  							INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-						WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+						WHERE t.ConversationGroupId = @GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 						FOR XML PATH('Recipient'))
 
 		SELECT @NewValues =	CAST((SELECT t.ConversationGroupId AS '@Id',
 								 t.ConversationGroupName AS '@Name',
 								 t.ConversationId AS '@LetstalkID',
 								 t.Remark AS '@Remark',
-								 @___BotXML,
-								 @___HeadlineXML,
-								 @___RecipientXML,
-								 @___LanguageXML
+								 @BotXML,
+								 @HeadlineXML,
+								 @RecipientXML,
+								 @LanguageXML
 						FROM dbo.crmConversationGroup t WITH(NOLOCK)
-						WHERE t.ConversationGroupId = @___GroupId
+						WHERE t.ConversationGroupId = @GroupId
 						FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_HeadlineUpd'))
 					AS NVARCHAR(MAX))
 
 		EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @___GroupId,
+			@CustID = @GroupId,
 			@ActionID = 1008,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,
 			@OldValues = @OldValues
 
-		FETCH NEXT FROM Cursor_Group INTO @___GroupId
+		FETCH NEXT FROM Cursor_Group INTO @GroupId
 	END
 
 END

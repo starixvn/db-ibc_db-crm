@@ -29,9 +29,25 @@ BEGIN
 	IF @RemovedPICs  = ''
 		RETURN
 
-	DECLARE @iDOC INT, @NewValues NVARCHAR(MAX),@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0,@IsErr BIT = 0
+	DECLARE @iDOC INT, @NewValues NVARCHAR(MAX),@PicID INT,@PicName NVARCHAR(200), @RowTotal INT = 0, @CurrentRow INT = 0,@IsErr BIT = 0,
+			@GroupId				INT,
+			@NumberOfRecipient		INT,
+			@NumberOfHeadline		INT,
+			@HeadlineXML			XML, 
+			@RecipientXML			XML,
+			@LanguageXML			XML,
+			@BotXML					XML,
+			@MaxId					INT,
+			@Id						INT,
+			@LetstalkID				VARCHAR(200)
 
 	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT, Type INT)
+
+	DECLARE @TmpGroup	TABLE (ConversationGroupId INT)
+
+	DECLARE @TmpHeadline TABLE (ConversationGroupId SMALLINT, HeadlineId INT)
+
+	DECLARE @TmpRecipient TABLE (ConversationGroupId SMALLINT, RecipientId INT)
 
     CREATE TABLE #TmpLog(CustID	INT)
 
@@ -123,8 +139,72 @@ BEGIN
 
 		RETURN
 	END CATCH
-	
-	
+	/*========Update Chat Type Mapping ==========*/
+
+	INSERT INTO @TmpGroup (ConversationGroupId)
+	SELECT cgh.ConversationGroupId
+	FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
+	WHERE cgh.HeadlineId IN (SELECT i.HeadlineId FROM #input i)
+
+	DECLARE Cursor_TmpGroup CURSOR
+
+	FOR SELECT ConversationGroupId FROM @TmpGroup
+
+	OPEN Cursor_TmpGroup;
+
+	FETCH NEXT FROM Cursor_TmpGroup INTO @GroupId
+
+	WHILE @@FETCH_STATUS = 0
+		BEGIN
+			SELECT @NumberOfRecipient = COUNT(*) 
+			FROM dbo.crmConversationGroupRecipient  cgr WITH(NOLOCK) 
+			WHERE cgr.ConversationGroupId = @GroupId
+
+			SELECT @NumberOfHeadline = COUNT(*)
+			FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
+			WHERE cgh.ConversationGroupId = @GroupId
+
+			IF NOT EXISTS(SELECT 1
+					FROM dbo.crmPicManagement m WITH(NOLOCK)
+						INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = m.PicID
+						INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.RecipientId = r.RecipientId
+					WHERE cgr.ConversationGroupId = @GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+					GROUP BY m.CustID
+					HAVING COUNT(PicId) = @NumberOfRecipient)
+			BEGIN
+				IF @NumberOfHeadline = 1
+				BEGIN
+					DELETE cgr
+					OUTPUT deleted.ConversationGroupId, deleted.RecipientId
+						INTO @TmpRecipient(ConversationGroupId, RecipientId)
+					FROM dbo.crmConversationGroupRecipient cgr WITH(ROWLOCK, UPDLOCK)
+					WHERE cgr.ConversationGroupId = @GroupId
+
+					-- Deactive Group
+					EXEC  dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd 
+							@ConversationGroupId = @GroupId
+							,@IsActive			 = 0
+							,@UserId			 = @UserId		
+							,@ErrCode            = @ErrCode		
+							,@ErrMsg             = @ErrMsg		 	
+							,@LoginIP            = @LoginIP	
+				END
+
+				DELETE dbo.crmConversationGroupHeadline WITH(ROWLOCK, UPDLOCK)
+				OUTPUT deleted.ConversationGroupId, deleted.HeadlineId
+					INTO @TmpHeadline (ConversationGroupId, HeadlineId)
+				WHERE ConversationGroupId = @GroupId
+			END
+
+			FETCH NEXT FROM Cursor_TmpGroup INTO @GroupId;
+		END
+
+		CLOSE Cursor_TmpGroup
+
+		DEALLOCATE Cursor_TmpGroup
+
+	/*========End of Updating Chat Type Mapping ==========*/
+	-- Write Log
 	INSERT INTO #TmpLog
 	(
 		CustID

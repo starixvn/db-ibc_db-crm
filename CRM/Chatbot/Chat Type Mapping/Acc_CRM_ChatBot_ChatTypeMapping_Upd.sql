@@ -190,47 +190,40 @@ BEGIN
 	-- Write Logs
 
 	--Old Values
-	SELECT @__BotXML = 
-	(
-		SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
-		FROM #Tmp t
-			INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
-		WHERE Type = 2 
-		FOR XML PATH('Bot')
-	)
+	SELECT @__BotXML = (
+				SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
+				FROM #Tmp t
+					INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
+				WHERE Type = 2 
+				FOR XML PATH('Bot'))
 
-	SELECT @__LanguageXML = 
-	(
-		SELECT t.LanguageId AS '@Id', s.SettingValue AS '@Name'
-		FROM #Tmp t 
-			INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
-		WHERE t.Type = 1 
-		FOR XML PATH('Language')
-	)
+	SELECT @__LanguageXML = (
+				SELECT t.LanguageId AS '@Id', s.SettingValue AS '@Name'
+				FROM #Tmp t 
+					INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
+				WHERE t.Type = 1 
+				FOR XML PATH('Language'))
 
-	SELECT @__RecipientXML = 
-	(
-		SELECT t.RecipientId AS '@Id', 
-	    		 p.Username AS '@Name', 
-	    		 r.RecipientTypeId AS '@RecipientTypeId', 
-	    		 rt.RecipientTypeName AS '@RecipientTypeName'
-	    FROM #Tmp t
-			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
-			INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
- 			INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-	    WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-	    FOR XML PATH('Recipient'))
+	SELECT @__RecipientXML = (
+				SELECT t.RecipientId AS '@Id', 
+	    				 p.Username AS '@Name', 
+	    				 r.RecipientTypeId AS '@RecipientTypeId', 
+	    				 rt.RecipientTypeName AS '@RecipientTypeName'
+				FROM #Tmp t
+					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
+					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
+ 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+				WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+				FOR XML PATH('Recipient'))
 
-	SELECT @__HeadlineXML =	
-	(
-		SELECT  t.HeadlineId AS '@Id', 
-				CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
-				ELSE c.username END AS '@Name'
-		FROM #Tmp t
-				LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-		WHERE t.Type = 4
-		FOR XML PATH('Headline')
-	)
+	SELECT @__HeadlineXML =	(
+				SELECT  t.HeadlineId AS '@Id', 
+						CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
+						ELSE c.username END AS '@Name'
+				FROM #Tmp t
+						LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
+				WHERE t.Type = 4
+				FOR XML PATH('Headline'))
 
 	SELECT @OldValues =	CAST((SELECT t.ConversationGroupId AS '@Id',
 									 t.ConversationGroupName AS '@Name',
@@ -246,46 +239,38 @@ BEGIN
 						AS NVARCHAR(MAX))
 	-- New values 
 
-	SELECT @__BotXML =
-	(
-		SELECT cb.BotId AS '@Id', cb.BotName AS '@Name'
-		FROM dbo.crmConversationBot cb WITH(NOLOCK)
-		WHERE cb.BotId = @BotId
-		FOR XML PATH('Bot')
-	)
+	SELECT @__BotXML = (
+				SELECT cb.BotId AS '@Id', cb.BotName AS '@Name'
+				FROM dbo.crmConversationBot cb WITH(NOLOCK)
+				WHERE cb.BotId = @BotId
+				FOR XML PATH('Bot'))
 
-	SELECT @__RecipientXML =
-	(
-		SELECT  f.val					AS '@Id', 
-				p.Username				AS '@Name', 
-				r.RecipientTypeId		AS '@RecipientTypeId', 
-				rt.RecipientTypeName	AS '@RecipientTypeName'
-		FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',') f
-			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId  = f.val
-			INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
-			INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-		WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC'
-		FOR XML PATH('Recipient')
-	)
+	SELECT @__RecipientXML = (
+				SELECT  f.val					AS '@Id', 
+						p.Username				AS '@Name', 
+						r.RecipientTypeId		AS '@RecipientTypeId', 
+						rt.RecipientTypeName	AS '@RecipientTypeName'
+				FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',') f
+					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId  = f.val
+					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
+					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+				WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC'
+				FOR XML PATH('Recipient'))
 
-	SELECT @__LanguageXML =
-	(
-		SELECT  @LanguageId		AS '@Id', 
-				s.SettingValue	AS '@Name'
-		FROM dbo.crmSetting s WITH(NOLOCK)
-		WHERE s.SettingID = @LanguageId
-		FOR XML PATH ('Language')
-	)
+	SELECT @__LanguageXML = (
+				SELECT  @LanguageId		AS '@Id', 
+						s.SettingValue	AS '@Name'
+				FROM dbo.crmSetting s WITH(NOLOCK)
+				WHERE s.SettingID = @LanguageId
+				FOR XML PATH ('Language'))
 
-	SELECT @__HeadlineXML =
-	(
-		SELECT  f.val AS '@Id', 
-				CASE WHEN  f.val = 0 THEN 'Not Assigned Group' 
-				ELSE c.username END AS '@Name'
-		FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
-			LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
-		FOR XML PATH('Headline')
-	)
+	SELECT @__HeadlineXML = (
+				SELECT  f.val AS '@Id', 
+						CASE WHEN  f.val = 0 THEN 'Not Assigned Group' 
+						ELSE c.username END AS '@Name'
+				FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
+					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
+				FOR XML PATH('Headline'))
 
 	SELECT @NewValues =	CAST((SELECT @ConversationGroupId AS '@Id',
 									 @ConversationGroupName AS '@Name',

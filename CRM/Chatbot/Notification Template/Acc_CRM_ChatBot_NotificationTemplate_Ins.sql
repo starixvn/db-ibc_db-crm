@@ -89,24 +89,25 @@ BEGIN
 	END CATCH
 	
 	-- Write logs
-	--SELECT @ContentXML = (SELECT c.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', c.Value AS '@Value'
-	--					  FROM #Contents c 
-	--						  INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = c.LanguageId
-	--					  FOR XML PATH('Content'), ROOT('Contents'))
+	SELECT @ContentXML = (
+				SELECT c.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', c.Value AS '@Value'
+				FROM #Contents c 
+					INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = c.LanguageId
+				FOR XML PATH('Content'), ROOT('Contents'))
 
-	--SELECT @NewValues =	CAST((SELECT	@NotificationTemplateId AS '@Id'
-	--									,@NotificationTemplateName AS '@Name'
-	--									,@Title AS '@Title'
-	--									,@ContentXML
-	--									,@NotificationTypeXML
-	--						 FOR XML PATH('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Ins')) AS NVARCHAR(MAX))
+	SELECT @NewValues =	CAST((SELECT	@NotificationTemplateId AS '@Id'
+										,@NotificationTemplateName AS '@Name'
+										,@Title AS '@Title'
+										,@ContentXML
+										,@NotificationTypeXML
+							 FOR XML PATH('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Ins')) AS NVARCHAR(MAX))
 
-	--EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-	--		@UserID = @UserID,
-	--		@CustID = NULL,
-	--		@ActionID = 1004,
-	--		@IP = @LoginIP,
-	--		@NewValues = @NewValues
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1004,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
 
 	DROP TABLE #Contents
 	

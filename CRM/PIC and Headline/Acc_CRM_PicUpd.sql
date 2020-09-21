@@ -35,7 +35,7 @@ BEGIN
 	IF ISNULL(@CommunicationTools,'') = ''
 		RETURN
 	
-	DECLARE @idoc INT
+	DECLARE @idoc INT, @SettingId INT, @__Letstalk NVARCHAR(200) = NULL, @New__Letstalk NVARCHAR(200), @___GroupId INT
 
 	DECLARE	@NewValues NVARCHAR(MAX),@OldValues NVARCHAR(MAX), @CountryXML XML, @LanguageXML XML,@RoleXML XML
 	
@@ -89,6 +89,11 @@ BEGIN
 	FROM crmPIC
 	WHERE PicID = @PicID
 
+	SELECT @__Letstalk = cg.ConversationId, @___GroupId = cg.ConversationGroupId
+	FROM dbo.crmConversationGroup cg WITH(NOLOCK)
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
+		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
+	WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicID AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 
 	SELECT @RoleXML_Old = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
@@ -155,6 +160,22 @@ BEGIN
 		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
 		RETURN
 	END CATCH	
+
+	IF @__Letstalk IS NOT NULL
+	BEGIN
+		IF ', ' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
+		BEGIN
+			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd
+				@ConversationGroupId = @___GroupId
+				,@IsActive	= 0
+				,@UserId = @UserID	
+				,@ErrCode = @ErrCode			
+				,@ErrMsg = @ErrMsg			
+				,@LoginIP = @LoginIP		
+			IF @ErrCode <> 0
+				RETURN
+		END
+	END
 
 	SELECT @RoleXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 

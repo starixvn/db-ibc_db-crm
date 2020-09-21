@@ -81,29 +81,32 @@ BEGIN
 
 	-- Write log
 
-	--SELECT @__NotificationTypeXML = (SELECT nt.NotificationTypeId AS '@Id', nt.NotificationTypeName AS '@Name'
-	--								 FROM dbo.crmNotificationType nt WITH(NOLOCK)
-	--								 WHERE nt.NotificationTypeId = @__NotificationTypeId 
-	--					             FOR XML PATH('NotificationType'))
+	SELECT @__NotificationTypeXML = (
+					SELECT nt.NotificationTypeId AS '@Id', nt.NotificationTypeName AS '@Name'
+					FROM dbo.crmNotificationType nt WITH(NOLOCK)
+					WHERE nt.NotificationTypeId = @__NotificationTypeId 
+					FOR XML PATH('NotificationType'))
 
-	--SELECT @__ContentXML =	(SELECT t.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', t.Content AS '@Value'
-	--						 FROM #Tmp t
-	--							 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
-	--						 FOR XML PATH('Content'), ROOT('Contents'))
+	SELECT @__ContentXML = (
+					SELECT t.LanguageId AS '@LanguageId', s.SettingValue AS '@Language', t.Content AS '@Value'
+					FROM #Tmp t
+						 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
+					FOR XML PATH('Content'), ROOT('Contents'))
 
-	--SELECT @NewValues =    (SELECT @NotificationTemplateId AS '@Id',
-	--							   @NotificationTemplateName AS '@Name',
-	--							   @__Title AS '@Title',
-	--							   @__NotificationTypeXML,
-	--							   @__ContentXML
-	--						FOR XML PATH ('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Del'))
+	SELECT @NewValues = (
+					SELECT @NotificationTemplateId AS '@Id',
+						   @NotificationTemplateName AS '@Name',
+						   @__Title AS '@Title',
+						   @__NotificationTypeXML,
+						   @__ContentXML
+					FOR XML PATH ('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Del'))
 
-	--EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
-	--		@UserID = @UserID,
-	--		@CustID = NULL,
-	--		@ActionID = 1004,
-	--		@IP = @LoginIP,
-	--		@NewValues = @NewValues
+	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
+			@UserID = @UserID,
+			@CustID = NULL,
+			@ActionID = 1004,
+			@IP = @LoginIP,
+			@NewValues = @NewValues
 
 	-- Drop temp tables
 	DROP TABLE #Tmp

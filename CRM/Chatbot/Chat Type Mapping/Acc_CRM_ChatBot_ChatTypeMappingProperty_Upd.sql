@@ -84,9 +84,7 @@ BEGIN
 
 			FETCH NEXT FROM Cursor_TmpGroup INTO @___GroupId;
 		END
-
-		
-		
+	
 	END
 	-- Change Headline 
 	IF @Case IN (3,4)
@@ -206,67 +204,57 @@ BEGIN
 			   
 		--Both (Old/new values is unchanged)
 
-		SELECT @___LanguageXML = 
-		(
-			SELECT t.LanguageId AS '@Id', s.SettingValue AS '@Name'
-			FROM dbo.crmConversationGroup t WITH(NOLOCK)
-				INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
-			WHERE t.ConversationGroupId = @___GroupId
-			FOR XML PATH('Language')
-		)
+		SELECT @___LanguageXML = (
+						SELECT t.LanguageId AS '@Id', s.SettingValue AS '@Name'
+						FROM dbo.crmConversationGroup t WITH(NOLOCK)
+							INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.LanguageId
+						WHERE t.ConversationGroupId = @___GroupId
+						FOR XML PATH('Language'))
 
-		SELECT @___BotXML = 
-		(
-			SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
-			FROM dbo.crmConversationGroupBot t WITH(NOLOCK)
-				INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
-			WHERE t.ConversationGroupId = @___GroupId
-			FOR XML PATH('Bot')
-		)
+		SELECT @___BotXML = (
+						SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
+						FROM dbo.crmConversationGroupBot t WITH(NOLOCK)
+							INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
+						WHERE t.ConversationGroupId = @___GroupId
+						FOR XML PATH('Bot'))
 
 		-- Old Values
-		SELECT @___HeadlineXML =	
-		(
-			SELECT  t.HeadlineId AS '@Id', 
-					CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
-					ELSE c.username END AS '@Name'
-			FROM @TmpGroupHeadline t
-					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-			WHERE t.ConversationGroupId = @___GroupId
-			FOR XML PATH('Headline')
-		)
+		SELECT @___HeadlineXML = (
+						SELECT  t.HeadlineId AS '@Id', 
+								CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
+								ELSE c.username END AS '@Name'
+						FROM @TmpGroupHeadline t
+								LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
+						WHERE t.ConversationGroupId = @___GroupId
+						FOR XML PATH('Headline'))
 
 		IF EXISTS(SELECT 1 FROM @TmpGroupRecipient tgr WHERE tgr.ConversationGroupId = @___GroupId)
 		BEGIN
-			SELECT @___RecipientXML = 
-			(
-				SELECT t.RecipientId AS '@Id', 
-						 p.Username AS '@Name', 
-						 r.RecipientTypeId AS '@RecipientTypeId', 
-						 rt.RecipientTypeName AS '@RecipientTypeName'
-				FROM @TmpGroupRecipient t
-					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
-					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
- 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-				WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-				FOR XML PATH('Recipient')
-			)
+			SELECT @___RecipientXML = (
+						SELECT t.RecipientId AS '@Id', 
+								 p.Username AS '@Name', 
+								 r.RecipientTypeId AS '@RecipientTypeId', 
+								 rt.RecipientTypeName AS '@RecipientTypeName'
+						FROM @TmpGroupRecipient t
+							INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
+							INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
+ 							INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+						WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+						FOR XML PATH('Recipient'))
 		END
 		ELSE 
 		BEGIN
-			SELECT @___RecipientXML = 
-			(
-				SELECT t.RecipientId AS '@Id', 
-						 p.Username AS '@Name', 
-						 r.RecipientTypeId AS '@RecipientTypeId', 
-						 rt.RecipientTypeName AS '@RecipientTypeName'
-				FROM dbo.crmConversationGroupRecipient t
-					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
-					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
- 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-				WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-				FOR XML PATH('Recipient')
-			)
+			SELECT @___RecipientXML = (
+						SELECT t.RecipientId AS '@Id', 
+								 p.Username AS '@Name', 
+								 r.RecipientTypeId AS '@RecipientTypeId', 
+								 rt.RecipientTypeName AS '@RecipientTypeName'
+						FROM dbo.crmConversationGroupRecipient t
+							INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
+							INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
+ 							INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+						WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+						FOR XML PATH('Recipient'))
 		END
 
 		SELECT @OldValues =	CAST((SELECT t.ConversationGroupId AS '@Id',
@@ -285,30 +273,26 @@ BEGIN
 
 		SELECT @___HeadlineXML= NULL, @___RecipientXML = NULL
 
-		SELECT @___HeadlineXML =	
-		(
-			SELECT  t.HeadlineId AS '@Id', 
-					CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
-					ELSE c.username END AS '@Name'
-			FROM dbo.crmConversationGroupHeadline t
-					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-			WHERE t.ConversationGroupId = @___GroupId
-			FOR XML PATH('Headline')
-		)
+		SELECT @___HeadlineXML = (
+						SELECT  t.HeadlineId AS '@Id', 
+								CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
+								ELSE c.username END AS '@Name'
+						FROM dbo.crmConversationGroupHeadline t
+								LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
+						WHERE t.ConversationGroupId = @___GroupId
+						FOR XML PATH('Headline'))
 
-		SELECT @___RecipientXML = 
-		(
-			SELECT t.RecipientId AS '@Id', 
-					 p.Username AS '@Name', 
-					 r.RecipientTypeId AS '@RecipientTypeId', 
-					 rt.RecipientTypeName AS '@RecipientTypeName'
-			FROM dbo.crmConversationGroupRecipient t
-				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
-				INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
- 				INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-			WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-			FOR XML PATH('Recipient')
-		)
+		SELECT @___RecipientXML = (
+						SELECT t.RecipientId AS '@Id', 
+								 p.Username AS '@Name', 
+								 r.RecipientTypeId AS '@RecipientTypeId', 
+								 rt.RecipientTypeName AS '@RecipientTypeName'
+						FROM dbo.crmConversationGroupRecipient t
+							INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
+							INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
+ 							INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+						WHERE t.ConversationGroupId = @___GroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+						FOR XML PATH('Recipient'))
 
 		SELECT @NewValues =	CAST((SELECT t.ConversationGroupId AS '@Id',
 								 t.ConversationGroupName AS '@Name',

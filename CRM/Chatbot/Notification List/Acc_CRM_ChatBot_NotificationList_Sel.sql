@@ -159,9 +159,11 @@ BEGIN
 		,t.Status
 		,t.ResolvedRemark
 		,nr.Reason
+		,cg.ConversationGroupName AS LetstalkName
 		,t.RelatedNotificationIds
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationGroup nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
+		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = nr.ConversationGroupId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender
 	ORDER BY t.NotificationId DESC
 

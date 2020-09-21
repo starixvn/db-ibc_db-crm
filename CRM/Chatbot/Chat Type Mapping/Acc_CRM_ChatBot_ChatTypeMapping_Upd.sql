@@ -228,7 +228,7 @@ BEGIN
 				ELSE c.username END AS '@Name'
 		FROM #Tmp t
 				LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-		WHERE t.HeadlineId = 4
+		WHERE t.Type = 4
 		FOR XML PATH('Headline')
 	)
 

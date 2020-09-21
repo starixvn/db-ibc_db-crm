@@ -32,7 +32,7 @@ BEGIN
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
 	-- Get messages
-	SELECT t.RequestId, m.MessageId, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn
+	SELECT t.RequestId, m.MessageId, m.Content_en, m.Content_cs, m.Content_en AS Content_th, m.Content_en AS Content_vn
 	FROM dbo.Msg m WITH (NOLOCK)
 		INNER JOIN #Messages t ON m.MessageId = t.MessageId
 	WHERE m.msgtype = 1

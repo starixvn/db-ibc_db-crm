@@ -20,10 +20,12 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @__IsActive BIT, 
-			@__ConversationGroupName NVARCHAR(1000),
-			@OldValues NVARCHAR(MAX), 
-			@NewValues NVARCHAR(MAX)
+	DECLARE @CustIds					VARCHAR(1000),
+			@OldValues					NVARCHAR(MAX), 
+			@NewValues					NVARCHAR(MAX),	
+			@__IsActive					BIT,
+			@ReferenceIds				VARCHAR(1000),
+			@__ConversationGroupName	NVARCHAR(1000)
 
 	SELECT @__IsActive = IsActive
 		   ,@__ConversationGroupName= ConversationGroupName 
@@ -41,6 +43,19 @@ BEGIN
 	END CATCH
 	-- Write Logs
 
+	SELECT @CustIds = STUFF((
+				SELECT ','  + CONVERT(VARCHAR(20), cgh.HeadlineId)
+				FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
+				WHERE cgh.ConversationGroupId = @ConversationGroupId
+				FOR XML PATH('')),1,1,'')
+
+	SELECT @ReferenceIds = STUFF((
+				SELECT ','  + CONVERT(VARCHAR(20), cgr.RecipientId)
+				FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
+				WHERE cgr.ConversationGroupId = @ConversationGroupId
+				FOR XML PATH('')),1,1,'')
+
+
 	SELECT @OldValues = CAST((SELECT @__IsActive AS '@IsActive', 
 									 @ConversationGroupId AS '@ConversationGroupId', 
 									 @__ConversationGroupName AS '@ConversationGroupName' 
@@ -56,7 +71,9 @@ BEGIN
 			@CustID = @ConversationGroupId,
 			@ActionID = 1009,
 			@IP = @LoginIP,
-			@NewValues = @NewValues
+			@NewValues = @NewValues,
+			@CustIds = @CustIds,
+			@ReferenceIds = @ReferenceIds
 	
 END
 GO

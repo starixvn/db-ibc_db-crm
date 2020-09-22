@@ -29,7 +29,7 @@ BEGIN
 
 	DECLARE @Existing_GroupName NVARCHAR(1000) = '',@NumberOfRecipients BIT = 0, @SourceId INT, @NewValues NVARCHAR(MAX), 
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, 
-			@__LanguageXML XML, @__BotXML XML
+			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
 
 	CREATE TABLE  #Recipients  (ID INT PRIMARY KEY CLUSTERED)
 	CREATE TABLE  #Headlines  (ID INT PRIMARY KEY CLUSTERED)
@@ -70,6 +70,24 @@ BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'The ' + @Existing_GroupName  +' has been set ' + @LetstalkID +' to receive notification!'
 		RETURN
 	END
+
+	SELECT @RecipientIds = STUFF((
+				SELECT ','  + CONVERT(VARCHAR(20), M.A) 
+				FROM (
+					SELECT DISTINCT cgr.RecipientId 
+					FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) 
+					WHERE cgr.ConversationGroupId = @ConversationGroupId
+					UNION SELECT ID	FROM #Recipients) AS M(A)
+				FOR XML PATH('')),1,1,'')
+
+	SELECT @CustIds = STUFF((
+				SELECT ','  + CONVERT(VARCHAR(20), M.A) 
+				FROM (
+					SELECT DISTINCT cgh.HeadlineId 
+					FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK) 
+					WHERE cgh.ConversationGroupId = @ConversationGroupId
+					UNION SELECT ID	FROM #Headlines) AS M(A)
+				FOR XML PATH('')),1,1,'')
 	
 	BEGIN TRY
 		UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
@@ -287,10 +305,12 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @ConversationGroupId,
+			@CustID = NULL,
 			@ActionID = 1008,
 			@IP = @LoginIP,
-			@NewValues = @NewValues
+			@NewValues = @NewValues,
+			@CustIds = @CustIds,
+			@ReferenceIds = @ReferenceIds
 
 	DROP TABLE #Headlines
 	DROP TABLE #Recipients

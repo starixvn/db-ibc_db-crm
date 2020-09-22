@@ -190,7 +190,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @ConversationGroupId,
+			@CustID = NULL,
 			@ActionID = 1007,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

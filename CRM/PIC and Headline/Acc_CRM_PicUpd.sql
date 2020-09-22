@@ -180,6 +180,25 @@ BEGIN
 				,@LoginIP = @LoginIP		
 			IF @ErrCode <> 0
 				RETURN
+
+			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMapping_Upd
+				@ConversationGroupId = @___GroupId
+				,@BotId = NULL			
+				,@ConversationGroupName	= ''
+				,@RecipientTypeId  = NULL 
+				,@HeadlineIds = ''		
+				,@RecipientIds	= ''		
+				,@LetstalkID = ''	
+				,@LanguageId = NULL		
+				,@Remark = ''				
+				,@UserId = @UserId	
+				,@ErrCode = @ErrCode				
+				,@ErrMsg = @ErrMsg			
+				,@LoginIP = @LoginIP			
+				,@IsAuto = 1	
+			
+			IF @ErrCode <> 0
+				RETURN
 		END
 	END
 

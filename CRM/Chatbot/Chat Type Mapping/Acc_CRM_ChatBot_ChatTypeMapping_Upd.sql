@@ -53,7 +53,7 @@ BEGIN
 		IF ISNULL(@RecipientIds, '') = ''
 		BEGIN
 			SELECT @RecipientIds= STUFF((
-							SELECT ',' + cgr.RecipientId
+							SELECT ',' + CONVERT(VARCHAR(20), cgr.RecipientId)
 							FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
 							WHERE cgr.ConversationGroupId = @ConversationGroupId
 							FOR XML PATH('')), 1,1, '')
@@ -62,7 +62,7 @@ BEGIN
 		IF ISNULL(@HeadlineIds, '') = ''
 		BEGIN	
 			SELECT @HeadlineIds= STUFF((
-							SELECT ',' + cgh.HeadlineId
+							SELECT ',' + CONVERT(VARCHAR(20),cgh.HeadlineId)
 							FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
 							WHERE cgh.ConversationGroupId = @ConversationGroupId
 							FOR XML PATH('')), 1,1, '')

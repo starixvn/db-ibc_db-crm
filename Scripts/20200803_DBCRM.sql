@@ -298,3 +298,9 @@ GO
 
 CREATE NONCLUSTERED INDEX IX_ChatBotProcessed ON dbo.crmMessageImport (IsChatBotProcessed)
 GO
+
+ALTER TABLE dbo.crmUserLog_RunSP
+ADD CustIds VARCHAR(1000)
+
+ALTER TABLE dbo.crmUserLog_RunSP
+ADD ReferenceIds VARCHAR(1000)

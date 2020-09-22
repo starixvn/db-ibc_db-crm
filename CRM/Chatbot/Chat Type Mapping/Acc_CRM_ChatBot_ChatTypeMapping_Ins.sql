@@ -4,7 +4,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
 	,@ConversationGroupName	NVARCHAR(1000) 
 	,@ChatTypeId			TINYINT = NULL
 	,@RecipientTypeId       TINYINT
-	,@HeadlineIds			VARCHAR(200) 
+	,@HeadlineIds			VARCHAR(1000) 
 	,@RecipientId			INT
 	,@LetstalkID			VARCHAR(200)
 	,@LanguageId			INT	
@@ -28,9 +28,12 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @ConversationGroupId INT = 0, @Existing_GroupName NVARCHAR(1000) = '',@NewValues NVARCHAR(MAX),
-			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML
+			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML,
+			@ReferenceIds VARCHAR(1000)
 
 	DECLARE @_HeadlineIds TABLE (HeadlineID INT)	
+
+	SELECT @ReferenceIds = CAST(@RecipientId AS VARCHAR(1000))
 
 	INSERT INTO @_HeadlineIds (HeadlineID)
 	SELECT f.val
@@ -180,7 +183,8 @@ BEGIN
 									  @__ChatTypeXML,
 									  @__RecipientTypeXML,
 									  @__HeadlineXML,
-									  @__RecipientXML
+									  @__RecipientXML,
+									  @__LanguageXML
 							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
 						) AS NVARCHAR(MAX))
 
@@ -189,7 +193,9 @@ BEGIN
 			@CustID = @ConversationGroupId,
 			@ActionID = 1007,
 			@IP = @LoginIP,
-			@NewValues = @NewValues
+			@NewValues = @NewValues,
+			@CustIds = @HeadlineIds,
+			@ReferenceIds = @ReferenceIds
 END
 GO
 

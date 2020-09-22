@@ -3,6 +3,8 @@ ALTER PROCEDURE [dbo].[WriteLog_UserLog_crmUserLog_RunSP]
 (
 	@UserID			INT, 
 	@CustId     	INT,
+	@CustIds		VARCHAR(1000) = '',
+	@ReferenceIds	VARCHAR(1000) = '',
 	@ActionID		INT, 
 	@IP				VARCHAR(20),	
 	@NewValues		NVARCHAR(MAX) ='',
@@ -24,11 +26,13 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	INSERT INTO crmUserLog_RunSP
+	INSERT INTO dbo.crmUserLog_RunSP
 				(
 					LogDate, 
 					UserID, 
 					CustID,
+					CustIds,
+					ReferenceIds,
 					ActionID,  
 					IP, 
 					NewValues,
@@ -39,6 +43,8 @@ BEGIN
 					GETDATE(), 
 					@UserID, 
 					@CustId,
+					@CustIds,
+					@ReferenceIds,
 					@ActionID, 
 					@IP, 
 					@NewValues,

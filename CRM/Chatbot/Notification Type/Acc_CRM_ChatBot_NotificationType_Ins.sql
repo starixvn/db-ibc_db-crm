@@ -108,7 +108,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @NotificationTypeId,
 			@ActionID = 1001,
 			@IP = @LoginIP,
 			@NewValues = @NewValues

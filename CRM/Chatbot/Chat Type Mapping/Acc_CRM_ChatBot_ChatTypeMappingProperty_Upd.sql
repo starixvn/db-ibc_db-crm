@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,bodbExtAccNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_HeadlineUpd]
+CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMappingProperty_Upd]
 	@CustID			INT = 0,
 	@Old_Headline   INT = 0,
 	@New_Headline   INT = 0,

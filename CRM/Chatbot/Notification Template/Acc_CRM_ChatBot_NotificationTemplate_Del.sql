@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Del]
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Del]
 	@UserId						INT
 	,@NotificationTemplateId	SMALLINT
 	,@NotificationTemplateName  NVARCHAR(1000)
@@ -46,7 +46,7 @@ BEGIN
 	END
 
 
-	SELECT @__Title = Title, @__NotificationTypeId = NotificationTemplateId
+	SELECT @__Title = Title, @__NotificationTypeId = NotificationTypeId
 	FROM dbo.crmNotificationTemplate nt WITH(NOLOCK)
 	WHERE nt.NotificationTemplateId = @NotificationTemplateId
 
@@ -103,7 +103,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @NotificationTemplateId,
+			@CustID = NULL,
 			@ActionID = 1006,
 			@IP = @LoginIP,
 			@NewValues = @NewValues

@@ -79,6 +79,10 @@ BEGIN
 		RETURN
 	END
 
+	SELECT @SettingId = SettingID 
+	FROM dbo.crmSetting WITH(NOLOCK)
+	WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Letstalk'
+
 	SELECT @Remark  = ISNULL(@Remark,''), @Language  = ISNULL(@Language,'')
 
 	SELECT	@Role_Old		= Role,
@@ -86,7 +90,7 @@ BEGIN
 			@PicName_Old	= Username,
 			@Country_Old	= Country,
 			@Language_Old	= Language			
-	FROM crmPIC
+	FROM crmPIC WITH(NOLOCK)
 	WHERE PicID = @PicID
 
 	SELECT @__Letstalk = cg.ConversationId, @___GroupId = cg.ConversationGroupId
@@ -94,6 +98,8 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 	WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicID AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+
+	SELECT @New__Letstalk  = i.SettingValue FROM #input i WHERE @SettingId = i.SettingID
 
 	SELECT @RoleXML_Old = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
@@ -163,7 +169,7 @@ BEGIN
 
 	IF @__Letstalk IS NOT NULL
 	BEGIN
-		IF ', ' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
+		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
 		BEGIN
 			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd
 				@ConversationGroupId = @___GroupId

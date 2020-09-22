@@ -34,7 +34,7 @@ BEGIN
 	IF ISNULL(@CommunicationTools,'') = ''
 		RETURN
 	
-	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML
+	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @RecipientTypeId INT
 
 	DECLARE  @NewValues NVARCHAR(MAX), @PicID INT = 0, @Username NVARCHAR(200)
 
@@ -115,8 +115,10 @@ BEGIN
 
 	-- Insert Into crmRecipient Table 
 	BEGIN TRY
+		SELECT @RecipientTypeId = RecipientTypeId FROM dbo.crmRecipientType WITH(NOLOCK) WHERE RecipientTypeName = 'PIC of headline'
+
 		INSERT INTO dbo.crmRecipient (RecipientTypeId, SourceId, DataSource)
-		VALUES(1, @PicID, 'bodb_CRM.dbo.crmPIC')
+		VALUES(@RecipientTypeId, @PicID, 'bodb_CRM.dbo.crmPIC')
 	END TRY
 	BEGIN CATCH
 		SELECT  @ErrCode = ERROR_NUMBER(),@ErrMsg = ERROR_MESSAGE()

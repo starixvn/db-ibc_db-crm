@@ -72,6 +72,7 @@ BEGIN
 			@ActionID = 1009,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,
+			@OldValues = @OldValues,
 			@CustIds = @CustIds,
 			@ReferenceIds = @ReferenceIds
 	

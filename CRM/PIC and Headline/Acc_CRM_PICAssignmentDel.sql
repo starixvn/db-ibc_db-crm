@@ -45,9 +45,9 @@ BEGIN
 			@HeadlineXML			XML, 
 			@RecipientXML			XML,
 			@LanguageXML			XML,			
-			@LetstalkID				VARCHAR(200)
+			@LetstalkID				VARCHAR(200),
 			@NumberOfRecipient		INT,
-			@NumberOfHeadline		INT,
+			@NumberOfHeadline		INT
 
 	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT, Type INT)
 

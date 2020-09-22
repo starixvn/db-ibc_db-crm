@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_PicUpdValidation]
 	@PicID					INT,
 	@CommunicationTools	    NVARCHAR(MAX),
-	@Message				NVARCHAR(1000) = ''
+	@Message				NVARCHAR(1000) = '' OUTPUT
 AS
 /*
 Created: 20200506@Malcolm
@@ -52,11 +52,13 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 	WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicID AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 
+	SELECT @New__Letstalk  = i.SettingValue FROM #input i WHERE @SettingId = i.SettingID
+
 	SELECT @Message = ''
 
 	IF @__Letstalk IS NOT NULL
 	BEGIN
-		IF ', ' + @New__Letstalk + ',' NOT LIKE '%, ' + @__Letstalk + ',%'
+		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
 		BEGIN
 			SELECT @Message = 'This Letstalk ID "' +  @__Letstalk + '" is being used to send notifications personally. If you update the Letstalk ID, the Personal Chat Mapping shall be deactivated. Would you like to proceed?'
 		END

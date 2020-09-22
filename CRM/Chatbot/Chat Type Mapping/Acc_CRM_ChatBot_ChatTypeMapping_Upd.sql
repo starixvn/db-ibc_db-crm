@@ -13,6 +13,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 	,@LoginIP				NVARCHAR(20) = ''
+	,@IsAuto				BIT = 0
 AS
 /*
 Created: 20200810@Malcolm
@@ -31,6 +32,43 @@ BEGIN
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, 
 			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
 
+	IF ISNULL(@IsAuto,0) = 1
+	BEGIN
+		SELECT @ConversationGroupName = CASE WHEN ISNULL(@ConversationGroupName,'') = '' THEN cg.ConversationGroupName 
+										ELSE @ConversationGroupName END
+			   ,@LetstalkID			  = CASE WHEN ISNULL(@LetstalkID,'') = '' THEN cg.ConversationId 
+										ELSE @LetstalkID END
+			   ,@LanguageId			  = CASE WHEN ISNULL(@LanguageId,'') = '' THEN cg.LanguageId 
+										ELSE @LanguageId END
+			   ,@Remark				  = CASE WHEN ISNULL(@Remark,'') = '' THEN cg.Remark 
+										ELSE @Remark END
+			   ,@RecipientTypeId	  = 0
+		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
+		WHERE cg.ConversationGroupId = @ConversationGroupId
+
+		SELECT @BotId = CASE WHEN ISNULL(@BotId,0) = 0 THEN cgb.BotId ELSE @BotId END
+		FROM dbo.crmConversationGroupBot cgb WITH(NOLOCK)
+		WHERE cgb.ConversationGroupId = @ConversationGroupId
+
+		IF ISNULL(@RecipientIds, '') = ''
+		BEGIN
+			SELECT @RecipientIds= STUFF((
+							SELECT ',' + cgr.RecipientId
+							FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
+							WHERE cgr.ConversationGroupId = @ConversationGroupId
+							FOR XML PATH('')), 1,1, '')
+		END
+
+		IF ISNULL(@HeadlineIds, '') = ''
+		BEGIN	
+			SELECT @HeadlineIds= STUFF((
+							SELECT ',' + cgh.HeadlineId
+							FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
+							WHERE cgh.ConversationGroupId = @ConversationGroupId
+							FOR XML PATH('')), 1,1, '')
+		END
+
+	END
 	CREATE TABLE  #Recipients  (ID INT PRIMARY KEY CLUSTERED)
 	CREATE TABLE  #Headlines  (ID INT PRIMARY KEY CLUSTERED)
 
@@ -65,13 +103,13 @@ BEGIN
 	FROM dbo.crmConversationGroup g WITH(NOLOCK) 
 	WHERE g.ConversationId = @LetstalkID AND g.ConversationGroupId <> @ConversationGroupId
 
-	IF ISNULL(@Existing_GroupName,'') <> ''
+	IF ISNULL(@Existing_GroupName,'') <> '' AND ISNULL(@IsAuto,0) = 0
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'The ' + @Existing_GroupName  +' has been set ' + @LetstalkID +' to receive notification!'
 		RETURN
 	END
 
-	SELECT @RecipientIds = STUFF((
+	SELECT @ReferenceIds = STUFF((
 				SELECT ','  + CONVERT(VARCHAR(20), M.A) 
 				FROM (
 					SELECT DISTINCT cgr.RecipientId 
@@ -309,6 +347,7 @@ BEGIN
 			@ActionID = 1008,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,
+			@OldValues = @OldValues,
 			@CustIds = @CustIds,
 			@ReferenceIds = @ReferenceIds
 

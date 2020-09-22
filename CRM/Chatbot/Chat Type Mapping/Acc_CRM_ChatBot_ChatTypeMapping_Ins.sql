@@ -29,7 +29,7 @@ BEGIN
 
 	DECLARE @ConversationGroupId INT = 0, @Existing_GroupName NVARCHAR(1000) = '',@NewValues NVARCHAR(MAX),
 			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML,
-			@ReferenceIds VARCHAR(1000)
+			@ReferenceIds VARCHAR(1000), @__BotXML XML
 
 	DECLARE @_HeadlineIds TABLE (HeadlineID INT)	
 
@@ -142,6 +142,12 @@ BEGIN
 
 	-- Write Logs
 
+	SELECT @__BotXML = (
+				SELECT cb.BotId AS '@Id', cb.BotName AS '@Name'
+				FROM  dbo.crmConversationBot cb WITH(NOLOCK) 
+				WHERE cb.BotId = @BotId
+				FOR XML PATH('Bot'))
+
 	SELECT @__ChatTypeXML = (
 				  SELECT @ChatTypeId AS '@Id', 
 					     CASE WHEN @ChatTypeId = 1 THEN 'Group' 
@@ -184,7 +190,8 @@ BEGIN
 									  @__RecipientTypeXML,
 									  @__HeadlineXML,
 									  @__RecipientXML,
-									  @__LanguageXML
+									  @__LanguageXML,
+									  @__BotXML
 							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
 						) AS NVARCHAR(MAX))
 

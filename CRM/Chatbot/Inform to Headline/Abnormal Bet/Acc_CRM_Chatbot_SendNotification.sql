@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_SendNotification]
+	@NotificationIds VARCHAR(MAX) = NULL -- Resend notification
 AS
 
 /*
@@ -17,14 +18,32 @@ BEGIN
 	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId INT, ConversationId VARCHAR(200))
 
 	DECLARE @Notifications TABLE (NotificationId INT, ConversationGroupId SMALLINT)
-	INSERT INTO @Notifications (NotificationId, ConversationGroupId)
-	SELECT n.NotificationId, ng.ConversationGroupId
-	FROM dbo.crmNotification n WITH (NOLOCK)
-		INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
-	WHERE n.Status IN ('Planned', 'Sending')
-		AND ng.Status IN ('Planned', 'Retrying')
+	DECLARE @tmpNotifications TABLE (NotificationId INT)
 
-	IF @@ROWCOUNT = 0
+	IF ISNULL(@NotificationIds, '') <> ''
+	BEGIN
+		INSERT INTO @tmpNotifications (NotificationId)
+		SELECT DISTINCT val FROM dbo.f_CRM_strSplit(@NotificationIds, ',')
+
+		INSERT INTO @Notifications (NotificationId, ConversationGroupId)
+		SELECT n.NotificationId, ng.ConversationGroupId
+		FROM @tmpNotifications t
+			INNER JOIN dbo.crmNotification n WITH (NOLOCK) ON t.NotificationId = n.NotificationId
+			INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
+		WHERE n.Status IN ('Planned', 'Sending')
+			AND ng.Status IN ('Planned', 'Retrying')
+	END
+	ELSE
+	BEGIN
+		INSERT INTO @Notifications (NotificationId, ConversationGroupId)
+		SELECT n.NotificationId, ng.ConversationGroupId
+		FROM dbo.crmNotification n WITH (NOLOCK)
+			INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
+		WHERE n.Status IN ('Planned', 'Sending')
+			AND ng.Status IN ('Planned', 'Retrying')
+	END
+
+	IF NOT EXISTS (SELECT 1 FROM @Notifications)
 		GOTO Result
 		
 	UPDATE ng WITH (ROWLOCK)

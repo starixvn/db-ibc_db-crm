@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_SendNotification_Status_Upd]
-	@XmlData	XML
+	@UserId		INT = NULL -- Resend notification
+	,@XmlData	XML
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
@@ -69,7 +70,7 @@ BEGIN
 	WHERE RowNum > 1
 
 	UPDATE n WITH (ROWLOCK)
-	SET n.Status = t.Status
+	SET n.Status = t.Status, n.Sender = CASE WHEN ISNULL(@UserId, 0) = 0 THEN n.Sender ELSE @UserId END
 	FROM dbo.crmNotification n
 		INNER JOIN #tmpNotification t ON n.NotificationId = t.NotificationId
 END

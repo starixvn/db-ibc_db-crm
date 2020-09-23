@@ -34,23 +34,23 @@ BEGIN
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
-		SELECT @ConversationGroupName = CASE WHEN ISNULL(@ConversationGroupName,'') = '' THEN cg.ConversationGroupName 
+		SELECT @ConversationGroupName = CASE WHEN @ConversationGroupName IS NULL THEN cg.ConversationGroupName 
 										ELSE @ConversationGroupName END
-			   ,@LetstalkID			  = CASE WHEN ISNULL(@LetstalkID,'') = '' THEN cg.ConversationId 
+			   ,@LetstalkID			  = CASE WHEN @LetstalkID IS NULL THEN cg.ConversationId 
 										ELSE @LetstalkID END
-			   ,@LanguageId			  = CASE WHEN ISNULL(@LanguageId,'') = '' THEN cg.LanguageId 
+			   ,@LanguageId			  = CASE WHEN @LanguageId IS NULL THEN cg.LanguageId 
 										ELSE @LanguageId END
-			   ,@Remark				  = CASE WHEN ISNULL(@Remark,'') = '' THEN cg.Remark 
+			   ,@Remark				  = CASE WHEN @Remark IS NULL THEN cg.Remark 
 										ELSE @Remark END
 			   ,@RecipientTypeId	  = 0
 		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		WHERE cg.ConversationGroupId = @ConversationGroupId
 
-		SELECT @BotId = CASE WHEN ISNULL(@BotId,0) = 0 THEN cgb.BotId ELSE @BotId END
+		SELECT @BotId = CASE WHEN @BotId IS NULL THEN cgb.BotId ELSE @BotId END
 		FROM dbo.crmConversationGroupBot cgb WITH(NOLOCK)
 		WHERE cgb.ConversationGroupId = @ConversationGroupId
 
-		IF ISNULL(@RecipientIds, '') = ''
+		IF @RecipientIds IS NULL
 		BEGIN
 			SELECT @RecipientIds= STUFF((
 							SELECT ',' + CONVERT(VARCHAR(20), cgr.RecipientId)
@@ -59,7 +59,7 @@ BEGIN
 							FOR XML PATH('')), 1,1, '')
 		END
 
-		IF ISNULL(@HeadlineIds, '') = ''
+		IF @HeadlineIds IS NULL
 		BEGIN	
 			SELECT @HeadlineIds= STUFF((
 							SELECT ',' + CONVERT(VARCHAR(20),cgh.HeadlineId)
@@ -281,7 +281,7 @@ BEGIN
 				WHERE t.Type = 4
 				FOR XML PATH('Headline'))
 
-	SELECT @OldValues =	CAST((SELECT t.ConversationGroupId AS '@Id',
+	SELECT @OldValues =	CAST((SELECT @ConversationGroupId AS '@Id',
 									 t.ConversationGroupName AS '@Name',
 									 t.ConversationId AS '@LetstalkID',
 									 t.Remark AS '@Remark',

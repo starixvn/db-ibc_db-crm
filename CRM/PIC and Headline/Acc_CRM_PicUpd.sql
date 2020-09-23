@@ -35,13 +35,15 @@ BEGIN
 	IF ISNULL(@CommunicationTools,'') = ''
 		RETURN
 	
-	DECLARE @idoc INT, @SettingId INT, @__Letstalk NVARCHAR(200) = NULL, @New__Letstalk NVARCHAR(200), @___GroupId INT
+	DECLARE @idoc INT, @SettingId INT, @__Letstalk NVARCHAR(200) = NULL, @New__Letstalk NVARCHAR(200), @___GroupId INT, @OldStatus BIT = 0
 
 	DECLARE	@NewValues NVARCHAR(MAX),@OldValues NVARCHAR(MAX), @CountryXML XML, @LanguageXML XML,@RoleXML XML
 	
 	DECLARE @CountryXML_Old XML, @LanguageXML_Old XML, @RoleXML_Old XML
 
 	DECLARE @Role_Old INT, @Country_Old INT, @Language_Old VARCHAR(200), @Remark_Old NVARCHAR(1000), @PicName_Old NVARCHAR(200)
+
+	DECLARE @Tmp TABLE (PicID INT, CommunicationID INT, CommunicationValue NVARCHAR(200))
 
 	CREATE TABLE #input
 	(	
@@ -93,7 +95,12 @@ BEGIN
 	FROM crmPIC WITH(NOLOCK)
 	WHERE PicID = @PicID
 
-	SELECT @__Letstalk = cg.ConversationId, @___GroupId = cg.ConversationGroupId
+	INSERT INTO @Tmp (PicID, CommunicationID, CommunicationValue)
+	SELECT pc.PicID, pc.CommunicationID, pc.CommunicationValue
+	FROM crmPICCommunication pc WITH(NOLOCK)
+	WHERE pc.PicID = @PicID
+
+	SELECT @__Letstalk = cg.ConversationId, @___GroupId = cg.ConversationGroupId, @OldStatus = IsActive
 	FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
@@ -171,26 +178,47 @@ BEGIN
 	BEGIN
 		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
 		BEGIN
-			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd
-				@ConversationGroupId = @___GroupId
-				,@IsActive	= 0
-				,@UserId = @UserID	
-				,@ErrCode = @ErrCode			
-				,@ErrMsg = @ErrMsg			
-				,@LoginIP = @LoginIP		
-			IF @ErrCode <> 0
-				RETURN
+			IF @OldStatus = 1
+			BEGIN
+				EXEC dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd
+					@ConversationGroupId = @___GroupId
+					,@IsActive	= 0
+					,@UserId = @UserID	
+					,@ErrCode = @ErrCode			
+					,@ErrMsg = @ErrMsg			
+					,@LoginIP = @LoginIP	
+					
+				IF @ErrCode <> 0
+				BEGIN
+					DELETE dbo.crmPICCommunication WITH(ROWLOCK, UPDLOCK)
+					WHERE PicID = @PicID
+
+					INSERT INTO dbo.crmPICCommunication (PicID, CommunicationID, CommunicationValue)
+					SELECT PicID, CommunicationID, CommunicationValue
+					FROM @Tmp
+
+					UPDATE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+						SET Username = @PicName_Old
+							,Role = @Role_Old
+							,Language = @Language_Old
+							,Country = @Country_Old
+							,Remark = @Remark_Old
+					WHERE PicID = @PicID
+
+					RETURN
+				END
+			END
 
 			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMapping_Upd
 				@ConversationGroupId = @___GroupId
 				,@BotId = NULL			
 				,@ConversationGroupName	= ''
 				,@RecipientTypeId  = NULL 
-				,@HeadlineIds = ''		
-				,@RecipientIds	= ''		
-				,@LetstalkID = ''	
+				,@HeadlineIds = NULL		
+				,@RecipientIds	= NULL		
+				,@LetstalkID = ''
 				,@LanguageId = NULL		
-				,@Remark = ''				
+				,@Remark = NULL			
 				,@UserId = @UserId	
 				,@ErrCode = @ErrCode				
 				,@ErrMsg = @ErrMsg			
@@ -198,7 +226,31 @@ BEGIN
 				,@IsAuto = 1	
 			
 			IF @ErrCode <> 0
+			BEGIN
+				IF @OldStatus = 1
+				BEGIN
+					UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
+						SET IsActive = 1
+					WHERE ConversationGroupId = @___GroupId
+				END
+
+				DELETE dbo.crmPICCommunication WITH(ROWLOCK, UPDLOCK)
+				WHERE PicID = @PicID
+
+				INSERT INTO dbo.crmPICCommunication (PicID, CommunicationID, CommunicationValue)
+				SELECT PicID, CommunicationID, CommunicationValue
+				FROM @Tmp
+
+				UPDATE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+					SET Username = @PicName_Old
+						,Role = @Role_Old
+						,Language = @Language_Old
+						,Country = @Country_Old
+						,Remark = @Remark_Old
+				WHERE PicID = @PicID
+
 				RETURN
+			END
 		END
 	END
 

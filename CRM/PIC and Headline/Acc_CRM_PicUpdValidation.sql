@@ -60,7 +60,7 @@ BEGIN
 	BEGIN
 		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
 		BEGIN
-			SELECT @Message = 'This Letstalk ID "' +  @__Letstalk + '" is being used to send notifications personally. If you update the Letstalk ID, the Personal Chat Mapping shall be deactivated. Would you like to proceed?'
+			SELECT @Message = 'This Letstalk ID "' +  @__Letstalk + '" is being used to send notifications personally. If you update/remove the Letstalk ID, the Personal Chat Mapping shall be deactivated. Would you like to proceed?'
 		END
 	END
 

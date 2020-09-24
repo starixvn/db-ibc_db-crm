@@ -81,11 +81,7 @@ BEGIN
 			SELECT @HeadlineIds = STUFF((SELECT ',' + CONVERT(VARCHAR(20), cgh.HeadlineId)
 									 FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
 									 WHERE cgh.ConversationGroupId = @GroupId 
-										AND NOT EXISTS(
-											SELECT 1
-											FROM @TmpHeadline t
-											WHERE t.HeadlineId = cgh.HeadlineId
-										)
+										AND cgh.HeadlineId <> @New_Headline
 									 FOR XML PATH('')),1,1,'')
 
 			IF @HeadlineIds IS NULL
@@ -93,7 +89,7 @@ BEGIN
 				SELECT @HeadlineIds = ''
 			END
 
-			IF @HeadlineIds LIKE '%,%' 
+			IF @HeadlineIds <> ''
 			BEGIN
 				SELECT @HeadlineIds = @HeadlineIds + ',' + CONVERT(VARCHAR(20), @CustID)
 			END

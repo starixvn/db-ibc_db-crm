@@ -1,7 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_SendNotification]
-	@UserId				INT =  NULL
-	,@NotificationIds	VARCHAR(MAX) = NULL -- Resend notification
 AS
 
 /*
@@ -17,36 +15,18 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId INT, ConversationId VARCHAR(200))
-
 	DECLARE @Notifications TABLE (NotificationId INT, ConversationGroupId SMALLINT)
-	DECLARE @tmpNotifications TABLE (NotificationId INT)
 
-	IF ISNULL(@NotificationIds, '') <> ''
-	BEGIN
-		INSERT INTO @tmpNotifications (NotificationId)
-		SELECT DISTINCT val FROM dbo.f_CRM_strSplit(@NotificationIds, ',')
+	INSERT INTO @Notifications (NotificationId, ConversationGroupId)
+	SELECT n.NotificationId, ng.ConversationGroupId
+	FROM dbo.crmNotification n WITH (NOLOCK)
+		INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
+	WHERE n.Status IN ('Planned', 'Sending')
+		AND ng.Status IN ('Planned', 'Retrying')
 
-		INSERT INTO @Notifications (NotificationId, ConversationGroupId)
-		SELECT n.NotificationId, ng.ConversationGroupId
-		FROM @tmpNotifications t
-			INNER JOIN dbo.crmNotification n WITH (NOLOCK) ON t.NotificationId = n.NotificationId
-			INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
-		WHERE n.Status IN ('Planned', 'Sending')
-			AND ng.Status IN ('Planned', 'Retrying')
-	END
-	ELSE
-	BEGIN
-		INSERT INTO @Notifications (NotificationId, ConversationGroupId)
-		SELECT n.NotificationId, ng.ConversationGroupId
-		FROM dbo.crmNotification n WITH (NOLOCK)
-			INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
-		WHERE n.Status IN ('Planned', 'Sending')
-			AND ng.Status IN ('Planned', 'Retrying')
-	END
-
-	IF NOT EXISTS (SELECT 1 FROM @Notifications)
+	IF @@ROWCOUNT = 0
 		GOTO Result
-		
+
 	UPDATE ng WITH (ROWLOCK)
 	SET ng.Status = 'Sending'
 	OUTPUT DELETED.NotificationId, DELETED.ConversationGroupId INTO @SendNotifications (NotificationId, ConversationGroupId)
@@ -58,7 +38,7 @@ BEGIN
 		GOTO Result
 
 	UPDATE n WITH (ROWLOCK)
-	SET n.Status = 'Sending', n.Sender = CASE WHEN ISNULL(@UserId, 0) = 0 THEN n.Sender ELSE @UserId END
+	SET n.Status = 'Sending'
 	FROM dbo.crmNotification n
 	WHERE EXISTS (SELECT 1 FROM @Notifications t WHERE n.NotificationId = t.NotificationId)
 		AND n.Status IN ('Planned', 'Sending')

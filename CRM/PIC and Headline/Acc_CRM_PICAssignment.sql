@@ -297,6 +297,7 @@ BEGIN
 												SELECT 1
 												FROM @TmpHeadline t
 												WHERE t.HeadlineId = cgh.HeadlineId
+													AND t.ConversationGroupId = @GroupID
 											)
 										  FOR XML PATH('')),1,1,'')
 

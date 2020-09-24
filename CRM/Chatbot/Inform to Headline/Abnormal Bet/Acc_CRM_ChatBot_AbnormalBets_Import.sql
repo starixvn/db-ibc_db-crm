@@ -222,7 +222,7 @@ BEGIN
 	FROM (
 		SELECT MessageId, ConversationGroupId
 			,STUFF(
-					(SELECT ',' + Username
+					(SELECT ', ' + Username
 						FROM #tmpResult t2
 						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId
 						FOR XML PATH ('')

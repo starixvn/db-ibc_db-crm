@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_SendNotification]
-	@NotificationIds VARCHAR(MAX) = NULL -- Resend notification
+	@UserId				INT =  NULL
+	,@NotificationIds	VARCHAR(MAX) = NULL -- Resend notification
 AS
 
 /*
@@ -57,10 +58,10 @@ BEGIN
 		GOTO Result
 
 	UPDATE n WITH (ROWLOCK)
-	SET n.Status = 'Sending'
+	SET n.Status = 'Sending', n.Sender = CASE WHEN ISNULL(@UserId, 0) = 0 THEN n.Sender ELSE @UserId END
 	FROM dbo.crmNotification n
 	WHERE EXISTS (SELECT 1 FROM @Notifications t WHERE n.NotificationId = t.NotificationId)
-		AND n.Status = 'Planned'
+		AND n.Status IN ('Planned', 'Sending')
 
 	UPDATE sn
 	SET sn.Content = n.Content

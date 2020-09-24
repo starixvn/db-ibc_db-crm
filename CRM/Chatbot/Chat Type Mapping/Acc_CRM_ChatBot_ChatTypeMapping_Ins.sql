@@ -38,6 +38,7 @@ BEGIN
 	INSERT INTO @_HeadlineIds (HeadlineID)
 	SELECT f.val
 	FROM  bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f 
+	WHERE f.val <> ''
 
 	-- check validation
 	SELECT TOP(1) @Existing_GroupName = ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
@@ -45,20 +46,6 @@ BEGIN
 	IF ISNULL(@Existing_GroupName,'') <> ''
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'The Letstalk ID ' + @LetstalkID  +' has been set to receive notification already!'
-		RETURN
-	END
-
-	IF EXISTS (SELECT 1
-			   FROM @_HeadlineIds h
-		       WHERE NOT EXISTS(
-					SELECT 1
-					FROM dbo.crmRecipient r WITH(NOLOCK)
-						INNER JOIN  dbo.crmPicManagement m  WITH(NOLOCK) ON m.PicID = r.SourceId 
-					WHERE r.RecipientId = @RecipientId
-						AND m.HeadlineID = h.HeadlineID
-						AND r.DataSource = 'bodb_CRM.dbo.crmPIC'))
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'The relationship between headline and recipient do not exist.Please check again!'
 		RETURN
 	END
 	
@@ -166,6 +153,7 @@ BEGIN
 				  	   ELSE c.username END AS '@Name'
 				  FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
 				     LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.Id
+				  WHERE f.val <> ''
 				  FOR XML PATH('Headline'))
 
 	SELECT @__LanguageXML = (

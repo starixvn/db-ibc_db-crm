@@ -93,10 +93,12 @@ BEGIN
 	INSERT INTO #Recipients(ID) 
 	SELECT val
 	FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',')
+	WHERE val <> ''
 
 	INSERT INTO #Headlines(ID) 
 	SELECT val
 	FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',')
+	WHERE val <> ''
 
 	-- check validation
 	SELECT TOP(1) @Existing_GroupName = ConversationGroupName 
@@ -311,6 +313,7 @@ BEGIN
 					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
 				WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC'
+					AND f.val <> ''
 				FOR XML PATH('Recipient'))
 
 	SELECT @__LanguageXML = (
@@ -326,6 +329,7 @@ BEGIN
 						ELSE c.username END AS '@Name'
 				FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
 					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
+				WHERE f.val <> ''
 				FOR XML PATH('Headline'))
 
 	SELECT @NewValues =	CAST((SELECT @ConversationGroupId AS '@Id',

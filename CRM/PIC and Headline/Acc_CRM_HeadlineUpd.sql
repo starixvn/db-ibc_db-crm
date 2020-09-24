@@ -244,8 +244,8 @@ BEGIN
 		,@Username		= @Username	
 		,@Case			= @Case		
 		,@LoginIP		= @LoginIP
-		,@ErrCode		= @ErrCode	
-		,@ErrMsg		= @ErrMsg		
+		,@ErrCode		= @ErrCode OUTPUT	
+		,@ErrMsg		= @ErrMsg OUTPUT		
 		,@UserID		= @UserID		
 	
 	IF @ErrCode <> 0

@@ -321,8 +321,8 @@ BEGIN
 					,@LanguageId = NULL		
 					,@Remark = NULL			
 					,@UserId = @UserId	
-					,@ErrCode = @ErrCode				
-					,@ErrMsg = @ErrMsg			
+					,@ErrCode = @ErrCode OUTPUT			
+					,@ErrMsg = @ErrMsg OUTPUT	
 					,@LoginIP = @LoginIP			
 					,@IsAuto = 1
 					
@@ -386,8 +386,8 @@ BEGIN
 						@ConversationGroupId = @GroupId
 						,@IsActive			 = 0
 						,@UserId			 = @UserId		
-						,@ErrCode            = @ErrCode		
-						,@ErrMsg             = @ErrMsg		 	
+						,@ErrCode            = @ErrCode OUTPUT		
+						,@ErrMsg             = @ErrMsg OUTPUT	 	
 						,@LoginIP            = @LoginIP	
 						
 				IF @ErrCode <> 0

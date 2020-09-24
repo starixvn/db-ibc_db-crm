@@ -19,6 +19,7 @@ Original:
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
+		- 20200916@Malcolm : Update chat Type mapping [Redmine : #130544]
 	Param's Explanation:
 	
 		

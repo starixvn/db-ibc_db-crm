@@ -19,6 +19,7 @@ Original:
 	Revisions:
 		- 20200717@Malcolm:  Integrate Credit Term & Staff/Boss Management  [Redmine: #137144]
 		- 20200916@Malcolm : Update Chat Type Mapping [Redmine : #130544]
+		- 20200916@Malcolm : Update chat Type mapping property[Redmine : #130544]
 
 	Param's Explanation:
 		@Case = 0 : No change
@@ -137,6 +138,8 @@ BEGIN
 				  AND Type = 2
 		
 			DELETE h
+			OUTPUT deleted.HeadlineID, deleted.PicID, 8
+				INTO @TmpLog(HeadlineID, PicID, Type)
 			FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
 				INNER JOIN @TmpLog t ON t.PicID = h.PicID 
 			WHERE h.HeadlineID = @Old_Headline AND t.type = 1
@@ -198,12 +201,12 @@ BEGIN
 	BEGIN	
 	    BEGIN TRY
 			DELETE dbo.crmPicManagement WITH(ROWLOCK, UPDLOCK)
-			OUTPUT deleted.HeadlineID, deleted.CustID, deleted.PicID, 1
+			OUTPUT deleted.HeadlineID, deleted.CustID, deleted.PicID, 11
 				INTO @TmpLog (HeadlineID, CustID, PicID, Type)
 			WHERE CustID = @CustID
 
 			DELETE dbo.crmPICHeadline WITH(ROWLOCK, UPDLOCK)
-			OUTPUT deleted.HeadlineID, deleted.PicID, 2
+			OUTPUT deleted.HeadlineID, deleted.PicID, 12
 				INTO @TmpLog (HeadlineID, PicID, Type)
 			WHERE HeadlineID = @CustID
 		
@@ -214,24 +217,121 @@ BEGIN
 		END TRY
 		BEGIN CATCH
 			SELECT @ErrCode = 103, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
-			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
+			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 12)
 			BEGIN
 				INSERT INTO dbo.crmPICHeadline(HeadlineID, PicID)
 				SELECT HeadlineID, PicID
 				FROM @TmpLog 
-				WHERE Type = 2
+				WHERE Type = 12
 			END
 
-			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 1)
+			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 11)
 			BEGIN
 				INSERT INTO dbo.crmPicManagement(HeadlineID, CustID, PicID)
 				SELECT HeadlineID, CustID, PicID
 				FROM @TmpLog
-				WHERE Type = 1
+				WHERE Type = 11
 			END
 			RETURN
 		END CATCH			
 	END
+	/*==========Update Chat Type Mapping=========*/
+		
+	EXEC dbo.Acc_CRM_ChatBot_ChatTypeMappingProperty_Upd 
+		@CustID			= @CustID
+		,@Old_Headline	= @Old_Headline
+		,@New_Headline	= @New_Headline
+		,@Username		= @Username	
+		,@Case			= @Case		
+		,@LoginIP		= @LoginIP
+		,@ErrCode		= @ErrCode	
+		,@ErrMsg		= @ErrMsg		
+		,@UserID		= @UserID		
+	
+	IF @ErrCode <> 0
+	BEGIN
+		SELECT @ErrCode = 103, @ErrMsg = 'Internal errors! Please try again or contact the administrator!'
+		
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 1)
+		BEGIN
+			INSERT INTO dbo.crmPicManagement(HeadlineID, CustID, PicID)
+			SELECT HeadlineID, CustID, PicID
+			FROM @TmpLog
+			WHERE Type = 1
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
+		BEGIN
+			DELETE  dbo.crmPicManagement  WITH(ROWLOCK, UPDLOCK)
+			WHERE EXISTS (SELECT 1 FROM @TmpLog t 
+						  WHERE PicID = t.PicID AND CustID = t.CustID AND Type = 2)			 
+		END			
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 3)
+		BEGIN
+			UPDATE dbo.crmPICHeadline WITH(ROWLOCK)
+			SET HeadlineID = @New_Headline
+			WHERE HeadlineID = @CustID
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 4)
+		BEGIN
+			UPDATE dbo.crmPICDefault WITH(ROWLOCK)
+			SET HeadlineID = @New_Headline
+			WHERE HeadlineID = @CustID
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 5)
+		BEGIN
+			UPDATE dbo.crmPicManagement WITH(ROWLOCK)
+			SET HeadlineID = @New_Headline
+			WHERE HeadlineID = @CustID
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 6)
+		BEGIN
+			DELETE h
+			FROM dbo.crmPICHeadline h WITH(ROWLOCK, UPDLOCK)
+			WHERE EXISTS(SELECT 1 FROM @TmpLog t 
+					     WHERE t.Type = 6 AND t.HeadlineID = h.HeadlineID AND t.PicID = h.PicID)
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 7)
+		BEGIN
+			INSERT INTO dbo.crmPICDefault (HeadlineID, PicID)
+			SELECT t.HeadlineID, t.PicID
+			FROM @TmpLog t
+			WHERE t.Type = 7
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 8)
+		BEGIN
+			INSERT INTO dbo.crmPICHeadline (HeadlineID, PicID)
+			SELECT t.HeadlineID, t.PicID
+			FROM @TmpLog t
+			WHERE t.Type = 8
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 12)
+		BEGIN
+			INSERT INTO dbo.crmPICHeadline(HeadlineID, PicID)
+			SELECT HeadlineID, PicID
+			FROM @TmpLog 
+			WHERE Type = 12
+		END
+
+		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 11)
+		BEGIN
+			INSERT INTO dbo.crmPicManagement(HeadlineID, CustID, PicID)
+			SELECT HeadlineID, CustID, PicID
+			FROM @TmpLog
+			WHERE Type = 11
+		END		
+
+		RETURN
+	END
+	/*==========End of Updating Chat Type Mapping=========*/
+
 
 	-- Write log
 
@@ -337,7 +437,7 @@ BEGIN
 							FROM @TmpLog t
 								INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicID
 								INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
-							WHERE Type = 1
+							WHERE Type = 11
 							FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
 		BEGIN TRY
 			IF ISNULL(@NewValues,'') <> ''

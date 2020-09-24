@@ -34,6 +34,8 @@ BEGIN
 	SELECT  @PICCommunicationLetStalkId = SettingId FROM dbo.crmSetting WITH (NOLOCK)
 	WHERE	SettingName = 'PICCommunicationTool' AND SettingValue = 'LetsTalk' AND IsActive = 1
 
+	CREATE TABLE #HeadlineId (Id INT)
+
 	CREATE TABLE #Tmp
 	(
 		 ConversationGroupId	SMALLINT
@@ -86,27 +88,31 @@ BEGIN
 
 	IF @Headline <> ''
 	BEGIN
+		INSERT INTO #HeadlineId (ID)
+		SELECT c.custid
+		FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		WHERE c.username like '%' + @Headline + '%'
+		 
 		DELETE t
 		FROM #Tmp t
 		WHERE NOT EXISTS(
 				SELECT 1 
 				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-					INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) 
-						ON gh.HeadlineId = c.custid
-				WHERE t.ConversationGroupId = gh.ConversationGroupId 
-					AND c.username LIKE '%' + @Headline + '%')
+					INNER JOIN #HeadlineId h ON h.Id = gh.HeadlineId
+				WHERE t.ConversationGroupId = gh.ConversationGroupId
+		)
 	END
 
 	IF @RecipientName <> ''
 	BEGIN
 		DELETE t
 		FROM #Tmp t
-			LEFT JOIN dbo.crmConversationGroupRecipient cgb WITH(NOLOCK) ON cgb.ConversationGroupId = t.ConversationGroupId 
-			LEFT JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgb.RecipientId
 		WHERE NOT EXISTS(
 			SELECT 1
 			FROM dbo.crmPIC p WITH(NOLOCK)
-			WHERE r.SourceId = p.PicID
+				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = p.PicID
+				INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId 
+			WHERE t.ConversationGroupId = cgr.ConversationGroupId
 				AND p.Username LIKE '%' + @RecipientName + '%'
 		)
 	END
@@ -261,6 +267,8 @@ BEGIN
 		AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 
 	DROP TABLE #Tmp
+
+	DROP TABLE #HeadlineId
 END
 GO
 

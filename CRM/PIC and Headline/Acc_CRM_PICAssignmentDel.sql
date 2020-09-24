@@ -182,8 +182,8 @@ BEGIN
 	WHERE NOT EXISTS(
 		SELECT 1
 		FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
-			INNER JOIN @TmpHeadline t ON t.ConversationGroupId = cgh.ConversationGroupId
-		WHERE cgh.HeadlineId <> t.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
+			LEFT JOIN @TmpHeadline t ON t.ConversationGroupId = cgh.ConversationGroupId AND t.HeadlineId = cgh.HeadlineId
+		WHERE t.HeadlineId IS NULL AND cgr.ConversationGroupId = cgh.ConversationGroupId
 	)
 	
 	INSERT INTO @TmpGroupStatus (ConversationGroupId)

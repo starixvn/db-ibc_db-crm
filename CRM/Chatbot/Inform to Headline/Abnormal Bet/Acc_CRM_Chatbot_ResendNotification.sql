@@ -18,6 +18,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @NotSendNotifications VARCHAR(MAX)
+	DECLARE @SendNotifications TABLE (NotificationId INT)
+
 	DECLARE @Notifications TABLE (NotificationId INT)
 	INSERT INTO @Notifications (NotificationId)
 	SELECT DISTINCT val FROM dbo.f_CRM_strSplit(@NotificationIds, ',')
@@ -31,22 +34,31 @@ BEGIN
 	WHERE n.Status = 'Error'
 		AND ng.Status NOT IN ('Planned')
 
-	UPDATE ng WITH (ROWLOCK)
-	SET ng.Status = 'Retrying', ng.RetryTime = 0
-	FROM dbo.crmNotificationGroup ng
-		INNER JOIN @NotificationGroups n ON n.NotificationId = ng.NotificationId AND n.ConversationGroupId = ng.ConversationGroupId
-	WHERE ng.Status = 'Error'
-
-	IF @@ROWCOUNT = 0
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = ''
-		RETURN
-	END
-
 	UPDATE n WITH (ROWLOCK)
 	SET n.Status = 'Sending', n.Sender = @UserId
+	OUTPUT DELETED.NotificationId INTO @SendNotifications (NotificationId)
 	FROM dbo.crmNotification n
 	WHERE EXISTS (SELECT 1 FROM @Notifications t WHERE n.NotificationId = t.NotificationId)
 		AND n.Status = 'Error'
+
+	IF @@ROWCOUNT <> 0
+	BEGIN
+		UPDATE ng WITH (ROWLOCK)
+		SET ng.Status = 'Retrying', ng.RetryTime = 0
+		FROM dbo.crmNotificationGroup ng
+			INNER JOIN @NotificationGroups n ON n.NotificationId = ng.NotificationId AND n.ConversationGroupId = ng.ConversationGroupId
+		WHERE ng.Status = 'Error'
+	END
+
+	SELECT @NotSendNotifications = COALESCE(@NotSendNotifications + ', ', '') + CONVERT(VARCHAR(20), n.NotificationId)
+	FROM @Notifications n
+		LEFT JOIN @SendNotifications sn ON n.NotificationId = sn.NotificationId
+	WHERE sn.NotificationId IS NULL
+
+	IF ISNULL(@NotSendNotifications, '') <> ''
+	BEGIN
+		SELECT @ErrCode = 101, @ErrMsg = 'You cannot resend these Notifications which are being resent: ' + @NotSendNotifications
+		RETURN
+	END
 END
 GO

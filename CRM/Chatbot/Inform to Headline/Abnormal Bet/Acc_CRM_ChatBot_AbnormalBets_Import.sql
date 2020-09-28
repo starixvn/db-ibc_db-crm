@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_Import]
 	@XmlData	XML
+	,@Messages	XML
 	,@ErrCode	INT = 0 OUTPUT
 	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
 AS
@@ -18,6 +19,12 @@ AS
 			<root>
 				<r MessageId="1" Username="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" />
 				<r MessageId="1" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" />
+			</root>
+		. @Messages:
+			<root>
+				<r MessageID=1 RequestID=1 />
+				<r MessageID=1 RequestID=2 />
+				<r MessageID=3 RequestID=2 />
 			</root>
 */
 
@@ -70,6 +77,9 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
+		-- Update crmMessageImport
+		EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
+
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
@@ -323,6 +333,9 @@ BEGIN
 
 		SELECT @Id = @Id + 1
 	END
+
+	-- Update crmMessageImport
+	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'

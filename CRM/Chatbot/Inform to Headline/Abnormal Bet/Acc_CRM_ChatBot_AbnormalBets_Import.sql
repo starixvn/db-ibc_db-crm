@@ -155,6 +155,7 @@ BEGIN
 	(
 		MessageId INT
 		,Username VARCHAR(50)
+		,DirectAccount INT
 		,HeadlineId INT
 		,IsTest BIT
 		,Content_en NVARCHAR(4000)
@@ -163,23 +164,23 @@ BEGIN
 		,Content_vn NVARCHAR(4000)
 		,RecipientId INT
 	)
-	INSERT INTO #MessageRecipient (MessageId, Username, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
-	SELECT m.MessageId, m.Username, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
+	INSERT INTO #MessageRecipient (MessageId, Username, DirectAccount, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
+	SELECT m.MessageId, m.Username, CASE WHEN pm.HeadlineId = 0 THEN pm.CustId ELSE 0 END, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
 	FROM #ImportMessage m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (MessageId INT, ConversationGroupId SMALLINT, NoRecipient INT)
-	INSERT INTO #tmpGroup (MessageId, ConversationGroupId, NoRecipient)
-	SELECT m.MessageId, cgr.ConversationGroupId, COUNT(1) AS NoRecipient
+	CREATE TABLE #tmpGroup (MessageId INT, ConversationGroupId SMALLINT, DirectAccount INT, NoRecipient INT)
+	INSERT INTO #tmpGroup (MessageId, ConversationGroupId, DirectAccount, NoRecipient)
+	SELECT m.MessageId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #MessageRecipient m
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 	WHERE cg.IsActive = 1
-	GROUP BY m.MessageId, cgr.ConversationGroupId
+	GROUP BY m.MessageId, cgr.ConversationGroupId, m.DirectAccount
 
 	;WITH CTE_Group AS
 	(
@@ -201,8 +202,8 @@ BEGIN
 	INSERT INTO #tmpResult (MessageId, ConversationGroupId, Username, HeadlineId, IsTest)
 	SELECT m.MessageId, g.ConversationGroupId, m.Username, m.HeadlineId, m.IsTest
 	FROM dbo.crmConversationGroupRecipient cgr WITH (NOLOCK)
-		INNER JOIN #tmpGroup g ON g.ConversationGroupId = cgr.ConversationGroupId
-		INNER JOIN #MessageRecipient m ON m.MessageId = g.MessageId AND m.RecipientId = cgr.RecipientId
+		INNER JOIN #MessageRecipient m ON m.RecipientId = cgr.RecipientId
+		INNER JOIN #tmpGroup g ON g.ConversationGroupId = cgr.ConversationGroupId AND m.MessageId = g.MessageId AND m.DirectAccount = g.DirectAccount
 	GROUP BY m.MessageId, g.ConversationGroupId, m.Username, m.HeadlineId, m.IsTest
 
 	CREATE TABLE #Result
@@ -270,16 +271,24 @@ BEGIN
 		,r1.RelatedIds = RIGHT(r2.RelatedIds, LEN(r2.RelatedIds) - 1)
 	FROM #Result r1
 		CROSS APPLY (
+			SELECT TOP 1 cgr1.RecipientId FROM dbo.crmConversationGroupRecipient cgr1 WITH (NOLOCK) WHERE cgr1.ConversationGroupId = r1.ConversationGroupId
+		) cgr1
+		CROSS APPLY (
 			SELECT (
 				SELECT ',' + CONVERT(VARCHAR(10), r2.Id)
 				FROM #Result r2
+					CROSS APPLY (
+						SELECT TOP 1 cgr2.RecipientId FROM dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK)
+						WHERE cgr2.ConversationGroupId = r2.ConversationGroupId AND cgr2.RecipientId = cgr1.RecipientId
+					) cgr2
 				WHERE r1.MessageId = r2.MessageId
 					AND r2.ChatTypeId = 1 -- Group
-					AND r1.AffectedList = r2.AffectedList
+					AND cgr2.RecipientId IS NOT NULL
 				FOR XML PATH('')
 			) AS RelatedIds
 		) r2
 	WHERE r1.ChatTypeId = 2 -- Personal
+		AND cgr1.RecipientId IS NOT NULL
 		AND r2.RelatedIds IS NOT NULL
 		AND Status = 'Planned'
 

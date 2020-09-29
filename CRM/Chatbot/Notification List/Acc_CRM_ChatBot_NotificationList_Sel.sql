@@ -69,6 +69,7 @@ BEGIN
 		,Content				NVARCHAR(MAX)
 		,Status					VARCHAR(20)
 		,ResolvedRemark			NVARCHAR(2000)
+		,ResolvedBy				INT
 		,RelatedNotificationIds NVARCHAR(1000)
 		,RowNum					INT
 	)
@@ -85,6 +86,7 @@ BEGIN
 		,Content				
 		,Status	
 		,ResolvedRemark
+		,ResolvedBy
 		,RelatedNotificationIds
 	)
 	SELECT 
@@ -98,6 +100,7 @@ BEGIN
 		n.Content,
 		n.Status,
 		n.ResolvedRemark,
+		n.ResolvedBy,
 		n.RelatedNotificationIds
 	FROM dbo.crmNotification n WITH(NOLOCK)
 		INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
@@ -158,6 +161,7 @@ BEGIN
 		,t.Content
 		,t.Status
 		,t.ResolvedRemark
+		,o.username AS ResolvedBy
 		,nr.Reason
 		,cg.ConversationGroupName AS LetstalkName
 		,t.RelatedNotificationIds
@@ -165,6 +169,7 @@ BEGIN
 		LEFT JOIN dbo.crmNotificationGroup nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = nr.ConversationGroupId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender
+		LEFT JOIN bodb02.dbo.Customer o WITH(NOLOCK) ON o.custid = t.ResolvedBy
 	ORDER BY t.NotificationId DESC
 
 	SELECT 

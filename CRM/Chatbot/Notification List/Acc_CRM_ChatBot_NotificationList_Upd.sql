@@ -22,7 +22,7 @@ BEGIN
 
 	BEGIN TRY
 		UPDATE dbo.crmNotification WITH(ROWLOCK)
-		SET ResolvedRemark = @Remark, Status = 'Resolved'
+		SET ResolvedRemark = @Remark, Status = 'Resolved', ResolvedBy = @UserId
 		WHERE NotificationId = @NotificationId
 	END TRY
 	BEGIN CATCH

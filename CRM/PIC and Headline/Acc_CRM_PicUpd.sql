@@ -175,7 +175,7 @@ BEGIN
 		RETURN
 	END CATCH	
 
-	IF @__Letstalk IS NOT NULL
+	IF ISNULL(@__Letstalk,'') <> ''
 	BEGIN
 		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
 		BEGIN

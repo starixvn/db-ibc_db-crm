@@ -254,7 +254,7 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 	ORDER BY cg.ChatTypeId ASC
 
-	UPDATE #Result SET Status = 'Draft' WHERE IsTest = 1 AND Status = 'Planned'
+	UPDATE #Result SET Status = 'Planned' WHERE IsTest = 1 AND Status = 'Draft'
 
 	UPDATE r
 	SET r.Content_en = m.Content_en, r.Content_cs = m.Content_cs, r.Content_th = m.Content_th, r.Content_vn = m.Content_vn

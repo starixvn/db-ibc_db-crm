@@ -1,8 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_PicUpdValidation]
 	@PicID					INT,
-	@CommunicationTools	    NVARCHAR(MAX),
-	@Message				NVARCHAR(1000) = '' OUTPUT
+	@CommunicationTools	    NVARCHAR(MAX)
 AS
 /*
 Created: 20200506@Malcolm
@@ -23,7 +22,7 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @idoc INT, @SettingId INT, @__Letstalk NVARCHAR(200) = NULL, @New__Letstalk NVARCHAR(200)
+	DECLARE @idoc INT, @SettingId INT, @__Letstalk NVARCHAR(200) = NULL, @New__Letstalk NVARCHAR(200), @Message NVARCHAR(1000) = '' 
 
 	CREATE TABLE #input
 	(	
@@ -56,13 +55,15 @@ BEGIN
 
 	SELECT @Message = ''
 
-	IF @__Letstalk IS NOT NULL
+	IF ISNULL(@__Letstalk,'') <> ''
 	BEGIN
 		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
 		BEGIN
 			SELECT @Message = 'This Letstalk ID "' +  @__Letstalk + '" is being used to send notifications personally. If you update/remove the Letstalk ID, the Personal Chat Mapping shall be deactivated. Would you like to proceed?'
 		END
 	END
+
+	SELECT @Message
 
 	DROP TABLE #input
 END

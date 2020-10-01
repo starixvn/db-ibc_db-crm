@@ -172,7 +172,7 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (MessageId INT, ConversationGroupId SMALLINT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (MessageId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (MessageId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.MessageId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #MessageRecipient m
@@ -198,13 +198,18 @@ BEGIN
 		INNER JOIN CTE_GroupPIC g ON t.ConversationGroupId = g.ConversationGroupId
 	WHERE t.NoRecipient < g.NoRecipient
 
-	CREATE TABLE #tmpResult (MessageId INT, ConversationGroupId SMALLINT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
-	INSERT INTO #tmpResult (MessageId, ConversationGroupId, Username, HeadlineId, IsTest)
-	SELECT m.MessageId, g.ConversationGroupId, m.Username, m.HeadlineId, m.IsTest
-	FROM dbo.crmConversationGroupRecipient cgr WITH (NOLOCK)
-		INNER JOIN #MessageRecipient m ON m.RecipientId = cgr.RecipientId
-		INNER JOIN #tmpGroup g ON g.ConversationGroupId = cgr.ConversationGroupId AND m.MessageId = g.MessageId AND m.DirectAccount = g.DirectAccount
-	GROUP BY m.MessageId, g.ConversationGroupId, m.Username, m.HeadlineId, m.IsTest
+	UPDATE t
+	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId
+	FROM #tmpGroup t
+		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
+
+	CREATE TABLE #tmpResult (MessageId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
+	INSERT INTO #tmpResult (MessageId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest)
+	SELECT m.MessageId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest
+	FROM #MessageRecipient m
+		INNER JOIN #tmpGroup g ON m.MessageId = g.MessageId AND m.DirectAccount = g.DirectAccount
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
+		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 
 	CREATE TABLE #Result
 	(
@@ -228,12 +233,13 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #NotificationTemplate WHERE IsTest = 1)
 		SET @Status = 'Draft'
 
+	-- For Group
 	INSERT INTO #Result (MessageId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status)
-	SELECT t.MessageId, t.ConversationGroupId, cg.ChatTypeId, cg.LanguageId, t.AffectedList, t.HeadlineList, t.IsTest, t.Status
+	SELECT MessageId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, @Status
 	FROM (
-		SELECT MessageId, ConversationGroupId
+		SELECT MessageId, ConversationGroupId, ChatTypeId, LanguageId
 			,STUFF(
-					(SELECT ', ' + Username
+					(SELECT DISTINCT ', ' + Username
 						FROM #tmpResult t2
 						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId
 						FOR XML PATH ('')
@@ -247,12 +253,68 @@ BEGIN
 					), 1, 1, ''
 				) AS HeadlineList
 			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
-			,@Status AS Status
 		FROM #tmpResult t1
-		GROUP BY MessageId, ConversationGroupId
+		WHERE t1.ChatTypeId = 1 -- Group
+		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId
 	) t
-		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
-	ORDER BY cg.ChatTypeId ASC
+
+	-- For Personal
+	;WITH CTE_tmpPersonal AS (
+		SELECT p.MessageId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId
+		FROM #tmpResult p
+			OUTER APPLY (
+				SELECT TOP 1 r.Id
+				FROM dbo.crmConversationGroupRecipient cgr1 WITH (NOLOCK)
+					INNER JOIN dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK) ON cgr2.RecipientId = cgr1.RecipientId
+					INNER JOIN #tmpResult g ON g.ConversationGroupId = cgr2.ConversationGroupId
+					INNER JOIN #Result r ON g.MessageId = r.MessageId AND g.ConversationGroupId = r.ConversationGroupId
+				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.MessageId = g.MessageId AND p.Username = g.Username AND g.ChatTypeId = 1 -- Group
+			) t
+		WHERE p.ChatTypeId = 2 -- Personal
+	)
+	,CTE_tempResult AS (
+		SELECT MessageId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
+			,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END AS IsDuplicated
+			,STUFF(
+					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.RelatedId)
+						FROM CTE_tmpPersonal t2
+						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS RelatedIds
+		FROM CTE_tmpPersonal t1
+		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
+		,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END
+	)
+	INSERT INTO #Result (MessageId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, RelatedIds)
+	SELECT MessageId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END
+	FROM (
+		SELECT MessageId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+			,STUFF(
+					(SELECT DISTINCT ', ' + t2.Username
+						FROM CTE_tempResult t2
+						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS AffectedList
+			,STUFF(
+					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.HeadlineId)
+						FROM CTE_tempResult t2
+						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS HeadlineList
+			,STUFF(
+					(SELECT DISTINCT ',' + t2.RelatedIds
+						FROM CTE_tempResult t2
+						WHERE t1.MessageId = t2.MessageId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS RelatedIds
+			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
+		FROM CTE_tempResult t1
+		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+	) t
 
 	UPDATE #Result SET Status = 'Planned' WHERE IsTest = 1 AND Status = 'Draft'
 
@@ -264,33 +326,6 @@ BEGIN
 			FROM #ImportMessage m
 			WHERE r.MessageId = m.MessageId
 		) m
-	
-	-- If message just in group --> personal is marked duplicated
-	UPDATE r1
-	SET r1.Status = 'Duplicated'
-		,r1.RelatedIds = RIGHT(r2.RelatedIds, LEN(r2.RelatedIds) - 1)
-	FROM #Result r1
-		CROSS APPLY (
-			SELECT TOP 1 cgr1.RecipientId FROM dbo.crmConversationGroupRecipient cgr1 WITH (NOLOCK) WHERE cgr1.ConversationGroupId = r1.ConversationGroupId
-		) cgr1
-		CROSS APPLY (
-			SELECT (
-				SELECT ',' + CONVERT(VARCHAR(10), r2.Id)
-				FROM #Result r2
-					CROSS APPLY (
-						SELECT TOP 1 cgr2.RecipientId FROM dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK)
-						WHERE cgr2.ConversationGroupId = r2.ConversationGroupId AND cgr2.RecipientId = cgr1.RecipientId
-					) cgr2
-				WHERE r1.MessageId = r2.MessageId
-					AND r2.ChatTypeId = 1 -- Group
-					AND cgr2.RecipientId IS NOT NULL
-				FOR XML PATH('')
-			) AS RelatedIds
-		) r2
-	WHERE r1.ChatTypeId = 2 -- Personal
-		AND cgr1.RecipientId IS NOT NULL
-		AND r2.RelatedIds IS NOT NULL
-		AND Status = 'Planned'
 
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT

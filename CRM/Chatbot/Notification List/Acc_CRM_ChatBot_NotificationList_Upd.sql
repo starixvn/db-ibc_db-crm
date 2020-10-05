@@ -24,10 +24,15 @@ BEGIN
 		UPDATE dbo.crmNotification WITH(ROWLOCK)
 		SET ResolvedRemark = @Remark, Status = 'Resolved', ResolvedBy = @UserId
 		WHERE NotificationId = @NotificationId
+			AND Status = 'Error'
+
+		UPDATE dbo.crmNotificationGroup WITH(ROWLOCK)
+		SET Status = 'Resolved'
+		WHERE NotificationId = @NotificationId
+			AND Status = 'Error'
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
 	END CATCH
-	
 END
 GO

@@ -300,3 +300,7 @@ GO
 ALTER TABLE dbo.crmMessageImport
 	ADD IsChatBotProcessed CONSTRAINT DF_crmMessageImport_IsChatBotProcessed DEFAULT ((0))
 GO
+
+ALTER TABLE dbo.SystemSetting
+	ALTER COLUMN Value VARCHAR(MAX) NULL
+GO

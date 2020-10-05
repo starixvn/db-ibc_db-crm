@@ -22,7 +22,7 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @idoc INT, @SettingId INT, @__Letstalk NVARCHAR(200) = NULL, @New__Letstalk NVARCHAR(200), @Message NVARCHAR(1000) = '' 
+	DECLARE @idoc INT, @Message NVARCHAR(1000)
 
 	CREATE TABLE #input
 	(	
@@ -41,26 +41,37 @@ BEGIN
 											  SettingValue	NVARCHAR(200))
 	EXEC sp_xml_removedocument @iDoc
 
-	SELECT @SettingId = SettingID 
+	DECLARE @SettingLetstalkId INT
+	SELECT  @SettingLetstalkId = SettingId
 	FROM dbo.crmSetting WITH(NOLOCK)
 	WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Letstalk'
 
-	SELECT @__Letstalk = cg.ConversationId
+	DECLARE @Used__Letstalk TABLE (LetstalkId VARCHAR(200))
+	DECLARE @New__Letstalk TABLE (LetstalkId VARCHAR(200))
+
+	INSERT INTO @New__Letstalk (LetstalkId)
+	SELECT DISTINCT LTRIM(RTRIM(f.val))
+	FROM #input i
+		CROSS APPLY dbo.f_CRM_strSplit(i.SettingValue, ',') f
+	WHERE i.SettingId = @SettingLetstalkId AND ISNULL(LTRIM(RTRIM(f.val)), '') <> ''
+	
+	INSERT INTO @Used__Letstalk (LetstalkId)
+	SELECT DISTINCT cg.ConversationId
 	FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
-	WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicID AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+	WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+		AND ISNULL(cg.ConversationId, '') <> ''
 
-	SELECT @New__Letstalk  = i.SettingValue FROM #input i WHERE @SettingId = i.SettingID
-
-	SELECT @Message = ''
-
-	IF ISNULL(@__Letstalk,'') <> ''
+	IF EXISTS (SELECT 1 FROM @Used__Letstalk)
 	BEGIN
-		IF ',' + @New__Letstalk + ',' NOT LIKE '%,' + @__Letstalk + ',%'
-		BEGIN
-			SELECT @Message = 'This Letstalk ID "' +  @__Letstalk + '" is being used to send notifications personally. If you update/remove the Letstalk ID, the Personal Chat Mapping shall be deactivated. Would you like to proceed?'
-		END
+		SELECT @Message = COALESCE(@Message + ', ', '') + u.LetstalkId
+		FROM @Used__Letstalk u
+			LEFT JOIN @New__Letstalk n ON u.LetstalkId = n.LetstalkId
+		WHERE n.LetstalkId IS NULL
+
+		IF ISNULL(@Message, '') <> ''
+			SELECT @Message = 'The Letstalk ID(s) "' + @Message + '" is/are being used to send notifications personally. If you update/remove the Letstalk ID(s), the Personal Chat Mapping shall be deactivated. Would you like to proceed?'
 	END
 
 	SELECT @Message

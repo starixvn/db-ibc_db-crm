@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Sel]
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Sel]
 	@ChatTypeId				TINYINT = NULL
 	,@ConversationGroupName	NVARCHAR(1000) = ''
 	,@Headline				VARCHAR(30) = ''
@@ -131,25 +131,29 @@ BEGIN
 		DELETE t
 		FROM #Tmp t
 		WHERE t.ChatTypeId = 1
-		AND NOT EXISTS(
-			SELECT 1
-			FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
-			WHERE gb.ConversationGroupId = t.ConversationGroupId
-		)
+			AND NOT EXISTS(
+				SELECT 1
+				FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
+				WHERE gb.ConversationGroupId = t.ConversationGroupId
+			)
 	END
 
 	IF ',' + @MappingStatus + ',' NOT LIKE '%,1,%'-- Not Mapped
 	BEGIN
 		DELETE t
 		FROM #Tmp t
-			INNER JOIN dbo.crmConversationGroupBot gb WITH(NOLOCK)
-				ON t.ConversationGroupId = gb.ConversationGroupId
 		WHERE t.ChatTypeId = 1
-		AND NOT EXISTS(
-			SELECT 1
-			FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-			WHERE gh.ConversationGroupId = t.ConversationGroupId
-		)
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
+				WHERE gb.ConversationGroupId = t.ConversationGroupId
+			)
+			AND NOT EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
+					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
+				WHERE gh.ConversationGroupId = t.ConversationGroupId
+			)
 	END
 
 	IF ',' + @MappingStatus + ',' NOT LIKE '%,2,%'--Mapped
@@ -157,13 +161,17 @@ BEGIN
 		DELETE t
 		FROM #Tmp t
 		WHERE t.ChatTypeId = 1
-		AND EXISTS(
-			SELECT 1
-			FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-				INNER JOIN dbo.crmConversationGroupBot cgb WITH(NOLOCK) 
-					ON gh.ConversationGroupId = cgb.ConversationGroupId
-			WHERE gh.ConversationGroupId = t.ConversationGroupId
-		)
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
+				WHERE gb.ConversationGroupId = t.ConversationGroupId
+			)
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
+					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
+				WHERE gh.ConversationGroupId = t.ConversationGroupId
+			)
 	END
 	
 	
@@ -186,13 +194,13 @@ BEGIN
 
 	--Update mapping status
 
-	IF ',' + @MappingStatus + ',' LIKE '%,0,%' --Bot Removed 
+	IF ',' + @MappingStatus + ',' LIKE '%,0,%' -- Bot Removed 
 	BEGIN
 		UPDATE t
-			SET t.MappingStatusID = 0
+		SET t.MappingStatusID = 0
 		FROM #Tmp t
 		WHERE t.ChatTypeId = 1
-		AND NOT EXISTS(
+		AND NOT EXISTS (
 			SELECT 1
 			FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
 			WHERE gb.ConversationGroupId = t.ConversationGroupId
@@ -200,16 +208,22 @@ BEGIN
 	END
 
 	IF ',' + @MappingStatus + ',' LIKE '%,1,%'  -- Not Mapped
-		BEGIN
-			UPDATE t
-			SET t.MappingStatusID = 1
-			FROM #Tmp t
-			WHERE t.ChatTypeId = 1
-			AND NOT EXISTS(
+	BEGIN
+		UPDATE t
+		SET t.MappingStatusID = 1
+		FROM #Tmp t
+		WHERE t.ChatTypeId = 1
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
+				WHERE gb.ConversationGroupId = t.ConversationGroupId
+			)
+			AND NOT EXISTS (
 				SELECT 1
 				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
+					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
 				WHERE gh.ConversationGroupId = t.ConversationGroupId
-			) AND t.MappingStatusID IS NULL
+			)
 	END
 
 	IF ',' + @MappingStatus + ',' LIKE '%,2,%'  --Mapped
@@ -218,11 +232,17 @@ BEGIN
 		SET t.MappingStatusID = 2
 		FROM #Tmp t
 		WHERE t.ChatTypeId = 1
-		AND EXISTS(
-			SELECT 1
-			FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-			WHERE gh.ConversationGroupId = t.ConversationGroupId
-		) AND t.MappingStatusID IS NULL
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupBot gb WITH(NOLOCK)
+				WHERE gb.ConversationGroupId = t.ConversationGroupId
+			)
+			AND EXISTS (
+				SELECT 1
+				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
+					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
+				WHERE gh.ConversationGroupId = t.ConversationGroupId
+			)
 	END
 
 	SELECT 
@@ -260,11 +280,9 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
-		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON r.SourceId = p.PicID  
+		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON r.SourceId = p.PicId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
-		LEFT JOIN dbo.crmPICCommunication cm WITH(NOLOCK) ON p.PicID = cm.PicID
-	WHERE cm.CommunicationID = @PICCommunicationLetStalkId 
-		AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+		LEFT JOIN dbo.crmPICCommunication cm WITH(NOLOCK) ON p.PicID = cm.PicID AND cm.CommunicationID = @PICCommunicationLetStalkId
 
 	DROP TABLE #Tmp
 

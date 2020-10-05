@@ -24,6 +24,7 @@ SELECT @SystemId = SCOPE_IDENTITY()
 
 INSERT INTO dbo.crmNotificationType (NotificationTypeName, SystemId)
 VALUES ('Voiding Abnormal Bet Announcement', @SystemId)
+SELECT @NotificationTypeId = SCOPE_IDENTITY()
 
 INSERT INTO dbo.crmNotificationRecipientType (NotificationTypeId, RecipientTypeId)
 VALUES (@NotificationTypeId, @RecipientTypeId)

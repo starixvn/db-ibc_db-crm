@@ -48,7 +48,7 @@ BEGIN
 		)
 		SELECT @NotificationTypeId,
 			   val
-		FROM bodb02.dbo.f_SplitString(@RecipientTypeIds,',')
+		FROM dbo.f_CRM_strSplit(@RecipientTypeIds,',')
 
 		INSERT INTO dbo.crmNotificationChatType
 		(
@@ -58,7 +58,7 @@ BEGIN
 		SELECT 
 			@NotificationTypeId,
 			val 
-		FROM bodb02.dbo.f_SplitString(@ChatTypeIds,',')
+		FROM dbo.f_CRM_strSplit(@ChatTypeIds,',')
 
 	END TRY
 	BEGIN CATCH

@@ -53,7 +53,7 @@ BEGIN
 		FROM #Tmp t
 		WHERE NOT EXISTS(
 			SELECT 1 
-			FROM bodb02.dbo.f_SplitString(@RecipientTypeIds,',') f
+			FROM dbo.f_CRM_strSplit(@RecipientTypeIds,',') f
 				INNER JOIN dbo.crmNotificationRecipientType nr WITH(NOLOCK) 
 					ON f.val = nr.RecipientTypeId
 			WHERE t.NotificationTypeId = nr.NotificationTypeId)
@@ -65,7 +65,7 @@ BEGIN
 		FROM #Tmp t
 		WHERE NOT EXISTS(
 			SELECT 1 
-			FROM bodb02.dbo.f_SplitString(@ChatTypeIds,',') f
+			FROM dbo.f_CRM_strSplit(@ChatTypeIds,',') f
 				INNER JOIN dbo.crmNotificationChatType nc WITH(NOLOCK) 
 					ON f.val = nc.ChatTypeId
 			WHERE t.NotificationTypeId = nc.NotificationTypeId)

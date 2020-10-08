@@ -152,7 +152,7 @@ BEGIN
 				  	   CASE WHEN f.val = 0 THEN 'Not Assigned Group' 
 				  	   ELSE c.username END AS '@Name'
 				  FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
-				     LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.Id
+				     LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
 				  WHERE f.val <> ''
 				  FOR XML PATH('Headline'))
 

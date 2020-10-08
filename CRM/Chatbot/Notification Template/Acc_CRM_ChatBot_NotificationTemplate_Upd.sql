@@ -198,9 +198,9 @@ BEGIN
 					FOR XML PATH('Content'), ROOT('Contents'))
 
 	SELECT @OldValues =	CAST((SELECT @NotificationTemplateId	AS '@Id'
-									,@NotificationTemplateName	AS '@Name'
+									,@Old_NotificationTemplateName	AS '@Name'
 									,@NotificationTypeXML
-									,@Contents
+									,@_Contents
 							  FOR XML PATH('NotificationTemplate'), ROOT('Acc_CRM_ChatBot_NotificationTemplate_Upd')) AS NVARCHAR(MAX))
 
 	-- New Values

@@ -165,7 +165,7 @@ BEGIN
 		,RecipientId INT
 	)
 	INSERT INTO #MessageRecipient (MessageId, Username, DirectAccount, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
-	SELECT m.MessageId, m.Username, CASE WHEN pm.HeadlineId = 0 THEN pm.CustId ELSE 0 END, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
+	SELECT m.MessageId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
 	FROM #ImportMessage m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
@@ -263,7 +263,7 @@ BEGIN
 		SELECT p.MessageId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId
 		FROM #tmpResult p
 			OUTER APPLY (
-				SELECT TOP 1 r.Id
+				SELECT DISTINCT r.Id
 				FROM dbo.crmConversationGroupRecipient cgr1 WITH (NOLOCK)
 					INNER JOIN dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK) ON cgr2.RecipientId = cgr1.RecipientId
 					INNER JOIN #tmpResult g ON g.ConversationGroupId = cgr2.ConversationGroupId

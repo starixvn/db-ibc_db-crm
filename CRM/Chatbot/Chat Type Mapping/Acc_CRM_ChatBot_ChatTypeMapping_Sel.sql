@@ -82,7 +82,7 @@ BEGIN
 		LEFT JOIN dbo.crmSetting l WITH(NOLOCK) ON cg.LanguageId = l.SettingID AND l.IsActive = 1
 	WHERE (@IsActive IS NULL OR cg.IsActive = @IsActive)
 	    AND (@ChatTypeId IS NULL OR cg.ChatTypeId = @ChatTypeId)	
-		AND (@ConversationGroupName = '' OR cg.ConversationGroupName LIKE '%' + @ConversationGroupName + '%')			
+		AND (@ConversationGroupName = '' OR CHARINDEX(@ConversationGroupName, cg.ConversationGroupName, 1) > 0)			
 		AND (cg.LanguageId = @LanguageId OR @LanguageId IS NULL)
 		AND (cgb.BotId = @BotId OR @BotId IS NULL)
 

@@ -11,6 +11,7 @@ Original:
 
 	Revisions:
 		- 20200511@Malcolm: Get information of PIC [Redmine: #108739]
+		- 20201013@Malcolm : change data type of @IsActive from TINYINT to BIT [Redmine: #130544]
 	Param's Explanation:
 		@IsActive = 0 : Load all PIC which is inactive
 		          = 1 : Load all PIC which is active
@@ -20,7 +21,7 @@ Original:
 BEGIN 
 	SET NOCOUNT ON
 
-	SELECT @IsActive = ISNULL(@IsActive,0), @Username = ISNULL(@Username,'')
+	SELECT @Username = ISNULL(@Username,'')
 
 	SELECT PicID,
 		   Username,

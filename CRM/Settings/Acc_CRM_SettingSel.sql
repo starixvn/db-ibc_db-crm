@@ -4,7 +4,7 @@ ALTER PROCEDURE dbo.Acc_CRM_SettingSel
 	@UserRole			TINYINT = NULL,
 	@Lang				VARCHAR(10)='en-US',
 	@SettingName		VARCHAR(50) = '',
-	@IsActive			TINYINT = 2,
+	@IsActive			BIT = NULL,
 	@IncludedSettingID	VARCHAR(200) = ''
 )
 AS
@@ -21,6 +21,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20200421@Johnson: get mapping setting for auto feedback [redmine:#130949]
 		- 20200508@Malcolm : search by setting name  [Redmine: #108739]
+		- 20201013@Malcolm : change data type of @IsActive from TINYINT to BIT [Redmine: #130544]
 	Param's Explanation:
 	
 */
@@ -43,7 +44,7 @@ BEGIN
 		LEFT JOIN crmSettingMapping m WITH(NOLOCK) ON cs.SettingID = m.SettingID
 	WHERE ((cs.SiteOffer = @UserRole OR @UserRole IS NULL) 
 		  AND (cs.SettingName = @SettingName OR @SettingName = '')
-		  AND (cs.IsActive = @IsActive OR @IsActive = 2)) 
+		  AND (cs.IsActive = @IsActive OR @IsActive IS NULL)) 
 		  OR (@IncludedSettingID <> '' AND ',' + @IncludedSettingID + ',' LIKE '%,' + CONVERT(VARCHAR(20),cs.SettingID) + ',%')
 	ORDER BY cs.IsActive DESC, cs.SettingName, cs.DisplayOrder, cs.SettingID;
 END;

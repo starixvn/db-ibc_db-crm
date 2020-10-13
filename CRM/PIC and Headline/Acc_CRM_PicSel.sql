@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PicSel]
 	@Username VARCHAR(30) = '',
-	@IsActive INT = 1
+	@IsActive BIT = NULL
 AS
 /*
 Created: 20200511@Malcolm
@@ -14,7 +14,7 @@ Original:
 	Param's Explanation:
 		@IsActive = 0 : Load all PIC which is inactive
 		          = 1 : Load all PIC which is active
-				  = 2 : Load all PIC
+				  = NULL : Load all PIC
 		
 */
 BEGIN 
@@ -28,6 +28,6 @@ BEGIN
 	FROM dbo.crmPIC p WITH(NOLOCK)
 		LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
 	WHERE (@Username = '' OR p.Username LIKE '%'+@Username + '%') 
-		AND (@IsActive = 2 OR p.IsActive = @IsActive)
+		AND (@IsActive IS NULL OR p.IsActive = @IsActive)
 
 END

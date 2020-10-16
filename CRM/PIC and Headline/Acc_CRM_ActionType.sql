@@ -18,6 +18,6 @@ BEGIN
 
 	SELECT ActionTypeID, ActionTypeName
 	FROM dbo.crmLogActionType WITH(NOLOCK)	
-	WHERE ActionTypeID <> 1
+	WHERE ActionTypeID NOT IN (1, 4)
 
 END

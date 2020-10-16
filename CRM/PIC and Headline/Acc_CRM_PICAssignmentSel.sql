@@ -25,6 +25,7 @@ Original:
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200814@Malcolm: Get default Pics [Redmine: #137144]
+		- 20200921@Percy: Enhance code to improve performance [RedmineId: #130544]
 
 	Param's Explanation:
 		@HeadlineType = 0 : Normal
@@ -167,8 +168,11 @@ BEGIN
 		INSERT INTO @tblGroupHeadline (GroupId)
 		SELECT cgh.GroupId
 		FROM bodb02.dbo.CustGroupHeadline cgh WITH (NOLOCK)
-			INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.custid = cgh.CustID
-		WHERE username LIKE '%' + @GroupHeadline + '%'
+			CROSS APPLY (
+				SELECT TOP 1 c.CustId FROM bodb02.dbo.Customer c WITH (NOLOCK)
+				WHERE c.custid = cgh.CustID
+					AND c.username LIKE '%' + @GroupHeadline + '%'
+			) c
 
 		DELETE t
 		FROM #Tmp_DirectAccount t

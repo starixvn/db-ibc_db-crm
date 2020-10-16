@@ -4,7 +4,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
 	,@ConversationGroupName	NVARCHAR(1000) 
 	,@ChatTypeId			TINYINT = NULL
 	,@RecipientTypeId       TINYINT
-	,@HeadlineIds			VARCHAR(1000) 
+	,@HeadlineIds			VARCHAR(MAX) 
 	,@RecipientId			INT
 	,@LetstalkID			VARCHAR(200)
 	,@LanguageId			INT	

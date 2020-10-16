@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_GetHeadlineByRecipient]
-	@RecipientIds VARCHAR(200) = ''
+	@RecipientIds VARCHAR(MAX) = ''
 AS
 /*
 Created: 20200511@Malcolm

@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Ins]
 	@UserId					INT
 	,@NotificationTypeName	NVARCHAR(500)
-	,@RecipientTypeIds		VARCHAR(200)
+	,@RecipientTypeIds		VARCHAR(MAX)
 	,@ChatTypeIds			VARCHAR(200)
 	,@SystemId				TINYINT
 	,@ErrCode				INT = 0 OUTPUT

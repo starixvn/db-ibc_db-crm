@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Sel]
 	@NotificationTypeName	NVARCHAR(500) = NULL
-	,@RecipientTypeIds		VARCHAR(200) = NULL
+	,@RecipientTypeIds		VARCHAR(MAX) = NULL
 	,@ChatTypeIds			VARCHAR(200) = NULL
 	,@SystemId				VARCHAR(100) = NULL
 	,@PageSize				INT = 0

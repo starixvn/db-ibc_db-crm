@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Recipient_Sel]
 	@RecipientType	TINYINT = NULL
 	,@RecipientName NVARCHAR(200) = ''
-	,@RecipientIds  VARCHAR(200) = ''
+	,@RecipientIds  VARCHAR(MAX) = ''
 	,@Limit			INT = NULL	
 AS
 /*

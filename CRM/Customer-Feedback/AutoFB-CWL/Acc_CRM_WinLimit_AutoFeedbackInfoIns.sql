@@ -87,7 +87,8 @@ BEGIN
 		,'initial' as status
 		,GETDATE() as CreatedDate
 		,0 as retryCount
-	FROM @tmpCust
+	FROM @tmpCust t		
+	WHERE NOT EXISTS (SELECT 1 FROM crmWinLimitFeedbackInfo fb WITH(NOLOCK) WHERE t.LogID =fb.LogID)
 	
 	SELECT LogID
 		,fb.CustID

@@ -71,6 +71,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 				,	@NoInquiries				SMALLINT		= NULL
 				, 	@MessageID 					INT 			= 0
+				,	@WinLimitLogID				BIGINT			= 0	
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
@@ -102,6 +103,7 @@ AS
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200615@Johnson: check missing feedback from auto service [redmine: #135719]
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
+		- 20201020@Johnson: add WinlimitLogid for auto feedback company win limit[redmine:#142194]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -119,6 +121,7 @@ AS
 			/>
 		</ROOT>
 	@MessageID : MsgID from Auto fb service
+	@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
@@ -261,6 +264,16 @@ BEGIN
 						AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 						AND	HeadlineID = @custid
 						AND CustID IN (SELECT custid FROM @tmpOrigCustID)
+						AND status = 'completed'
+				)
+		RETURN;		
+	END
+	
+	IF @WinLimitLogID > 0
+	BEGIN
+		--check fb for LogId create yet
+		IF EXISTS (SELECT 1 FROM crmWinLimitFeedbackInfo WITH(NOLOCK)
+					WHERE LogID = @WinLimitLogID
 						AND status = 'completed'
 				)
 		RETURN;		
@@ -555,6 +568,26 @@ BEGIN
 
 			RETURN;
 		END;	
+	END
+	
+	IF @WinLimitLogID > 0
+	BEGIN
+		UPDATE crmWinLimitFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+		SET Status = 'completed',
+			UpdatedTime = GETDATE()
+		WHERE LogID = @WinLimitLogID
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;
 	END
 	
 	-- write log

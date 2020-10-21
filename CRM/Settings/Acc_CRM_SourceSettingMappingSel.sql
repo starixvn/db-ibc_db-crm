@@ -10,7 +10,7 @@ AS
 	
 	Revisions:
 		- 20200421@Johnson: initial sp [redmine:#130949]
-	
+		- 20201021@Johnson: get all products/sports/bettypes to support mapping for winlimit fb  [redmine:#142194]
 	Parameter's Explanations:
 */	
 BEGIN
@@ -28,7 +28,7 @@ BEGIN
 		INSERT INTO @result(SettingName,Source)
 		SELECT 'Product',ProductName
 		FROM bodb02.dbo.Products WITH(NOLOCK)
-		WHERE productid = 1--Sportsbook
+		WHERE Enabled = 1		
 	END
 	
 	IF EXISTS(SELECT 1 FROM @tmpSetting WHERE SettingName = 'SubProduct')
@@ -38,7 +38,9 @@ BEGIN
 		FROM bodb02.dbo.sports WITH(NOLOCK)
 		WHERE sportType IN (SELECT DISTINCT SportType 
 							FROM bodb02.dbo.SportBettypeMatrix WITH(NOLOCK)
-							WHERE ProductID =1
+							WHERE ProductID IN (SELECT ProductID 
+												FROM bodb02.dbo.Products WITH(NOLOCK)
+												WHERE Enabled = 1)
 								AND IsTest = 0
 							)							
 	END
@@ -50,7 +52,9 @@ BEGIN
 		FROM bodb02.dbo.bettype WITH(NOLOCK)
 		WHERE typeid IN (SELECT DISTINCT bettype 
 							FROM bodb02.dbo.SportBettypeMatrix WITH(NOLOCK)
-							WHERE ProductID =1
+							WHERE ProductID IN (SELECT ProductID 
+												FROM bodb02.dbo.Products WITH(NOLOCK)
+												WHERE Enabled = 1)
 								AND IsTest = 0
 							)
 	END

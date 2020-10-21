@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_Winlimit_SystemSettingUpd] 
+ALTER PROCEDURE [dbo].[Acc_CRM_SystemSettingByServiceUpd] 
 	@Settings 	VARCHAR(MAX),
 	@ServiceName VARCHAR(20) = 'WinLimitFB'
 AS
@@ -13,6 +13,7 @@ AS
 		- 20201020@Johnson: Initial sp [redmine:#142194]
 	Param's Explanation:
 		- @Settings = '<ROOT><r Name="JobStatus" Value="Completed" />
+							<r Name="LastRuntime" Value="2020-10-21 00:39:20" />
 							<r Name="LastLogID" Value="1000" />
 					</ROOT>'
 */

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_PicUpd]
+CREATE PROCEDURE [dbo].[Acc_CRM_PicUpd]
 	@PicID					INT,
 	@PicName				NVARCHAR(200),
 	@Role					INT,
@@ -21,6 +21,7 @@ Original:
 	Revisions:
 		- 20200506@Malcolm: Update information of PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
+		- 20200916@Malcolm : Update chat Type mapping [Redmine : #130544]
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -42,6 +43,8 @@ BEGIN
 	DECLARE @CountryXML_Old XML, @LanguageXML_Old XML, @RoleXML_Old XML
 
 	DECLARE @Role_Old INT, @Country_Old INT, @Language_Old VARCHAR(200), @Remark_Old NVARCHAR(1000), @PicName_Old NVARCHAR(200)
+
+	DECLARE @Tmp TABLE (PicID INT, CommunicationID INT, CommunicationValue NVARCHAR(200))
 
 	CREATE TABLE #input
 	(	
@@ -86,9 +89,13 @@ BEGIN
 			@PicName_Old	= Username,
 			@Country_Old	= Country,
 			@Language_Old	= Language			
-	FROM crmPIC
+	FROM crmPIC WITH(NOLOCK)
 	WHERE PicID = @PicID
 
+	INSERT INTO @Tmp (PicID, CommunicationID, CommunicationValue)
+	SELECT pc.PicID, pc.CommunicationID, pc.CommunicationValue
+	FROM crmPICCommunication pc WITH(NOLOCK)
+	WHERE pc.PicID = @PicID
 
 	SELECT @RoleXML_Old = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
@@ -154,7 +161,118 @@ BEGIN
 	BEGIN CATCH
 		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
 		RETURN
-	END CATCH	
+	END CATCH
+
+	-- Update for Chat Type Mapping
+	BEGIN
+		DECLARE @SettingLetstalkId INT
+		SELECT  @SettingLetstalkId = SettingId
+		FROM dbo.crmSetting WITH(NOLOCK)
+		WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Letstalk'
+
+		DECLARE @Used__Letstalk TABLE (ConversationGroupId SMALLINT, LetstalkId VARCHAR(200), IsActive BIT)
+		DECLARE @New__Letstalk TABLE (LetstalkId VARCHAR(200))
+
+		INSERT INTO @New__Letstalk (LetstalkId)
+		SELECT DISTINCT LTRIM(RTRIM(f.val))
+		FROM #input i
+			CROSS APPLY dbo.f_CRM_strSplit(i.SettingValue, ',') f
+		WHERE i.SettingId = @SettingLetstalkId AND ISNULL(LTRIM(RTRIM(f.val)), '') <> ''
+	
+		INSERT INTO @Used__Letstalk (ConversationGroupId, LetstalkId, IsActive)
+		SELECT DISTINCT cg.ConversationGroupId, cg.ConversationId, cg.IsActive
+		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
+			INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
+			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
+		WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+			AND ISNULL(cg.ConversationId, '') <> ''
+
+		DELETE u
+		FROM @Used__Letstalk u
+			INNER JOIN @New__Letstalk n ON u.LetstalkId = n.LetstalkId
+
+		DECLARE @ConversationGroupId SMALLINT, @IsActive BIT
+		WHILE EXISTS (SELECT 1 FROM @Used__Letstalk)
+		BEGIN
+			SELECT TOP 1 @ConversationGroupId = ConversationGroupId, @IsActive = IsActive FROM @Used__Letstalk
+
+			IF @IsActive = 1
+			BEGIN
+				EXEC dbo.Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd
+					@ConversationGroupId = @ConversationGroupId
+					,@IsActive	= 0
+					,@UserId = @UserId
+					,@ErrCode = @ErrCode OUTPUT
+					,@ErrMsg = @ErrMsg OUTPUT
+					,@LoginIP = @LoginIP
+
+				IF @ErrCode <> 0
+				BEGIN
+					DELETE dbo.crmPICCommunication WITH(ROWLOCK, UPDLOCK)
+					WHERE PicID = @PicID
+
+					INSERT INTO dbo.crmPICCommunication (PicID, CommunicationID, CommunicationValue)
+					SELECT PicID, CommunicationID, CommunicationValue
+					FROM @Tmp
+
+					UPDATE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+						SET Username = @PicName_Old
+							,Role = @Role_Old
+							,Language = @Language_Old
+							,Country = @Country_Old
+							,Remark = @Remark_Old
+					WHERE PicID = @PicID
+
+					RETURN
+				END
+			END
+
+			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMapping_Upd
+				@ConversationGroupId = @ConversationGroupId
+				,@BotId = NULL
+				,@ConversationGroupName	= ''
+				,@RecipientTypeId  = NULL
+				,@HeadlineIds = NULL
+				,@RecipientIds	= NULL
+				,@LetstalkID = ''
+				,@LanguageId = NULL
+				,@Remark = NULL
+				,@UserId = @UserId
+				,@ErrCode = @ErrCode OUTPUT
+				,@ErrMsg = @ErrMsg OUTPUT
+				,@LoginIP = @LoginIP
+				,@IsAuto = 1
+
+			IF @ErrCode <> 0
+			BEGIN
+				IF @IsActive = 1
+				BEGIN
+					UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
+						SET IsActive = 1
+					WHERE ConversationGroupId = @ConversationGroupId
+				END
+
+				DELETE dbo.crmPICCommunication WITH(ROWLOCK, UPDLOCK)
+				WHERE PicID = @PicID
+
+				INSERT INTO dbo.crmPICCommunication (PicID, CommunicationID, CommunicationValue)
+				SELECT PicID, CommunicationID, CommunicationValue
+				FROM @Tmp
+
+				UPDATE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+					SET Username = @PicName_Old
+						,Role = @Role_Old
+						,Language = @Language_Old
+						,Country = @Country_Old
+						,Remark = @Remark_Old
+				WHERE PicID = @PicID
+
+				RETURN
+			END
+
+			DELETE @Used__Letstalk WHERE ConversationGroupId = @ConversationGroupId
+		END
+	END
 
 	SELECT @RoleXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 

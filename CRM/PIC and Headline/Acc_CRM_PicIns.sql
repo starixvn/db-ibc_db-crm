@@ -20,6 +20,7 @@ Original:
 	Revisions:
 		- 20200506@Malcolm: insert a new PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
+		- 20200921@Malcolm : New PIC shall be inserted in table crmRecipient[RedmineId : #130544] 
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -33,7 +34,7 @@ BEGIN
 	IF ISNULL(@CommunicationTools,'') = ''
 		RETURN
 	
-	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML
+	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @RecipientTypeId INT
 
 	DECLARE  @NewValues NVARCHAR(MAX), @PicID INT = 0, @Username NVARCHAR(200)
 
@@ -111,6 +112,23 @@ BEGIN
 		END
 		RETURN
 	END CATCH
+
+	-- Insert Into crmRecipient Table 
+	BEGIN TRY
+		SELECT @RecipientTypeId = RecipientTypeId FROM dbo.crmRecipientType WITH(NOLOCK) WHERE RecipientTypeName = 'PIC of headline'
+
+		INSERT INTO dbo.crmRecipient (RecipientTypeId, SourceId, DataSource)
+		VALUES(@RecipientTypeId, @PicID, 'bodb_CRM.dbo.crmPIC')
+	END TRY
+	BEGIN CATCH
+		SELECT  @ErrCode = ERROR_NUMBER(),@ErrMsg = ERROR_MESSAGE()
+
+		DELETE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+		WHERE PicID = @PicID
+		RETURN
+	END CATCH
+	
+	--Write log
 
 	SELECT @RoleXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 

@@ -89,10 +89,14 @@ BEGIN
 	IF @Headline <> ''
 	BEGIN
 		INSERT INTO #HeadlineId (ID)
-		SELECT c.custid
-		FROM bodb02.dbo.Customer c WITH(NOLOCK) 
-		WHERE c.username like '%' + @Headline + '%'
-		 
+		SELECT gh.HeadlineId
+		FROM dbo.crmConversationGroupHeadline gh WITH (NOLOCK)
+			CROSS APPLY (
+				SELECT TOP 1 c.CustId FROM bodb02.dbo.Customer c WITH (NOLOCK)
+				WHERE c.custid = gh.HeadlineId
+					AND c.username LIKE '%' + @Headline + '%'
+			) c
+
 		DELETE t
 		FROM #Tmp t
 		WHERE NOT EXISTS(

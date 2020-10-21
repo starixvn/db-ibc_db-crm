@@ -126,6 +126,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID: #113305
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20201021@Johnson: remove checking limit related customers [redmine:#142194]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -148,20 +149,7 @@ BEGIN
 	SET NOCOUNT ON;
 
 	DECLARE @CustID INT;
-
-	DECLARE	@relatedCustomer TABLE(CustID INT);
-
-	INSERT INTO	@relatedCustomer
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-	BEGIN
-		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-		RETURN
-	END	
-	
+		
 	SELECT	@ErrCode = 0
 		,	@ErrMsg	 = '';
 	--- create account for guest

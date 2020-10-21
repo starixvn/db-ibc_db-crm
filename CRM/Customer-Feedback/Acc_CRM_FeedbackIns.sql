@@ -103,7 +103,8 @@ AS
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200615@Johnson: check missing feedback from auto service [redmine: #135719]
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
-		- 20201020@Johnson: add WinlimitLogid for auto feedback company win limit[redmine:#142194]
+		- 20201020@Johnson: add WinlimitLogid for auto feedback company win limit
+							and remove limit amount for related customers[redmine:#142194]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -499,13 +500,6 @@ BEGIN
 		INSERT INTO	@relatedCustomer
 		SELECT	CONVERT(INT, val)
 		FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-		IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-		BEGIN
-			SELECT	@ErrCode = 106
-				,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-			RETURN
-		END
 
 		-- insert feedback related
 		INSERT INTO	crmFeedbackCustomer

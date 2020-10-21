@@ -94,6 +94,7 @@ AS
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 		- 20191104@Winnie:  [CRM] cannot search feedback of customer in manage feedback RedmineID: #123160
+		- 20201021@Johnson: remove limit amount for related customers[redmine:#142194]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -139,13 +140,6 @@ BEGIN
 	INSERT INTO @relatedCustomer
 	SELECT	CONVERT(INT, val)
 	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-	BEGIN
-		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-		RETURN
-	END
 
 	DECLARE  @tblFbSetting TABLE(		
 		SettingID			INT
@@ -711,6 +705,3 @@ END;
 
 
 GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_FeedbackUpd TO bodbAdminNet;
-GO 

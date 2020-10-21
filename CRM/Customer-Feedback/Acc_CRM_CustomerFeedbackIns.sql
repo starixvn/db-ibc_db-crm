@@ -105,6 +105,7 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
+		- 20201020@Johnson: remove checking limit related customers [redmine:#142194]
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
@@ -129,18 +130,6 @@ BEGIN
 
 		RETURN;
 	END;
-	DECLARE	@relatedCustomer TABLE(CustID INT);
-
-	INSERT INTO	@relatedCustomer
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-	BEGIN
-		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-		RETURN
-	END
 	
 	IF	NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN

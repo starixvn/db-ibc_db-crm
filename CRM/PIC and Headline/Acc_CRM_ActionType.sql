@@ -9,6 +9,7 @@ Original:
 
 	Revisions:
 		- 20200724@Malcolm: Get action type [Redmine: #137144]
+		- 20201021@Malcolm: exclude ActiontypeId = 4 [Redmine: #130544]
 	Param's Explanation:
 		
 		

@@ -18,7 +18,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	UPDATE crmWinlimitAutoFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+	UPDATE crmWinlimitFeedbackInfo WITH(UPDLOCK,ROWLOCK)
 	SET status = @status,
 		RetryCount = CASE WHEN @status = 'fail' THEN retrycount + 1 ELSE retrycount END,
 		Description = @Description,

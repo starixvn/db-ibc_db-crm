@@ -105,7 +105,8 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
-		- 20201020@Johnson: remove checking limit related customers [redmine:#142194]
+		- 20201020@Johnson: - remove checking limit related customers 
+							- sync customer profile to CRM for related customers [redmine:#142194]
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline

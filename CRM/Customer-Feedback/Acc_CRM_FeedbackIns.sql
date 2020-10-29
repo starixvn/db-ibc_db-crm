@@ -103,8 +103,8 @@ AS
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200615@Johnson: check missing feedback from auto service [redmine: #135719]
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
-		- 20201020@Johnson: add WinlimitLogid for auto feedback company win limit
-							and remove limit amount for related customers[redmine:#142194]
+		- 20201020@Johnson: - add WinlimitLogid for auto feedback company win limit
+							- remove limit amount for related customers [redmine:#142194]
 	Param's Explanation:
 	@Product:
 		<ROOT>

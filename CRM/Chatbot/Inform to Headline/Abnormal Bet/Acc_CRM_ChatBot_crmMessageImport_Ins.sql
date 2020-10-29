@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20201029@Percy: Change left join to outer apply [RedmineID: #144466]
 
 	Param's Explanation:
 		@Messages:
@@ -26,7 +27,7 @@ BEGIN
 
 	CREATE TABLE #Messages (MessageId INT, RequestId INT)
 	INSERT INTO  #Messages (MessageId, RequestId)
-	SELECT
+	SELECT DISTINCT
 		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@RequestID', 'INT') AS RequestId
 	FROM @Messages.nodes('root/r') AS t(c)
@@ -35,7 +36,7 @@ BEGIN
 	INSERT INTO dbo.crmMessageImport (MessageId, RequestId, CreatedDate)
 	SELECT m.MessageId, m.RequestId, GETDATE()
 	FROM #Messages m
-		LEFT JOIN dbo.crmMessageImport cm WITH (NOLOCK) ON m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId
+		OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
 	WHERE cm.MessageId IS NULL
 
 	-- Return messages

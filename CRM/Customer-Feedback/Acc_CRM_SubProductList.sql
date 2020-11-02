@@ -2,6 +2,7 @@
 ALTER PROCEDURE	dbo.Acc_CRM_SubProductList
 					@ProductID		INT = 0,
 					@UserRole		TINYINT,
+					@Active			TINYINT = 1,
 					@Lang			VARCHAR(10)='en-US'
 AS /*
 	Created:	20160323@Billy
@@ -11,9 +12,14 @@ AS /*
 
 	Revisions:
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20201030@Johnson: add filter IsActive [redmine: #142194]
 	Param's Explanation:
+		- @Active = 1: get active
+				= 2: get all 
 */
 BEGIN	
+	SET NOCOUNT ON
+	
 		CREATE TABLE #Setting(			
 			[SettingID] [int] PRIMARY KEY,
 			[SettingValue] [nvarchar](100) ,
@@ -23,11 +29,11 @@ BEGIN
 			[SettingValueCT] [nvarchar](100) NULL
 		)
 		INSERT INTO #setting([SettingID],[SettingValue],[SettingValueCS],[SettingValueCT],[DisplayOrder],[IsActive])
-		SELECT cs.SettingID,cs.SettingValue,cs.SettingValueCS,cs.SettingValueCT,cs.DisplayOrder,1 AS IsActive		
+		SELECT cs.SettingID,cs.SettingValue,cs.SettingValueCS,cs.SettingValueCT,cs.DisplayOrder,IsActive		
 		FROM dbo.crmSetting AS cs WITH (NOLOCK)
 		WHERE cs.SettingName = 'SubProduct'
-		AND cs.IsActive = 1
-		AND (cs.SiteOffer=@UserRole )
+			AND 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
+			AND (cs.SiteOffer=@UserRole )
 	
 	SELECT	cs.SettingID		SubProductID,	
 			CASE	WHEN @Lang='zh-TW' THEN ISNULL(SettingValueCT,SettingValue)
@@ -46,6 +52,3 @@ BEGIN
 END
 GO
 
-
-GRANT EXECUTE ON dbo.Acc_CRM_SubProductList TO bodbAdminNet AS dbo
-GO

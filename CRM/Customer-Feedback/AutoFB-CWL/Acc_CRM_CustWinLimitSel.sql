@@ -45,6 +45,7 @@ BEGIN
 		INNER JOIN custinfo ci WITH(NOLOCK) ON cg.custid = ci.custid		
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
 	WHERE LogID > @LastLogID
+		AND ActionID NOT IN (2,4)
 	)
 	SELECT TOP (@BatchSize) 
 		LogID,

@@ -1,7 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE Acc_CRM_CountryList
-@UserRole		TINYINT=2,
-@Lang			VARCHAR(10)='en-US'
+	@UserRole		TINYINT=2,
+	@Active			TINYINT = 1,
+	@Lang			VARCHAR(10)='en-US'
 AS
 /*
 Created: Winnie
@@ -12,21 +13,26 @@ Original:
 
 Revisions:	
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-Param's Explanation:	
+	- 20201030@Johnson: add filter IsActive [redmine: #142194]
+Param's Explanation:
+	- @Active = 1: get active
+				= 2: get all 	
 */
 
 
 BEGIN
-SELECT	[CountryID],[CountryAbb]		
-		,CASE		WHEN @Lang='zh-TW' THEN ISNULL(CountryNameCT,[CountryName])
-					WHEN @Lang='zh-CN' THEN ISNULL(CountryNameCS,[CountryName])
-											ELSE [CountryName]
-			END AS [CountryName],
-		[CountryCode],
-		[isActive],[DisplayOrder] FROM crmCountry  WITH(NOLOCK) 
-WHERE IsActive = 1 AND @UserRole=SiteOffer
+	SET NOCOUNT ON
+
+	SELECT	[CountryID],[CountryAbb]		
+			,CASE		WHEN @Lang='zh-TW' THEN ISNULL(CountryNameCT,[CountryName])
+						WHEN @Lang='zh-CN' THEN ISNULL(CountryNameCS,[CountryName])
+												ELSE [CountryName]
+				END AS [CountryName],
+			[CountryCode],
+			[isActive],[DisplayOrder] 
+	FROM crmCountry  WITH(NOLOCK) 
+	WHERE 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
+			AND @UserRole=SiteOffer
 END
 GO
 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CountryList] TO [bodbAdminNet]
-GO 

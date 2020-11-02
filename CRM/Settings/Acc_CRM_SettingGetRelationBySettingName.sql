@@ -4,6 +4,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingGetRelationBySettingName]
 	@SettingName	VARCHAR(50),
 	@ParentID		INT,
 	@UserRole		TINYINT,
+	@Active			TINYINT = 1,
 	@Lang			VARCHAR(10)='en-US'
 )
 AS
@@ -17,7 +18,10 @@ Original:
 Revisions:
 	- 20120424@Sophia: Modify DisplayOrder and IsSub
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20201030@Johnson: add filter IsActive [redmine: #142194]
 Param's Explanation:
+	- @Active = 1: get active
+				= 2: get all 
 	
 */
 BEGIN
@@ -38,11 +42,9 @@ BEGIN
 							  ) rl ON st.SettingID = rl.SettingID
 	WHERE 
 		st.SettingName = @SettingName
-		AND
-		st.IsActive = 1
+		AND 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END		
 		AND ( st.SiteOffer=@UserRole)
 	ORDER BY IsSub DESC, DisplayOrder ASC, st.SettingID ASC
 END
 
 GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_SettingGetRelationBySettingName] TO [bodbAdminNet]

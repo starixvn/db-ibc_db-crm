@@ -11,6 +11,8 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20201029@Percy: Change left join to outer apply [RedmineID: #144466]
+		- 20201105@Percy: Try 5 times for duplicate primary key [RedmineID: #144466]
 
 	Param's Explanation:
 		@Messages:
@@ -26,17 +28,41 @@ BEGIN
 
 	CREATE TABLE #Messages (MessageId INT, RequestId INT)
 	INSERT INTO  #Messages (MessageId, RequestId)
-	SELECT
+	SELECT DISTINCT
 		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@RequestID', 'INT') AS RequestId
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
-	INSERT INTO dbo.crmMessageImport (MessageId, RequestId, CreatedDate)
-	SELECT m.MessageId, m.RequestId, GETDATE()
-	FROM #Messages m
-		LEFT JOIN dbo.crmMessageImport cm WITH (NOLOCK) ON m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId
-	WHERE cm.MessageId IS NULL
+	DECLARE @i TINYINT = 0, @maxTry TINYINT = 5, @msg VARCHAR(1024) = ''
+
+	WHILE @i < @maxTry
+	BEGIN
+		BEGIN TRY
+			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, CreatedDate)
+			SELECT m.MessageId, m.RequestId, GETDATE()
+			FROM #Messages m
+				OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
+			WHERE cm.MessageId IS NULL
+		END TRY
+		BEGIN CATCH
+			IF ERROR_NUMBER() = 2627 -- violation of primary key
+				SET @i = @i + 1
+			ELSE
+				SET @i = @maxTry
+
+			SET @msg = ERROR_MESSAGE()
+		END CATCH
+
+		IF @msg = ''
+			BREAK
+	END
+
+	IF ISNULL(@msg, '') <> ''
+	BEGIN
+		RAISERROR(@Msg, 16, 1)
+		RETURN
+	END
 
 	-- Return messages
 	TRUNCATE TABLE #Messages

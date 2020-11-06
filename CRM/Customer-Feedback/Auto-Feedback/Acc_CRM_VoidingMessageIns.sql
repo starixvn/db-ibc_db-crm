@@ -12,6 +12,9 @@ AS
 	Revisions:
 		- 20200612@Johnson: Initial sp [redmine:#135719]		
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
+		- 20201029@Percy: Change left join to outer apply [RedmineID: #144466]
+		- 20201105@Percy: Try 5 times for duplicate primary key [RedmineID: #144466]
+	
 	Param's Explanation:
 		- @MessageIds = '<ROOT>
 						<r MsgID="123" ReqID="1" />
@@ -25,17 +28,41 @@ BEGIN
 	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT)
 	DECLARE @xml XML = CAST(@MessageIds AS XML)	
 	
-	INSERT INTO @tmpMessage (MessageId,RequestID)
-	SELECT t.c.value('@MsgID[1]','int') MsgID,
+	INSERT INTO @tmpMessage (MessageId, RequestID)
+	SELECT DISTINCT
+		t.c.value('@MsgID[1]','int') MsgID,
 		t.c.value('@ReqID[1]','int') ReqID
-	FROM @xml.nodes('/ROOT/r') t(c)								
-	
-	INSERT INTO crmMessageImport(MessageId,RequestID,CreatedDate,isProcessed)
-	SELECT t.MessageId, t.RequestID, GETDATE(), 0
-	FROM @tmpMessage t
-		LEFT JOIN crmMessageImport m WITH(NOLOCK) ON t.MessageId = m.MessageId
-													AND t.RequestID = m.RequestID
-	WHERE m.MessageId IS NULL	
+	FROM @xml.nodes('/ROOT/r') t(c)
+
+	DECLARE @i TINYINT = 0, @maxTry TINYINT = 5, @msg VARCHAR(1024) = ''
+
+	WHILE @i < @maxTry
+	BEGIN
+		BEGIN TRY
+			INSERT INTO crmMessageImport (MessageId, RequestID, CreatedDate, isProcessed)
+			SELECT t.MessageId, t.RequestID, GETDATE(), 0
+			FROM @tmpMessage t
+				OUTER APPLY (SELECT TOP 1 m.MessageId FROM crmMessageImport m WITH(NOLOCK) WHERE t.MessageId = m.MessageId AND t.RequestID = m.RequestID) m
+			WHERE m.MessageId IS NULL
+		END TRY
+		BEGIN CATCH
+			IF ERROR_NUMBER() = 2627 -- violation of primary key
+				SET @i = @i + 1
+			ELSE
+				SET @i = @maxTry
+			
+			SET @msg = ERROR_MESSAGE()
+		END CATCH
+
+		IF @msg = ''
+			BREAK
+	END
+
+	IF ISNULL(@msg, '') <> ''
+	BEGIN
+		RAISERROR(@msg, 16, 1)
+		RETURN
+	END
 	
 	--Get top new messages
 	;WITH tmp AS 

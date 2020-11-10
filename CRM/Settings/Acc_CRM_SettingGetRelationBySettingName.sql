@@ -34,7 +34,8 @@ BEGIN
 											ELSE SettingValue
 			END AS SettingValue,
 			CASE WHEN ISNULL(rl.ParentID,0) = 0 THEN ISNULL(st.DisplayOrder,0) ELSE ISNULL(rl.DisplayOrder,0) END DisplayOrder, 
-		    CASE WHEN ISNULL(rl.ParentID,0) = 0 THEN 0 ELSE 1 END IsSub
+		    CASE WHEN ISNULL(rl.ParentID,0) = 0 THEN 0 ELSE 1 END IsSub,
+			IsActive
 	FROM crmSetting st WITH(NOLOCK) 
 					LEFT JOIN ( SELECT	SettingID, ParentID, DisplayOrder
 								FROM	crmSettingRelation rl WITH(NOLOCK)

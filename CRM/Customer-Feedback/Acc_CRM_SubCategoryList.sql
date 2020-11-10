@@ -30,7 +30,7 @@ BEGIN
 														ELSE Name
 						END AS Name,
 						DisplayOrder,
-						1 AS IsActive,
+						IsActive AS IsActive,
 			[MainCategoryID]
 	FROM crmSubCategory WITH(NOLOCK) 
 	WHERE 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END

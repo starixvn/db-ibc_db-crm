@@ -98,7 +98,7 @@ BEGIN
 		,HeadlineID
 		,HeadlineName
 		,RelatedCustID
-		,p.ProductName
+		,ISNULL(p.ProductNameCS,p.ProductName) as ProductName
 		,fb.ProductGroup
 		,Level
 		,MaxWinLimitSetting

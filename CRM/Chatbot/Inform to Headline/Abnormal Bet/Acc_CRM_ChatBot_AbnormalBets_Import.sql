@@ -338,8 +338,8 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 			BREAK
 
-		INSERT INTO dbo.crmNotification (MessageId, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT r.MessageId, nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (ReferenceId, DataSource ,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
+		SELECT r.MessageId, 'MessageId', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nt.Content, '{EN Announcement}', r.Content_en), '{SC Announcement}', r.Content_cs), '{TH Announcement}', r.Content_th), '{YN Announcement}', r.Content_vn), '{Affected List}', r.AffectedList)
 			,r.RelatedIds
 		FROM #Result r

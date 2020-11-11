@@ -31,17 +31,30 @@ BEGIN
 	-- Check permission
 	CREATE TABLE #RequiredParameters(NotificationTemplateId SMALLINT ,[Value] NVARCHAR(300), LanguageId INT)
 
-	DECLARE @iDoc INT, @MsgContentsType XML, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
+	DECLARE @iDoc INT, @Setting_AbnormalBets XML, @Setting_CWL XML, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
 			@_Contents XML, @Old_Title NVARCHAR(2000), @Old_NotificationTemplateName NVARCHAR(1000), 
 			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML
 
-	SELECT @MsgContentsType = CAST(Value AS XML)
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'NotificationTemplate'
+	-- Get setting for AbnormalBets, CWL Service
+	SELECT 
+		@Setting_AbnormalBets = CASE WHEN s.ServiceName = 'ChatBot - AbnormalBets' THEN CAST(Value AS XML) 
+								ELSE @Setting_AbnormalBets END
+		,@Setting_CWL		  = CASE WHEN s.ServiceName = 'ChatBot - CWL' THEN CAST(Value AS XML) 
+								ELSE @Setting_CWL END
+	FROM SystemSetting s WITH(NOLOCK)
+	WHERE s.SettingName = 'NotificationTemplate' AND s.ServiceName IN ('ChatBot - AbnormalBets', 'ChatBot - CWL')
 
 	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId)
 	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId
-	FROM @MsgContentsType.nodes('root/r') T(c)
+	FROM @Setting_AbnormalBets.nodes('root/r') T(c)
+	CROSS APPLY(
+		SELECT l.k.value('@Value','nvarchar(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId]
+		FROM T.c.nodes('TemplateRequiredParam') l(k)
+	) AS h
+
+	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId)
+	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId
+	FROM @Setting_CWL.nodes('root/r') T(c)
 	CROSS APPLY(
 		SELECT l.k.value('@Value','nvarchar(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId]
 		FROM T.c.nodes('TemplateRequiredParam') l(k)

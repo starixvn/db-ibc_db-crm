@@ -21,15 +21,27 @@ BEGIN
 
 	CREATE TABLE #NotificationTemplate(NotificationTemplateId INT)
 
-	DECLARE @MsgContentsType XML, @__Title NVARCHAR(200), @__NotificationTypeId SMALLINT, @__ContentXML XML, @__NotificationTypeXML XML, @NewValues NVARCHAR(MAX)
+	DECLARE  @Setting_AbnormalBets XML, @Setting_CWL XML , @__Title NVARCHAR(200), @__NotificationTypeId SMALLINT, @__ContentXML XML, @__NotificationTypeXML XML,
+			 @NewValues NVARCHAR(MAX)
 
-	SELECT @MsgContentsType = CAST(Value AS XML)
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'NotificationTemplate'
+	-- Get setting for CWL, AbnormalBets Services
+
+	SELECT 
+		@Setting_AbnormalBets = CASE WHEN s.ServiceName = 'ChatBot - AbnormalBets' THEN CAST(Value AS XML) 
+								ELSE @Setting_AbnormalBets END
+		,@Setting_CWL		  = CASE WHEN s.ServiceName = 'ChatBot - CWL' THEN CAST(Value AS XML) 
+								ELSE @Setting_CWL END
+	FROM SystemSetting s WITH(NOLOCK)
+	WHERE s.SettingName = 'NotificationTemplate' AND s.ServiceName IN ('ChatBot - AbnormalBets', 'ChatBot - CWL')
 
 	INSERT INTO #NotificationTemplate(NotificationTemplateId)
-	SELECT  T.c.value('@NotificationTemplateID', 'INT')
-	FROM @MsgContentsType.nodes('/root/r') T(c)
+	SELECT  DISTINCT T.c.value('@NotificationTemplateID', 'INT')
+	FROM @Setting_AbnormalBets.nodes('/root/r') T(c)
+
+	INSERT INTO #NotificationTemplate(NotificationTemplateId)
+	SELECT  DISTINCT T.c.value('@NotificationTemplateID', 'INT')
+	FROM @Setting_CWL.nodes('/root/r') T(c)
+
 	-- Check permission
 
 	-- Check exists NotificationTemplateId

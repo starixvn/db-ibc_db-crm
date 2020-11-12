@@ -23,6 +23,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @lastLogId BIGINT
+
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
@@ -83,6 +85,8 @@ BEGIN
 
 		RETURN
 	END
+
+	SELECT @lastLogId = MAX(LogId) FROM #ImportData
 
 	-- Get Job Setting
 	DECLARE @Xml XML
@@ -387,6 +391,12 @@ BEGIN
 
 		SELECT @Id = @Id + 1
 	END
+
+	-- Update lastLogId
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), @lastLogId)
+	WHERE ServiceName = 'ChatBot - CWL'
+		AND SettingName = 'LastLogID'
 
 	-- Update crmMessageImport
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)

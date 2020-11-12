@@ -16,7 +16,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @RowCount INT
+	DECLARE @RowCount INT = 0
 
 	DECLARE @Result TABLE
 	(
@@ -45,6 +45,7 @@ BEGIN
 		SELECT TOP (@BatchSize) LogId, CustId, ProductId, GroupId, WinlostDate
 		FROM dbo.WinLimit_CustGameMonitoring_History WITH (NOLOCK)
 		WHERE LogId > @tmpLogId
+		ORDER BY LogId ASC
 
 		IF @@ROWCOUNT = 0
 			BREAK
@@ -57,6 +58,8 @@ BEGIN
 					AND r.ProductId = h.ProductId
 					AND r.GroupID = h.GroupID
 					AND r.WinlostDate = h.WinlostDate
+					AND r.LogId = h.LogId
+					AND h.ActionId NOT IN (2, 4)
 
 		UPDATE r
 		SET r.Username =  c.username
@@ -70,6 +73,7 @@ BEGIN
 			INNER JOIN dbo.Customer a WITH (NOLOCK) ON c.recommend = a.CustId
 			INNER JOIN dbo.Site s WITH (NOLOCK) ON s.site = a.site
 		WHERE s.isDeposit = 0 AND s.isActive = 1 AND s.site <> 'CN88'
+			AND r.recommend IS NULL
 
 		SELECT @RowCount = @RowCount + @@ROWCOUNT
 
@@ -89,8 +93,8 @@ BEGIN
 			BREAK
 		END
 
-		DELETE @Result WHERE recommend IS NULL
 		SELECT @tmpLogId = MAX(LogId) FROM @Result
+		DELETE @Result WHERE recommend IS NULL
 	END
 
 	SELECT

@@ -66,42 +66,42 @@ FROM crmSetting WITH(NOLOCK)
 WHERE SettingName = 'NotificationTemplateLanguage' AND IsActive = 1
 
 INSERT INTO @Contents (NotificationTemplateName, LanguageId, Value)
-VALUES ('Company Win Loss Limit - Orange/Yellow Level Template', @EN, N'Dear Sir, Customer Support would like to inform that member "{player_username}", currently has won amounted to "{player_wl_amount} ({player_currency})" in {product_name}. Thank you for your kind attention!')
-,('Company Win Loss Limit - Orange/Yellow Level Template', @SC,N'您好, 客服部在此通知 会员 "{player_username}" 目前在{product_name} 赢了 "{player_wl_amount} ({player_currency})"。谢谢您的关注与支持!')
-,('Company Win Loss Limit - Orange/Yellow Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to inform that member ""{player_username}"", currently has won amounted to ""{player_wl_amount} ({player_currency})"" in {product_name}. Thank you for your kind attention!
+VALUES ('Company Win Loss Limit - Orange/Yellow Level Template', @EN, N'Dear Sir, Customer Support would like to inform that member "{player_username}", currently has won amounted to "{player_wl_amount} ({player_currency})" in {product_name_en}. Thank you for your kind attention!')
+,('Company Win Loss Limit - Orange/Yellow Level Template', @SC,N'您好, 客服部在此通知 会员 "{player_username}" 目前在{product_name_sc} 赢了 "{player_wl_amount} ({player_currency})"。谢谢您的关注与支持!')
+,('Company Win Loss Limit - Orange/Yellow Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to inform that member ""{player_username}"", currently has won amounted to ""{player_wl_amount} ({player_currency})"" in {product_name_en}. Thank you for your kind attention!
 
-您好, 客服部在此通知 会员 ""{player_username}"" 目前在{product_name} 赢了 ""{player_wl_amount} ({player_currency})""。谢谢您的关注与支持!"')
-,('Company Win Loss Limit - Orange/Yellow Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดชนะ "{player_wl_amount} ({player_currency})" ใน {product_name} ขอขอบคุณสำหรับความสนใจและการสนับสนุนของคุณ')
-,('Company Win Loss Limit - Orange/Yellow Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thành viên "{player_username}", hiện tại số tiền thắng lên tới "{player_wl_amount} ({player_currency})" trong {product_name}. Xin cám ơn quý khách!')
-
---
-,('Company Win Loss Limit - Red Level Template', @EN, N'Dear Sir, Customer Support would like to inform that there is [BIG Winner] under your line. Member username is "{player_username}", currently has won amount of "{player_wl_amount} ({player_currency})" in "{product_name}". Kindly take note, thank you!')
-,('Company Win Loss Limit - Red Level Template', @SC, N'您好，客服部在此通知 会员 "{player_username}" 目前已达到 [赢取金额上限] 数目为 "{player_wl_amount} ({player_currency})" 在 "{product_name}". 请您留意 谢谢!')
-,('Company Win Loss Limit - Red Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to inform that there is [BIG Winner] under your line. Member username is ""{player_username}"", currently has won amount of ""{player_wl_amount} ({player_currency})"" in ""{product_name}"". Kindly take note, thank you!
-
-您好，客服部在此通知 会员 ""{player_username}"" 目前已达到 [赢取金额上限] 数目为 ""{player_wl_amount} ({player_currency})"" 在 ""{product_name}"". 请您留意 谢谢!"')
-,('Company Win Loss Limit - Red Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดชนะ [ถึงขีดจำกัดจำนวนเงินที่ชนะสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน"{product_name}" จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
-,('Company Win Loss Limit - Red Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo có [ Người Thắng Lớn ] trong hệ thống của quý khách. Tên đăng nhập của thành viên là  "{player_username}", hiện tại số tiền thắng đã lên tới "{player_wl_amount} ({player_currency})" trong {product_name}. Xin vui lòng lưu ý, cám ơn quý khách!')
+您好, 客服部在此通知 会员 ""{player_username}"" 目前在{product_name_sc} 赢了 ""{player_wl_amount} ({player_currency})""。谢谢您的关注与支持!"')
+,('Company Win Loss Limit - Orange/Yellow Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดชนะ "{player_wl_amount} ({player_currency})" ใน {product_name_th} ขอขอบคุณสำหรับความสนใจและการสนับสนุนของคุณ')
+,('Company Win Loss Limit - Orange/Yellow Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thành viên "{player_username}", hiện tại số tiền thắng lên tới "{player_wl_amount} ({player_currency})" trong {product_name_yn}. Xin cám ơn quý khách!')
 
 --
-,('Company Win Loss Limit - Grey Level Template', @EN, N'Dear Sir, Customer Support would like to inform that member "{player_username}", currently has loss amounted to "{player_wl_amount} ({player_currency})" in {product_name}. Thank you for your kind attention!')
-,('Company Win Loss Limit - Grey Level Template', @SC, N'您好, 客服部在此通知 会员 "{player_username}" 目前在{product_name} 输了 "{player_wl_amount} ({player_currency})"。谢谢您的关注与支持!')
-,('Company Win Loss Limit - Grey Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to inform that member ""{player_username}"", currently has loss amounted to ""{player_wl_amount} ({player_currency})"" in {product_name}. Thank you for your kind attention!
+,('Company Win Loss Limit - Red Level Template', @EN, N'Dear Sir, Customer Support would like to inform that there is [BIG Winner] under your line. Member username is "{player_username}", currently has won amount of "{player_wl_amount} ({player_currency})" in "{product_name_en}". Kindly take note, thank you!')
+,('Company Win Loss Limit - Red Level Template', @SC, N'您好，客服部在此通知 会员 "{player_username}" 目前已达到 [赢取金额上限] 数目为 "{player_wl_amount} ({player_currency})" 在 "{product_name_sc}". 请您留意 谢谢!')
+,('Company Win Loss Limit - Red Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to inform that there is [BIG Winner] under your line. Member username is ""{player_username}"", currently has won amount of ""{player_wl_amount} ({player_currency})"" in ""{product_name_en}"". Kindly take note, thank you!
 
-
-
-您好, 客服部在此通知 会员 ""{player_username}"" 目前在{product_name} 输了 ""{player_wl_amount} ({player_currency})""。谢谢您的关注与支持!"')
-,('Company Win Loss Limit - Grey Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดเสีย "{player_wl_amount} ({player_currency})" ใน {product_name} ขอขอบคุณสำหรับความสนใจและการสนับสนุนของคุณ')
-,('Company Win Loss Limit - Grey Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thành viên  "{player_username}", hiện tại số tiền thua lên tới "{player_wl_amount} ({player_currency})" trong {product_name}. Xin cám ơn quý khách!')
+您好，客服部在此通知 会员 ""{player_username}"" 目前已达到 [赢取金额上限] 数目为 ""{player_wl_amount} ({player_currency})"" 在 ""{product_name_sc}"". 请您留意 谢谢!"')
+,('Company Win Loss Limit - Red Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดชนะ [ถึงขีดจำกัดจำนวนเงินที่ชนะสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน"{product_name_th}" จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
+,('Company Win Loss Limit - Red Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo có [ Người Thắng Lớn ] trong hệ thống của quý khách. Tên đăng nhập của thành viên là  "{player_username}", hiện tại số tiền thắng đã lên tới "{player_wl_amount} ({player_currency})" trong {product_name_yn}. Xin vui lòng lưu ý, cám ơn quý khách!')
 
 --
-,('Company Win Loss Limit - Black Level Template', @EN, N'Dear Sir, Customer Support would like to draw your attention towards member "{player_username}" has [hit Max Lose Limit] amounted to "{player_wl_amount} ({player_currency})" in {product_name}. Kindly take note, thank you!')
-,('Company Win Loss Limit - Black Level Template', @SC, N'您好，客服部在此通知 会员 "{player_username}" 目前已达到 [最高输额上限] 数目为"{player_wl_amount} ({player_currency})" 在{product_name}. 请您留意 谢谢!')
-,('Company Win Loss Limit - Black Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to draw your attention towards member ""{player_username}"" has [hit Max Lose Limit] amounted to ""{player_wl_amount} ({player_currency})"" in {product_name}. Kindly take note, thank you!
+,('Company Win Loss Limit - Grey Level Template', @EN, N'Dear Sir, Customer Support would like to inform that member "{player_username}", currently has loss amounted to "{player_wl_amount} ({player_currency})" in {product_name_en}. Thank you for your kind attention!')
+,('Company Win Loss Limit - Grey Level Template', @SC, N'您好, 客服部在此通知 会员 "{player_username}" 目前在{product_name_sc} 输了 "{player_wl_amount} ({player_currency})"。谢谢您的关注与支持!')
+,('Company Win Loss Limit - Grey Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to inform that member ""{player_username}"", currently has loss amounted to ""{player_wl_amount} ({player_currency})"" in {product_name_en}. Thank you for your kind attention!
 
-您好，客服部在此通知 会员 ""{player_username}"" 目前已达到 [最高输额上限] 数目为""{player_wl_amount} ({player_currency})"" 在{product_name}. 请您留意 谢谢!"')
-,('Company Win Loss Limit - Black Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดเสีย [ถึงขีดจำกัดจำนวนเงินที่เสียสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน"{product_name}" จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
-,('Company Win Loss Limit - Black Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin quý khách lưu ý tới thành viên "{player_username}", đã đạt giới hạn thua tối đa lên tới "{player_wl_amount} ({player_currency})" trong {product_name}. Xin cám ơn quý khách đã lưu tâm!')
+
+
+您好, 客服部在此通知 会员 ""{player_username}"" 目前在{product_name_sc} 输了 ""{player_wl_amount} ({player_currency})""。谢谢您的关注与支持!"')
+,('Company Win Loss Limit - Grey Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดเสีย "{player_wl_amount} ({player_currency})" ใน {product_name_th} ขอขอบคุณสำหรับความสนใจและการสนับสนุนของคุณ')
+,('Company Win Loss Limit - Grey Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thành viên  "{player_username}", hiện tại số tiền thua lên tới "{player_wl_amount} ({player_currency})" trong {product_name_yn}. Xin cám ơn quý khách!')
+
+--
+,('Company Win Loss Limit - Black Level Template', @EN, N'Dear Sir, Customer Support would like to draw your attention towards member "{player_username}" has [hit Max Lose Limit] amounted to "{player_wl_amount} ({player_currency})" in {product_name_en}. Kindly take note, thank you!')
+,('Company Win Loss Limit - Black Level Template', @SC, N'您好，客服部在此通知 会员 "{player_username}" 目前已达到 [最高输额上限] 数目为"{player_wl_amount} ({player_currency})" 在{product_name_sc}. 请您留意 谢谢!')
+,('Company Win Loss Limit - Black Level Template', @EN_SC, N'"Dear Sir, Customer Support would like to draw your attention towards member ""{player_username}"" has [hit Max Lose Limit] amounted to ""{player_wl_amount} ({player_currency})"" in {product_name_en}. Kindly take note, thank you!
+
+您好，客服部在此通知 会员 ""{player_username}"" 目前已达到 [最高输额上限] 数目为""{player_wl_amount} ({player_currency})"" 在{product_name_sc}. 请您留意 谢谢!"')
+,('Company Win Loss Limit - Black Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดเสีย [ถึงขีดจำกัดจำนวนเงินที่เสียสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน"{product_name_th}" จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
+,('Company Win Loss Limit - Black Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin quý khách lưu ý tới thành viên "{player_username}", đã đạt giới hạn thua tối đa lên tới "{player_wl_amount} ({player_currency})" trong {product_name_yn}. Xin cám ơn quý khách đã lưu tâm!')
 
 --
 ,('Company Win Loss Limit - RNG Progressive Jackpot Template', @EN, N'Dear Sir, Customer Support would like to inform that member "{player_username}", has currently won the Jackpot amount of "{player_wl_amount} ({player_currency})" in RNG Casino Baccarat Progressive Jackpot. Thank you for your kind attention!')
@@ -159,11 +159,12 @@ N'<root>
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50000" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50001" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50002" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50003" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50004" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50000" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_th}" LanguageId="50003" />
+		<TemplateRequiredParam Value="{product_name_yn}" LanguageId="50004" />
 	</r>
 	<r IsTest="0" GroupIds="0" LevelIds="3" NotificationTemplateID="' + CAST(@NotificationTemplateID_Red	 AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'">
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
@@ -181,11 +182,12 @@ N'<root>
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50000" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50001" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50002" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50003" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50004" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50000" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_th}" LanguageId="50003" />
+		<TemplateRequiredParam Value="{product_name_yn}" LanguageId="50004" />
 	</r>
 	<r IsTest="0" GroupIds="0" LevelIds="101" NotificationTemplateID="' + CAST(@NotificationTemplateID_Grey AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'">
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
@@ -203,11 +205,12 @@ N'<root>
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50000" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50001" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50002" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50003" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50004" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50000" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_th}" LanguageId="50003" />
+		<TemplateRequiredParam Value="{product_name_yn}" LanguageId="50004" />
 	</r>
 	<r IsTest="0" GroupIds="0" LevelIds="102" NotificationTemplateID="' + CAST(@NotificationTemplateID_Black AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'">
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
@@ -225,11 +228,12 @@ N'<root>
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50000" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50001" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50002" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50003" />
-		<TemplateRequiredParam Value="{product_name}" LanguageId="50004" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50000" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{product_name_en}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_sc}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{product_name_th}" LanguageId="50003" />
+		<TemplateRequiredParam Value="{product_name_yn}" LanguageId="50004" />
 	</r>
 	<r IsTest="0" GroupIds="17,18" LevelIds="3" NotificationTemplateID="' + CAST(@NotificationTemplateID_RNG AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'">
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />

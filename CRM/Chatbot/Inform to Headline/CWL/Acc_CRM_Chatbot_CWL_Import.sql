@@ -16,7 +16,7 @@ AS
 	Param's Explanation:
 		. @XmlData
 			<root>
-				<r LogId="1" CustId="114" CurrencyName="USD" Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" Winloss="100" ProductNameEN="SB" ProductNameCS="SB" ProductNameTH="SB" ProductNameVN="SB" LevelId="" GroupId=""/>
+				<r LogId="1" CustId="114" CurrencyName="USD" Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" Winloss="100" ProductNameEN="SB" ProductNameSC="SB" ProductNameTH="SB" ProductNameVN="SB" LevelId="" GroupId=""/>
 			</root>
 */
 
@@ -50,13 +50,13 @@ BEGIN
 		,Srecommend			INT
 		,Winloss			MONEY
 		,ProductNameEN		NVARCHAR(50)
-		,ProductNameCS		NVARCHAR(50)
+		,ProductNameSC		NVARCHAR(50)
 		,ProductNameTH		NVARCHAR(50)
 		,ProductNameVN		NVARCHAR(50)
 		,LevelId			INT
 		,GroupId			INT
 	)
-	INSERT INTO #ImportData (LogId, CustId, CurrencyName, Username, Recommend, Mrecommend, Srecommend, Winloss, ProductNameEN, ProductNameCS, ProductNameTH, ProductNameVN, LevelId, GroupId)
+	INSERT INTO #ImportData (LogId, CustId, CurrencyName, Username, Recommend, Mrecommend, Srecommend, Winloss, ProductNameEN, ProductNameSC, ProductNameTH, ProductNameVN, LevelId, GroupId)
 	SELECT
 		t.c.value('@LogId', 'BIGINT') AS LogId
 		,t.c.value('@CustId', 'INT') AS CustId
@@ -67,7 +67,7 @@ BEGIN
 		,t.c.value('@Srecommend', 'INT') AS Srecommend
 		,t.c.value('@Winloss', 'MONEY') AS Winloss
 		,t.c.value('@ProductNameEN', 'NVARCHAR(50)') AS ProductNameEN
-		,t.c.value('@ProductNameCS', 'NVARCHAR(50)') AS ProductNameCS
+		,t.c.value('@ProductNameSC', 'NVARCHAR(50)') AS ProductNameSC
 		,t.c.value('@ProductNameTH', 'NVARCHAR(50)') AS ProductNameTH
 		,t.c.value('@ProductNameVN', 'NVARCHAR(50)') AS ProductNameVN
 		,t.c.value('@LevelId', 'INT') AS LevelId
@@ -185,13 +185,13 @@ BEGIN
 		,Winloss			MONEY
 		,CurrencyName		NVARCHAR(50)
 		,ProductNameEN		NVARCHAR(50)
-		,ProductNameCS		NVARCHAR(50)
+		,ProductNameSC		NVARCHAR(50)
 		,ProductNameTH		NVARCHAR(50)
 		,ProductNameVN		NVARCHAR(50)
 		,RecipientId		INT
 	)
-	INSERT INTO #LogRecipient (LogId, Username, DirectAccount, HeadlineId, Winloss, CurrencyName, ProductNameEN, ProductNameCS, ProductNameTH, ProductNameVN, RecipientId)
-	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameCS, m.ProductNameTH, m.ProductNameVN, r.RecipientId
+	INSERT INTO #LogRecipient (LogId, Username, DirectAccount, HeadlineId, Winloss, CurrencyName, ProductNameEN, ProductNameSC, ProductNameTH, ProductNameVN, RecipientId)
+	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameSC, m.ProductNameTH, m.ProductNameVN, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
@@ -244,7 +244,10 @@ BEGIN
 		,Username				VARCHAR(30)
 		,Winloss				MONEY
 		,CurrencyName			NVARCHAR(50)
-		,ProductName			NVARCHAR(50)
+		,ProductNameEN			NVARCHAR(50)
+		,ProductNameSC			NVARCHAR(50)
+		,ProductNameTH			NVARCHAR(50)
+		,ProductNameVN			NVARCHAR(50)
 		,ConversationGroupId	SMALLINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
@@ -330,12 +333,15 @@ BEGIN
 	SET r.Username = m.Username
 		,r.Winloss = m.Winloss
 		,r.CurrencyName = m.CurrencyName
-		,r.ProductName = CASE WHEN r.LanguageId = 50000 THEN m.ProductNameEN ELSE m.ProductNameEN END
+		,r.ProductNameEN = m.ProductNameEN
+		,r.ProductNameSC = m.ProductNameSC
+		,r.ProductNameTH = m.ProductNameTH
+		,r.ProductNameVN = m.ProductNameVN
 		,r.LevelId = m.LevelId
 		,r.GroupId = m.GroupId
 	FROM #Result r
 		CROSS APPLY (
-			SELECT TOP 1 m.Username, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameCS, m.ProductNameTH, m.ProductNameVN, m.LevelId, m.GroupId
+			SELECT TOP 1 m.Username, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameSC, m.ProductNameTH, m.ProductNameVN, m.LevelId, m.GroupId
 			FROM #ImportData m
 			WHERE r.logid = m.LogId
 		) m
@@ -353,7 +359,19 @@ BEGIN
 
 		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
 		SELECT TOP(1) r.LogId, 'LogId', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
-			,REPLACE(REPLACE(REPLACE(REPLACE(nt.Content, '{player_username}', r.Username), '{player_wl_amount}', r.Winloss), '{player_currency}', r.CurrencyName), '{product_name}', r.ProductName)
+			,REPLACE(
+				REPLACE(
+					REPLACE(
+						REPLACE(
+							REPLACE(
+								REPLACE(
+									REPLACE(nt.Content, '{player_username}', r.Username)
+									,'{player_wl_amount}', r.Winloss)
+								,'{player_currency}', r.CurrencyName)
+							,'{product_name_en}', r.ProductNameEN)
+						,'{product_name_th}', r.ProductNameTH)
+					,'{product_name_sc}', r.ProductNameSC)
+				,'{product_name_yn}', r.ProductNameVN)
 			,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId AND r.LevelId = nt.LevelId AND nt.GroupId IN (r.GroupId, 0)

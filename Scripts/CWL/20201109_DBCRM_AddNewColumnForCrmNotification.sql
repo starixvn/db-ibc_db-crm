@@ -14,9 +14,12 @@ ADD ReferenceId BIGINT, DataSource NVARCHAR(128)
 CREATE NONCLUSTERED INDEX [IX_ReferenceId] ON [dbo].[crmNotification]
 (
 	[ReferenceId] ASC,
+	[DataSource]	ASC,
 	[NotificationId] ASC
 ) ON [DataChatBot]
 GO
+
+DROP INDEX [IX_MessageId] ON [crmNotification]
 
 
 

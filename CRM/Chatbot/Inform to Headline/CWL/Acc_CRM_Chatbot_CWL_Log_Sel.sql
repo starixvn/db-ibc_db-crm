@@ -32,6 +32,7 @@ BEGIN
 		,LevelId			INT
 		,GroupId			INT
 		,WinlostDate		SMALLDATETIME
+		,ActionID			TINYINT
 	)
 
 	DECLARE @tmpLogId BIGINT = @LastLogId
@@ -51,7 +52,7 @@ BEGIN
 			BREAK
 
 		UPDATE r
-		SET r.LevelId = h.LevelId, r.Winloss = h.WinAmt
+		SET r.LevelId = h.LevelId, r.Winloss = h.WinAmt, r.ActionID = h.ActionID
 		FROM @Result r
 			INNER JOIN dbo.WinLimit_CustGameMonitoring_History h WITH (NOLOCK)
 				ON	r.CustId = h.CustId
@@ -59,7 +60,8 @@ BEGIN
 					AND r.GroupID = h.GroupID
 					AND r.WinlostDate = h.WinlostDate
 					AND r.LogId = h.LogId
-					AND h.ActionId NOT IN (2, 4)
+
+		DELETE @Result WHERE ActionID IN (2, 4)		
 
 		UPDATE r
 		SET r.Username =  c.username

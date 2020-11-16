@@ -45,7 +45,7 @@ BEGIN
 		)
 		SELECT TOP (@BatchSize) LogId, CustId, ProductId, GroupId, WinlostDate
 		FROM dbo.WinLimit_CustGameMonitoring_History WITH (NOLOCK)
-		WHERE LogId > @tmpLogId
+		WHERE LogId > @tmpLogId AND WinlostDate >= CONVERT(DATE, GETDATE() - 1)
 		ORDER BY LogId ASC
 
 		IF @@ROWCOUNT = 0

@@ -115,17 +115,16 @@ BEGIN
 	END
 
 	IF EXISTS (SELECT 1 
-				FROM #RequiredParameters r 
-				CROSS APPLY(
+			   FROM #RequiredParameters r 
+			   CROSS APPLY(
 		 			SELECT COUNT(*) AS C 
-					FROM #RequiredParameters r1 
-					WHERE r1.LanguageId = r.LanguageId AND r1.Value = r.Value AND r.NotificationTemplateId = r.NotificationTemplateId 				
-		 			GROUP BY r1.Value
-				) AS l(c)
-				CROSS APPLY(
-		 			SELECT LEN(c.Value) - LEN(REPLACE(c.Value, r.Value, ''))/LEN(r.Value) AS k FROM #Contents c WHERE c.LanguageId = r.LanguageId 
-				) d(k)
-				WHERE l.c > d.k AND r.NotificationTemplateId = @NotificationTemplateId)
+			   		FROM #RequiredParameters r1 
+			   		WHERE r1.LanguageId = r.LanguageId AND r1.Value = r.Value AND r1.NotificationTemplateId = r.NotificationTemplateId 				
+			   ) AS l(c)
+			   CROSS APPLY(
+		 	   		SELECT (LEN(c.Value) - LEN(REPLACE(c.Value, r.Value, '')))/LEN(r.Value) AS k FROM #Contents c WHERE c.LanguageId = r.LanguageId 
+			   ) d(k)
+			   WHERE l.c > d.k AND r.NotificationTemplateId = @NotificationTemplateId)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'You cannot remove predefined param(s).'
 		RETURN

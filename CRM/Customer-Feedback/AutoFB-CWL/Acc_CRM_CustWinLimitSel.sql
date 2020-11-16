@@ -42,11 +42,12 @@ BEGIN
 		CASE WHEN s.custid IS NOT NULL THEN 1 ELSE 0 END as IsDeposit,
 		ci.currency
 	FROM WinLimit_CustGameMonitoring_History cg WITH(NOLOCK)
-		INNER JOIN custinfo ci WITH(NOLOCK) ON cg.custid = ci.custid		
+		INNER JOIN customer ci WITH(NOLOCK) ON cg.custid = ci.custid		
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
 	WHERE LogID > @LastLogID
 		AND cg.WinlostDate >= CAST(GETDATE() -1  as DATE)
 		AND ActionID NOT IN (2,4)
+		AND ci.site <> 'cn88'
 	)
 	SELECT TOP (@BatchSize) 
 		LogID,

@@ -14,6 +14,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
 	Param's Explanation:
 */
 BEGIN

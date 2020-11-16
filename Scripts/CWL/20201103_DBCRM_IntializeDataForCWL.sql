@@ -147,15 +147,18 @@ N'<root>
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
@@ -170,15 +173,18 @@ N'<root>
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
@@ -193,15 +199,18 @@ N'<root>
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
@@ -216,15 +225,18 @@ N'<root>
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />
@@ -239,15 +251,18 @@ N'<root>
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_username}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_username}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50001" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
+		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_wl_amount}" LanguageId="50004" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50000" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50001" />
+		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50002" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50003" />
 		<TemplateRequiredParam Value="{player_currency}" LanguageId="50004" />

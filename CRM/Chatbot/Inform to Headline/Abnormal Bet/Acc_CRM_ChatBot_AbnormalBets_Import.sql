@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20201116@Malcolm: Change the MessageID column to the ReferenceId column [RedmineID: #144265]
 
 	Param's Explanation:
 		. @XmlData

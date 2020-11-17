@@ -366,7 +366,7 @@ BEGIN
 							REPLACE(
 								REPLACE(
 									REPLACE(nt.Content, '{player_username}', r.Username)
-									,'{player_wl_amount}', r.Winloss)
+									,'{player_wl_amount}', CONVERT(INT, r.Winloss))
 								,'{player_currency}', r.CurrencyName)
 							,'{product_name_en}', r.ProductNameEN)
 						,'{product_name_th}', r.ProductNameTH)

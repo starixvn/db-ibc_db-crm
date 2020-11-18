@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20200418@Johnson: Initial sp [redmine:#130949]
+		- 20201021@Johnson: add setting for product [redmine:#142194]
 	Param's Explanation:
 		- @Settings ='SubProduct,Bettype'
 */
@@ -22,12 +23,12 @@ BEGIN
 	SELECT val
 	FROM f_CRM_strSplit(@Settings,',')
 	
-	IF EXISTS (SELECT 1 FROM @tmpSetting WHERE SettingName IN ('SubProduct','Bettype'))
+	IF EXISTS (SELECT 1 FROM @tmpSetting WHERE SettingName IN ('Product','SubProduct','Bettype'))
 	BEGIN
 		SELECT s.SettingID, s.SettingName, s.SettingValue, m.SettingSource
 		FROM crmSetting s WITH(NOLOCK)
 			LEFT JOIN crmSettingMapping m WITH(NOLOCK) ON s.SettingID = m.SettingID
-		WHERE s.SettingName IN (SELECT SettingName FROM @tmpSetting WHERE SettingName IN ('SubProduct','Bettype')) 
+		WHERE s.SettingName IN (SELECT SettingName FROM @tmpSetting WHERE SettingName IN ('Product','SubProduct','Bettype')) 
 			AND s.isActive = 1
 			AND s.SiteOffer = 2--MBC
 		ORDER BY SettingName, SettingSource	

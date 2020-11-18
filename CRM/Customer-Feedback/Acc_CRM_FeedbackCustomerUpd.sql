@@ -25,6 +25,7 @@ AS
 						   change default value of @RelatedCustID param to NULL value
 		- 20140303@Dom: Modify for new structure
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
+		- 20201021@Johnson: remove limit amount for related customers[redmine:#142194]
 	Param's Explanation:
 	
 */
@@ -49,13 +50,6 @@ BEGIN
 		INSERT INTO @relatedCustomer
 				SELECT CONVERT(INT,val)
 				FROM [dbo].f_CRM_strSplit(@RelatedCustID,',')
-
-		IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-		BEGIN
-			SELECT	@ErrCode = 106
-				,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-			RETURN
-		END
 
 		IF EXISTS (SELECT TOP 1 1 FROM @relatedCustomer )
 		BEGIN
@@ -115,6 +109,4 @@ BEGIN
 END
 
 
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackCustomerUpd] TO [bodbAdminNet]
 GO 

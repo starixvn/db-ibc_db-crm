@@ -1,3 +1,3 @@
-CRM\InformHeadline\Acc_CRM_InformHeadlineIns.sql
-CRM\InformHeadline\Acc_CRM_InformHeadlineSel.sql
-CRM\InformHeadline\Acc_CRM_InformHeadlineSearchSel.sql
+
+
+

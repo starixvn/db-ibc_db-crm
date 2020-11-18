@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_CustomerFeedbackIns (
+ALTER PROCEDURE	[dbo].[Acc_CRM_CustomerFeedbackIns] (
 					@UserID						INT
 				,	@CustID						INT
 				,	@UserName					NVARCHAR(50)
@@ -105,6 +105,8 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20200603@Johnson: check duplicate feedback from auto service [redmine: #135337]
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
+		- 20201020@Johnson: - remove checking limit related customers 
+							- sync customer profile to CRM for related customers [redmine:#142194]
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
@@ -129,18 +131,6 @@ BEGIN
 
 		RETURN;
 	END;
-	DECLARE	@relatedCustomer TABLE(CustID INT);
-
-	INSERT INTO	@relatedCustomer
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	IF (SELECT COUNT(1) FROM @relatedCustomer)>2000
-	BEGIN
-		SELECT	@ErrCode = 106
-			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
-		RETURN
-	END
 	
 	IF	NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
@@ -256,6 +246,114 @@ BEGIN
 		END;
 	END; 
 	
+	--Sync profile for related customers to CRM
+	DECLARE	@relatedCustomer TABLE(CustID INT, 								
+								username VARCHAR(50),
+								FirstName NVARCHAR(100),
+								LastName NVARCHAR(100),
+								phone NVARCHAR(100),
+								MobilePhone NVARCHAR(100),
+								Fax NVARCHAR(100),
+								Email NVARCHAR(100),
+								Birthday SMALLDATETIME,
+								CountryID INT,
+								SiteID INT,
+								isExistsCRM BIT DEFAULT(0), 
+								isFinished BIT DEFAULT(0));
+
+	INSERT INTO	@relatedCustomer(custid)
+	SELECT	CONVERT(INT, val)
+	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+
+	UPDATE t
+	SET isExistsCRM = 1 
+	FROM @relatedCustomer t
+		INNER JOIN crmCustomer cm WITH(NOLOCK) ON t.custid = cm.custid
+	
+	IF EXISTS (SELECT 1 FROM @relatedCustomer WHERE isExistsCRM = 0)
+	BEGIN
+		DECLARE @r_CustID INT,
+				@r_username VARCHAR(50),
+				@r_FirstName NVARCHAR(100),
+				@r_LastName NVARCHAR(100),
+				@r_phone NVARCHAR(100),
+				@r_MobilePhone NVARCHAR(100),
+				@r_Fax NVARCHAR(100),
+				@r_Email NVARCHAR(100),
+				@r_Birthday SMALLDATETIME,
+				@r_CountryID INT,
+				@r_SiteID INT
+			
+		UPDATE t
+		SET t.custid = c.custid,
+			t.username = c.username,
+			t.FirstName = c.FirstName,
+			t.LastName = c.LastName, 
+			t.phone = c.phone,
+			t.MobilePhone = c.MobilePhone,
+			t.Fax = c.Fax,
+			t.Email = c.Email,
+			t.Birthday = c.Birthday,
+			t.CountryID = ct.CountryID,
+			t.SiteID = (SELECT SettingID 
+						FROM crmSetting WITH(NOLOCK) 
+						WHERE SettingValue = ISNULL(c.site,ag.site)
+							AND SettingName IN( 'Site','SiteCategory')
+						)
+		FROM @relatedCustomer t
+			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.custid = c.custid
+			LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
+			LEFT JOIN crmCountry ct ON c.country = ct.CountryName
+		WHERE isExistsCRM = 0	
+		
+		WHILE (1=1)
+		BEGIN 
+			UPDATE TOP (1) t
+			SET isFinished = 1,
+				@r_Custid = custid,
+				@r_username = username,
+				@r_FirstName = FirstName,
+				@r_LastName = LastName, 
+				@r_phone = phone,
+				@r_MobilePhone = MobilePhone,
+				@r_Fax = Fax,
+				@r_Email = Email,
+				@r_Birthday = Birthday,
+				@r_CountryID = CountryID,
+				@r_SiteID = siteID
+			FROM @relatedCustomer t
+			WHERE isFinished = 0
+				AND isExistsCRM = 0
+				
+			IF @@ROWCOUNT = 0
+				BREAK;
+				
+			EXECUTE	dbo.Acc_CRM_CustomerIns_New
+					@UserID					= @UserID
+				,	@CustID					= @r_CustID
+				,	@UserName				= @r_UserName
+				,	@FirstName				= @r_FirstName
+				,	@LastName				= @r_LastName			
+				,	@Birthday				= @r_Birthday				
+				,	@Phone					= @r_Phone	
+				,	@MobilePhone			= @r_MobilePhone				
+				,	@Fax					= @r_Fax				
+				,	@Email					= @r_Email				
+				,	@CountryID				= @r_CountryID				
+				,	@SiteID					= @r_SiteID
+				,	@CreatorID				= @CreatorID
+				
+				,	@IP						= @IP
+				,	@ErrCode				= @ErrCode OUTPUT
+				,	@ErrMsg					= @ErrMsg OUTPUT;
+			IF @ErrCode <> 0
+			BEGIN
+				--SELECT @ErrCode = 100
+				RETURN;
+			END;	
+		END
+	END
+	
 	-- insert feedback	
 	EXECUTE	dbo.Acc_CRM_FeedbackIns
 				@UserID					= @UserID
@@ -337,5 +435,4 @@ BEGIN
 		RETURN;
 	END;
 END;
-GO 
 

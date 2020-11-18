@@ -43,7 +43,8 @@ AS
 		- 20180910@Winnie: Filter by Reviewer [RedmineID: #99982]
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190614@Helen: CN88 - Performance Tuning [Redmine: #112637]
-		
+		- 20201027@Johnson: - get Description to show tooltip for fb 
+							- show inactive setting [redmine: #142194]
 Param's Explanation:
 	
 */
@@ -53,10 +54,7 @@ BEGIN
 	DECLARE	@CustID			INT
 		,	@GuestID		INT
 		,	@TotalPages		INT;
-	
-	CREATE TABLE #Communication	 (CommunicationID	INT PRIMARY KEY )
-	CREATE TABLE #Category		 (CategoryID		INT PRIMARY KEY )
-	
+		
 	CREATE TABLE #Feedback(ID INT IDENTITY(1, 1), FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME);
 				
 	DECLARE	@HandledID		INT
@@ -81,7 +79,12 @@ BEGIN
 
 		IF	EXISTS(SELECT 1 FROM crmFeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID)
 			SELECT	@TotalRows = 1;
-
+		
+		;WITH fb AS
+		(SELECT *,CAST(Description as XML) as Description2
+		FROM crmFeedback WITH(NOLOCK)
+		WHERE FeedbackID = @FeedbackID
+		)
 		SELECT fb.FeedbackID
 					,	fb.CustID
 					,	ctm.UserName
@@ -118,7 +121,7 @@ BEGIN
 					,	fb.RoleID					
 					,	fb.ResponseID
 					,	fb.StatusID
-					--,	fb.Description
+					, 	nr.value(N'@Remark',N'nvarchar(max)') AS Description
 					,	fb.Solution
 					,	fb.IsReviewed
 					,	fb.Review
@@ -130,12 +133,13 @@ BEGIN
 					,	fb.RefCode2					
 					,	st.Name Status
 					,	l.list AS relatedCustomer
-		FROM	crmFeedback fb WITH (NOLOCK)
+		FROM	fb
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK) ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)	ON	fb.CreatorID = c.custid
 			LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid	
 			INNER JOIN	crmStatus st WITH (NOLOCK)	ON	st.StatusID = fb.StatusID
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
+			OUTER APPLY fb.Description2.nodes(N'//row') AS A(nr)
 		WHERE	fb.FeedbackID = @FeedbackID AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
 		ORDER BY FeedbackDate DESC;
 			
@@ -155,18 +159,6 @@ BEGIN
 		RETURN;
 	END;
 	
-	IF(@CommunicationID IS NULL)
-		INSERT INTO #Communication(CommunicationID)		
-		SELECT CommunicationID
-		FROM crmCommunicationTool WITH (NOLOCK)
-		WHERE IsActive=1
-		
-	IF(@MainCategoryID IS NULL)
-		INSERT INTO #Category(CategoryID)		
-		SELECT MainCategoryID
-		FROM crmMainCategory WITH (NOLOCK)
-		WHERE IsActive=1
-
 	--- get feedback for specific customer
 	IF @UserName IS NOT NULL AND @UserName <> ''
 	BEGIN
@@ -215,8 +207,8 @@ BEGIN
 			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
 		WHERE	(fbc.CustID = @CustID OR fbc.CustID = @GuestID)
 			AND	FeedbackDate BETWEEN @FromDate AND @ToDate 
-			AND ((@CommunicationID IS NULL	AND fc.SettingID IN (SELECT	CommunicationID	FROM #Communication)) OR fc.SettingID =  @CommunicationID)
-			AND ((@MainCategoryID IS NULL AND fm.SettingID  IN (SELECT Categoryid FROM #Category)) OR fm.SettingID = @MainCategoryID)	
+			AND (@CommunicationID IS NULL	OR fc.SettingID =  @CommunicationID)
+			AND (@MainCategoryID IS NULL OR fm.SettingID = @MainCategoryID)	
 			AND (@SubCategoryID IS NULL OR fm.SubSettingID = @SubCategoryID)
 			AND	(@StatusID IS NULL OR Statusid=@StatusID)
 			AND	StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 AND @UserRole=2  THEN 11004
@@ -246,13 +238,13 @@ BEGIN
 				CROSS APPLY (SELECT TOP 1 FeedbackID
 							 FROM dbo.crmFeedbackSetting fm WITH(NOLOCK) 
 							 WHERE fb.FeedbackID=fm.FeedbackID 
-								AND ((@MainCategoryID IS NULL AND fm.SettingID  IN (SELECT Categoryid FROM #Category)) OR fm.SettingID = @MainCategoryID)		
+								AND (@MainCategoryID IS NULL OR fm.SettingID = @MainCategoryID)		
 								AND (@SubCategoryID IS NULL OR fm.SubSettingID = @SubCategoryID) 
 							) AS Temp1
 				CROSS APPLY (SELECT TOP 1 FeedbackID
 							 FROM dbo.crmFeedbackSetting fc WITH(NOLOCK) 
 							 WHERE fb.FeedbackID=fc.FeedbackID
-								AND ((@CommunicationID IS NULL	AND fc.SettingID IN (SELECT	CommunicationID	FROM #Communication)) OR fc.SettingID =  @CommunicationID)
+								AND (@CommunicationID IS NULL OR fc.SettingID =  @CommunicationID)
 							
 							) AS Temp2	
 			WHERE	fb.FeedbackDate BETWEEN @FromDate AND @ToDate 
@@ -284,13 +276,13 @@ BEGIN
 				CROSS APPLY (SELECT TOP 1 FeedbackID
 							 FROM dbo.crmFeedbackSetting fm WITH(NOLOCK) 
 							 WHERE fb.FeedbackID=fm.FeedbackID 
-								AND ((@MainCategoryID IS NULL AND fm.SettingID  IN (SELECT Categoryid FROM #Category)) OR fm.SettingID = @MainCategoryID)		
+								AND (@MainCategoryID IS NULL OR fm.SettingID = @MainCategoryID)		
 								AND (@SubCategoryID IS NULL OR fm.SubSettingID = @SubCategoryID) 
 							) AS Temp1
 				CROSS APPLY (SELECT TOP 1 FeedbackID
 							 FROM dbo.crmFeedbackSetting fc WITH(NOLOCK) 
 							 WHERE fb.FeedbackID=fc.FeedbackID
-								AND ((@CommunicationID IS NULL	AND fc.SettingID IN (SELECT	CommunicationID	FROM #Communication)) OR fc.SettingID =  @CommunicationID)
+								AND (@CommunicationID IS NULL	OR fc.SettingID =  @CommunicationID)
 							
 							) AS Temp2						
 			WHERE fbc.CustID > 0 
@@ -321,13 +313,13 @@ BEGIN
 				CROSS APPLY (SELECT TOP 1 FeedbackID
 							 FROM dbo.crmFeedbackSetting fm WITH(NOLOCK) 
 							 WHERE fb.FeedbackID=fm.FeedbackID 
-								AND ((@MainCategoryID IS NULL AND fm.SettingID  IN (SELECT Categoryid FROM #Category)) OR fm.SettingID = @MainCategoryID)		
+								AND (@MainCategoryID IS NULL OR fm.SettingID = @MainCategoryID)		
 								AND (@SubCategoryID IS NULL OR fm.SubSettingID = @SubCategoryID) 
 							) AS Temp1
 				CROSS APPLY (SELECT TOP 1 FeedbackID
 							 FROM dbo.crmFeedbackSetting fc WITH(NOLOCK) 
 							 WHERE fb.FeedbackID=fc.FeedbackID
-								AND ((@CommunicationID IS NULL	AND fc.SettingID IN (SELECT	CommunicationID	FROM #Communication)) OR fc.SettingID =  @CommunicationID)
+								AND (@CommunicationID IS NULL	OR fc.SettingID =  @CommunicationID)
 							
 							) AS Temp2					
 			WHERE fbc.CustID < 0
@@ -360,7 +352,7 @@ BEGIN
 		,	fb.CreateDate
 		,	fb.SolveDate	
 		,	fb.StatusID
-		--,	fb.Description
+		,	nr.value(N'@Remark',N'nvarchar(max)') AS Description
 		,	fb.Solution
 		,	fb.IsReviewed
 		,	fb.Review
@@ -386,7 +378,8 @@ BEGIN
 							,fb.Review
 							,fb.ReviewerID
 							,fb.Subject
-					FROM dbo.crmFeedback fb WITH (NOLOCK)
+							,CAST (fb.Description as XML) Description
+					FROM dbo.crmFeedback fb WITH (NOLOCK)						
 					WHERE fbc.FeedbackID = fb.FeedbackID
 					) AS fb
 		LEFT JOIN dbo.crmCustomer ctm WITH (NOLOCK)	ON	ctm.CustID = fb.CustID
@@ -394,6 +387,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid
 		LEFT JOIN crmStatus st WITH (NOLOCK) ON	st.StatusID = fb.StatusID
 		CROSS APPLY dbo.f_GetRelatedCustomer(fbc.FeedbackID) l
+		OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
 	WHERE	fbc.ID BETWEEN @PageIndex * @ItemsPerPage - @ItemsPerPage + 1
 				   AND	   @PageIndex * @ItemsPerPage OR @PageIndex = 0
 		
@@ -408,9 +402,6 @@ BEGIN
 		INNER JOIN crmMainCategory m WITH (NOLOCK) ON fs.SettingID=m.MainCategoryID
 	
 	DROP TABLE #Feedback
-	DROP TABLE #Category
-	DROP TABLE #Communication
-	
 	
 END
 GO

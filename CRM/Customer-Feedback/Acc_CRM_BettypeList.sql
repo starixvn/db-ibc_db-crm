@@ -2,6 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_BettypeList]
 	@ProductID		INT = null,
 	@UserRole		TINYINT,
+	@Active			TINYINT = 1,
 	@Lang			VARCHAR(10)='en-US'
 as
 
@@ -14,20 +15,24 @@ as
 
 	Revisions:
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20201030@Johnson: add filter IsActive [redmine: #142194]
 	Param's Explanation:
-	
+		- @Active = 1: get active
+				= 2: get all 
 */
+BEGIN
+	SET NOCOUNT ON
 
-SELECT [BettypeID],
-		CASE	WHEN @Lang='zh-TW' THEN ISNULL(NameCT,Name)
-					WHEN @Lang='zh-CN' THEN ISNULL(NameCS,Name)
-											ELSE Name
-			END AS Name,
-		[ProductID],[DisplayOrder],IsActive 
-FROM crmBettype WITH(NOLOCK) 
-WHERE IsActive = 1 and (ISNULL(@ProductID,0)=0 OR ProductID = @ProductID)
-	AND (SiteOffer=@UserRole)
+	SELECT [BettypeID],
+			CASE	WHEN @Lang='zh-TW' THEN ISNULL(NameCT,Name)
+						WHEN @Lang='zh-CN' THEN ISNULL(NameCS,Name)
+												ELSE Name
+				END AS Name,
+			[ProductID],[DisplayOrder],IsActive 
+	FROM crmBettype WITH(NOLOCK) 
+	WHERE 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
+		AND (ISNULL(@ProductID,0)=0 OR ProductID = @ProductID)
+		AND (SiteOffer=@UserRole)
+END
+GO 
 
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_BettypeList] TO [bodbAdminNet]
-GO 

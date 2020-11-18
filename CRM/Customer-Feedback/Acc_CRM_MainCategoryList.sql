@@ -1,8 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE Acc_CRM_MainCategoryList
 (
-@UserRole		TINYINT,
-@Lang			VARCHAR(10)='en-US'
+	@UserRole		TINYINT,
+	@Active			TINYINT = 1,
+	@Lang			VARCHAR(10)='en-US'
 )
 AS
 /*
@@ -14,7 +15,11 @@ AS
 
 	Revisions:
 		- 20190507@Winnie:	CN88 	[RedmineID:#112637]
-	Param's Explanation:
+		- 20201030@Johnson: add filter IsActive [redmine: #142194]
+	Param's Explanation:	
+		- @Active = 1: get active
+				= 2: get all 
+					
 	
 */
 BEGIN
@@ -24,11 +29,10 @@ SELECT MainCategoryID,
 											ELSE Name
 			END AS Name,
 			DisplayOrder,
-			1 AS IsActive
-FROM crmMainCategory WITH(NOLOCK) WHERE IsActive = 1
+			IsActive AS IsActive
+FROM crmMainCategory WITH(NOLOCK) 
+WHERE 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
 	AND (siteOffer=@UserRole)
 END
 GO
 
- GRANT EXECUTE ON [dbo].[Acc_CRM_MainCategoryList] TO [bodbAdminNet]
-GO 

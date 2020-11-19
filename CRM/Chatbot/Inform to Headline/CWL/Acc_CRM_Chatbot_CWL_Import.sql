@@ -366,7 +366,7 @@ BEGIN
 							REPLACE(
 								REPLACE(
 									REPLACE(nt.Content, '{player_username}', r.Username)
-									,'{player_wl_amount}', CONVERT(INT, SIGN(r.Winloss) * FLOOR(ABS(r.Winloss))))
+									,'{player_wl_amount}', CONVERT(INT, ROUND(r.Winloss, 0, 1)))
 								,'{player_currency}', r.CurrencyName)
 							,'{product_name_en}', r.ProductNameEN)
 						,'{product_name_th}', r.ProductNameTH)

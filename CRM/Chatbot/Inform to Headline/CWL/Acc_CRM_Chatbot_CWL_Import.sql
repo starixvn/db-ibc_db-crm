@@ -130,8 +130,8 @@ BEGIN
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
 	CROSS APPLY(
 		SELECT l.val as LevelId, g.val AS GroupId
-		FROM bodb02.dbo.f_StringSplit(s.LevelIds, ',') l
-			INNER JOIN bodb02.dbo.f_StringSplit(s.GroupIds, ',') g ON 1 = 1
+		FROM dbo.f_CRM_strSplit(s.LevelIds, ',') l
+			INNER JOIN dbo.f_CRM_strSplit(s.GroupIds, ',') g ON 1 = 1
 	) t(LevelId, GroupId)
 	-- Check require param
 	IF EXISTS (

@@ -37,7 +37,7 @@ BEGIN
 
 	INSERT INTO @_HeadlineIds (HeadlineID)
 	SELECT f.val
-	FROM  bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f 
+	FROM  dbo.f_CRM_strSplit(@HeadlineIds, ',') f 
 	WHERE f.val <> ''
 
 	-- check validation
@@ -107,7 +107,7 @@ BEGIN
 		SELECT 
 			@ConversationGroupId
 			,f.Val
-		FROM bodb02.dbo.f_StringSplit(@HeadlineIds,',') f
+		FROM dbo.f_CRM_strSplit(@HeadlineIds,',') f
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_NUMBER()
@@ -151,7 +151,7 @@ BEGIN
 				  SELECT  f.val AS '@Id', 
 				  	   CASE WHEN f.val = 0 THEN 'Not Assigned Group' 
 				  	   ELSE c.username END AS '@Name'
-				  FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
+				  FROM dbo.f_CRM_strSplit(@HeadlineIds, ',') f
 				     LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
 				  WHERE f.val <> ''
 				  FOR XML PATH('Headline'))

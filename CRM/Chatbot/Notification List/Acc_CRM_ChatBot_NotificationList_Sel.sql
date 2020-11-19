@@ -40,7 +40,7 @@ BEGIN
 
 	INSERT INTO @_NotificationTypeIds(NotificationTypeId)
 	SELECT val
-	FROM bodb02.dbo.f_StringSplit(@NotificationTypeIds,',')
+	FROM dbo.f_CRM_strSplit(@NotificationTypeIds,',')
 
 
 	IF @RecipientName <> ''

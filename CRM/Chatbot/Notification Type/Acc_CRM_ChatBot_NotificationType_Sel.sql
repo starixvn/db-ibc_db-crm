@@ -45,7 +45,7 @@ BEGIN
 		nt.SystemId
 	FROM dbo.crmNotificationType nt WITH(NOLOCK)
 	WHERE (@NotificationTypeName IS NULL OR nt.NotificationTypeName LIKE '%' + @NotificationTypeName + '%')
-		AND (EXISTS(SELECT 1 FROM bodb02.dbo.f_StringSplit(@SystemId,',') f WHERE f.val = nt.SystemId) OR @SystemId IS NULL)
+		AND (EXISTS(SELECT 1 FROM dbo.f_CRM_strSplit(@SystemId,',') f WHERE f.val = nt.SystemId) OR @SystemId IS NULL)
 		
 	IF @RecipientTypeIds IS NOT NULL
 	BEGIN

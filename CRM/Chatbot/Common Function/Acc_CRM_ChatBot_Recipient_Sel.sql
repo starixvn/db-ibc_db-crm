@@ -50,7 +50,7 @@ BEGIN
 	WHERE (r.RecipientTypeId = @RecipientType OR @RecipientType IS NULL)
 		AND (p.Username LIKE '%' + @RecipientName + '%' OR @RecipientName IS NULL)	
 		AND (EXISTS(SELECT 1 
-					FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',') f 
+					FROM dbo.f_CRM_strSplit(@RecipientIds, ',') f 
 					WHERE f.val = r.RecipientId
 			) OR @RecipientIds = '')
 		AND r.DataSource = 'bodb_CRM.dbo.crmPIC'

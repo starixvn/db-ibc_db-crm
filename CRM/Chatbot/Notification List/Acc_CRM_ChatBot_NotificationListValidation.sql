@@ -20,7 +20,7 @@ BEGIN
 
 	INSERT INTO #NotificationIds(ID)
 	SELECT val
-	FROM bodb02.dbo.f_StringSplit(@NotificationIds,',')
+	FROM dbo.f_CRM_strSplit(@NotificationIds,',')
 	
 	SELECT 
 		DISTINCT nr.NotificationId

@@ -95,6 +95,7 @@ AS
 		- 20190719@Winnie:  CRM - Remove limit Is Related Customer RedmineID: #113305
 		- 20191104@Winnie:  [CRM] cannot search feedback of customer in manage feedback RedmineID: #123160
 		- 20201021@Johnson: remove limit amount for related customers[redmine:#142194]
+		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]				
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -136,11 +137,14 @@ BEGIN
 	END;
 
 	DECLARE	@relatedCustomer TABLE(CustID INT);
-
-	INSERT INTO @relatedCustomer
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
+	
+	IF ISNULL(@RelatedCustID,'') <> ''
+	BEGIN
+		INSERT INTO @relatedCustomer
+		SELECT	CONVERT(INT, val)
+		FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+	END 
+	
 	DECLARE  @tblFbSetting TABLE(		
 		SettingID			INT
 		,SubSettingID		INT 	

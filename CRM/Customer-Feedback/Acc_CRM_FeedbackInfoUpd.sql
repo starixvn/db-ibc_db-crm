@@ -102,6 +102,7 @@ AS
 		- 20191104@Winnie:  [CRM] cannot search feedback of customer in manage feedback RedmineID: #123160
 		- 20201021@Johnson: - remove limit amount for related customers
 							- sync customer profile to CRM for related customers [redmine:#142194]
+		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]				
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -267,7 +268,7 @@ BEGIN
 	END;
 	
 	--- check for update related
-	IF	@RelatedCustID is not null
+	IF	ISNULL(@RelatedCustID,'') <> ''
 	BEGIN
 		--Sync profile for related customers to CRM
 		DECLARE	@relatedCustomer TABLE(CustID INT, 								

@@ -13,14 +13,16 @@ Original:
 
 Revisions:	
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20201120@Johnson: check incase SiteID = NULL  [redmine:#145439]
 Param's Explanation:	
 */
-SELECT TOP 5 a.Remark 
-FROM crmCustomerRemark a WITH(NOLOCK) 
-	INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
-WHERE a.CustID = @CustID AND IsSpecial = 1
-	AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationSpecialRemarkSel] TO [bodbAdminNet]
+BEGIN
+	SET NOCOUNT ON
+	
+	SELECT TOP 5 a.Remark 
+	FROM crmCustomerRemark a WITH(NOLOCK) 
+		INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
+	WHERE a.CustID = @CustID AND IsSpecial = 1
+		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND ISNULL(b.SiteID,0) <>33002))
+END
 GO 

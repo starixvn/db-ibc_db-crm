@@ -32,7 +32,7 @@ VALUES ('Risk & Control')
 SELECT @SystemId = SCOPE_IDENTITY()
 
 INSERT INTO  dbo.crmNotificationType (NotificationTypeName, SystemId)
-VALUES ('Comany Win Loss Limit Announcement', @SystemId)
+VALUES ('Company Win Loss Limit Announcement', @SystemId)
 
 SELECT @NotificationTypeId = SCOPE_IDENTITY()
 
@@ -120,7 +120,7 @@ FROM @Contents c
 
 SELECT @NotificationTypeID = NotificationTypeId
 FROM crmNotificationType WITH(NOLOCK)
-WHERE NotificationTypeName  = 'Comany Win Loss Limit Announcement'
+WHERE NotificationTypeName  = 'Company Win Loss Limit Announcement'
 
 
 DECLARE @NotificationTemplateID_Orange INT

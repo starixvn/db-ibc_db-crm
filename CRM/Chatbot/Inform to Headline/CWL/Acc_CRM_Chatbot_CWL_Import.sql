@@ -339,6 +339,7 @@ BEGIN
 		,r.ProductNameVN = m.ProductNameVN
 		,r.LevelId = m.LevelId
 		,r.GroupId = m.GroupId
+		,r.Status = CASE WHEN m.CurrencyName = 'UUS' AND r.Status = 'Draft' THEN 'Planned' ELSE r.Status END
 	FROM #Result r
 		CROSS APPLY (
 			SELECT TOP 1 m.Username, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameSC, m.ProductNameTH, m.ProductNameVN, m.LevelId, m.GroupId

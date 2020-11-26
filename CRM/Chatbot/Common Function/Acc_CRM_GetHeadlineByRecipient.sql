@@ -10,6 +10,7 @@ Original:
 
 	Revisions:
 		- 20200827@Malcolm: Initialize Sps [Redmine: #108739]
+		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 	Param's Explanation:
 		
 */

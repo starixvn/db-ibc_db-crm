@@ -81,7 +81,7 @@ VALUES ('Company Win Loss Limit - Orange/Yellow Level Template', @EN, N'Dear Sir
 
 您好，客服部在此通知 会员 "{player_username}" 目前已达到 [赢取金额上限] 数目为 "{player_wl_amount} ({player_currency})" 在 "{product_name_sc}". 请您留意 谢谢!')
 ,('Company Win Loss Limit - Red Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดชนะ [ถึงขีดจำกัดจำนวนเงินที่ชนะสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน"{product_name_th}" จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
-,('Company Win Loss Limit - Red Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo có [Người Thắng Lớn] trong hệ thống của quý khách. Tên đăng nhập của thành viên là  "{player_username}", hiện tại số tiền thắng đã lên tới "{player_wl_amount} ({player_currency})" trong {product_name_yn}. Xin vui lòng lưu ý, cám ơn quý khách!')
+,('Company Win Loss Limit - Red Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo có [Người Thắng Lớn] trong hệ thống của quý khách. Tên đăng nhập của thành viên là  "{player_username}", hiện tại số tiền thắng đã lên tới "{player_wl_amount} ({player_currency})" trong "{product_name_yn}". Xin vui lòng lưu ý, cám ơn quý khách!')
 
 --
 ,('Company Win Loss Limit - Grey Level Template', @EN, N'Dear Sir, Customer Support would like to inform that member "{player_username}", currently has loss amounted to "{player_wl_amount} ({player_currency})" in {product_name_en}. Thank you for your kind attention!')
@@ -98,7 +98,7 @@ VALUES ('Company Win Loss Limit - Orange/Yellow Level Template', @EN, N'Dear Sir
 ,('Company Win Loss Limit - Black Level Template', @EN_SC, N'Dear Sir, Customer Support would like to draw your attention towards member "{player_username}" has [hit Max Lose Limit] amounted to "{player_wl_amount} ({player_currency})" in {product_name_en}. Kindly take note, thank you!
 
 您好，客服部在此通知 会员 "{player_username}" 目前已达到 [最高输额上限] 数目为"{player_wl_amount} ({player_currency})" 在{product_name_sc}. 请您留意 谢谢!')
-,('Company Win Loss Limit - Black Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดเสีย [ถึงขีดจำกัดจำนวนเงินที่เสียสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน"{product_name_th}" จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
+,('Company Win Loss Limit - Black Level Template', @TH, N'เรียน ลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบว่า สมาชิก "{player_username}" ขณะนี้มียอดเสีย [ถึงขีดจำกัดจำนวนเงินที่เสียสูงสุด] คือ "{player_wl_amount} ({player_currency})" ใน {product_name_th} จึงเรียนมาเพื่อทราบ ขอบคุณค่ะ')
 ,('Company Win Loss Limit - Black Level Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin quý khách lưu ý tới thành viên "{player_username}", đã đạt giới hạn thua tối đa lên tới "{player_wl_amount} ({player_currency})" trong {product_name_yn}. Xin cám ơn quý khách đã lưu tâm!')
 
 --

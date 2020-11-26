@@ -106,15 +106,15 @@ BEGIN
 		RETURN
 	END CATCH
 
-	IF EXISTS(SELECT 1
-			  FROM #Contents c 
-				  INNER JOIN #RequiredParameters r ON r.LanguageId = c.LanguageId
-			  WHERE c.Value NOT LIKE '%' + r.Value + '%'
-				AND r.NotificationTemplateId = @NotificationTemplateId)
-	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'You cannot remove predefined param(s).'
-		RETURN
-	END
+	--IF EXISTS(SELECT 1
+	--		  FROM #Contents c 
+	--			  INNER JOIN #RequiredParameters r ON r.LanguageId = c.LanguageId
+	--		  WHERE c.Value NOT LIKE '%' + r.Value + '%'
+	--			AND r.NotificationTemplateId = @NotificationTemplateId)
+	--BEGIN
+	--	SELECT @ErrCode = 101, @ErrMsg = 'You cannot remove predefined param(s).'
+	--	RETURN
+	--END
 
 	IF EXISTS (SELECT 1 
 			   FROM #RequiredParameters r 

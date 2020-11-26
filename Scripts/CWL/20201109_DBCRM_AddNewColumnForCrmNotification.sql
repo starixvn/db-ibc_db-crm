@@ -3,7 +3,7 @@
 /*
 	Created: 20201109@Malcolm
 	DB: DBCRM-bodb_CRM
-	Task: All new colums into crmNotification table
+	Task: All new colums into crmNotification table [RedmineId : #144265]
 */
 USE bodb_CRM
 GO

@@ -3,17 +3,19 @@
 /*
 	Created: 20201103@Malcolm
 	DB: DBCRM-bodb_CRM
-	Task: Chatbot for CRM - Initialize data
+	Task: Chatbot for CRM - Initialize data [RedmineId : #144265]
 */
 USE bodb_CRM
 GO
 
 DECLARE @SystemId INT, @NotificationTypeId INT, @RecipientTypeId INT, @NotificationTemplateId INT
-	,@EN INT, @SC INT, @EN_SC INT, @TH INT, @YN INT
+	,@EN INT, @SC INT, @EN_SC INT, @TH INT, @YN INT, @LastLogID BIGINT
+
+SELECT @LastLogID = LastLogId FROM OPENQUERY (DBCUST, 'SELECT Max(logid) AS LastLogId FROM CustDB.dbo.WinLimit_CustGameMonitoring_History')
 
 /*Add setting name = 'LastLogID'*/
 INSERT INTO dbo.SystemSetting (SettingName, Value, ServiceName)
-VALUES ('LastLogID', '0', 'ChatBot - CWL'), 
+VALUES ('LastLogID', CONVERT(VARCHAR(100), @LastLogID), 'ChatBot - CWL'), 
 	('BatchSize', '10', 'ChatBot - CWL'),
 	('JobStatus', 'Completed', 'ChatBot - CWL'),
 	('NotificationTemplate', '10', 'ChatBot - CWL'),
@@ -29,12 +31,12 @@ WHERE n.MessageId IS NOT NULL
 INSERT INTO dbo.crmSystem (SystemName)
 VALUES ('Risk & Control')
 
-SELECT @SystemId = SCOPE_IDENTITY()
+SELECT @SystemId = s.SystemId FROM dbo.crmSystem s WITH(NOLOCK) WHERE s.SystemName = 'Risk & Control'
 
 INSERT INTO  dbo.crmNotificationType (NotificationTypeName, SystemId)
 VALUES ('Company Win Loss Limit Announcement', @SystemId)
 
-SELECT @NotificationTypeId = SCOPE_IDENTITY()
+SELECT @NotificationTypeId = NotificationTypeId FROM dbo.crmNotificationType WHERE NotificationTypeName = 'Company Win Loss Limit Announcement' AND SystemId = @SystemId
 
 SELECT @RecipientTypeId = RecipientTypeId FROM dbo.crmRecipientType WITH(NOLOCK) WHERE RecipientTypeName = 'PIC of headline'
 

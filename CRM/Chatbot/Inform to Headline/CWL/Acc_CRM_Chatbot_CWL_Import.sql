@@ -2,7 +2,6 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_CWL_Import]
 	@XmlData				XML
 	,@Environment			VARCHAR(50) = ''
-	,@IncludeUUSCurrency	BIT = 1
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
 AS
@@ -25,7 +24,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = ''
+	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
+
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END

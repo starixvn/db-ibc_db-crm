@@ -17,6 +17,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	SELECT @Environment = ISNULL(@Environment, '')
+
 	SELECT
 		CONVERT(INT, [BatchSize])	AS [BatchSize]
 		,CONVERT(BIT, ServiceFlag)	AS ServiceFlag

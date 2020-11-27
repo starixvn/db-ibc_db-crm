@@ -1,10 +1,10 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_CWL_Import]
 	@XmlData				XML
+	,@Environment			VARCHAR(50) = ''
+	,@IncludeUUSCurrency	BIT = 1
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
-	,@Environment			VARCHAR(50) = ''
-	,@IncludeUUSCurrency	BIT
 AS
 
 /*
@@ -28,8 +28,7 @@ BEGIN
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = ''
 
 	SELECT @Environment = ISNULL(@Environment, '')
-
-	SELECT @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
+		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOflastLogId = CASE WHEN @Environment = 'UAT' THEN 'LastLogIdUAT' ELSE 'LastLogID' END
 
 	-- Get Job Status
@@ -94,6 +93,18 @@ BEGIN
 	END
 
 	SELECT @lastLogId = MAX(LogId) FROM #ImportData
+
+		-- Only import testing accounts with uat environment
+	IF @Environment = 'UAT'
+	BEGIN
+		DELETE i FROM #ImportData i WHERE i.CurrencyName <> 'UUS'
+	END
+	--Exclude UUS currency with production environment
+
+	IF @Environment = 'Production' AND @IncludeUUSCurrency = 0
+	BEGIN
+		DELETE i FROM #ImportData i WHERE i.CurrencyName = 'UUS'
+	END
 
 	-- Get Job Setting
 	DECLARE @Xml XML
@@ -354,17 +365,6 @@ BEGIN
 			WHERE r.logid = m.LogId
 		) m
 
-	-- Only import testing accounts with uat environment
-	IF @Environment = 'UAT'
-	BEGIN
-		DELETE r FROM #Result r WHERE r.CurrencyName <> 'UUS'
-	END
-	--Exclude UUS currency with production environment
-
-	IF @Environment = 'Production' AND @IncludeUUSCurrency = 0
-	BEGIN
-		DELETE r FROM #Result r WHERE r.CurrencyName = 'UUS'
-	END
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
 			,@SendDate			DATETIME = GETDATE()

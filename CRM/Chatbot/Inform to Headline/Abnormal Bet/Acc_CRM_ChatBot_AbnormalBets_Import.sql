@@ -1,9 +1,11 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_Import]
-	@XmlData	XML
-	,@Messages	XML
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	@XmlData				XML
+	,@Messages				XML
+	,@Environment			VARCHAR(50) = ''
+	,@IncludeUUSCurrency	BIT = 1
+	,@ErrCode				INT = 0 OUTPUT
+	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -32,11 +34,15 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = ''
+
+	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
+
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
-		AND SettingName = 'JobStatus'
+		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
 	IF @@ROWCOUNT = 0
@@ -84,10 +90,22 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
+	END
+
+		-- Only import testing data for UAT environment
+	IF @Environment = 'UAT'
+	BEGIN
+		DELETE i FROM #ImportMessage i WHERE i.IsTest = 0
+	END
+
+	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'Production'
+	IF @Environment = 'Production' AND @IncludeUUSCurrency = 0
+	BEGIN
+		DELETE i FROM #ImportMessage i WHERE i.IsTest = 1
 	END
 
 	-- Get Job Setting
@@ -114,7 +132,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -145,7 +163,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -379,13 +397,20 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
+	IF @Environment = 'UAT' OR (@Environment = 'Production' AND @IncludeUUSCurrency = 0)
+	BEGIN
+		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
+							FROM @Messages.nodes('/root/r') T(c)
+							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportMessage i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
+							FOR XML PATH('r'), ROOT('root'))
+	END
 	-- Update crmMessageImport
 	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
-		AND SettingName = 'JobStatus'
+		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 
 	DROP TABLE #ImportMessage

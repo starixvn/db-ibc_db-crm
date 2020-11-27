@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_SystemSetting_Sel]
 	@ServiceName VARCHAR(50) = 'ChatBot - AbnormalBets'
+	,@Environment VARCHAR(50) = ''
 AS
 
 /*
@@ -19,17 +20,18 @@ BEGIN
 	SELECT
 		CONVERT(INT, [BatchSize])	AS [BatchSize]
 		,CONVERT(BIT, ServiceFlag)	AS ServiceFlag
-		,CONVERT(BIGINT, LastLogId)	AS LastLogId
+		,CASE WHEN @Environment = 'UAT' THEN CONVERT(BIGINT, LastLogIdUAT) ELSE CONVERT(BIGINT, LastLogId) END AS LastLogId
+		,CONVERT(BIT, IncludeUUSCurrency) AS IncludeUUSCurrency
 	FROM
 	(
 		SELECT SettingName, Value
 		FROM dbo.SystemSetting WITH (NOLOCK)
-		WHERE ServiceName = @ServiceName
+		WHERE ServiceName = @ServiceName 
 	) s
 	PIVOT
 	(
 		MAX(Value)
-		FOR SettingName IN (BatchSize, ServiceFlag, LastLogId)
+		FOR SettingName IN (BatchSize, ServiceFlag,  LastLogIdUAT, LastLogId, IncludeUUSCurrency)
 	) p
 END
 GO

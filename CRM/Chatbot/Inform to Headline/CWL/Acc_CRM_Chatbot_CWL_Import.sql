@@ -1,8 +1,10 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_CWL_Import]
-	@XmlData	XML
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	@XmlData				XML
+	,@ErrCode				INT = 0 OUTPUT
+	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
+	,@Environment			VARCHAR(50) = ''
+	,@IncludeUUSCurrency	BIT
 AS
 
 /*
@@ -23,13 +25,18 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @lastLogId BIGINT
+	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = ''
+
+	SELECT @Environment = ISNULL(@Environment, '')
+
+	SELECT @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
+		   ,@SettingNameOflastLogId = CASE WHEN @Environment = 'UAT' THEN 'LastLogIdUAT' ELSE 'LastLogID' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
 	WHERE ServiceName = 'ChatBot - CWL'
-		AND SettingName = 'JobStatus'
+		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
 	IF @@ROWCOUNT = 0
@@ -80,7 +87,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - CWL'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -114,7 +121,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - CWL'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -149,7 +156,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - CWL'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -169,7 +176,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - CWL'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -347,6 +354,17 @@ BEGIN
 			WHERE r.logid = m.LogId
 		) m
 
+	-- Only import testing accounts with uat environment
+	IF @Environment = 'UAT'
+	BEGIN
+		DELETE r FROM #Result r WHERE r.CurrencyName <> 'UUS'
+	END
+	--Exclude UUS currency with production environment
+
+	IF @Environment = 'Production' AND @IncludeUUSCurrency = 0
+	BEGIN
+		DELETE r FROM #Result r WHERE r.CurrencyName = 'UUS'
+	END
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
 			,@SendDate			DATETIME = GETDATE()
@@ -415,13 +433,13 @@ BEGIN
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = CONVERT(VARCHAR(20), @lastLogId)
 	WHERE ServiceName = 'ChatBot - CWL'
-		AND SettingName = 'LastLogID'
+		AND SettingName = @SettingNameOflastLogId
 
 	-- Update crmMessageImport
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'
 	WHERE ServiceName = 'ChatBot - CWL'
-		AND SettingName = 'JobStatus'
+		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 
 	DROP TABLE #ImportData

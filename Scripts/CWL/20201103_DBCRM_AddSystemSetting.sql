@@ -10,12 +10,9 @@ GO
 
 INSERT INTO SystemSetting (SettingName, Value, ServiceName)
 VALUES ('JobStatusUAT' ,'Completed' ,'ChatBot - CWL'),
-	('JobStatusPRO' ,'Completed' ,'ChatBot - CWL'),
 	('LastLogIdUAT' ,'0' ,'ChatBot - CWL'),
-	('LastLogIdPRO' ,'0' ,'ChatBot - CWL'),
 	('JobStatusUAT' ,'Completed' ,'ChatBot - AbnormalBets'),
-	('JobStatusPRO' ,'Completed' ,'ChatBot - AbnormalBets'),
-	('LastLogIdUAT' ,'0' ,'ChatBot - AbnormalBets'),
-	('LastLogIdPRO' ,'0' , 'ChatBot - AbnormalBets')
+	('IncludeUUSCurrency', '1', 'ChatBot - CWL'),
+	('IncludeUUSCurrency', '1', 'ChatBot - AbnormalBets')
 
 

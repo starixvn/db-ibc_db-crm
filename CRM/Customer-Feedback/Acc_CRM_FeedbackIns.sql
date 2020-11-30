@@ -72,6 +72,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@NoInquiries				SMALLINT		= NULL
 				, 	@MessageID 					INT 			= 0
 				,	@WinLimitLogID				BIGINT			= 0	
+				,	@MatchID					INT 			= 0
+				, 	@ProfileID					INT				= 0
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
@@ -105,6 +107,7 @@ AS
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 		- 20201020@Johnson: - add WinlimitLogid for auto feedback company win limit
 							- remove limit amount for related customers [redmine:#142194]
+		- 20201130@Johnson: add @MatchID & @ProfileID for auto feedback TO Control [redmine:#145274]					
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -584,6 +587,28 @@ BEGIN
 		END;
 	END
 	
+	--TO Control
+	IF @MatchID > 0 AND @ProfileID > 0
+	BEGIN
+		UPDATE crmTOControlFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+		SET Status = 'completed',
+			UpdatedTime = GETDATE()
+		WHERE custid = @custid
+			AND matchid = @matchid
+			AND ProfileID = @ProfileID
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;
+	END
 	-- write log
 	DECLARE @LogElement XML;
 

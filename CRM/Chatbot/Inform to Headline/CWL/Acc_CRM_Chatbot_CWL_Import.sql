@@ -100,9 +100,9 @@ BEGIN
 	BEGIN
 		DELETE i FROM #ImportData i WHERE i.CurrencyName <> 'UUS'
 	END
-	--Exclude UUS currency with production environment
+	--Exclude UUS currency with LIVE environment
 
-	IF @Environment = 'Production' AND @IncludeUUSCurrency = 0
+	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
 	BEGIN
 		DELETE i FROM #ImportData i WHERE i.CurrencyName = 'UUS'
 	END

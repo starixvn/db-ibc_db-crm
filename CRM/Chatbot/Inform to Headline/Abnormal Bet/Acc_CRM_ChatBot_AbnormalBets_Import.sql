@@ -103,8 +103,8 @@ BEGIN
 		DELETE i FROM #ImportMessage i WHERE i.IsTest = 0
 	END
 
-	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'Production'
-	IF @Environment = 'Production' AND @IncludeUUSCurrency = 0
+	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'LIVE'
+	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
 	BEGIN
 		DELETE i FROM #ImportMessage i WHERE i.IsTest = 1
 	END
@@ -398,7 +398,7 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	IF @Environment = 'UAT' OR (@Environment = 'Production' AND @IncludeUUSCurrency = 0)
+	IF @Environment = 'UAT' OR (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
 	BEGIN
 		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
 							FROM @Messages.nodes('/root/r') T(c)

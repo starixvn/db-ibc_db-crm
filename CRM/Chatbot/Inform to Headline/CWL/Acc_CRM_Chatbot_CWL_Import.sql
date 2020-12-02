@@ -186,6 +186,11 @@ BEGIN
 	IF NOT EXISTS (SELECT 1 FROM #ImportData)
 	BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = CONVERT(VARCHAR(20), @lastLogId)
+		WHERE ServiceName = 'ChatBot - CWL'
+			AND SettingName = @SettingNameOflastLogId
+
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - CWL'
 			AND SettingName = @SettingNameOfJobStatus

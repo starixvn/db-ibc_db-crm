@@ -11,7 +11,7 @@ AS
 
 	Revisions:
 		- 20201015@Johnson: Initial sp [redmine:#142194]
-	
+		- 20201123@Johnson: get VIP status & productID to check language for 789y headline [redmine:#145836]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" product="21" group="Allbet Casino" level="Orange" limitsetting="20000" winamount="25000" winamountRM="25000" time="2020-10-10 10:15:12" bettype="2401,2403" />
@@ -97,7 +97,9 @@ BEGIN
 		,ag.site
 		,HeadlineID
 		,HeadlineName
-		,RelatedCustID
+		,ISNULL(c.IsVip,0) as IsVip
+		,fb.RelatedCustID
+		,fb.ProductID
 		,ISNULL(p.ProductNameCS,p.ProductName) as ProductName
 		,fb.ProductGroup
 		,Level
@@ -111,6 +113,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON fb.ProductID = p.ProductID
 		INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON fb.custid = ci.custid
 		INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON ci.recommend = ag.custid
+		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
 	WHERE status IN ('initial','fail')
 		AND retryCount < 5
 		
@@ -121,7 +124,9 @@ BEGIN
 		,site
 		,HeadlineID
 		,HeadlineName
+		,IsVip
 		,RelatedCustID
+		,ProductID
 		,ProductName
 		,ProductGroup
 		,Level

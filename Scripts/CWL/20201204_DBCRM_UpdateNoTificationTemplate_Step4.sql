@@ -1,7 +1,7 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" ></info>*/
 
 /*
-	Created: 20201109@Malcolm
+	Created: 20201204@Malcolm
 	DB: DBCRM-bodb_CRM
 	Task:Update Notification template[RedmineId : #144265]
 */

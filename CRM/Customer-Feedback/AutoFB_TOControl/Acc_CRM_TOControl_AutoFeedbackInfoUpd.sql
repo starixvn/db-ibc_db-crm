@@ -1,8 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_TOControl_AutoFeedbackInfoUpd]	
-	@CustID		INT,	
-	@MatchID	INT,
-	@ProfileID	INT,
+	@LogID 		INT,
 	@Status 	VARCHAR(20),
 	@Description VARCHAR(1000)
 AS
@@ -24,8 +22,6 @@ BEGIN
 		RetryCount = CASE WHEN @status = 'fail' THEN retrycount + 1 ELSE retrycount END,
 		Description = @Description,
 		UpdatedTime = GETDATE()
-	WHERE CustID = @CustID
-		AND MatchID = @MatchID
-		AND ProfileID = @ProfileID
+	WHERE LogID = @LogID
 	
 END	

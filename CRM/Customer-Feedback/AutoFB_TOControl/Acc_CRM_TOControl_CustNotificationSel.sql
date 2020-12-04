@@ -6,7 +6,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_TOControl_CustNotificationSel]
 	@ConfigUAT	BIT = 0,
 	@ConfigPRO	BIT = 1,
 	@IsCredit	BIT = 1,
-	@IsDeposit	BIT = 0	
+	@IsDeposit	BIT = 0,
+	@Enviroment	VARCHAR(10) = 'PRO'	
 AS
 /*
 	Created: 20201126@Johnson
@@ -22,6 +23,7 @@ AS
 		- @ConfigPRO = 1: real customers
 		- @IsCredit = 1: get credit customers
 		- @IsDeposit = 1: get deposit customers
+		- @Enviroment = 'PRO'/'UAT' config service for each enviroment 
 	
 */
 BEGIN
@@ -49,18 +51,24 @@ BEGIN
 	SELECT TOP(@batchSize)
 		CustID,
 		MatchID,
+		t.ProfileID,
 		MaxTurnOver,
 		TotalTurnover,
 		HouseTurnover,
 		ReachLevel,
 		p.ProfileName,
-		ps.Bettype,		
+		STUFF(( SELECT ','+ cast(ps.Bettype as VARCHAR(10))  as [text()]
+					FROM TOControl_ProfileSetting ps WITH(NOLOCK) 
+					WHERE p.ProfileID = ps.ProfileID
+					FOR XML PATH('')
+					),1,1,'') as Bettype,		
 		LastNotifiedDate
 	FROM T 
-		INNER JOIN TOControl_Profile p WITH(NOLOCK) ON t.ProfileID = p.ProfileID
-		INNER JOIN TOControl_ProfileSetting ps WITH(NOLOCK) ON t.ProfileID = ps.ProfileID
+		INNER JOIN TOControl_Profile p WITH(NOLOCK) ON t.ProfileID = p.ProfileID		
 	WHERE	
-		1 = CASE WHEN @ConfigUAT = 1 AND currency = 20 THEN 1
+		1 = CASE WHEN @Enviroment = 'UAT' AND currency <> 20 THEN 0
+				ELSE 1 END
+		AND 1 = CASE WHEN @ConfigUAT = 1 AND currency = 20 THEN 1
 					WHEN @ConfigPRO = 1 AND currency <> 20 THEN 1 
 					ELSE 0 END 
 		AND 1 = CASE WHEN @IsCredit = 1 AND IsDeposit = 0 THEN 1			

@@ -12,10 +12,10 @@ AS
 		- 20201125@Johnson: Initial sp [redmine:#142194]
 	
 	Parameter's Explanation:
-		- @xml = <ROOT>
-					<r custid="1000" matchid="1" hl="101" hlname="XT" related="1000" profileID="1" profileName="HDP&ML" maxTO="1000" houseTO="300" totalTO="800" outstanding="2000" time="2020-11-27 04:06:07" bettype="1" level="80"/>
-					<r custid="1001" matchid="2" hl="101" hlname="XT" related="1001" profileID="1" profileName="HDP&ML" maxTO="1000" houseTO="300" totalTO="800" outstanding="3000" time="2020-11-27 04:06:07" bettype="1" level="80"/>
-				</ROOT>
+		- @xml = '<ROOT>
+					<r custid="14521681" matchid="31757960" profileID="16" hl="14521687" hlname="SuperTest91" related="14521687" profileName="Non Live - HDP &amp; ML" maxTO="1000" houseTO="302" totalTO="1010" outstanding="2000" time="2020-12-02 3:16:32" bettype="1" level="100"/>
+					<r custid="14521681" matchid="31757960" profileID="16" hl="14521687" hlname="SuperTest91" related="14521687" profileName="Non Live - HDP &amp; ML" maxTO="1000" houseTO="302" totalTO="1010" outstanding="2000" time="2020-12-02 3:16:32" bettype="20" level="100"/>
+				</ROOT>'
 */
 BEGIN
 	SET NOCOUNT ON
@@ -33,13 +33,13 @@ BEGIN
 						TotalTurnover 	MONEY,
 						Outstanding		MONEY,
 						NotifiedDate	DATETIME,
-						Bettype			INT,
+						BettypeList		VARCHAR(100),
 						Level			INT,
 						EventInfo		VARCHAR(500)
 						)
 		
 	INSERT INTO @tmpCust(CustID,MatchID,ProfileID,HeadlineID,HeadlineName,RelatedCustID,ProfileName,MaxTurnover,
-						HouseTurnover,TotalTurnover,Outstanding,NotifiedDate,Bettype,Level)
+						HouseTurnover,TotalTurnover,Outstanding,NotifiedDate,BettypeList,Level)
 	SELECT 
 		t.c.value('@custid[1]','int') custid,	
 		t.c.value('@matchid[1]','int') matchid,	
@@ -53,7 +53,7 @@ BEGIN
 		t.c.value('@totalTO[1]','money') TotalTurnover,
 		t.c.value('@outstanding[1]','money') Outstanding,
 		t.c.value('@time[1]','datetime') NotifiedDate,				
-		t.c.value('@bettype[1]','int') Bettype,
+		t.c.value('@bettype[1]','varchar(100)') BettypeList,
 		t.c.value('@level[1]','int') level
 	FROM @xml.nodes('/ROOT/r') t(c)	
 	
@@ -64,26 +64,25 @@ BEGIN
 		INNER JOIN bodb02.dbo.team h WITH(NOLOCK) ON m.homeid = h.teamid
 		INNER JOIN bodb02.dbo.team a WITH(NOLOCK) ON m.awayid = a.teamid
 	
-	MERGE crmTOControlFeedbackInfo as Target
-	USING @tmpCust as Source ON Target.custid = Source.custid
-								AND Target.matchid =Source.matchid
-								AND Target.profileID = Source.profileID
-	WHEN NOT MATCHED BY Target THEN 							
-	INSERT (CustID,MatchID,ProfileID,HeadlineID,HeadlineName,RelatedCustID,ProfileName,MaxTurnover,
-						HouseTurnover,TotalTurnover,Outstanding,NotifiedDate,Bettype,EventInfo,Level,Status)
-		VALUES(CustID,MatchID,ProfileID,HeadlineID,HeadlineName,RelatedCustID,ProfileName,MaxTurnover,
-						HouseTurnover,TotalTurnover,Outstanding,NotifiedDate,Bettype,EventInfo,Level,'Initial')	
-	WHEN MATCHED THEN 
-	UPDATE SET Target.Level 		= Source.Level,
-			Target.TotalTurnover 	= Source.TotalTurnover,
-			Target.MaxTurnover 		= Source.MaxTurnover,
-			Target.HouseTurnover 	= Source.HouseTurnover,
-			Target.Outstanding 		= Source.Outstanding,
-			Target.NotifiedDate 	= Source.NotifiedDate,
-			Target.Status 			= 'Initial',
-			Target.UpdatedTime 		= GETDATE(),
-			Target.RetryCount 		= 0;
-	
+	INSERT INTO [dbo].[crmTOControlFeedbackInfo]
+           ([CustID]
+           ,[MatchID]
+           ,[ProfileID]
+           ,[HeadlineID]
+           ,[HeadlineName]
+           ,[RelatedCustID]
+           ,[ProfileName]
+           ,[BettypeList]
+           ,[EventInfo]
+           ,[Level]
+           ,[TotalTurnover]
+           ,[MaxTurnover]
+           ,[HouseTurnover]
+           ,[Outstanding]
+           ,[NotifiedDate]
+           ,[Status]
+           ,[CreatedDate]          
+           ,[RetryCount])
 	SELECT CustID,
 		MatchID,
 		ProfileID,
@@ -91,7 +90,34 @@ BEGIN
 		HeadlineName,
 		RelatedCustID,
 		ProfileName,
-		Bettype,
+		BettypeList,
+		EventInfo,
+		Level,
+		TotalTurnover,
+		MaxTurnover,
+		HouseTurnover,
+		Outstanding,
+		NotifiedDate,
+		'initial' as status,
+		GETDATE() as CreatedDate,
+		0 as RetryCount
+	FROM @tmpCust t
+	WHERE NOT EXISTS (SELECT 1 FROM crmTOControlFeedbackInfo fb WITH(NOLOCK) 
+					WHERE fb.custid = t.custid
+						AND fb.matchid = t.matchid
+						AND fb.profileID = t.profileID
+						AND fb.Level = t.Level
+					)
+	
+	SELECT LogID,
+		CustID,
+		MatchID,
+		ProfileID,
+		HeadlineID,
+		HeadlineName,
+		RelatedCustID,
+		ProfileName,
+		BettypeList,
 		Level,
 		TotalTurnover,
 		MaxTurnover,
@@ -106,6 +132,8 @@ BEGIN
 		HouseTurnover/MaxTurnover as Usage,
 		c.username,
 		c.roleid,
+		c.site,
+		ISNULL(hl.IsVip,0) as IsVip,
 		e.currency,
 		m.homeid,
 		m.awayid,
@@ -115,6 +143,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.match m WITH(NOLOCK) ON rs.matchid = m.matchid
 		INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON rs.custid = c.custid
 		INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON c.currency = e.ExchangeId
+		LEFT JOIN crmCustomer hl WITH(NOLOCK) ON rs.HeadlineID = hl.custid
 		
 	DROP TABLE #Result	
 		

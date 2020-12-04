@@ -72,8 +72,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@NoInquiries				SMALLINT		= NULL
 				, 	@MessageID 					INT 			= 0
 				,	@WinLimitLogID				BIGINT			= 0	
-				,	@MatchID					INT 			= 0
-				, 	@ProfileID					INT				= 0
+				,	@TOControlLogID				INT 			= 0				
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
@@ -107,7 +106,7 @@ AS
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 		- 20201020@Johnson: - add WinlimitLogid for auto feedback company win limit
 							- remove limit amount for related customers [redmine:#142194]
-		- 20201130@Johnson: add @MatchID & @ProfileID for auto feedback TO Control [redmine:#145274]					
+		- 20201130@Johnson: add @TOControlLogID for auto feedback TO Control [redmine:#145274]					
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -126,6 +125,7 @@ AS
 		</ROOT>
 	@MessageID : MsgID from Auto fb service
 	@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
+	@TOControlLogID: LogID for TOContrl auto fb service
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
@@ -588,14 +588,12 @@ BEGIN
 	END
 	
 	--TO Control
-	IF @MatchID > 0 AND @ProfileID > 0
+	IF @TOControlLogID > 0
 	BEGIN
 		UPDATE crmTOControlFeedbackInfo WITH(UPDLOCK,ROWLOCK)
 		SET Status = 'completed',
 			UpdatedTime = GETDATE()
-		WHERE custid = @custid
-			AND matchid = @matchid
-			AND ProfileID = @ProfileID
+		WHERE LogID = @TOControlLogID
 		
 		IF	@@ERROR <> 0
 		BEGIN

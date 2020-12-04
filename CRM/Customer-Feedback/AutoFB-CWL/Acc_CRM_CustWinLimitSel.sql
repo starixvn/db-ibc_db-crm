@@ -6,7 +6,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustWinLimitSel]
 	@ConfigPRO 	BIT = 1,	
 	@LastLogID 	BIGINT = 0,
 	@IsCredit 	BIT = 1,
-	@IsDeposit 	BIT = 0	
+	@IsDeposit 	BIT = 0,
+	@Enviroment	VARCHAR(10) = 'PRO'		
 AS
 /*
 	Created: 20201014@Johnson
@@ -22,7 +23,7 @@ AS
 		- @ConfigPRO = 1: real customers
 		- @IsCredit = 1: get credit customers
 		- @IsDeposit = 1: get deposit customers
-		
+		- @Enviroment = 'PRO'/'UAT' config service for each enviroment 
 */
 BEGIN
 	SET NOCOUNT ON
@@ -65,7 +66,9 @@ BEGIN
 		INNER JOIN Winlimit_LevelSetting l WITH(NOLOCK) ON t.LevelID = l.LevelID
 		INNER JOIN Winlimit_Group wg WITH(NOLOCK) ON t.GroupID = wg.GroupID
 	WHERE 
-		1 = CASE WHEN @ConfigUAT = 1 AND currency = 20 THEN 1
+		1 = CASE WHEN @Enviroment = 'UAT' AND currency <> 20 THEN 0
+				ELSE 1 END				
+		AND 1 = CASE WHEN @ConfigUAT = 1 AND currency = 20 THEN 1
 					WHEN @ConfigPRO = 1 AND currency <> 20 THEN 1 
 					ELSE 0 END 
 		AND 1 = CASE WHEN @IsCredit = 1 AND IsDeposit = 0 THEN 1			

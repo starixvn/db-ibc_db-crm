@@ -102,7 +102,7 @@ BEGIN
 							AND rs.matchid = t.matchid
 	END
 	
-	SELECT custid, matchid, outstanding
+	SELECT custid, matchid, ISNULL(outstanding,0) outstanding
 	FROM #Result 
 	
 	DROP TABLE #Result

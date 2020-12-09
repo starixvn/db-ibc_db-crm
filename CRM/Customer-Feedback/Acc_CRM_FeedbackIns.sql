@@ -283,6 +283,16 @@ BEGIN
 		RETURN;		
 	END
 	
+	IF @TOControlLogID > 0
+	BEGIN
+		--check fb for LogId create yet
+		IF EXISTS (SELECT 1 FROM crmTOControlFeedbackInfo WITH(NOLOCK)
+					WHERE LogID = @TOControlLogID
+						AND status = 'completed'
+				)
+		RETURN;		
+	END
+	
 	-- insert feedback
 	INSERT INTO	crmFeedback (
 					CustID

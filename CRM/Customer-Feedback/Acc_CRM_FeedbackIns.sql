@@ -72,7 +72,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@NoInquiries				SMALLINT		= NULL
 				, 	@MessageID 					INT 			= 0
 				,	@WinLimitLogID				BIGINT			= 0	
-				,	@TOControlLogID				INT 			= 0				
+				,	@TOControlLogID				VARCHAR(MAX)	= ''
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
@@ -283,11 +283,11 @@ BEGIN
 		RETURN;		
 	END
 	
-	IF @TOControlLogID > 0
+	IF ISNULL(@TOControlLogID,'') <> ''
 	BEGIN
 		--check fb for LogId create yet
 		IF EXISTS (SELECT 1 FROM crmTOControlFeedbackInfo WITH(NOLOCK)
-					WHERE LogID = @TOControlLogID
+					WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@TOControlLogID,','))
 						AND status = 'completed'
 				)
 		RETURN;		
@@ -598,12 +598,12 @@ BEGIN
 	END
 	
 	--TO Control
-	IF @TOControlLogID > 0
+	IF ISNULL(@TOControlLogID,'') <> ''
 	BEGIN
 		UPDATE crmTOControlFeedbackInfo WITH(UPDLOCK,ROWLOCK)
 		SET Status = 'completed',
 			UpdatedTime = GETDATE()
-		WHERE LogID = @TOControlLogID
+		WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@TOControlLogID,','))
 		
 		IF	@@ERROR <> 0
 		BEGIN

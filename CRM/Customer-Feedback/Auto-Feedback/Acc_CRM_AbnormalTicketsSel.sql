@@ -3,7 +3,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
 	@MessageIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,
 	@ConfigPRO BIT = 0,
-	@Enviroment	VARCHAR(10) = 'PRO'
+	@Enviroment	VARCHAR(10) = 'LIVE'
 AS
 /*
 	Created: 20200416@Johnson
@@ -23,7 +23,7 @@ AS
 						</ROOT>'
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
-		- @Enviroment = 'PRO'/'UAT' config service for each enviroment 
+		- @Enviroment = 'LIVE'/'UAT' config service for each enviroment 
 */
 BEGIN
 	SET NOCOUNT ON

@@ -7,7 +7,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_TOControl_CustNotificationSel]
 	@ConfigPRO	BIT = 1,
 	@IsCredit	BIT = 1,
 	@IsDeposit	BIT = 0,
-	@Enviroment	VARCHAR(10) = 'PRO'	
+	@Enviroment	VARCHAR(10) = 'LIVE'	
 AS
 /*
 	Created: 20201126@Johnson
@@ -23,7 +23,7 @@ AS
 		- @ConfigPRO = 1: real customers
 		- @IsCredit = 1: get credit customers
 		- @IsDeposit = 1: get deposit customers
-		- @Enviroment = 'PRO'/'UAT' config service for each enviroment 
+		- @Enviroment = 'LIVE'/'UAT' config service for each enviroment 
 	
 */
 BEGIN

@@ -47,7 +47,7 @@ BEGIN
 		t.c.value('@hl[1]','int') HeadlineID,
 		t.c.value('@hlname[1]','varchar(50)') hlname,
 		t.c.value('@related[1]','int') RelatedCustID,
-		t.c.value('@profile[1]','nvarchar(100)') ProfileName,			
+		t.c.value('@profileName[1]','nvarchar(100)') ProfileName,			
 		t.c.value('@maxTO[1]','money') MaxTurnover,
 		t.c.value('@houseTO[1]','money') HouseTurnover,
 		t.c.value('@totalTO[1]','money') TotalTurnover,
@@ -129,7 +129,7 @@ BEGIN
 		AND retryCount <5
 		
 	SELECT rs.*,
-		HouseTurnover/MaxTurnover as Usage,
+		HouseTurnover/MaxTurnover*100 as Usage,
 		c.username,
 		c.roleid,
 		c.site,

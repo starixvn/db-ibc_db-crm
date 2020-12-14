@@ -1,8 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_TOControl_Import]
-	@XmlData	XML
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	@XmlData		XML
+	,@Environment	VARCHAR(50) = ''
+	,@ErrCode		INT = 0 OUTPUT
+	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -16,9 +17,27 @@ AS
 	Param's Explanation:
 		. @XmlData
 			<root>
-				<r	CustId="" Username="" RoleId="" CurrencyName="" MatchId="" SportNameEN=""  SportNameSC=""  SportNameTH=""  SportNameYN="" 
-					LeagueNameEN="" LeagueNameSC="" LeagueNameTH="" LeagueNameYN="" HomeNameEN="" HomeNameSC="" HomeNameTH="" HomeNameYN=""
-					AwayNameEN="" AwayNameSC="" AwayNameTH="" AwayNameYN=""
+				<r	CustId			="" 
+					Username		="" 
+					RoleId			="" 
+					CurrencyName	="" 
+					MatchId			="" 
+					SportNameEN		=""  
+					SportNameSC		=""  
+					SportNameTH		=""  
+					SportNameYN		="" 
+					LeagueNameEN	="" 
+					LeagueNameSC	="" 
+					LeagueNameTH	="" 
+					LeagueNameYN	="" 
+					HomeNameEN		="" 
+					HomeNameSC		="" 
+					HomeNameTH		="" 
+					HomeNameYN		=""
+					AwayNameEN		="" 
+					AwayNameSC		="" 
+					AwayNameTH		="" 
+					AwayNameYN		=""
 				<r/>
 			</root>
 */
@@ -27,14 +46,14 @@ BEGIN
 
 	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @IncludeUUSCurrency BIT
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - AbnormalBets' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - TOControl' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
-	WHERE ServiceName = 'ChatBot - AbnormalBets'
+	WHERE ServiceName = 'ChatBot - TOControl'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
@@ -45,33 +64,76 @@ BEGIN
 	END
 
 	-- Get Imported Data
-	CREATE TABLE #ImportMessage
+	CREATE TABLE #ImportData
 	(
-		MessageId INT
-		,Username VARCHAR(50)
-		,CustId INT
-		,Recommend INT
-		,Mrecommend INT
-		,Srecommend INT
-		,IsTest BIT
-		,Content_en NVARCHAR(4000)
-		,Content_cs NVARCHAR(4000)
-		,Content_th NVARCHAR(4000)
-		,Content_vn NVARCHAR(4000)
+		CustId				INT
+		,Username			VARCHAR(30)
+		,RoleId				TINYINT
+		,CurrencyName		NVARCHAR(50)
+		,MatchId			INT
+		,SportNameEN		NVARCHAR(50)
+		,SportNameSC		NVARCHAR(50)
+		,SportNameTH		NVARCHAR(50)
+		,SportNameYN		NVARCHAR(50)
+		,LeagueNameEN		NVARCHAR(500)
+		,LeagueNameSC		NVARCHAR(500)
+		,LeagueNameTH		NVARCHAR(500)
+		,LeagueNameYN		NVARCHAR(500)
+		,HomeNameEN			NVARCHAR(100)
+		,HomeNameSC			NVARCHAR(100)
+		,HomeNameTH			NVARCHAR(100)
+		,HomeNameYN			NVARCHAR(100)
+		,AwayNameEN			NVARCHAR(100)
+		,AwayNameSC			NVARCHAR(100)
+		,AwayNameTH			NVARCHAR(100)
+		,AwayNameYN			NVARCHAR(100)
 	)
-	INSERT INTO #ImportMessage (MessageId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn)
+	INSERT INTO #ImportData 
+	(
+		CustId			
+		,Username		
+		,RoleId			
+		,CurrencyName	
+		,MatchId		
+		,SportNameEN	
+		,SportNameSC	
+		,SportNameTH	
+		,SportNameYN	
+		,LeagueNameEN	
+		,LeagueNameSC	
+		,LeagueNameTH	
+		,LeagueNameYN	
+		,HomeNameEN		
+		,HomeNameSC		
+		,HomeNameTH		
+		,HomeNameYN		
+		,AwayNameEN		
+		,AwayNameSC		
+		,AwayNameTH		
+		,AwayNameYN		
+	)
 	SELECT
-		t.c.value('@MessageId', 'INT') AS MessageId
-		,t.c.value('@Username', 'VARCHAR(50)') AS Username
-		,t.c.value('@CustId', 'INT') AS CustId
-		,t.c.value('@Recommend', 'INT') AS Recommend
-		,t.c.value('@Mrecommend', 'INT') AS Mrecommend
-		,t.c.value('@Srecommend', 'INT') AS Srecommend
-		,t.c.value('@IsTest', 'BIT') AS IsTest
-		,t.c.value('@Content_en', 'NVARCHAR(4000)') AS Content_en
-		,t.c.value('@Content_cs', 'NVARCHAR(4000)') AS Content_cs
-		,t.c.value('@Content_th', 'NVARCHAR(4000)') AS Content_th
-		,t.c.value('@Content_vn', 'NVARCHAR(4000)') AS Content_vn
+		t.c.value('@CustId', 'INT')						AS CustId
+		,t.c.value('@Username', 'VARCHAR(30)')			AS Username
+		,t.c.value('@RoleId', 'TINYINT')				AS RoleId
+		,t.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
+		,t.c.value('@MatchId', 'INT')					AS MatchId
+		,t.c.value('@SportNameEN', 'NVARCHAR(50)')		AS SportNameEN
+		,t.c.value('@SportNameSC', 'NVARCHAR(50)')		AS SportNameSC
+		,t.c.value('@SportNameTH', 'NVARCHAR(50)')		AS SportNameTH
+		,t.c.value('@SportNameYN', 'NVARCHAR(50)')		AS SportNameYN
+		,t.c.value('@LeagueNameEN', 'NVARCHAR(500)')	AS LeagueNameEN
+		,t.c.value('@LeagueNameSC', 'NVARCHAR(500)')	AS LeagueNameSC
+		,t.c.value('@LeagueNameTH', 'NVARCHAR(500)')	AS LeagueNameTH
+		,t.c.value('@LeagueNameYN', 'NVARCHAR(500)')	AS LeagueNameYN
+		,t.c.value('@HomeNameEN', 'NVARCHAR(100)')		AS HomeNameEN
+		,t.c.value('@HomeNameSC', 'NVARCHAR(100)')		AS HomeNameSC
+		,t.c.value('@HomeNameTH', 'NVARCHAR(100)')		AS HomeNameTH
+		,t.c.value('@HomeNameYN', 'NVARCHAR(100)')		AS HomeNameYN
+		,t.c.value('@AwayNameEN', 'NVARCHAR(100)')		AS AwayNameEN
+		,t.c.value('@AwayNameSC', 'NVARCHAR(100)')		AS AwayNameSC
+		,t.c.value('@AwayNameTH', 'NVARCHAR(100)')		AS AwayNameTH
+		,t.c.value('@AwayNameYN', 'NVARCHAR(100)')		AS AwayNameYN
 	FROM @XmlData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
@@ -92,13 +154,13 @@ BEGIN
 		-- Only import testing data for UAT environment
 	IF @Environment = 'UAT'
 	BEGIN
-		DELETE i FROM #ImportMessage i WHERE i.IsTest = 0
+		DELETE i FROM #ImportData i WHERE i.IsTest = 0
 	END
 
 	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'LIVE'
 	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
 	BEGIN
-		DELETE i FROM #ImportMessage i WHERE i.IsTest = 1
+		DELETE i FROM #ImportData i WHERE i.IsTest = 1
 	END
 
 	-- Get Job Setting
@@ -178,7 +240,7 @@ BEGIN
 	)
 	INSERT INTO #MessageRecipient (MessageId, Username, DirectAccount, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
 	SELECT m.MessageId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
-	FROM #ImportMessage m
+	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
@@ -335,7 +397,7 @@ BEGIN
 	FROM #Result r
 		CROSS APPLY (
 			SELECT TOP 1 m.Content_en, m.Content_cs, m.Content_th, m.Content_vn
-			FROM #ImportMessage m
+			FROM #ImportData m
 			WHERE r.MessageId = m.MessageId
 		) m
 
@@ -394,7 +456,7 @@ BEGIN
 	BEGIN
 		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
 							FROM @Messages.nodes('/root/r') T(c)
-							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportMessage i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
+							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportData i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
 							FOR XML PATH('r'), ROOT('root'))
 	END
 	-- Update crmMessageImport
@@ -406,7 +468,7 @@ BEGIN
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 
-	DROP TABLE #ImportMessage
+	DROP TABLE #ImportData
 	DROP TABLE #MessageRecipient
 	DROP TABLE #NotificationTemplate
 	DROP TABLE #Result

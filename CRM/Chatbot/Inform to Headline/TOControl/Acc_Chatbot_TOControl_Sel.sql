@@ -1,7 +1,6 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_Sel]
-	@LastDatetime   DATETIME
-	,@BatchSize		INT = 10
+	@Xml XML
 AS
 
 /*
@@ -13,42 +12,34 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
+		.@Xml = <root><r CustId ="" MatchId =""/><root/>
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Result 
-	(
-		CustId			INT, 
-		MatchId			INT, 
-		RoleId			TINYINT, 
-		UserName		VARCHAR(30), 
-		CurrencyName	VARCHAR(30)
-	)
+	DECLARE @Result TABLE (CustId INT, MatchId INT, RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50))
 
-	INSERT INTO #Result (CustId, MatchId)
-	SELECT CustID, matchid FROM TOControl_Setting WHERE IsGroupHeadLine = 0 AND NotifiedPercentValue > 60 AND ModifiedDatePercentValue > @LastDatetime
+	INSERT INTO @Result (CustId, MatchId)
+	SELECT 
+		T.c.value('@CustId', 'INT')
+		,T.c.value('@MatchId', 'INT')
+	FROM @Xml.nodes('root/r') T(c)
+	OPTION (OPTIMIZER FOR (@Xml = NULL))
 
 	UPDATE r
-		SET r.CurrencyName	= l.CurrencyName
+		SET r.CurrencyName	= l.Currency
 			,r.UserName		= l.Username
 			,r.RoleId		= l.RoleId
-	FROM #Result r
+	FROM @Result r
 	CROSS APPLY(
-		SELECT TOP 1 Username , e.Currency , RoleId 
+		SELECT TOP (1) Username , e.Currency , RoleId 
 		FROM dbo.Customer c WITH(NOLOCK)
 			INNER JOIN dbo.exchange e WITH(NOLOCK) ON e.ExchangeId = c.currency
 		WHERE c.custid = r.CustId
-	) AS l(Username, CurrencyName, RoleId)
+	) AS l
 	
-	SELECT 
-		CustId		
-		,MatchId		
-		,RoleId		
-		,UserName	
-		,CurrencyName
-	FROM #Result
+	SELECT CustId ,MatchId ,RoleId ,UserName ,CurrencyName FROM @Result
 
 END
 GO

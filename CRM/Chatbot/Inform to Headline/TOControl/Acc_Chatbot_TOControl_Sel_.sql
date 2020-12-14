@@ -12,7 +12,7 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = <root><r CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId =""> </r><root/>
+		.@XML = '<root><r CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId =""> </r><root/>'
 
 */
 BEGIN
@@ -23,26 +23,27 @@ BEGIN
 		RETURN
 	END
 
-	CREATE TABLE #Result 
+	DECLARE @Result TABLE
 	(
 		CustId			INT, 	
 		UserName		VARCHAR(30), 
 		RoleId			TINYINT, 
 		MatchId			INT, 
-		CurrencyName	VARCHAR(30),
+		CurrencyName	NVARCHAR(50),
 		Sporttype		INT,
 		LeagueId		INT,
 		HomeId			INT,
-		AwayId			INT
+		AwayId			INT,
+		Outstanding     MONEY
 	)	
 
-	INSERT INTO #Result (CustId, UserName, RoleId, MatchId, CurrencyName)
+	INSERT INTO @Result (CustId, UserName, RoleId, MatchId, CurrencyName)
 	SELECT 
 		T.c.value('@CustId', 'INT') AS CustId
 		,T.c.value('@Username', 'VARCHAR(30)')
 		,T.c.value('@RoleId','TINYINT')
 		,T.c.value('@MatchId', 'INT')
-		,T.c.value('@CurrencyName', 'VARCHAR(20)')
+		,T.c.value('@CurrencyName', 'NVARCHAR(50)')
 	FROM @XML.nodes('root\r') T(c)
 	OPTION (OPTIMIZER FOR (@XML = NULL))
 
@@ -51,13 +52,56 @@ BEGIN
 			,r.LeagueId = l.leagueid
 			,r.HomeId	= l.homeid
 			,r.AwayId	= l.awayid
-	FROM #Result r
+	FROM @Result r
 	CROSS APPLY(
 		SELECT TOP(1) m.sporttype, m.leagueid, m.homeid, m.awayid
 		FROM dbo.match m WITH(NOLOCK)
 		WHERE m.matchid = r.MatchId
 	) AS l
+	
+	-- Get Outstanding
+	IF EXISTS(SELECT 1 FROM @Result WHERE RoleId = 4)
+	BEGIN
+		;WITH CTE AS (
+			SELECT b.srecommend,  SUM(b.actual_stake) AS Outstanding
+			FROM bettrans b WITH(NOLOCK)
+			WHERE b.srecommend IN (SELECT r.CustId FROM @Result r)
+				AND b.statusID IN (0, 1)
+		)
+		UPDATE r
+			SET r.Outstanding = e.Outstanding
+		FROM @Result r
+			INNER JOIN CTE e ON e.srecommend = r.CustId	 
+	END
 
+	IF EXISTS(SELECT 1 FROM @Result WHERE RoleId = 3)
+	BEGIN
+		;WITH CTE AS (
+			SELECT b.mrecommend,  SUM(b.actual_stake) AS Outstanding
+			FROM bettrans b WITH(NOLOCK)
+			WHERE b.mrecommend IN (SELECT r.CustId FROM @Result r)
+				AND b.statusID IN (0, 1)
+		)
+		UPDATE r
+			SET r.Outstanding = e.Outstanding
+		FROM @Result r
+			INNER JOIN CTE e ON e.mrecommend = r.CustId	 
+	END
+
+	IF EXISTS(SELECT 1 FROM @Result WHERE RoleId = 2)
+	BEGIN
+		;WITH CTE AS (
+			SELECT b.recommend,  SUM(b.actual_stake) AS Outstanding
+			FROM bettrans b WITH(NOLOCK)
+			WHERE b.recommend IN (SELECT r.CustId FROM @Result r) 
+				AND b.statusID IN (0, 1)
+		)
+		UPDATE r
+			SET r.Outstanding = e.Outstanding
+		FROM @Result r
+			INNER JOIN CTE e ON e.recommend = r.CustId	 
+	END
+	
 	SELECT 
 		CustId, 
 		UserName, 
@@ -67,7 +111,8 @@ BEGIN
 		Sporttype, 
 		LeagueId, 
 		HomeId, 
-		AwayId	
-	FROM #Result
+		AwayId, 
+		Outstanding
+	FROM @Result
 END
 GO

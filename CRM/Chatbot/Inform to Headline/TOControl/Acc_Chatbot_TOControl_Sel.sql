@@ -12,18 +12,19 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@Xml = <root><r CustId ="" MatchId =""/><root/>
+		.@Xml = <root><r CustId ="" MatchId ="" NotifiedPercentValue=""/><root/>
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Result TABLE (CustId INT, MatchId INT, RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50))
+	DECLARE @Result TABLE (CustId INT, MatchId INT, NotifiedPercentValue TINYINT,RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50))
 
-	INSERT INTO @Result (CustId, MatchId)
+	INSERT INTO @Result (CustId, MatchId, NotifiedPercentValue)
 	SELECT 
 		T.c.value('@CustId', 'INT')
 		,T.c.value('@MatchId', 'INT')
+		,T.c.value('@NotifiedPercentValue', 'TINYINT')
 	FROM @Xml.nodes('root/r') T(c)
 	OPTION (OPTIMIZER FOR (@Xml = NULL))
 
@@ -39,7 +40,7 @@ BEGIN
 		WHERE c.custid = r.CustId
 	) AS l
 	
-	SELECT CustId ,MatchId ,RoleId ,UserName ,CurrencyName FROM @Result
+	SELECT CustId ,MatchId ,NotifiedPercentValue ,RoleId ,UserName ,CurrencyName FROM @Result
 
 END
 GO

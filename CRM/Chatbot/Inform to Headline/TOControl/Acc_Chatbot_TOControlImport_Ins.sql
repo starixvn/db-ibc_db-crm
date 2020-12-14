@@ -13,29 +13,36 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = <root><r CustId ="" MatchId =""> </r><root/>
+		.@XML = <root><r CustId ="" MatchId ="" NotifiedPercentValue=""> </r><root/>
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Tmp (CustId INT, MatchId INT)
+	CREATE TABLE #Tmp (CustId INT, MatchId INT, NotifiedPercentValue TINYINT)
 
 	INSERT INTO #Tmp (CustId, MatchId)
 	SELECT 
 		T.c.value('@CustId', 'INT')
 		,T.c.value('@MatchId', 'INT')
+		,T.c.value('@NotifiedPercentValue', 'TINYINT')
 	FROM @XML.nodes('root/r') T(c)
 	OPTION (OPTIMIZER FOR (@XML = NULL))
 
-	MERGE dbo.crmTOControlImport AS TARGET
-	USING #Tmp AS SOURCE
-		ON (TARGET.CustId = SOURCE.CustId AND TARGET.MatchId = SOURCE.MatchId)
-	WHEN MATCHED THEN UPDATE SET  TARGET.IsNotified = 0
-	WHEN NOT MATCHED BY TARGET THEN INSERT (CustId, MatchId, IsNotified) VALUES (SOURCE.CustId, SOURCE.MatchId, 0);
+	INSERT INTO dbo.crmTOControlImport (CustId, MatchId, NotifiedPercentValue, IsNotified)
+	SELECT t.CustId, t.MatchId, t.NotifiedPercentValue, 0
+	FROM #Tmp t
+	WHERE NOT EXISTS (
+			SELECT TOP(1) 1 
+			FROM dbo.crmTOControlImport i WITH(NOLOCK) 
+			WHERE i.CustId = t.CustId 
+				AND i.MatchId = t.MatchId
+				AND i.NotifiedPercentValue = i.NotifiedPercentValue
+		)
 	
-	SELECT TOP(@BatchSize) CustId, MatchId
+	SELECT TOP(@BatchSize) CustId, MatchId, NotifiedPercentValue
 	FROM dbo.crmTOControlImport WITH(NOLOCK)
+	WHERE IsNotified = 0
 
 	DROP TABLE #Tmp
 END

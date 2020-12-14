@@ -12,7 +12,7 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = '<root><r CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId =""> </r><root/>'
+		.@XML = '<root><r CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId ="" NotifiedPercentValue=""> </r><root/>'
 
 */
 BEGIN
@@ -25,25 +25,27 @@ BEGIN
 
 	DECLARE @Result TABLE
 	(
-		CustId			INT, 	
-		UserName		VARCHAR(30), 
-		RoleId			TINYINT, 
-		MatchId			INT, 
-		CurrencyName	NVARCHAR(50),
-		Sporttype		INT,
-		LeagueId		INT,
-		HomeId			INT,
-		AwayId			INT,
-		Outstanding     MONEY
+		CustId					INT, 	
+		UserName				VARCHAR(30), 
+		RoleId					TINYINT, 
+		NotifiedPercentValue	TINYINT,
+		MatchId					INT, 
+		CurrencyName			NVARCHAR(50),
+		Sporttype				INT,
+		LeagueId				INT,
+		HomeId					INT,
+		AwayId					INT,
+		Outstanding				MONEY
 	)	
 
-	INSERT INTO @Result (CustId, UserName, RoleId, MatchId, CurrencyName)
+	INSERT INTO @Result (CustId, UserName, RoleId, NotifiedPercentValue, MatchId, CurrencyName)
 	SELECT 
-		T.c.value('@CustId', 'INT') AS CustId
-		,T.c.value('@Username', 'VARCHAR(30)')
-		,T.c.value('@RoleId','TINYINT')
-		,T.c.value('@MatchId', 'INT')
-		,T.c.value('@CurrencyName', 'NVARCHAR(50)')
+		T.c.value('@CustId', 'INT')						AS CustId
+		,T.c.value('@Username', 'VARCHAR(30)')			AS UserName
+		,T.c.value('@RoleId','TINYINT')					AS RoleId
+		,T.c.value('@NotifiedPercentValue','TINYINT')	AS NotifiedPercentValue
+		,T.c.value('@MatchId', 'INT')					AS MatchId
+		,T.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
 	FROM @XML.nodes('root\r') T(c)
 	OPTION (OPTIMIZER FOR (@XML = NULL))
 
@@ -106,6 +108,7 @@ BEGIN
 		CustId, 
 		UserName, 
 		RoleId, 
+		NotifiedPercentValue,
 		MatchId, 
 		CurrencyName, 
 		Sporttype, 

@@ -17,27 +17,33 @@ AS
 	Param's Explanation:
 		. @XmlData
 			<root>
-				<r	CustId			="" 
-					Username		="" 
-					RoleId			="" 
-					CurrencyName	="" 
-					MatchId			="" 
-					SportNameEN		=""  
-					SportNameSC		=""  
-					SportNameTH		=""  
-					SportNameYN		="" 
-					LeagueNameEN	="" 
-					LeagueNameSC	="" 
-					LeagueNameTH	="" 
-					LeagueNameYN	="" 
-					HomeNameEN		="" 
-					HomeNameSC		="" 
-					HomeNameTH		="" 
-					HomeNameYN		=""
-					AwayNameEN		="" 
-					AwayNameSC		="" 
-					AwayNameTH		="" 
-					AwayNameYN		=""
+				<r	
+					CustId					="" 
+					Username				="" 
+					Recommend				=""
+					Mrecommend				=""
+					Srecommend				=""
+					RoleId					="" 
+					NotifiedPercentValue	= ""
+					CurrencyName			="" 
+					MatchId					="" 
+					SportNameEN				=""  
+					SportNameSC				=""  
+					SportNameTH				=""  
+					SportNameYN				="" 
+					LeagueNameEN			="" 
+					LeagueNameSC			="" 
+					LeagueNameTH			="" 
+					LeagueNameYN			="" 
+					HomeNameEN				="" 
+					HomeNameSC				="" 
+					HomeNameTH				="" 
+					HomeNameYN				=""
+					AwayNameEN				="" 
+					AwayNameSC				="" 
+					AwayNameTH				="" 
+					AwayNameYN				=""
+					IsTest					=""
 				<r/>
 			</root>
 */
@@ -66,33 +72,39 @@ BEGIN
 	-- Get Imported Data
 	CREATE TABLE #ImportData
 	(
-		CustId				INT
-		,Username			VARCHAR(30)
-		,RoleId				TINYINT
-		,CurrencyName		NVARCHAR(50)
-		,MatchId			INT
-		,SportNameEN		NVARCHAR(50)
-		,SportNameSC		NVARCHAR(50)
-		,SportNameTH		NVARCHAR(50)
-		,SportNameYN		NVARCHAR(50)
-		,LeagueNameEN		NVARCHAR(500)
-		,LeagueNameSC		NVARCHAR(500)
-		,LeagueNameTH		NVARCHAR(500)
-		,LeagueNameYN		NVARCHAR(500)
-		,HomeNameEN			NVARCHAR(100)
-		,HomeNameSC			NVARCHAR(100)
-		,HomeNameTH			NVARCHAR(100)
-		,HomeNameYN			NVARCHAR(100)
-		,AwayNameEN			NVARCHAR(100)
-		,AwayNameSC			NVARCHAR(100)
-		,AwayNameTH			NVARCHAR(100)
-		,AwayNameYN			NVARCHAR(100)
+		CustId					INT
+		,Username				VARCHAR(30)
+		,Recommend				INT
+		,Mrecommend				INT
+		,Srecommend				INT
+		,RoleId					TINYINT
+		,NotifiedPercentValue	TINYINT
+		,CurrencyName			NVARCHAR(50)
+		,MatchId				INT
+		,SportNameEN			NVARCHAR(50)
+		,SportNameSC			NVARCHAR(50)
+		,SportNameTH			NVARCHAR(50)
+		,SportNameYN			NVARCHAR(50)
+		,LeagueNameEN			NVARCHAR(500)
+		,LeagueNameSC			NVARCHAR(500)
+		,LeagueNameTH			NVARCHAR(500)
+		,LeagueNameYN			NVARCHAR(500)
+		,HomeNameEN				NVARCHAR(100)
+		,HomeNameSC				NVARCHAR(100)
+		,HomeNameTH				NVARCHAR(100)
+		,HomeNameYN				NVARCHAR(100)
+		,AwayNameEN				NVARCHAR(100)
+		,AwayNameSC				NVARCHAR(100)
+		,AwayNameTH				NVARCHAR(100)
+		,AwayNameYN				NVARCHAR(100)
+		,IsTest					BIT
 	)
 	INSERT INTO #ImportData 
 	(
 		CustId			
 		,Username		
-		,RoleId			
+		,RoleId		
+		,NotifiedPercentValue
 		,CurrencyName	
 		,MatchId		
 		,SportNameEN	
@@ -111,11 +123,16 @@ BEGIN
 		,AwayNameSC		
 		,AwayNameTH		
 		,AwayNameYN		
+		,IsTest
 	)
 	SELECT
 		t.c.value('@CustId', 'INT')						AS CustId
 		,t.c.value('@Username', 'VARCHAR(30)')			AS Username
+		,t.c.value('@Recommend', 'INT')					AS Recommend
+		,t.c.value('@Mrecommend', 'INT')				AS Mrecommend
+		,t.c.value('@Srecommend', 'INT')				AS Srecommend
 		,t.c.value('@RoleId', 'TINYINT')				AS RoleId
+		,t.c.value('@NotifiedPercentValue', 'TINYINT')	AS NotifiedPercentValue
 		,t.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
 		,t.c.value('@MatchId', 'INT')					AS MatchId
 		,t.c.value('@SportNameEN', 'NVARCHAR(50)')		AS SportNameEN
@@ -134,17 +151,16 @@ BEGIN
 		,t.c.value('@AwayNameSC', 'NVARCHAR(100)')		AS AwayNameSC
 		,t.c.value('@AwayNameTH', 'NVARCHAR(100)')		AS AwayNameTH
 		,t.c.value('@AwayNameYN', 'NVARCHAR(100)')		AS AwayNameYN
+		,t.c.value('@IsTest', 'BIT')					AS IsTest
 	FROM @XmlData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		-- Update crmMessageImport
-		EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - AbnormalBets'
+		WHERE ServiceName = 'ChatBot - TOControl'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -166,7 +182,7 @@ BEGIN
 	-- Get Job Setting
 	DECLARE @Xml XML
 	SELECT  @Xml = CONVERT(XML, Value) FROM dbo.SystemSetting WITH (NOLOCK)
-	WHERE ServiceName = 'ChatBot - AbnormalBets'
+	WHERE ServiceName = 'ChatBot - TOControl'
 		AND SettingName = 'NotificationTemplate'
 
 	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX))
@@ -186,7 +202,7 @@ BEGIN
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - AbnormalBets'
+		WHERE ServiceName = 'ChatBot - TOControl'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -202,59 +218,35 @@ BEGIN
 		INNER JOIN dbo.crmNotificationTemplate nt WITH (NOLOCK) ON s.NotificationTemplateId = nt.NotificationTemplateId
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
 
-	-- Check require param
-	IF EXISTS (
-		SELECT 1
-		FROM @tmpSetting s
-			INNER JOIN #NotificationTemplate nt
-				ON		s.NotificationTemplateId = nt.NotificationTemplateId
-					AND s.NotificationTypeId = nt.NotificationTypeId
-					AND s.LanguageId = nt.LanguageId
-		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
-	)
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
-		
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
-
-		RETURN
-	END
-
 	-- Get Recipient
 	CREATE TABLE #MessageRecipient
 	(
-		MessageId INT
+		CustId INT
+		,MatchId INT
+		,NotifiedPercentValue TINYINT
 		,Username VARCHAR(50)
 		,DirectAccount INT
 		,HeadlineId INT
 		,IsTest BIT
-		,Content_en NVARCHAR(4000)
-		,Content_cs NVARCHAR(4000)
-		,Content_th NVARCHAR(4000)
-		,Content_vn NVARCHAR(4000)
 		,RecipientId INT
 	)
-	INSERT INTO #MessageRecipient (MessageId, Username, DirectAccount, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
-	SELECT m.MessageId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
+	INSERT INTO #MessageRecipient (CustId, MatchId, NotifiedPercentValue, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	SELECT m.CustId, m.MatchId, m.NotifiedPercentValue, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (MessageId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
-	INSERT INTO #tmpGroup (MessageId, ConversationGroupId, DirectAccount, NoRecipient)
-	SELECT m.MessageId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
+	CREATE TABLE #tmpGroup (CustId INT, MatchId INT, NotifiedPercentValue TINYINT,ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	INSERT INTO #tmpGroup (CustId, MatchId, NotifiedPercentValue, ConversationGroupId, DirectAccount, NoRecipient)
+	SELECT cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #MessageRecipient m
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 	WHERE cg.IsActive = 1
-	GROUP BY m.MessageId, cgr.ConversationGroupId, m.DirectAccount
+	GROUP BY m.CustId, m.MatchId, m.NotifiedPercentValue, cgr.ConversationGroupId, m.DirectAccount
 
 	;WITH CTE_Group AS
 	(
@@ -277,11 +269,11 @@ BEGIN
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
-	CREATE TABLE #tmpResult (MessageId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
-	INSERT INTO #tmpResult (MessageId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest)
-	SELECT m.MessageId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest
+	CREATE TABLE #tmpResult (CustId INT, MatchId INT, NotifiedPercentValue TINYINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
+	INSERT INTO #tmpResult (CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest)
+	SELECT m.CustId, m.MatchId, m.NotifiedPercentValue, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest
 	FROM #MessageRecipient m
-		INNER JOIN #tmpGroup g ON m.MessageId = g.MessageId AND m.DirectAccount = g.DirectAccount
+		INNER JOIN #tmpGroup g ON m.CustId = g.CustId AND m.MatchId = g.MatchId AND m.NotifiedPercentValue = g.NotifiedPercentValue AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 

@@ -1,7 +1,6 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlImport_Upd]
-	@XML XML,
-	@BatchSize INT = 10
+	@XML XML
 AS
 
 /*
@@ -13,30 +12,31 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = <root><r CustId ="" MatchId =""> </r><root/>
+		.@XML = <root><r CustId ="" MatchId ="", NotifiedPercentValue=""> </r><root/>
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Tmp (CustId INT, MatchId INT)
+	IF @XML IS NULL
+	BEGIN
+		RETURN
+	END
 
-	INSERT INTO #Tmp (CustId, MatchId)
+	DECLARE @Tmp TABLE (CustId INT, MatchId INT, NotifiedPercentValue TINYINT)
+
+	INSERT INTO @Tmp (CustId, MatchId)
 	SELECT 
 		T.c.value('@CustId', 'INT')
 		,T.c.value('@MatchId', 'INT')
+		,T.c.value('@NotifiedPercentValue', 'TINYINT')
 	FROM @XML.nodes('root/r') T(c)
 	OPTION (OPTIMIZER FOR (@XML = NULL))
 
-	MERGE dbo.crmTOControlImport AS TARGET
-	USING #Tmp AS SOURCE
-		ON (TARGET.CustId = SOURCE.CustId AND TARGET.MatchId = SOURCE.MatchId)
-	WHEN MATCHED THEN UPDATE SET  TARGET.IsNotified = 0
-	WHEN NOT MATCHED BY TARGET THEN INSERT (CustId, MatchId, IsNotified) VALUES (SOURCE.CustId, SOURCE.MatchId, 0);
-	
-	SELECT TOP(@BatchSize) CustId, MatchId
-	FROM dbo.crmTOControlImport WITH(NOLOCK)
+	UPDATE i
+		SET i.IsNotified = 1
+	FROM dbo.crmTOControlImport i WITH(ROWLOCK)
+		INNER JOIN @Tmp t ON t.CustId = i.CustId AND t.MatchId = i.MatchId AND t.NotifiedPercentValue = i.NotifiedPercentValue
 
-	DROP TABLE #Tmp
 END
 GO

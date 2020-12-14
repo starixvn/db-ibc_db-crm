@@ -12,13 +12,13 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = <root><r CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId =""> </r><root/>
+		
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT DISTINCT CustID, matchid
+	SELECT DISTINCT CustID, matchid, NotifiedPercentValue
 	FROM dbo.TOControl_Setting t WITH(NOLOCK)
 	WHERE t.NotifiedPercentValue > 60 AND t.ModifiedDatePercentValue > @LastDatetime AND IsGroupHeadLine = 0
 

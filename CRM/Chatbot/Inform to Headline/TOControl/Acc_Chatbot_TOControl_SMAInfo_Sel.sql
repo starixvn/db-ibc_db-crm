@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_Sel]
+CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_SMAInfo_Sel]
 	@Xml XML
 AS
 
@@ -12,17 +12,18 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@Xml = <root><r CustId ="" MatchId ="" NotifiedPercentValue=""/><root/>
+		.@Xml = <root><r LogId="" CustId ="" MatchId ="" NotifiedPercentValue=""/><root/>
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Result TABLE (CustId INT, MatchId INT, NotifiedPercentValue TINYINT,RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50))
+	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, NotifiedPercentValue TINYINT,RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50))
 
-	INSERT INTO @Result (CustId, MatchId, NotifiedPercentValue)
+	INSERT INTO @Result (LogId, CustId, MatchId, NotifiedPercentValue)
 	SELECT 
-		T.c.value('@CustId', 'INT')
+		T.c.value('@LogId', 'BIGINT')
+		,T.c.value('@CustId', 'INT')
 		,T.c.value('@MatchId', 'INT')
 		,T.c.value('@NotifiedPercentValue', 'TINYINT')
 	FROM @Xml.nodes('root/r') T(c)
@@ -40,7 +41,7 @@ BEGIN
 		WHERE c.custid = r.CustId
 	) AS l
 	
-	SELECT CustId ,MatchId ,NotifiedPercentValue ,RoleId ,UserName ,CurrencyName FROM @Result
+	SELECT LogId ,CustId ,MatchId ,NotifiedPercentValue ,RoleId ,UserName ,CurrencyName FROM @Result
 
 END
 GO

@@ -18,6 +18,7 @@ AS
 		. @XmlData
 			<root>
 				<r	
+					LogId					=""
 					CustId					="" 
 					Username				="" 
 					Recommend				=""
@@ -75,7 +76,8 @@ BEGIN
 	-- Get Imported Data
 	CREATE TABLE #ImportData
 	(
-		CustId					INT
+		LogId					BIGINT
+		,CustId					INT
 		,Username				VARCHAR(30)
 		,Recommend				INT
 		,Mrecommend				INT
@@ -108,7 +110,8 @@ BEGIN
 	)
 	INSERT INTO #ImportData 
 	(
-		CustId			
+		LogId
+		,CustId			
 		,Username		
 		,RoleEN	
 		,RoleSC	
@@ -136,7 +139,8 @@ BEGIN
 		,IsTest
 	)
 	SELECT
-		t.c.value('@CustId', 'INT')						AS CustId
+		t.c.value('@LogId', 'BIGINT')					AS LogId
+		,t.c.value('@CustId', 'INT')					AS CustId
 		,t.c.value('@Username', 'VARCHAR(30)')			AS Username
 		,t.c.value('@Recommend', 'INT')					AS Recommend
 		,t.c.value('@Mrecommend', 'INT')				AS Mrecommend

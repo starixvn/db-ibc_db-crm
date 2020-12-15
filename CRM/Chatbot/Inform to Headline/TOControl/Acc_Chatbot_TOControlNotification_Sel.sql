@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlGet_Sel]
+CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlNotification_Sel]
 	@LastDatetime DATETIME
 AS
 

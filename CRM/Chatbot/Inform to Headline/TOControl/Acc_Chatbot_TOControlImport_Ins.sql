@@ -32,17 +32,11 @@ BEGIN
 	INSERT INTO dbo.crmTOControlImport (CustId, MatchId, NotifiedPercentValue, IsNotified)
 	SELECT t.CustId, t.MatchId, t.NotifiedPercentValue, 0
 	FROM #Tmp t
-	WHERE NOT EXISTS (
-			SELECT TOP(1) 1 
-			FROM dbo.crmTOControlImport i WITH(NOLOCK) 
-			WHERE i.CustId = t.CustId 
-				AND i.MatchId = t.MatchId
-				AND i.NotifiedPercentValue = i.NotifiedPercentValue
-		)
-	
-	SELECT TOP(@BatchSize) CustId, MatchId, NotifiedPercentValue
+
+	SELECT TOP(@BatchSize) LogId, CustId, MatchId, NotifiedPercentValue
 	FROM dbo.crmTOControlImport WITH(NOLOCK)
 	WHERE IsNotified = 0
+	ORDER BY LogId 
 
 	DROP TABLE #Tmp
 END

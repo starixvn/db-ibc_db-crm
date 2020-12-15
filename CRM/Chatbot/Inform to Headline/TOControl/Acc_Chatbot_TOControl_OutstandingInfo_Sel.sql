@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_Sel]
+CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_OutstandingInfo_Sel]
 	@XML   XML
 AS
 
@@ -12,7 +12,7 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = '<root><r CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId ="" NotifiedPercentValue=""> </r><root/>'
+		.@XML = '<root><r LogId="" CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId ="" NotifiedPercentValue=""> </r><root/>'
 
 */
 BEGIN
@@ -25,6 +25,7 @@ BEGIN
 
 	DECLARE @Result TABLE
 	(
+		LogId					BIGINT,
 		CustId					INT, 	
 		UserName				VARCHAR(30), 
 		RoleId					TINYINT, 
@@ -38,9 +39,10 @@ BEGIN
 		Outstanding				MONEY
 	)	
 
-	INSERT INTO @Result (CustId, UserName, RoleId, NotifiedPercentValue, MatchId, CurrencyName)
+	INSERT INTO @Result (LogId, CustId, UserName, RoleId, NotifiedPercentValue, MatchId, CurrencyName)
 	SELECT 
-		T.c.value('@CustId', 'INT')						AS CustId
+		T.c.value('@LogId', 'BIGINT')					AS LogId
+		,T.c.value('@CustId', 'INT')					AS CustId
 		,T.c.value('@Username', 'VARCHAR(30)')			AS UserName
 		,T.c.value('@RoleId','TINYINT')					AS RoleId
 		,T.c.value('@NotifiedPercentValue','TINYINT')	AS NotifiedPercentValue
@@ -105,6 +107,7 @@ BEGIN
 	END
 	
 	SELECT 
+		LogId,
 		CustId, 
 		UserName, 
 		RoleId, 

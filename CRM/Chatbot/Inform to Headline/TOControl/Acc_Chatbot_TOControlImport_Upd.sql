@@ -12,7 +12,7 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = <root><r CustId ="" MatchId ="", NotifiedPercentValue=""> </r><root/>
+		.@XML = <root><r LogId=""> </r><root/>
 
 */
 BEGIN
@@ -23,20 +23,18 @@ BEGIN
 		RETURN
 	END
 
-	DECLARE @Tmp TABLE (CustId INT, MatchId INT, NotifiedPercentValue TINYINT)
+	DECLARE @Tmp TABLE (LogId BIGINT)
 
-	INSERT INTO @Tmp (CustId, MatchId)
+	INSERT INTO @Tmp (LogId)
 	SELECT 
-		T.c.value('@CustId', 'INT')
-		,T.c.value('@MatchId', 'INT')
-		,T.c.value('@NotifiedPercentValue', 'TINYINT')
+		T.c.value('@LogId', 'BIGINT')
 	FROM @XML.nodes('root/r') T(c)
 	OPTION (OPTIMIZER FOR (@XML = NULL))
 
 	UPDATE i
 		SET i.IsNotified = 1
 	FROM dbo.crmTOControlImport i WITH(ROWLOCK)
-		INNER JOIN @Tmp t ON t.CustId = i.CustId AND t.MatchId = i.MatchId AND t.NotifiedPercentValue = i.NotifiedPercentValue
+		INNER JOIN @Tmp t ON t.LogId = i.LogId
 
 END
 GO

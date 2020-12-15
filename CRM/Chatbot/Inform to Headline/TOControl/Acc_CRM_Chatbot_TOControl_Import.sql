@@ -84,6 +84,10 @@ BEGIN
 		,NotifiedPercentValue	TINYINT
 		,CurrencyName			NVARCHAR(50)
 		,MatchId				INT
+		,RoleEN					VARCHAR(20)
+		,RoleSC					VARCHAR(20)
+		,RoleTH					VARCHAR(20)
+		,RoleYN					VARCHAR(20)
 		,SportNameEN			NVARCHAR(50)
 		,SportNameSC			NVARCHAR(50)
 		,SportNameTH			NVARCHAR(50)
@@ -106,7 +110,10 @@ BEGIN
 	(
 		CustId			
 		,Username		
-		,RoleId		
+		,RoleEN	
+		,RoleSC	
+		,RoleTH	
+		,RoleYN	
 		,NotifiedPercentValue
 		,CurrencyName	
 		,MatchId		

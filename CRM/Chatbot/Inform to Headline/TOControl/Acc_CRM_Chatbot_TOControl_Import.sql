@@ -24,9 +24,7 @@ AS
 					Recommend				=""
 					Mrecommend				=""
 					Srecommend				=""
-					NotifiedPercentValue	= ""
 					CurrencyName			="" 
-					MatchId					="" 
 					RoleEN					=""
 					RoleSC					=""
 					RoleTH					=""
@@ -83,9 +81,7 @@ BEGIN
 		,Mrecommend				INT
 		,Srecommend				INT
 		,RoleId					TINYINT
-		,NotifiedPercentValue	TINYINT
 		,CurrencyName			NVARCHAR(50)
-		,MatchId				INT
 		,RoleEN					VARCHAR(20)
 		,RoleSC					VARCHAR(20)
 		,RoleTH					VARCHAR(20)
@@ -117,9 +113,7 @@ BEGIN
 		,RoleSC	
 		,RoleTH	
 		,RoleYN	
-		,NotifiedPercentValue
-		,CurrencyName	
-		,MatchId		
+		,CurrencyName			
 		,SportNameEN	
 		,SportNameSC	
 		,SportNameTH	
@@ -146,9 +140,7 @@ BEGIN
 		,t.c.value('@Mrecommend', 'INT')				AS Mrecommend
 		,t.c.value('@Srecommend', 'INT')				AS Srecommend
 		,t.c.value('@RoleId', 'TINYINT')				AS RoleId
-		,t.c.value('@NotifiedPercentValue', 'TINYINT')	AS NotifiedPercentValue
 		,t.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
-		,t.c.value('@MatchId', 'INT')					AS MatchId
 		,t.c.value('@SportNameEN', 'NVARCHAR(50)')		AS SportNameEN
 		,t.c.value('@SportNameSC', 'NVARCHAR(50)')		AS SportNameSC
 		,t.c.value('@SportNameTH', 'NVARCHAR(50)')		AS SportNameTH
@@ -235,32 +227,30 @@ BEGIN
 	-- Get Recipient
 	CREATE TABLE #MessageRecipient
 	(
-		CustId INT
-		,MatchId INT
-		,NotifiedPercentValue TINYINT
+		LogId BIGINT
 		,Username VARCHAR(50)
 		,DirectAccount INT
 		,HeadlineId INT
 		,IsTest BIT
 		,RecipientId INT
 	)
-	INSERT INTO #MessageRecipient (CustId, MatchId, NotifiedPercentValue, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
-	SELECT m.CustId, m.MatchId, m.NotifiedPercentValue, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
+	INSERT INTO #MessageRecipient (LogId, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (CustId INT, MatchId INT, NotifiedPercentValue TINYINT,ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
-	INSERT INTO #tmpGroup (CustId, MatchId, NotifiedPercentValue, ConversationGroupId, DirectAccount, NoRecipient)
+	CREATE TABLE #tmpGroup (LogId BIGINT,ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #MessageRecipient m
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 	WHERE cg.IsActive = 1
-	GROUP BY m.CustId, m.MatchId, m.NotifiedPercentValue, cgr.ConversationGroupId, m.DirectAccount
+	GROUP BY m.LogId, cgr.ConversationGroupId, m.DirectAccount
 
 	;WITH CTE_Group AS
 	(
@@ -283,20 +273,18 @@ BEGIN
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
-	CREATE TABLE #tmpResult (CustId INT, MatchId INT, NotifiedPercentValue TINYINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
-	INSERT INTO #tmpResult (CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest)
-	SELECT m.CustId, m.MatchId, m.NotifiedPercentValue, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest
+	CREATE TABLE #tmpResult (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
+	INSERT INTO #tmpResult (LogId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest)
+	SELECT m.LogId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest
 	FROM #MessageRecipient m
-		INNER JOIN #tmpGroup g ON m.CustId = g.CustId AND m.MatchId = g.MatchId AND m.NotifiedPercentValue = g.NotifiedPercentValue AND m.DirectAccount = g.DirectAccount
+		INNER JOIN #tmpGroup g ON m.LogId = g.LogId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 
 	CREATE TABLE #Result
 	(
 		Id						INT IDENTITY(1, 1)
-		,CustId					INT
-		,MatchId				INT
-		,NotifiedPercentValue	TINYINT
+		,LogId					BIGINT
 		,CurrencyName			NVARCHAR(50)
 		,Role				    VARCHAR(20)
 		,SportNameEN			NVARCHAR(50)
@@ -329,72 +317,72 @@ BEGIN
 		SET @Status = 'Draft'
 
 	-- For Group
-	INSERT INTO #Result (CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, Status)
-	SELECT CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, @Status
+	INSERT INTO #Result (LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, Status)
+	SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, @Status
 	FROM (
-		SELECT CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId
+		SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), HeadlineId)
 						FROM #tmpResult t2
-						WHERE t1.CustId = t2.CustId AND t1.MatchId = t2.MatchId AND t1.NotifiedPercentValue = t2.NotifiedPercentValue AND t1.ConversationGroupId = t2.ConversationGroupId
+						WHERE t1.LogId = t2.LogId AND t1.ConversationGroupId = t2.ConversationGroupId
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
 			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM #tmpResult t1
 		WHERE t1.ChatTypeId = 1 -- Group
-		GROUP BY CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId
+		GROUP BY logid, ConversationGroupId, ChatTypeId, LanguageId
 	) t
 
 	-- For Personal
 	;WITH CTE_tmpPersonal AS (
-		SELECT p.CustId, p.MatchId, p.NotifiedPercentValue, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId
+		SELECT p.LogId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId
 		FROM #tmpResult p
 			OUTER APPLY (
 				SELECT DISTINCT r.Id
 				FROM dbo.crmConversationGroupRecipient cgr1 WITH (NOLOCK)
 					INNER JOIN dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK) ON cgr2.RecipientId = cgr1.RecipientId
 					INNER JOIN #tmpResult g ON g.ConversationGroupId = cgr2.ConversationGroupId
-					INNER JOIN #Result r ON g.CustId = r.CustId AND g.MatchId = r.MatchId AND g.NotifiedPercentValue = r.NotifiedPercentValue AND g.ConversationGroupId = r.ConversationGroupId
-				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.CustId = g.CustId AND p.MatchId = g.MatchId AND p.NotifiedPercentValue = g.NotifiedPercentValue AND p.Username = g.Username AND g.ChatTypeId = 1 -- Group
+					INNER JOIN #Result r ON g.LogId = r.LogId AND g.ConversationGroupId = r.ConversationGroupId
+				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.LogId = g.LogId AND p.Username = g.Username AND g.ChatTypeId = 1 -- Group
 			) t
 		WHERE p.ChatTypeId = 2 -- Personal
 	)
 	,CTE_tempResult AS (
-		SELECT CustId, MatchId, NotifiedPercentValue,  ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
+		SELECT LogId,  ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
 			,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END AS IsDuplicated
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.RelatedId)
 						FROM CTE_tmpPersonal t2
-						WHERE t1.CustId = t2.CustId AND t1.MatchId = t2.MatchId AND t1.NotifiedPercentValue = t2.NotifiedPercentValue AND t1.ConversationGroupId = t2.ConversationGroupId
+						WHERE t1.LogId = t2.LogId AND t1.ConversationGroupId = t2.ConversationGroupId
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
 		FROM CTE_tmpPersonal t1
-		GROUP BY CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
+		GROUP BY LogId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
 		,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END
 	)
-	INSERT INTO #Result (CustId, MatchId, NotifiedPercentValue , ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, Status, RelatedIds)
-	SELECT CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END
+	INSERT INTO #Result (LogId , ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, Status, RelatedIds)
+	SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END
 	FROM (
-		SELECT CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+		SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.HeadlineId)
 						FROM CTE_tempResult t2
-						WHERE t1.CustId = t2.CustId AND t1.MatchId = t2.MatchId AND t1.NotifiedPercentValue = t2.NotifiedPercentValue AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+						WHERE t1.LogId = t2.LogId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
 			,STUFF(
 					(SELECT DISTINCT ',' + t2.RelatedIds
 						FROM CTE_tempResult t2
-						WHERE t1.CustId = t2.CustId AND t1.MatchId = t2.MatchId AND t1.NotifiedPercentValue = t2.NotifiedPercentValue AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+						WHERE t1.LogId = t2.LogId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
 			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM CTE_tempResult t1
-		GROUP BY CustId, MatchId, NotifiedPercentValue, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+		GROUP BY LogId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 	) t
 
 	UPDATE #Result SET Status = 'Planned' WHERE IsTest = 1 AND Status = 'Draft'
@@ -443,7 +431,7 @@ BEGIN
 				,m.AwayNameTH		
 				,m.AwayNameYN	
 			FROM #ImportData m
-			WHERE r.CustId = m.CustId AND r.MatchId = m.MatchId AND r.NotifiedPercentValue = m.NotifiedPercentValue 
+			WHERE r.LogId = m.LogId
 		) m
 
 	-- Import Notification

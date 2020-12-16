@@ -14,6 +14,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201216@Malcolm: not check notification type in setting [Redmine: #146735]
 	Param's Explanation:
 		
 */
@@ -33,17 +34,6 @@ BEGIN
 		,Type                   TINYINT
 	)
 
-	CREATE TABLE #NotificationTemplate(NotificationTemplateId INT)
-	DECLARE @MsgContentsType XML
-
-	SELECT @MsgContentsType = CAST(Value AS XML)
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'NotificationTemplate'
-
-	INSERT INTO #NotificationTemplate(NotificationTemplateId)
-	SELECT  T.c.value('@NotificationTemplateID', 'INT')
-	FROM @MsgContentsType.nodes('/root/r') T(c)
-
 	-- Check permission
 
 	-- Check exists NotificationTypeId
@@ -62,12 +52,6 @@ BEGIN
 	IF EXISTS(SELECT 1 FROM dbo.crmNotificationTemplate n WITH(NOLOCK) WHERE n.NotificationTypeId = @NotificationTypeId)
 	BEGIN
 		SELECT @ErrCode = 103, @ErrMsg = 'Unable to delete the notification type because one or many assigned notification(s) exist(s)'
-		RETURN
-	END
-
-	IF EXISTS(SELECT 1 FROM #NotificationTemplate WHERE NotificationTemplateId = @NotificationTypeId)
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'This is the system template, so you cannot delete it.'
 		RETURN
 	END
 
@@ -122,7 +106,6 @@ BEGIN
 		RETURN
 	END CATCH
 
-	DROP TABLE #NotificationTemplate
 	-- Write log
 
 	SELECT @RecipientTypeXML = (

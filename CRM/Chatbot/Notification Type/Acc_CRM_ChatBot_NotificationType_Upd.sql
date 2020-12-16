@@ -17,6 +17,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 	Param's Explanation:
 		
 */
@@ -150,13 +151,13 @@ BEGIN
 	--New values
 	SELECT @RecipientTypeXML = (
 					SELECT f.val AS '@Id', rt.RecipientTypeName AS '@Name'
-					FROM bodb02.dbo.f_StringSplit(@RecipientTypeIds,',') f
+					FROM dbo.f_CRM_strSplit(@RecipientTypeIds,',') f
 						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = f.val
 					FOR XML PATH('RecipientType'))
 
 	SELECT @ChatTypeXML	= (
 					SELECT f.val AS '@Id', CASE WHEN f.val = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
-					FROM bodb02.dbo.f_StringSplit(@ChatTypeIds, ',') f
+					FROM dbo.f_CRM_strSplit(@ChatTypeIds, ',') f
 					FOR XML PATH('ChatType'))
 
 	SELECT @SystemXML =	(

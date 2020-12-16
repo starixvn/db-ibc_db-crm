@@ -1,0 +1,25 @@
+/*<info serverAlias="DBCRM-bodb_CRM" ></info>*/
+
+/*
+	Created: 20201109@Malcolm
+	DB: DBCRM-bodb_CRM
+	Task: All new colums into crmNotification table [RedmineId : #144265]
+*/
+USE bodb_CRM
+GO
+
+ALTER TABLE dbo.crmNotification 
+ADD ReferenceId BIGINT, DataSource NVARCHAR(128)
+
+CREATE NONCLUSTERED INDEX [IX_ReferenceId] ON [dbo].[crmNotification]
+(
+	[ReferenceId] ASC,
+	[DataSource]	ASC,
+	[NotificationId] ASC
+) ON [DataChatBot]
+GO
+
+DROP INDEX [IX_MessageId] ON [crmNotification]
+
+
+

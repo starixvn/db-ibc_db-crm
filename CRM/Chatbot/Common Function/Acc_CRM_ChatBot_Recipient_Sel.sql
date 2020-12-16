@@ -12,6 +12,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 	Param's Explanation:
 		
 */
@@ -50,7 +51,7 @@ BEGIN
 	WHERE (r.RecipientTypeId = @RecipientType OR @RecipientType IS NULL)
 		AND (p.Username LIKE '%' + @RecipientName + '%' OR @RecipientName IS NULL)	
 		AND (EXISTS(SELECT 1 
-					FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',') f 
+					FROM dbo.f_CRM_strSplit(@RecipientIds, ',') f 
 					WHERE f.val = r.RecipientId
 			) OR @RecipientIds = '')
 		AND r.DataSource = 'bodb_CRM.dbo.crmPIC'

@@ -22,6 +22,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
 	Param's Explanation:
 		
 */
@@ -39,7 +40,7 @@ BEGIN
 
 	INSERT INTO @_NotificationTypeIds(NotificationTypeId)
 	SELECT val
-	FROM bodb02.dbo.f_StringSplit(@NotificationTypeIds,',')
+	FROM dbo.f_CRM_strSplit(@NotificationTypeIds,',')
 
 
 	IF @RecipientName <> ''
@@ -60,7 +61,8 @@ BEGIN
 	CREATE TABLE #Tmp
 	(
 		NotificationId			INT PRIMARY KEY CLUSTERED
-		,MessageId				INT
+		,ReferenceId			BIGINT
+		,DataSource				VARCHAR(128)
 		,NotificationTypeId		SMALLINT
 		,NotificationTypeName	nvarchar(500)
 		,Sender					INT
@@ -77,7 +79,8 @@ BEGIN
 	INSERT INTO #Tmp
 	(
 		NotificationId			
-		,MessageId				
+		,ReferenceId	
+		,DataSource
 		,NotificationTypeId		
 		,NotificationTypeName	
 		,Sender					
@@ -91,7 +94,8 @@ BEGIN
 	)
 	SELECT 
 		n.NotificationId,
-		n.MessageId,
+		n.ReferenceId,
+		n.DataSource,
 		n.NotificationTypeId,
 		nt.NotificationTypeName,
 		n.Sender,
@@ -104,7 +108,7 @@ BEGIN
 		n.RelatedNotificationIds
 	FROM dbo.crmNotification n WITH(NOLOCK)
 		INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
-	WHERE (n.MessageId = @MessageId OR @MessageId IS NULL)
+	WHERE (n.ReferenceId = @MessageId AND n.DataSource = 'MessageId' OR @MessageId IS NULL)
 		AND (n.SendDate >= @FromDate OR @FromDate IS NULL)
 		AND (n.SendDate <= @ToDate OR @ToDate IS NULL)
 		AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%' OR @Status = '')
@@ -152,7 +156,8 @@ BEGIN
 
 	SELECT 
 		t.NotificationId
-		,t.MessageId
+		,t.ReferenceId
+		,t.DataSource
 		,c.username AS Sender
 		,t.NotificationTypeId
 		,t.NotificationTypeName

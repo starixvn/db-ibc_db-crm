@@ -22,6 +22,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 	Param's Explanation:
 		
 */
@@ -92,12 +93,12 @@ BEGIN
 
 	INSERT INTO #Recipients(ID) 
 	SELECT val
-	FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',')
+	FROM dbo.f_CRM_strSplit(@RecipientIds, ',')
 	WHERE val <> ''
 
 	INSERT INTO #Headlines(ID) 
 	SELECT val
-	FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',')
+	FROM dbo.f_CRM_strSplit(@HeadlineIds, ',')
 	WHERE val <> ''
 
 	-- check validation
@@ -308,7 +309,7 @@ BEGIN
 						p.Username				AS '@Name', 
 						r.RecipientTypeId		AS '@RecipientTypeId', 
 						rt.RecipientTypeName	AS '@RecipientTypeName'
-				FROM bodb02.dbo.f_StringSplit(@RecipientIds, ',') f
+				FROM dbo.f_CRM_strSplit(@RecipientIds, ',') f
 					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId  = f.val
 					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
@@ -327,7 +328,7 @@ BEGIN
 				SELECT  f.val AS '@Id', 
 						CASE WHEN  f.val = 0 THEN 'Not Assigned Group' 
 						ELSE c.username END AS '@Name'
-				FROM bodb02.dbo.f_StringSplit(@HeadlineIds, ',') f
+				FROM dbo.f_CRM_strSplit(@HeadlineIds, ',') f
 					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
 				WHERE f.val <> ''
 				FOR XML PATH('Headline'))

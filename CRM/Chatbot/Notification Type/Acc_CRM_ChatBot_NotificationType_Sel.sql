@@ -15,6 +15,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 	Param's Explanation:
 		
 */
@@ -45,7 +46,7 @@ BEGIN
 		nt.SystemId
 	FROM dbo.crmNotificationType nt WITH(NOLOCK)
 	WHERE (@NotificationTypeName IS NULL OR nt.NotificationTypeName LIKE '%' + @NotificationTypeName + '%')
-		AND (EXISTS(SELECT 1 FROM bodb02.dbo.f_StringSplit(@SystemId,',') f WHERE f.val = nt.SystemId) OR @SystemId IS NULL)
+		AND (EXISTS(SELECT 1 FROM dbo.f_CRM_strSplit(@SystemId,',') f WHERE f.val = nt.SystemId) OR @SystemId IS NULL)
 		
 	IF @RecipientTypeIds IS NOT NULL
 	BEGIN

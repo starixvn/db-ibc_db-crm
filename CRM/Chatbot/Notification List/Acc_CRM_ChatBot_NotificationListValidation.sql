@@ -9,6 +9,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 	Param's Explanation:
 		
 */
@@ -20,7 +21,7 @@ BEGIN
 
 	INSERT INTO #NotificationIds(ID)
 	SELECT val
-	FROM bodb02.dbo.f_StringSplit(@NotificationIds,',')
+	FROM dbo.f_CRM_strSplit(@NotificationIds,',')
 	
 	SELECT 
 		DISTINCT nr.NotificationId

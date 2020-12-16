@@ -1,9 +1,10 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_Import]
-	@XmlData	XML
-	,@Messages	XML
-	,@ErrCode	INT = 0 OUTPUT
-	,@ErrMsg	NVARCHAR(4000) = '' OUTPUT
+	@XmlData				XML
+	,@Messages				XML
+	,@Environment			VARCHAR(50) = ''
+	,@ErrCode				INT = 0 OUTPUT
+	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -13,6 +14,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20201116@Malcolm: Change the MessageID column to the ReferenceId column [RedmineID: #144265]
 
 	Param's Explanation:
 		. @XmlData
@@ -31,11 +33,17 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @IncludeUUSCurrency BIT
+
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - AbnormalBets' and SettingName = 'IncludeUUSCurrency'
+
+	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
+
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
-		AND SettingName = 'JobStatus'
+		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
 	IF @@ROWCOUNT = 0
@@ -83,10 +91,22 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
+	END
+
+		-- Only import testing data for UAT environment
+	IF @Environment = 'UAT'
+	BEGIN
+		DELETE i FROM #ImportMessage i WHERE i.IsTest = 0
+	END
+
+	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'LIVE'
+	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
+	BEGIN
+		DELETE i FROM #ImportMessage i WHERE i.IsTest = 1
 	END
 
 	-- Get Job Setting
@@ -113,7 +133,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -144,7 +164,7 @@ BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
 		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = 'JobStatus'
+			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
@@ -338,8 +358,8 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 			BREAK
 
-		INSERT INTO dbo.crmNotification (MessageId, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT r.MessageId, nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (ReferenceId, DataSource ,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
+		SELECT r.MessageId, 'MessageId', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nt.Content, '{EN Announcement}', r.Content_en), '{SC Announcement}', r.Content_cs), '{TH Announcement}', r.Content_th), '{YN Announcement}', r.Content_vn), '{Affected List}', r.AffectedList)
 			,r.RelatedIds
 		FROM #Result r
@@ -378,13 +398,20 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
+	IF @Environment = 'UAT' OR (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
+	BEGIN
+		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
+							FROM @Messages.nodes('/root/r') T(c)
+							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportMessage i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
+							FOR XML PATH('r'), ROOT('root'))
+	END
 	-- Update crmMessageImport
 	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
-		AND SettingName = 'JobStatus'
+		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 
 	DROP TABLE #ImportMessage

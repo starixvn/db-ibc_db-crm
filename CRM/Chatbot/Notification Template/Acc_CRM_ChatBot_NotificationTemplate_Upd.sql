@@ -17,6 +17,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
 	Param's Explanation:
 	- @Contents:
 		<Contents>
@@ -29,23 +30,37 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Check permission
-	CREATE TABLE #RequiredParameters(NotificationTemplateId SMALLINT ,[Value] NVARCHAR(300), LanguageId INT)
+	CREATE TABLE #RequiredParameters(NotificationTemplateId SMALLINT ,[Value] NVARCHAR(300), LanguageId INT, Frenquency INT)
 
-	DECLARE @iDoc INT, @MsgContentsType XML, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
+	DECLARE @iDoc INT, @Setting_AbnormalBets XML, @Setting_CWL XML, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
 			@_Contents XML, @Old_Title NVARCHAR(2000), @Old_NotificationTemplateName NVARCHAR(1000), 
 			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML
 
-	SELECT @MsgContentsType = CAST(Value AS XML)
-	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'NotificationTemplate'
+	-- Get setting for AbnormalBets, CWL Service
+	SELECT 
+		@Setting_AbnormalBets = CASE WHEN s.ServiceName = 'ChatBot - AbnormalBets' THEN CAST(Value AS XML) 
+								ELSE @Setting_AbnormalBets END
+		,@Setting_CWL		  = CASE WHEN s.ServiceName = 'ChatBot - CWL' THEN CAST(Value AS XML) 
+								ELSE @Setting_CWL END
+	FROM SystemSetting s WITH(NOLOCK)
+	WHERE s.SettingName = 'NotificationTemplate' AND s.ServiceName IN ('ChatBot - AbnormalBets', 'ChatBot - CWL')
 
-	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId)
-	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId
-	FROM @MsgContentsType.nodes('root/r') T(c)
+	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
+	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId, 1
+	FROM @Setting_AbnormalBets.nodes('root/r') T(c)
 	CROSS APPLY(
 		SELECT l.k.value('@Value','nvarchar(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId]
 		FROM T.c.nodes('TemplateRequiredParam') l(k)
 	) AS h
+
+	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
+	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId, h.Frequency
+	FROM @Setting_CWL.nodes('root/r') T(c)
+	CROSS APPLY(
+		SELECT l.k.value('@Value','nvarchar(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId], l.k.value('@Frequency', 'INT') AS [Frequency]
+		FROM T.c.nodes('TemplateRequiredParam') l(k)
+	) AS h
+	
 
 	-- Check exists NotificationTemplateId
 	IF NOT EXISTS (SELECT 1 FROM dbo.crmNotificationTemplate WITH (NOLOCK) WHERE NotificationTemplateId = @NotificationTemplateId)
@@ -91,11 +106,12 @@ BEGIN
 		RETURN
 	END CATCH
 
-	IF EXISTS(SELECT 1
-			  FROM #Contents c 
-				  INNER JOIN #RequiredParameters r ON r.LanguageId = c.LanguageId
-			  WHERE c.Value NOT LIKE '%' + r.Value + '%'
-				AND r.NotificationTemplateId = @NotificationTemplateId)
+	IF EXISTS (SELECT 1 
+			   FROM #RequiredParameters r 
+			   CROSS APPLY(
+		 	   		SELECT (LEN(c.Value) - LEN(REPLACE(c.Value, r.Value, '')))/LEN(r.Value) AS k FROM #Contents c WHERE c.LanguageId = r.LanguageId 
+			   ) d(k)
+			   WHERE r.Frenquency > d.k AND r.NotificationTemplateId = @NotificationTemplateId)
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'You cannot remove predefined param(s).'
 		RETURN

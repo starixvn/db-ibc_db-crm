@@ -13,14 +13,15 @@ AS
 	
 	Parameter's Explanation:
 		- @xml = '<ROOT>
-					<r custid="14521681" matchid="31757960" profileID="16" hl="14521687" hlname="SuperTest91" related="14521687" profileName="Non Live - HDP &amp; ML" maxTO="1000" houseTO="302" totalTO="1010" outstanding="2000" time="2020-12-02 3:16:32" bettype="1" level="100"/>
-					<r custid="14521681" matchid="31757960" profileID="16" hl="14521687" hlname="SuperTest91" related="14521687" profileName="Non Live - HDP &amp; ML" maxTO="1000" houseTO="302" totalTO="1010" outstanding="2000" time="2020-12-02 3:16:32" bettype="20" level="100"/>
+					<r logid="1" custid="14521681" matchid="31757960" profileID="16" hl="14521687" hlname="SuperTest91" related="14521687" profileName="Non Live - HDP &amp; ML" maxTO="1000" houseTO="302" totalTO="1010" outstanding="2000" bettype="1" level="100"/>
+					<r logid="2" custid="14521681" matchid="31757960" profileID="16" hl="14521687" hlname="SuperTest91" related="14521687" profileName="Non Live - HDP &amp; ML" maxTO="1000" houseTO="302" totalTO="1010" outstanding="2000" bettype="20" level="100"/>
 				</ROOT>'
 */
 BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @tmpCust TABLE (
+						LogID			INT,
 						CustID			INT,
 						MatchID			INT,
 						ProfileID		INT,
@@ -31,16 +32,16 @@ BEGIN
 						MaxTurnover		MONEY,
 						HouseTurnover	MONEY,
 						TotalTurnover 	MONEY,
-						Outstanding		MONEY,
-						NotifiedDate	DATETIME,
+						Outstanding		MONEY,						
 						BettypeList		VARCHAR(100),
 						Level			INT,
 						EventInfo		VARCHAR(500)
 						)
 		
-	INSERT INTO @tmpCust(CustID,MatchID,ProfileID,HeadlineID,HeadlineName,RelatedCustID,ProfileName,MaxTurnover,
-						HouseTurnover,TotalTurnover,Outstanding,NotifiedDate,BettypeList,Level)
+	INSERT INTO @tmpCust(LogID,CustID,MatchID,ProfileID,HeadlineID,HeadlineName,RelatedCustID,ProfileName,MaxTurnover,
+						HouseTurnover,TotalTurnover,Outstanding,BettypeList,Level)
 	SELECT 
+		t.c.value('@logid[1]','int') logid,
 		t.c.value('@custid[1]','int') custid,	
 		t.c.value('@matchid[1]','int') matchid,	
 		t.c.value('@profileID[1]','int') profileID,
@@ -51,8 +52,7 @@ BEGIN
 		t.c.value('@maxTO[1]','money') MaxTurnover,
 		t.c.value('@houseTO[1]','money') HouseTurnover,
 		t.c.value('@totalTO[1]','money') TotalTurnover,
-		t.c.value('@outstanding[1]','money') Outstanding,
-		t.c.value('@time[1]','datetime') NotifiedDate,				
+		t.c.value('@outstanding[1]','money') Outstanding,					
 		t.c.value('@bettype[1]','varchar(100)') BettypeList,
 		t.c.value('@level[1]','int') level
 	FROM @xml.nodes('/ROOT/r') t(c)	
@@ -65,7 +65,9 @@ BEGIN
 		INNER JOIN bodb02.dbo.team a WITH(NOLOCK) ON m.awayid = a.teamid
 	
 	INSERT INTO [dbo].[crmTOControlFeedbackInfo]
-           ([CustID]
+           (
+		   [LogID]
+		   ,[CustID]
            ,[MatchID]
            ,[ProfileID]
            ,[HeadlineID]
@@ -77,13 +79,13 @@ BEGIN
            ,[Level]
            ,[TotalTurnover]
            ,[MaxTurnover]
-           ,[HouseTurnover]
-           ,[Outstanding]
-           ,[NotifiedDate]
+           ,[HouseTurnover] 
            ,[Status]
            ,[CreatedDate]          
            ,[RetryCount])
-	SELECT CustID,
+	SELECT 
+		LogID,
+		CustID,
 		MatchID,
 		ProfileID,
 		HeadlineID,
@@ -95,23 +97,25 @@ BEGIN
 		Level,
 		TotalTurnover,
 		MaxTurnover,
-		HouseTurnover,
-		Outstanding,
-		NotifiedDate,
+		HouseTurnover,	
 		'initial' as status,
 		GETDATE() as CreatedDate,
 		0 as RetryCount
 	FROM @tmpCust t
 	WHERE NOT EXISTS (SELECT 1 FROM crmTOControlFeedbackInfo fb WITH(NOLOCK) 
-					WHERE fb.custid = t.custid
-						AND fb.matchid = t.matchid
-						AND fb.profileID = t.profileID
-						AND fb.Level = t.Level
+					WHERE fb.LogID = t.LogID					
 					)
 	
-	SELECT LogID,
-		CustID,
-		MatchID,
+	INSERT INTO crmTOControlOutstandingInfo(LogID,CustID,MatchID,Outstanding)
+	SELECT LogID,CustID,MatchID,Outstanding
+	FROM @tmpCust t
+	WHERE NOT EXISTS (SELECT 1 FROM crmTOControlOutstandingInfo fb WITH(NOLOCK) 
+					WHERE fb.LogID = t.LogID					
+					)
+					
+	SELECT fb.LogID,
+		fb.CustID,
+		fb.MatchID,
 		ProfileID,
 		HeadlineID,
 		HeadlineName,
@@ -124,7 +128,8 @@ BEGIN
 		HouseTurnover,
 		Outstanding
 	INTO #Result	
-	FROM crmTOControlFeedbackInfo WITH(NOLOCK)
+	FROM crmTOControlFeedbackInfo fb WITH(NOLOCK)
+		INNER JOIN crmTOControlOutstandingInfo co WITH(NOLOCK) ON fb.LogID = co.LogID
 	WHERE Status IN ('initial','fail')
 		AND retryCount <5
 		

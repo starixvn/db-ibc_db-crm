@@ -21,7 +21,7 @@ BEGIN
 			@ConfigPRO 	BIT,
 			@ServiceFlag BIT,
 			@LastRuntime DATETIME,
-			@LastNotifiedDate DATETIME,
+			@LastLogID 	INT,
 			@IsCredit 	BIT,
 			@IsDeposit 	BIT 
 	
@@ -55,9 +55,9 @@ BEGIN
 	WHERE SettingName = 'LastRuntime'
 		AND ServiceName = 'TOControlFB'
 		
-	SELECT @LastNotifiedDate = value
+	SELECT @LastLogID = value
 	FROM SystemSetting WITH(NOLOCK)
-	WHERE SettingName = 'LastNotifiedDate'
+	WHERE SettingName = 'LastLogID'
 		AND ServiceName = 'TOControlFB'
 	
 	SELECT @IsCredit = value
@@ -76,7 +76,7 @@ BEGIN
 		@ConfigPRO as ConfigPRO,
 		@ServiceFlag as ServiceFlag,
 		@LastRuntime as LastRuntime,
-		@LastNotifiedDate as LastNotifiedDate,
+		@LastLogID as LastLogID,
 		@IsCredit as IsCredit,
 		@IsDeposit as IsDeposit
 END

@@ -3,7 +3,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
 	@MessageIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,
 	@ConfigPRO BIT = 0,
-	@Enviroment	VARCHAR(10) = 'LIVE'
+	@Environment	VARCHAR(10) = 'LIVE'
 AS
 /*
 	Created: 20200416@Johnson
@@ -23,7 +23,7 @@ AS
 						</ROOT>'
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
-		- @Enviroment = 'LIVE'/'UAT' config service for each enviroment 
+		- @Environment = 'LIVE'/'UAT' config service for each enviroment 
 */
 BEGIN
 	SET NOCOUNT ON
@@ -106,7 +106,7 @@ BEGIN
 			WHERE b.transid = vh.TransId
 		) b		
 	WHERE 
-		1 = CASE WHEN @Enviroment = 'UAT' AND currency <> 20 THEN 0
+		1 = CASE WHEN @Environment = 'UAT' AND currency <> 20 THEN 0
 				ELSE 1 END
 		AND 1= CASE WHEN b.currency = 20 AND @ConfigUAT = 1 THEN 1
 				WHEN b.currency <> 20 AND @ConfigPRO = 1 THEN 1

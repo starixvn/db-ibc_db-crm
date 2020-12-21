@@ -12,7 +12,7 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = '<root><r LogId="" CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId ="" NotifiedPercentValue=""> </r><root/>'
+		.@XML = '<root><r LogId="" CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId =""> </r><root/>'
 
 */
 BEGIN
@@ -29,7 +29,6 @@ BEGIN
 		CustId					INT, 	
 		UserName				VARCHAR(30), 
 		RoleId					TINYINT, 
-		NotifiedPercentValue	TINYINT,
 		MatchId					INT, 
 		CurrencyName			NVARCHAR(50),
 		Sporttype				INT,
@@ -39,13 +38,12 @@ BEGIN
 		Outstanding				MONEY
 	)	
 
-	INSERT INTO @Result (LogId, CustId, UserName, RoleId, NotifiedPercentValue, MatchId, CurrencyName)
+	INSERT INTO @Result (LogId, CustId, UserName, RoleId, MatchId, CurrencyName)
 	SELECT 
 		T.c.value('@LogId', 'BIGINT')					AS LogId
 		,T.c.value('@CustId', 'INT')					AS CustId
 		,T.c.value('@Username', 'VARCHAR(30)')			AS UserName
 		,T.c.value('@RoleId','TINYINT')					AS RoleId
-		,T.c.value('@NotifiedPercentValue','TINYINT')	AS NotifiedPercentValue
 		,T.c.value('@MatchId', 'INT')					AS MatchId
 		,T.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
 	FROM @XML.nodes('root\r') T(c)

@@ -1,33 +1,29 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_SMAInfo_Sel]
-	@Xml XML
+	@LastLogId BIGINT
 AS
 
 /*
 	Created: 20201214@Malcolm
-	DB: DBCRM-bodb_CRM
+	DB: DBCUST-CustDB
 	Task: Get SMAs which reach Company Turnover Control
 
 	Revisions:
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@Xml = <root><r LogId="" CustId ="" MatchId ="" NotifiedPercentValue=""/><root/>
+		
 
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, NotifiedPercentValue TINYINT,RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50))
+	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, RoleId TINYINT, UserName VARCHAR(30), CurrencyName NVARCHAR(50), Outstanding MONEY)
 
-	INSERT INTO @Result (LogId, CustId, MatchId, NotifiedPercentValue)
-	SELECT 
-		T.c.value('@LogId', 'BIGINT')
-		,T.c.value('@CustId', 'INT')
-		,T.c.value('@MatchId', 'INT')
-		,T.c.value('@NotifiedPercentValue', 'TINYINT')
-	FROM @Xml.nodes('root/r') T(c)
-	OPTION (OPTIMIZER FOR (@Xml = NULL))
+	INSERT INTO @Result (LogId, CustId, MatchId)
+	SELECT LogID, CustID, Matchid
+	FROM dbo.TOControl_Setting_History h WITH(NOLOCK)
+	WHERE h.LogID > @LastLogId  AND NotifiedPercentValue >= 80 
 
 	UPDATE r
 		SET r.CurrencyName	= l.Currency
@@ -41,7 +37,7 @@ BEGIN
 		WHERE c.custid = r.CustId
 	) AS l
 	
-	SELECT LogId ,CustId ,MatchId ,NotifiedPercentValue ,RoleId ,UserName ,CurrencyName FROM @Result
+	SELECT LogId ,CustId ,MatchId ,RoleId ,UserName ,CurrencyName FROM @Result
 
 END
 GO

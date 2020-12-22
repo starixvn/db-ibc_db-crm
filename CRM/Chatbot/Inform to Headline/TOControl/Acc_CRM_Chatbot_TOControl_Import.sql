@@ -17,37 +17,8 @@ AS
 	Param's Explanation:
 		. @XmlData
 			<root>
-				<r	
-					LogId					=""
-					CustId					="" 
-					Username				="" 
-					Recommend				=""
-					Mrecommend				=""
-					Srecommend				=""
-					CurrencyName			="" 
-					RoleEN					=""
-					RoleSC					=""
-					RoleTH					=""
-					RoleYN					=""
-					SportNameEN				=""  
-					SportNameSC				=""  
-					SportNameTH				=""  
-					SportNameYN				="" 
-					LeagueNameEN			="" 
-					LeagueNameSC			="" 
-					LeagueNameTH			="" 
-					LeagueNameYN			="" 
-					HomeNameEN				="" 
-					HomeNameSC				="" 
-					HomeNameTH				="" 
-					HomeNameYN				=""
-					AwayNameEN				="" 
-					AwayNameSC				="" 
-					AwayNameTH				="" 
-					AwayNameYN				=""
-					Outstanding				=""
-					IsTest					=""
-				<r/>
+				<r LogId="1" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" </>
+				<r LogId="2" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" </>
 			</root>
 */
 BEGIN
@@ -62,22 +33,10 @@ BEGIN
 			,@Even_Info_TH NVARCHAR(MAX)
 			,@Even_Info_YN NVARCHAR(MAX)
 
-	SELECT @Template_EN = N'Outstanding: {event_outstanding} ({currency_name})
-							Sport: {sport_name_en}
-							League: {league_name_en}
-							Team: {home_name_en} -vs- {away_name_en}'
-         ,@Template_SC = N'未结束交易额: {event_outstanding} ({currency_name})
-							产品：{sport_name_sc}
-							联赛：{league_name_sc}
-							队名：{home_name_sc} -vs- {away_name_sc}'
-		,@Template_TH= N'ยอดคงค้าง:  {event_outstanding} ({currency_name})
-						โปรดักส์:  {sport_name_th}
-						ลีก: {league_name_th}
-						ชื่อทีม: {home_name_th} -vs- {away_name_th}'
-		,@Template_YN = N'Số dư chưa xử lý: {event_outstanding} ({currency_name})
-						Môn thể thao: {sport_name_yn}
-						Giải đấu: {league_name_yn}
-						Trận đấu: {home_name_yn} -vs- {away_name_yn}'
+	SELECT @Template_EN = N'Outstanding: {event_outstanding} ({currency_name})'+ CHAR(10) +'Sport: {sport_name_en}'+ CHAR(10) +'League: {league_name_en}'+ CHAR(10) +'Team: {home_name_en} -vs- {away_name_en}'
+         ,@Template_SC = N'未结束交易额: {event_outstanding} ({currency_name})'+ CHAR(10) +'产品：{sport_name_sc}'+ CHAR(10) +'联赛：{league_name_sc}'+ CHAR(10) +'队名：{home_name_sc} -vs- {away_name_sc}'
+		,@Template_TH= N'ยอดคงค้าง:  {event_outstanding} ({currency_name})'+ CHAR(10) +'โปรดักส์:  {sport_name_th}'+ CHAR(10) +'ลีก: {league_name_th}'+ CHAR(10) +'ชื่อทีม: {home_name_th} -vs- {away_name_th}'
+		,@Template_YN = N'Số dư chưa xử lý: {event_outstanding} ({currency_name})'+ CHAR(10) +'Môn thể thao: {sport_name_yn}'+ CHAR(10) +'Giải đấu: {league_name_yn}'+ CHAR(10) +'Trận đấu: {home_name_yn} -vs- {away_name_yn}'
 
 	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @IncludeUUSCurrency BIT
 
@@ -108,10 +67,10 @@ BEGIN
 		,Mrecommend				INT
 		,Srecommend				INT
 		,CurrencyName			NVARCHAR(50)
-		,RoleEN					VARCHAR(20)
-		,RoleSC					VARCHAR(20)
-		,RoleTH					VARCHAR(20)
-		,RoleYN					VARCHAR(20)
+		,RoleEN					NVARCHAR(50)
+		,RoleSC					NVARCHAR(50)
+		,RoleTH					NVARCHAR(50)
+		,RoleYN					NVARCHAR(50)
 		,SportNameEN			NVARCHAR(50)
 		,SportNameSC			NVARCHAR(50)
 		,SportNameTH			NVARCHAR(50)
@@ -136,6 +95,9 @@ BEGIN
 		LogId
 		,CustId			
 		,Username		
+		,Recommend
+		,Mrecommend
+		,Srecommend
 		,RoleEN	
 		,RoleSC	
 		,RoleTH	
@@ -167,7 +129,10 @@ BEGIN
 		,t.c.value('@Recommend', 'INT')					AS Recommend
 		,t.c.value('@Mrecommend', 'INT')				AS Mrecommend
 		,t.c.value('@Srecommend', 'INT')				AS Srecommend
-		,t.c.value('@RoleId', 'TINYINT')				AS RoleId
+		,t.c.value('@RoleEN', 'NVARCHAR(50)')			AS RoleEN
+		,t.c.value('@RoleSC', 'NVARCHAR(50)')			AS RoleSC
+		,t.c.value('@RoleTH', 'NVARCHAR(50)')			AS RoleTH
+		,t.c.value('@RoleYN', 'NVARCHAR(50)')			AS RoleYN
 		,t.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
 		,t.c.value('@SportNameEN', 'NVARCHAR(50)')		AS SportNameEN
 		,t.c.value('@SportNameSC', 'NVARCHAR(50)')		AS SportNameSC
@@ -254,16 +219,16 @@ BEGIN
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
 
 	-- Get Recipient
-	CREATE TABLE #MessageRecipient
+	CREATE TABLE #Recipient
 	(
 		LogId BIGINT
-		,Username VARCHAR(50)
+		,Username VARCHAR(30)
 		,DirectAccount INT
 		,HeadlineId INT
 		,IsTest BIT
 		,RecipientId INT
 	)
-	INSERT INTO #MessageRecipient (LogId, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	INSERT INTO #Recipient (LogId, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
 	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
@@ -280,33 +245,19 @@ BEGIN
 		,RecipientId	INT
 	)
 
-	INSERT INTO #LogRecipient
+	;WITH CTE AS
 	(
-		LogIds			
-		,Username		
-		,DirectAccount	
-		,HeadlineId		
-		,IsTest			
-		,RecipientId	
+		SELECT Username, DirectAccount, HeadlineId, IsTest, RecipientId
+		FROM #Recipient h
+		GROUP BY Username, DirectAccount, HeadlineId, IsTest, RecipientId
 	)
-	SELECT 
-			STUFF(l.c, 1, 1, '')
-			,Username
-			,DirectAccount
-			,HeadlineId
-			,IsTest
-			,RecipientId
-	FROM #MessageRecipient h
-	CROSS APPLY(
-		SELECT ',' + CONVERT(VARCHAR(20), LogId) 
-		FROM #MessageRecipient r
-		WHERE r.Username = h.Username
-		FOR XML PATH('')
-	) AS l(c)
-	GROUP BY Username, DirectAccount, HeadlineId, IsTest, RecipientId
+	INSERT INTO #LogRecipient(LogIds, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	SELECT STUFF(l.c, 1, 1, ''), Username, DirectAccount, HeadlineId, IsTest, RecipientId
+	FROM CTE e
+	CROSS APPLY(SELECT ',' + CONVERT(VARCHAR(20), LogId)  FROM #Recipient r WHERE r.Username = e.Username FOR XML PATH('')) AS l(c)
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (Username VARCHAR(20),ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (Username VARCHAR(30),ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (Username, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.Username ,cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
@@ -455,15 +406,16 @@ BEGIN
 
 		SELECT @Username = Username FROM #Result WHERE Id = @Id
 
-		SELECT @Even_Info_EN += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_EN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_en}', i.SportNameEN),'{league_name_en}', i.LeagueNameEN),'{home_name_en}', i.HomeNameEN),'{away_name_en}', i.awayNameEN)
-				,@Even_Info_SC += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_EN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_sc}', i.SportNameSC),'{league_name_sc}', i.LeagueNameSC),'{home_name_sc}', i.HomeNameSC),'{away_name_sc}', i.AwayNameSC)
-				,@Even_Info_TH += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_EN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_th}', i.SportNameTH),'{league_name_th}', i.LeagueNameTH),'{home_name_th}', i.HomeNameTH),'{away_name_th}', i.awayNameth)
-				,@Even_Info_YN += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_EN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_yn}', i.SportNameYN),'{league_name_yn}', i.LeagueNameYN),'{home_name_yn}', i.HomeNameYN),'{away_name_yn}', i.AwayNameYN)
+		SELECT @Even_Info_EN += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_EN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_en}', i.SportNameEN),'{league_name_en}', i.LeagueNameEN),'{home_name_en}', i.HomeNameEN),'{away_name_en}', i.awayNameEN) + CHAR(10) + CHAR(10)
+				,@Even_Info_SC += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_SC,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_sc}', i.SportNameSC),'{league_name_sc}', i.LeagueNameSC),'{home_name_sc}', i.HomeNameSC),'{away_name_sc}', i.AwayNameSC) + CHAR(10) + CHAR(10)
+				,@Even_Info_TH += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_TH,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_th}', i.SportNameTH),'{league_name_th}', i.LeagueNameTH),'{home_name_th}', i.HomeNameTH),'{away_name_th}', i.awayNameth) + CHAR(10) + CHAR(10)
+				,@Even_Info_YN += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_YN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_yn}', i.SportNameYN),'{league_name_yn}', i.LeagueNameYN),'{home_name_yn}', i.HomeNameYN),'{away_name_yn}', i.AwayNameYN) + CHAR(10) + CHAR(10)
 		FROM #ImportData i
 		WHERE i.Username  = @Username
+		ORDER BY i.LogId
 
-		INSERT INTO dbo.crmNotification (logid,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (ReferenceId,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
+		SELECT r.LogIds,nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			,REPLACE
 				(REPLACE
 					(REPLACE
@@ -515,7 +467,7 @@ BEGIN
 							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportData i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
 							FOR XML PATH('r'), ROOT('root'))
 	END
-	-- Update crmMessageImport
+	 --Update crmMessageImport
 	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -525,7 +477,7 @@ BEGIN
 		AND Value = 'running'
 
 	DROP TABLE #ImportData
-	DROP TABLE #MessageRecipient
+	DROP TABLE #Recipient
 	DROP TABLE #NotificationTemplate
 	DROP TABLE #Result
 	DROP TABLE #tmpGroup

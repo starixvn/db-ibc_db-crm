@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControl_OutstandingInfo_Sel]
+CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlOutstandingInfo_Ins]
 	@XML   XML
 AS
 
@@ -12,7 +12,7 @@ AS
 		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
 
 	Param's Explanation:
-		.@XML = '<root><r LogId="" CustId ="" Username ="" RoleId ="" CurrencyName ="" MatchId =""> </r><root/>'
+		.@XML = '<root><r LogId="" CustId ="" MatchId =""> </r><root/>'
 
 */
 BEGIN
@@ -27,14 +27,10 @@ BEGIN
 	(
 		LogId					BIGINT,
 		CustId					INT, 	
-		UserName				VARCHAR(30), 
-		RoleId					TINYINT, 
+		UserName				VARCHAR(30),
+		RoleId					TINYINT,
 		MatchId					INT, 
 		CurrencyName			NVARCHAR(50),
-		Sporttype				INT,
-		LeagueId				INT,
-		HomeId					INT,
-		AwayId					INT,
 		Outstanding				MONEY
 	)	
 
@@ -42,31 +38,20 @@ BEGIN
 	SELECT 
 		T.c.value('@LogId', 'BIGINT')					AS LogId
 		,T.c.value('@CustId', 'INT')					AS CustId
-		,T.c.value('@Username', 'VARCHAR(30)')			AS UserName
-		,T.c.value('@RoleId','TINYINT')					AS RoleId
 		,T.c.value('@MatchId', 'INT')					AS MatchId
-		,T.c.value('@CurrencyName', 'NVARCHAR(50)')		AS CurrencyName
 	FROM @XML.nodes('root\r') T(c)
 	OPTION (OPTIMIZER FOR (@XML = NULL))
-
-	UPDATE r
-		SET r.Sporttype = l.sporttype
-			,r.LeagueId = l.leagueid
-			,r.HomeId	= l.homeid
-			,r.AwayId	= l.awayid
-	FROM @Result r
-	CROSS APPLY(
-		SELECT TOP(1) m.sporttype, m.leagueid, m.homeid, m.awayid
-		FROM dbo.match m WITH(NOLOCK)
-		WHERE m.matchid = r.MatchId
-	) AS l
 	
+	DECLARE @LastLogId BIGINT
+
+	SELECT @LastLogId = MAX(LogId) FROM @Result
+
 	-- Get Outstanding
 	IF EXISTS(SELECT 1 FROM @Result WHERE RoleId = 4)
 	BEGIN
 		;WITH CTE AS (
 			SELECT b.srecommend,  SUM(b.actual_stake) AS Outstanding
-			FROM bettrans b WITH(NOLOCK)
+			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 			WHERE b.srecommend IN (SELECT r.CustId FROM @Result r)
 				AND b.statusID IN (0, 1)
 		)
@@ -80,7 +65,7 @@ BEGIN
 	BEGIN
 		;WITH CTE AS (
 			SELECT b.mrecommend,  SUM(b.actual_stake) AS Outstanding
-			FROM bettrans b WITH(NOLOCK)
+			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 			WHERE b.mrecommend IN (SELECT r.CustId FROM @Result r)
 				AND b.statusID IN (0, 1)
 		)
@@ -94,7 +79,7 @@ BEGIN
 	BEGIN
 		;WITH CTE AS (
 			SELECT b.recommend,  SUM(b.actual_stake) AS Outstanding
-			FROM bettrans b WITH(NOLOCK)
+			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 			WHERE b.recommend IN (SELECT r.CustId FROM @Result r) 
 				AND b.statusID IN (0, 1)
 		)
@@ -104,19 +89,15 @@ BEGIN
 			INNER JOIN CTE e ON e.recommend = r.CustId	 
 	END
 	
-	SELECT 
-		LogId,
-		CustId, 
-		UserName, 
-		RoleId, 
-		NotifiedPercentValue,
-		MatchId, 
-		CurrencyName, 
-		Sporttype, 
-		LeagueId, 
-		HomeId, 
-		AwayId, 
-		Outstanding
-	FROM @Result
+	INSERT INTO dbo.crmTOControlOutstandingInfo (LogId, CustId, MatchId, Outstanding)
+	SELECT t.LogId, t.CustId, t.MatchId, t.Outstanding
+	FROM @Result t
+	WHERE NOT EXISTS(SELECT TOP 1 1 FROM dbo.crmTOControlOutstandingInfo i WITH(NOLOCK) WHERE i.LogID = t.LogId)
+
+	UPDATE s
+		SET s.Value = CONVERT(VARCHAR(50), @LastLogId)
+	FROM SystemSetting s
+	WHERE s.ServiceName = 'ChatBot - TOControl' AND s.SettingName = 'HistoricLastLog'
+	
 END
 GO

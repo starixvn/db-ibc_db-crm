@@ -17,21 +17,14 @@ AS
 	Param's Explanation:
 		. @XmlData
 			<root>
-				<r LogId="1" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" </>
-				<r LogId="2" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" </>
+				<r LogId="1" MatchId="" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" </>
+				<r LogId="2" MatchId="" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" </>
 			</root>
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Template_EN NVARCHAR(MAX)
-			,@Template_SC NVARCHAR(MAX)
-			,@Template_TH NVARCHAR(MAX)
-			,@Template_YN NVARCHAR(MAX)
-			,@Even_Info_EN NVARCHAR(MAX)
-			,@Even_Info_SC NVARCHAR(MAX)
-			,@Even_Info_TH NVARCHAR(MAX)
-			,@Even_Info_YN NVARCHAR(MAX)
+	DECLARE @Template_EN NVARCHAR(MAX), @Template_SC NVARCHAR(MAX), @Template_TH NVARCHAR(MAX), @Template_YN NVARCHAR(MAX), @Even_Info_EN NVARCHAR(MAX), @Even_Info_SC NVARCHAR(MAX), @Even_Info_TH NVARCHAR(MAX), @Even_Info_YN NVARCHAR(MAX)
 
 	SELECT @Template_EN = N'Outstanding: {event_outstanding} ({currency_name})'+ CHAR(10) +'Sport: {sport_name_en}'+ CHAR(10) +'League: {league_name_en}'+ CHAR(10) +'Team: {home_name_en} -vs- {away_name_en}'
          ,@Template_SC = N'未结束交易额: {event_outstanding} ({currency_name})'+ CHAR(10) +'产品：{sport_name_sc}'+ CHAR(10) +'联赛：{league_name_sc}'+ CHAR(10) +'队名：{home_name_sc} -vs- {away_name_sc}'
@@ -62,6 +55,7 @@ BEGIN
 	(
 		LogId					BIGINT
 		,CustId					INT
+		,MatchId				INT
 		,Username				VARCHAR(30)
 		,Recommend				INT
 		,Mrecommend				INT
@@ -179,6 +173,10 @@ BEGIN
 		DELETE i FROM #ImportData i WHERE i.IsTest = 1
 	END
 
+	DELETE i
+	FROM #ImportData i
+	WHERE EXISTS(SELECT 1 FROM dbo.crmNotificationReference r WITH(NOLOCK) WHERE r.LogId = i.LogId AND r.DataSource = 'TOControl')
+
 	-- Get Job Setting
 	DECLARE @Xml XML
 	SELECT  @Xml = CONVERT(XML, Value) FROM dbo.SystemSetting WITH (NOLOCK)
@@ -237,8 +235,7 @@ BEGIN
 
 	CREATE TABLE #LogRecipient
 	(
-		LogIds			VARCHAR(MAX)
-		,Username		VARCHAR(50)
+		Username		VARCHAR(50)
 		,DirectAccount	INT
 		,HeadlineId		INT
 		,IsTest			BIT
@@ -251,11 +248,10 @@ BEGIN
 		FROM #Recipient h
 		GROUP BY Username, DirectAccount, HeadlineId, IsTest, RecipientId
 	)
-	INSERT INTO #LogRecipient(LogIds, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
-	SELECT STUFF(l.c, 1, 1, ''), Username, DirectAccount, HeadlineId, IsTest, RecipientId
+	INSERT INTO #LogRecipient(Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	SELECT e.Username, e.DirectAccount, e.HeadlineId, e.IsTest, e.RecipientId
 	FROM CTE e
-	CROSS APPLY(SELECT ',' + CONVERT(VARCHAR(20), LogId)  FROM #Recipient r WHERE r.Username = e.Username FOR XML PATH('')) AS l(c)
-	
+
 	-- Get group to receive message
 	CREATE TABLE #tmpGroup (Username VARCHAR(30),ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (Username, ConversationGroupId, DirectAccount, NoRecipient)
@@ -307,7 +303,6 @@ BEGIN
 		,HeadlineList			VARCHAR(MAX)
 		,Status					VARCHAR(20)
 		,RelatedIds				VARCHAR(1000)
-		,LogIds					VARCHAR(MAX)
 	)
 	--CustId MatchId NotifiedPercentValue
 	DECLARE @Status VARCHAR(20) = 'Planned'
@@ -385,11 +380,6 @@ BEGIN
 
 	UPDATE #Result SET Status = 'Planned' WHERE IsTest = 1 AND Status = 'Draft'
 
-	UPDATE r
-		SET r.LogIds = l.LogIds
-	FROM #Result r
-		INNER JOIN #LogRecipient l ON l.Username = r.Username
-
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
 			,@SendDate			DATETIME = GETDATE()
@@ -406,23 +396,23 @@ BEGIN
 
 		SELECT @Username = Username FROM #Result WHERE Id = @Id
 
+		;WITH CTE AS
+		(
+			SELECT DISTINCT MatchID, Username FROM #ImportData i WHERE i.Username = @Username
+		)
 		SELECT @Even_Info_EN += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_EN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_en}', i.SportNameEN),'{league_name_en}', i.LeagueNameEN),'{home_name_en}', i.HomeNameEN),'{away_name_en}', i.awayNameEN) + CHAR(10) + CHAR(10)
 				,@Even_Info_SC += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_SC,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_sc}', i.SportNameSC),'{league_name_sc}', i.LeagueNameSC),'{home_name_sc}', i.HomeNameSC),'{away_name_sc}', i.AwayNameSC) + CHAR(10) + CHAR(10)
 				,@Even_Info_TH += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_TH,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_th}', i.SportNameTH),'{league_name_th}', i.LeagueNameTH),'{home_name_th}', i.HomeNameTH),'{away_name_th}', i.awayNameth) + CHAR(10) + CHAR(10)
 				,@Even_Info_YN += REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(@Template_YN,'{event_outstanding}', i.Outstanding),'{currency_name}', i.CurrencyName),'{sport_name_yn}', i.SportNameYN),'{league_name_yn}', i.LeagueNameYN),'{home_name_yn}', i.HomeNameYN),'{away_name_yn}', i.AwayNameYN) + CHAR(10) + CHAR(10)
-		FROM #ImportData i
-		WHERE i.Username  = @Username
-		ORDER BY i.LogId
+		FROM CTE e
+		CROSS APPLY(
+			SELECT TOP 1 * FROM #ImportData i WHERE i.Username = e.Username AND i.MatchId = e.MatchId
+			ORDER BY i.LogId DESC
+		) i	
 
-		INSERT INTO dbo.crmNotification (ReferenceId,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT r.LogIds,nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
-			,REPLACE
-				(REPLACE
-					(REPLACE
-						(REPLACE(nt.Content, '{event_info_en}', @Even_Info_EN), 
-					'{event_info_sc}', @Even_Info_SC)
-				, '{event_info_th}', @Even_Info_TH)
-			, '{event_info_yn}', @Even_Info_YN)
+		INSERT INTO dbo.crmNotification (ReferenceId, DataSource,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
+		SELECT -1 ,'TOControl',nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+			,REPLACE(REPLACE(REPLACE(REPLACE(nt.Content, '{event_info_en}', @Even_Info_EN), '{event_info_sc}', @Even_Info_SC), '{event_info_th}', @Even_Info_TH), '{event_info_yn}', @Even_Info_YN)
 			,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId
@@ -457,18 +447,15 @@ BEGIN
 			AND r.ChatTypeId = 2
 			AND ',' + r.RelatedIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), @Id) + ',%'
 
+		INSERT INTO dbo.crmNotificationReference (LogId, NotificationId, DataSource)
+		SELECT LogId, @NotificationId, 'TOControl'
+		FROM #ImportData i
+		WHERE i.Username = @Username
+
 		SELECT @Id = @Id + 1
 	END
 
-	IF @Environment = 'UAT' OR (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
-	BEGIN
-		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
-							FROM @Messages.nodes('/root/r') T(c)
-							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportData i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
-							FOR XML PATH('r'), ROOT('root'))
-	END
 	 --Update crmMessageImport
-	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'

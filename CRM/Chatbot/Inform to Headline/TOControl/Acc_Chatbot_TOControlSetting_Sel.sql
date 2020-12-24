@@ -22,7 +22,7 @@ BEGIN
 	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, MaxTurnOver MONEY, NotifiedPercentValue INT)
 
 	INSERT INTO @Result (LogId, CustId, MatchId, MaxTurnOver, NotifiedPercentValue)
-	SELECT LogID, CustID, Matchid
+	SELECT TOP(@BatchSize) LogID, CustID, Matchid
 	FROM dbo.TOControl_Setting_History h WITH(NOLOCK)
 	WHERE h.LogID > @LastLogId  AND NotifiedPercentValue >= 80 
 	

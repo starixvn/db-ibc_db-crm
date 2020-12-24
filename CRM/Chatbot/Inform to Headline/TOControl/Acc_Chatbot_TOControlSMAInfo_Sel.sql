@@ -155,6 +155,8 @@ BEGIN
 		,AwayId		
 		,Outstanding	
 		,IsTest
+		,MaxTurnOver
+		,NotifiedPercentValue
 	FROM @Result
 
 END

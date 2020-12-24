@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlOutstandingInfo_Ins]
+CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlSMAInfo_Sel]
 	@XML   XML
 AS
 

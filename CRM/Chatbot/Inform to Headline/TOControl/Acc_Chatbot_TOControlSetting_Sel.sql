@@ -19,14 +19,14 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, MaxTurnOver MONEY, NotifiedPercentValue INT)
+	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT)
 
-	INSERT INTO @Result (LogId, CustId, MatchId, MaxTurnOver, NotifiedPercentValue)
+	INSERT INTO @Result (LogId, CustId, MatchId)
 	SELECT TOP(@BatchSize) LogID, CustID, Matchid
 	FROM dbo.TOControl_Setting_History h WITH(NOLOCK)
 	WHERE h.LogID > @LastLogId  AND NotifiedPercentValue >= 80 
 	
-	SELECT LogId ,CustId ,MatchId, MaxTurnOver, NotifiedPercentValue FROM @Result
+	SELECT LogId ,CustId ,MatchId FROM @Result
 
 END
 GO

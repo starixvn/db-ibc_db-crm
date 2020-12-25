@@ -42,6 +42,17 @@ DECLARE @NotificationTemplate NVARCHAR(MAX)
     <TemplateRequiredParam Value="{currency_name}" LanguageId="50003" />
     <TemplateRequiredParam Value="{currency_name}" LanguageId="50004" />
     <TemplateRequiredParam Value="{currency_name}" LanguageId="50002" />
+	<TemplateRequiredParam Value="{SMA_username}" LanguageId="50000" />
+    <TemplateRequiredParam Value="{SMA_username}" LanguageId="50001" />
+    <TemplateRequiredParam Value="{SMA_username}" LanguageId="50003" />
+    <TemplateRequiredParam Value="{SMA_username}" LanguageId="50004" />
+    <TemplateRequiredParam Value="{SMA_username}" LanguageId="50002" />
+	<TemplateRequiredParam Value="{SMA_level_en}" LanguageId="50000" />
+    <TemplateRequiredParam Value="{SMA_level_sc}" LanguageId="50001" />
+    <TemplateRequiredParam Value="{SMA_level_en}" LanguageId="50002" />
+    <TemplateRequiredParam Value="{SMA_level_sc}" LanguageId="50002" />
+    <TemplateRequiredParam Value="{SMA_level_th}" LanguageId="50003" />
+    <TemplateRequiredParam Value="{SMA_level_yn}" LanguageId="50004" />
 	<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" />
     <TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50001" />
     <TemplateRequiredParam Value="{sport_name_en}" LanguageId="50002" />

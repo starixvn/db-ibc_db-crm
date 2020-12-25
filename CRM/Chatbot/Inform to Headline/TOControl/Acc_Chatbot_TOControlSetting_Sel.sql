@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_Chatbot_TOControlSetting_Sel]
+ALTER PROCEDURE [dbo].[Acc_Chatbot_TOControlSetting_Sel]
 	@LastLogId BIGINT
 	,@BatchSize INT = 10
 AS
@@ -7,10 +7,10 @@ AS
 /*
 	Created: 20201214@Malcolm
 	DB: DBCUST-CustDB
-	Task: Get SMAs which reach Company Turnover Control
+	Task: Get logIds which reach Company Turnover Control
 
 	Revisions:
-		- 20201214@Malcolm: Initialize SP [RedmineID: #130544]
+		- 20201214@Malcolm: Initialize SP [RedmineID: #146735]
 
 	Param's Explanation:
 		
@@ -19,14 +19,37 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT)
+	DECLARE @NumberOfRows INT
 
-	INSERT INTO @Result (LogId, CustId, MatchId)
-	SELECT TOP(@BatchSize) LogID, CustID, Matchid
-	FROM dbo.TOControl_Setting_History h WITH(NOLOCK)
-	WHERE h.LogID > @LastLogId  AND NotifiedPercentValue >= 80 
+	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, NotifiedPercentValue MONEY)
+
+	WHILE 1 = 1
+	BEGIN
+		INSERT INTO @Result (LogId, CustId, MatchId, NotifiedPercentValue)
+		SELECT TOP(@BatchSize) LogID, h.CustID, Matchid, NotifiedPercentValue
+		FROM dbo.TOControl_Setting_History h WITH(NOLOCK)
+		WHERE h.LogID > @LastLogId 
+		ORDER BY h.LogID	
+
+		IF @@ROWCOUNT = 0
+			BREAK
+
+		SELECT @LastLogId = MAX(LogId) FROM @Result
+
+		DELETE @Result WHERE NotifiedPercentValue < 80 
+
+		DELETE r
+		FROM @Result r
+		WHERE EXISTS(SELECT TOP 1 1 FROM dbo.Customer c WITH(NOLOCK) WHERE c.custid = r.CustId AND c.site = 'CN88') 
+
+		SELECT @NumberOfRows = COUNT(*) FROM @Result
+
+		IF @NumberOfRows >= @BatchSize
+			BREAK
+	END
 	
-	SELECT LogId ,CustId ,MatchId FROM @Result
+	SELECT TOP(@BatchSize) LogId ,CustId ,MatchId FROM @Result
+	ORDER BY LogId
 
 END
 GO

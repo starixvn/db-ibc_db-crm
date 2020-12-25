@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_TOControl_Import]
+CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_TOControl_Import]
 	@XmlData				XML
 	,@Environment			VARCHAR(50) = ''
 	,@ErrCode				INT = 0 OUTPUT
@@ -9,16 +9,16 @@ AS
 /*
 	Created: 20201104@Malcolm
 	DB: DBCRM-bodb_CRM
-	Task: CRM - CWL - Import Notification
+	Task: CRM - TOControl - Import Notification
 
 	Revisions:
-		- 20201104@Malcolm: Initialize SP [RedmineID: #144841]
+		- 20201104@Malcolm: Initialize SP [RedmineID: #146735]
 
 	Param's Explanation:
 		. @XmlData
 			<root>
-				<r LogId="1" MatchId="" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" MaxTurnOver="" NotifiedPercentValue=""</>
-				<r LogId="2" MatchId="" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11" IsTest="0" MaxTurnOver="" NotifiedPercentValue=""</>
+				<r LogId="1" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11"></r>
+				<r LogId="2" CustId="46386637" Username="superrbRM2111" Recommend="46386636" Mrecommend="46386635" Srecommend="46386634" CurrencyName="UUS" RoleEN="RoleEN" RoleSC="RoleSC" RoleTH="RoleTH" RoleYN="RoleYN" SportNameEN="SportNameEN"  SportNameSC="SportNameSC"  SportNameTH="SportNameTH"  SportNameYN="SportNameYN" LeagueNameEN="LeagueNameEN" LeagueNameSC="LeagueNameSC" LeagueNameTH="LeagueNameTH" LeagueNameYN ="LeagueNameYN" HomeNameEN	="HomeNameEN" HomeNameSC="HomeNameSC" HomeNameTH="HomeNameTH" HomeNameYN="HomeNameYN" AwayNameEN="AwayNameEN" AwayNameSC="AwayNameSC" AwayNameTH="AwayNameTH" AwayNameYN="AwayNameYN" Outstanding="11"></r>
 			</root>
 */
 
@@ -27,7 +27,7 @@ BEGIN
 
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - TOControl' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -36,7 +36,7 @@ BEGIN
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
-	WHERE ServiceName = 'ChatBot - CWL'
+	WHERE ServiceName = 'ChatBot - TOControl'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
@@ -51,7 +51,6 @@ BEGIN
 	(
 		LogId					BIGINT
 		,CustId					INT
-		,MatchId				INT
 		,Username				VARCHAR(30)
 		,Recommend				INT
 		,Mrecommend				INT
@@ -78,7 +77,6 @@ BEGIN
 		,AwayNameTH				NVARCHAR(100)
 		,AwayNameYN				NVARCHAR(100)
 		,Outstanding			MONEY
-		,IsTest					BIT
 	)
 	INSERT INTO #ImportData
 	(
@@ -110,7 +108,6 @@ BEGIN
 		,AwayNameTH		
 		,AwayNameYN	
 		,Outstanding
-		,IsTest
 	)
 	SELECT
 		t.c.value('@LogId', 'BIGINT')					AS LogId
@@ -141,7 +138,6 @@ BEGIN
 		,t.c.value('@AwayNameTH', 'NVARCHAR(100)')		AS AwayNameTH
 		,t.c.value('@AwayNameYN', 'NVARCHAR(100)')		AS AwayNameYN
 		,t.c.value('@Outstanding', 'MONEY')				AS Outstanding
-		,t.c.value('@IsTest', 'BIT')					AS IsTest
 	FROM @XmlData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
@@ -149,7 +145,7 @@ BEGIN
 	BEGIN	
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - CWL'
+		WHERE ServiceName = 'ChatBot - TOControl'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -173,7 +169,7 @@ BEGIN
 	-- Get Job Setting
 	DECLARE @Xml XML
 	SELECT  @Xml = CONVERT(XML, Value) FROM dbo.SystemSetting WITH (NOLOCK)
-	WHERE ServiceName = 'ChatBot - CWL'
+	WHERE ServiceName = 'ChatBot - TOControl'
 		AND SettingName = 'NotificationTemplate'
 
 	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX))
@@ -208,27 +204,6 @@ BEGIN
 	FROM CTE_Setting s
 		INNER JOIN dbo.crmNotificationTemplate nt WITH (NOLOCK) ON s.NotificationTemplateId = nt.NotificationTemplateId
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
-	-- Check require param
-	IF EXISTS (
-		SELECT 1
-		FROM @tmpSetting s
-			INNER JOIN #NotificationTemplate nt
-				ON		s.NotificationTemplateId = nt.NotificationTemplateId
-					AND s.NotificationTypeId = nt.NotificationTypeId
-					AND s.LanguageId = nt.LanguageId
-		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
-	)
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
-		
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - CWL'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
-
-		RETURN
-	END
 
 	-- Delete Logs which are imported into crmNotification
 	DELETE i
@@ -262,28 +237,6 @@ BEGIN
 		,Username			VARCHAR(30)
 		,DirectAccount		INT
 		,HeadlineId			INT
-		,CurrencyName		NVARCHAR(50)
-		,RoleEN				NVARCHAR(50)
-		,RoleSC				NVARCHAR(50)
-		,RoleTH				NVARCHAR(50)
-		,RoleYN				NVARCHAR(50)
-		,SportNameEN		NVARCHAR(50)
-		,SportNameSC		NVARCHAR(50)
-		,SportNameTH		NVARCHAR(50)
-		,SportNameYN		NVARCHAR(50)
-		,LeagueNameEN		NVARCHAR(500)
-		,LeagueNameSC		NVARCHAR(500)
-		,LeagueNameTH		NVARCHAR(500)
-		,LeagueNameYN		NVARCHAR(500)
-		,HomeNameEN			NVARCHAR(100)
-		,HomeNameSC			NVARCHAR(100)
-		,HomeNameTH			NVARCHAR(100)
-		,HomeNameYN			NVARCHAR(100)
-		,AwayNameEN			NVARCHAR(100)
-		,AwayNameSC			NVARCHAR(100)
-		,AwayNameTH			NVARCHAR(100)
-		,AwayNameYN			NVARCHAR(100)
-		,Outstanding		MONEY
 		,RecipientId		INT
 	)
 	INSERT INTO #LogRecipient 
@@ -292,28 +245,6 @@ BEGIN
 		,Username		
 		,DirectAccount	
 		,HeadlineId		
-		,CurrencyName	
-		,RoleEN			
-		,RoleSC			
-		,RoleTH			
-		,RoleYN			
-		,SportNameEN	
-		,SportNameSC	
-		,SportNameTH	
-		,SportNameYN	
-		,LeagueNameEN	
-		,LeagueNameSC	
-		,LeagueNameTH	
-		,LeagueNameYN	
-		,HomeNameEN		
-		,HomeNameSC		
-		,HomeNameTH		
-		,HomeNameYN		
-		,AwayNameEN		
-		,AwayNameSC		
-		,AwayNameTH		
-		,AwayNameYN		
-		,Outstanding	
 		,RecipientId	
 	)
 	SELECT 
@@ -321,28 +252,6 @@ BEGIN
 		,m.Username		
 		,pm.CustId	
 		,pm.HeadlineId		
-		,m.CurrencyName	
-		,m.RoleEN			
-		,m.RoleSC			
-		,m.RoleTH			
-		,m.RoleYN			
-		,m.SportNameEN	
-		,m.SportNameSC	
-		,m.SportNameTH	
-		,m.SportNameYN	
-		,m.LeagueNameEN	
-		,m.LeagueNameSC	
-		,m.LeagueNameTH	
-		,m.LeagueNameYN	
-		,m.HomeNameEN		
-		,m.HomeNameSC		
-		,m.HomeNameTH		
-		,m.HomeNameYN		
-		,m.AwayNameEN		
-		,m.AwayNameSC		
-		,m.AwayNameTH		
-		,m.AwayNameYN		
-		,m.Outstanding
 		,r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
@@ -574,30 +483,40 @@ BEGIN
 											(REPLACE
 												(REPLACE
 													(REPLACE
-														(REPLACE(
-															REPLACE(
-																REPLACE(
-																	REPLACE(
-																		REPLACE(
-																			REPLACE(
-																				REPLACE(nt.Content, '{event_outstanding}', r.Outstanding)
-																			,'{currency_name}', CONVERT(INT, ROUND(r.CurrencyName, 0, 1)))
-																		,'{sport_name_en}', r.SportNameEN)
-																	,'{sport_name_sc}', r.SportNameSC)
-																,'{sport_name_th}', r.SportNameTH)
-															,'{sport_name_yn}', r.SportNameYN)
-														,'{league_name_en}', r.LeagueNameEN)
-													,'{league_name_sc}', r.LeagueNameSC)
-												,'{league_name_th}', r.LeagueNameTH)
-											,'{league_name_yn}', r.LeagueNameYN)
-										,'{home_name_en}', r.HomeNameEN)
-									,'{home_name_sc}', r.HomeNameSC)
-								,'{home_name_th}', r.HomeNameTH)
-							,'{home_name_yn}', r.HomeNameYN)
-						,'{away_name_en}', r.AwayNameEN)
-					,'{away_name_sc}', r.AwayNameSC)
-				,'{away_name_th}', r.AwayNameTH)
-			,'{away_name_yn}', r.AwayNameYN)
+														(REPLACE
+															(REPLACE
+																(REPLACE
+																	(REPLACE
+																		(REPLACE
+																			(REPLACE(
+																				REPLACE(
+																					REPLACE(
+																						REPLACE(
+																							REPLACE(
+																								REPLACE(
+																									REPLACE(nt.Content, '{event_outstanding}', CONVERT(VARCHAR, r.Outstanding, 1))
+																								,'{currency_name}', r.CurrencyName)
+																							,'{sport_name_en}', r.SportNameEN)
+																						,'{sport_name_sc}', r.SportNameSC)
+																					,'{sport_name_th}', r.SportNameTH)
+																				,'{sport_name_yn}', r.SportNameYN)
+																			,'{league_name_en}', r.LeagueNameEN)
+																		,'{league_name_sc}', r.LeagueNameSC)
+																	,'{league_name_th}', r.LeagueNameTH)
+																,'{league_name_yn}', r.LeagueNameYN)
+															,'{home_name_en}', r.HomeNameEN)
+														,'{home_name_sc}', r.HomeNameSC)
+													,'{home_name_th}', r.HomeNameTH)
+												,'{home_name_yn}', r.HomeNameYN)
+											,'{away_name_en}', r.AwayNameEN)
+										,'{away_name_sc}', r.AwayNameSC)
+									,'{away_name_th}', r.AwayNameTH)
+								,'{away_name_yn}', r.AwayNameYN)
+							,'{SMA_level_en}', r.RoleEN)
+						,'{SMA_level_sc}', r.RoleSC)
+					,'{SMA_level_th}', r.RoleTH)
+				,'{SMA_level_yn}', r.RoleYN)
+			,'{SMA_username}', r.Username)
 			,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId

@@ -133,8 +133,21 @@ BEGIN
 	WHERE Status IN ('initial','fail')
 		AND retryCount <5
 		
-	SELECT rs.*,
-		HouseTurnover/MaxTurnover*100 as Usage,
+	SELECT LogID,
+		rs.CustID,
+		rs.MatchID,
+		ProfileID,
+		HeadlineID,
+		HeadlineName,
+		rs.RelatedCustID,
+		ProfileName,
+		BettypeList,
+		Level,
+		TotalTurnover,
+		MaxTurnover,
+		ABS(HouseTurnover) HouseTurnover,
+		Outstanding,
+		ABS(HouseTurnover)/MaxTurnover*100 as Usage,
 		c.username,
 		c.roleid,
 		c.site,
@@ -153,4 +166,3 @@ BEGIN
 	DROP TABLE #Result	
 		
 END	
-

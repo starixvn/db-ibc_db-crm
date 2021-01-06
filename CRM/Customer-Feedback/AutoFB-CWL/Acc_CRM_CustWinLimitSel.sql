@@ -17,7 +17,7 @@ AS
 
 	Revisions:
 		- 20201014@Johnson: Initial sp [redmine:#142194]
-	
+		- 20201126@Johnson: add param @Environment [redmine:#145274]
 	Parameter's Explanation:
 		- @ConfigUAT = 1: UUS customers
 		- @ConfigPRO = 1: real customers

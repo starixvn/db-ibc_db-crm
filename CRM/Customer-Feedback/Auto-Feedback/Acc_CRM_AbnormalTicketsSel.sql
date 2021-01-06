@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20200416@Johnson: Initial sp [redmine:#130949]
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
+		- 20201126@Johnson: add param @Environment [redmine:#145274]
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
 		@MessageIds = '<ROOT>

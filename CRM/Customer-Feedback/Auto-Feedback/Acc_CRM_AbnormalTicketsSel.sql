@@ -2,7 +2,8 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
 	@MessageIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,
-	@ConfigPRO BIT = 0
+	@ConfigPRO BIT = 0,
+	@Environment	VARCHAR(10) = 'LIVE'
 AS
 /*
 	Created: 20200416@Johnson
@@ -13,6 +14,7 @@ AS
 	Revisions:
 		- 20200416@Johnson: Initial sp [redmine:#130949]
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
+		- 20201126@Johnson: add param @Environment [redmine:#145274]
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
 		@MessageIds = '<ROOT>
@@ -22,6 +24,7 @@ AS
 						</ROOT>'
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
+		- @Environment = 'LIVE'/'UAT' config service for each enviroment 
 */
 BEGIN
 	SET NOCOUNT ON
@@ -103,7 +106,10 @@ BEGIN
 			FROM dbo.bettrans b WITH (NOLOCK)
 			WHERE b.transid = vh.TransId
 		) b		
-	WHERE 1= CASE WHEN b.currency = 20 AND @ConfigUAT = 1 THEN 1
+	WHERE 
+		1 = CASE WHEN @Environment = 'UAT' AND currency <> 20 THEN 0
+				ELSE 1 END
+		AND 1= CASE WHEN b.currency = 20 AND @ConfigUAT = 1 THEN 1
 				WHEN b.currency <> 20 AND @ConfigPRO = 1 THEN 1
 				ELSE 0 END				
 	

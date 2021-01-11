@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20201015@Johnson: Initial sp [redmine:#142194]
 		- 20201123@Johnson: get VIP status & productID to check language for 789y headline [redmine:#145836]
+		- 20210108@Johnson: get ProductName En only [redmine:#145274]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" product="21" group="Allbet Casino" level="Orange" limitsetting="20000" winamount="25000" winamountRM="25000" time="2020-10-10 10:15:12" bettype="2401,2403" />
@@ -100,7 +101,7 @@ BEGIN
 		,ISNULL(c.IsVip,0) as IsVip
 		,fb.RelatedCustID
 		,fb.ProductID
-		,ISNULL(p.ProductNameCS,p.ProductName) as ProductName
+		,p.ProductName
 		,fb.ProductGroup
 		,Level
 		,MaxWinLimitSetting

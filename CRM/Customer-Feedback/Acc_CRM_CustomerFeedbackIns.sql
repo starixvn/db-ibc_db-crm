@@ -107,6 +107,7 @@ AS
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 		- 20201020@Johnson: - remove checking limit related customers 
 							- sync customer profile to CRM for related customers [redmine:#142194]
+		- 20210113@Johnson: check empty @RelatedCustID [redmine:#148690]					
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
 		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
@@ -260,15 +261,18 @@ BEGIN
 								SiteID INT,
 								isExistsCRM BIT DEFAULT(0), 
 								isFinished BIT DEFAULT(0));
-
-	INSERT INTO	@relatedCustomer(custid)
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
-	UPDATE t
-	SET isExistsCRM = 1 
-	FROM @relatedCustomer t
-		INNER JOIN crmCustomer cm WITH(NOLOCK) ON t.custid = cm.custid
+	
+	IF ISNULL(@RelatedCustID,'') <> ''
+	BEGIN
+		INSERT INTO	@relatedCustomer(custid)
+		SELECT	CONVERT(INT, val)
+		FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+		
+		UPDATE t
+		SET isExistsCRM = 1 
+		FROM @relatedCustomer t
+			INNER JOIN crmCustomer cm WITH(NOLOCK) ON t.custid = cm.custid
+	END 
 	
 	IF EXISTS (SELECT 1 FROM @relatedCustomer WHERE isExistsCRM = 0)
 	BEGIN

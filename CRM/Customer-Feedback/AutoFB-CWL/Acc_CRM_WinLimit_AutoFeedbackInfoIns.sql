@@ -13,6 +13,7 @@ AS
 		- 20201015@Johnson: Initial sp [redmine:#142194]
 		- 20201123@Johnson: get VIP status & productID to check language for 789y headline [redmine:#145836]
 		- 20210108@Johnson: get ProductName En only [redmine:#145274]
+		- 20210120@Johnson: get sports to map sub-product [redmine:#148977]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" product="21" group="Allbet Casino" level="Orange" limitsetting="20000" winamount="25000" winamountRM="25000" time="2020-10-10 10:15:12" bettype="2401,2403" />
@@ -146,6 +147,13 @@ BEGIN
 						CROSS APPLY (SELECT val from dbo.f_crm_strSplit(BettypeIDList,','))t
 					)
 	
+	SELECT DISTINCT LogID, s.SportType, s.SportName
+	FROM bodb02.dbo.SportBettypeMatrix mt WITH(NOLOCK)		
+		INNER JOIN (SELECT LogID, productid, val as bettype
+					FROM #Result 
+						CROSS APPLY dbo.f_CRM_strSplit(BettypeIDList,',') t) rs on mt.ProductID = rs.productid and mt.BetType = rs.bettype
+		INNER JOIN bodb02.dbo.Sports s ON mt.sporttype = s.sporttype		
+					
 	DROP TABLE #Result
 END	
 	

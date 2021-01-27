@@ -39,7 +39,7 @@ Sport: {sport_name_en}
 League: {league_name_en}
 Team: {home_name_en} -vs- {away_name_en}
 
-Kindly take note, thank you!"
+Kindly take note, thank you!
 
 您好，客服部在此通知您 {SMA_level_sc} "{SMA_username}" 旗下会员有可能会输总计 未结束交易 如下：
 

@@ -21,12 +21,12 @@ BEGIN
 
 	DECLARE @NumberOfRows INT
 
-	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, NotifiedPercentValue MONEY)
+	DECLARE @Result TABLE (LogId BIGINT, CustId INT, MatchId INT, NotifiedPercentValue MONEY, IsGroupHeadLine BIT)
 
 	WHILE 1 = 1
 	BEGIN
-		INSERT INTO @Result (LogId, CustId, MatchId, NotifiedPercentValue)
-		SELECT TOP(@BatchSize) LogID, h.CustID, Matchid, NotifiedPercentValue
+		INSERT INTO @Result (LogId, CustId, MatchId, NotifiedPercentValue, IsGroupHeadLine)
+		SELECT TOP(@BatchSize) LogID, h.CustID, Matchid, NotifiedPercentValue, IsGroupHeadLine
 		FROM dbo.TOControl_Setting_History h WITH(NOLOCK)
 		WHERE h.LogID > @LastLogId 
 		ORDER BY h.LogID	
@@ -36,13 +36,13 @@ BEGIN
 
 		SELECT @LastLogId = MAX(LogId) FROM @Result
 
-		DELETE @Result WHERE NotifiedPercentValue < 80 
+		DELETE @Result WHERE NotifiedPercentValue < 80 OR IsGroupHeadLine = 1
 
 		DELETE r
 		FROM @Result r
 		WHERE EXISTS(SELECT TOP 1 1 FROM dbo.Customer c WITH(NOLOCK) WHERE c.custid = r.CustId AND c.site = 'CN88') 
 
-		SELECT @NumberOfRows = COUNT(*) FROM @Result
+		SELECT @NumberOfRows = COUNT(1) FROM @Result
 
 		IF @NumberOfRows >= @BatchSize
 			BREAK

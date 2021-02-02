@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineUpd]
 	@Content	XML,
 	@TitleID	INT,
@@ -15,17 +16,17 @@ AS
 	Original:
 
 	Revisions:	
-	
+		- 20210201@Johnson: change datatype for Remark to nvarchar(max) [redmine:#149364]
 	Param's Explanation:	
 */
 BEGIN
-	DECLARE @HeadlineData TABLE(HeadlineID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT)
-	DECLARE @HeadlineDataOld TABLE(HeadlineID INT, InformHeadlineStatusID INT, Remark NVARCHAR(4000), Extension INT, ProductStatus INT, UpdatedTime DATETIME, Handler INT)
+	DECLARE @HeadlineData TABLE(HeadlineID INT, InformHeadlineStatusID INT, Remark NVARCHAR(MAX), Extension INT, ProductStatus INT)
+	DECLARE @HeadlineDataOld TABLE(HeadlineID INT, InformHeadlineStatusID INT, Remark NVARCHAR(MAX), Extension INT, ProductStatus INT, UpdatedTime DATETIME, Handler INT)
 
 	INSERT INTO @HeadlineData
 	SELECT	xmlData.Col.value('@HeadlineID','INT') HeadlineID,
 			xmlData.Col.value('@StatusID','INT') InformHeadlineStatusID,
-			dbo.[f_EncodeXMLValue](xmlData.Col.value('@Remark','NVARCHAR(4000)')) Remark,
+			dbo.[f_EncodeXMLValue](xmlData.Col.value('@Remark','NVARCHAR(MAX)')) Remark,
 			ISNULL(xmlData.Col.value('@Extension','INT'),0) Extension,
 			ISNULL(xmlData.Col.value('@ProductStatus','INT'),0) ProductStatus
 	FROM @Content.nodes('//Content/Headline') xmlData(Col)
@@ -123,6 +124,3 @@ BEGIN
 END
 
 GO 
-GRANT EXECUTE ON [dbo].Acc_CRM_InformHeadlineUpd TO [bodbAdminNet]
-GO 
-GRANT VIEW DEFINITION ON [dbo].Acc_CRM_InformHeadlineUpd TO [vnteam]

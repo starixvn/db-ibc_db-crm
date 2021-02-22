@@ -33,7 +33,8 @@ BEGIN
 		LeagueId				INT,
 		HomeId					INT,
 		AwayId					INT,
-		Outstanding				MONEY
+		Outstanding				MONEY,
+		EventDate				DATETIME
 	)
 
 	INSERT INTO #Result (LogId, CustId, MatchId)
@@ -63,7 +64,20 @@ BEGIN
 		WHERE c.custid = r.CustId
 	) AS l
 
-	CREATE CLUSTERED INDEX IX_Result ON #Result(RoleId, CustId, MatchId)
+	UPDATE r
+		SET r.Sporttype = l.sporttype
+			,r.LeagueId = l.leagueid
+			,r.HomeId	= l.homeid
+			,r.AwayId	= l.awayid
+			,r.EventDate = l.eventdate
+	FROM #Result r
+	CROSS APPLY(
+		SELECT TOP(1) m.sporttype, m.leagueid, m.homeid, m.awayid, m.eventdate
+		FROM bodb02.dbo.match m WITH(NOLOCK)
+		WHERE m.matchid = r.MatchId
+	) AS l
+
+	CREATE CLUSTERED INDEX IX_Result ON #Result(RoleId, CustId, EventDate, MatchId)
 
 	-- Get Outstanding
 	IF EXISTS(SELECT 1 FROM #Result WHERE RoleId = 4)
@@ -71,7 +85,7 @@ BEGIN
 		;WITH CTE AS (
 			SELECT b.srecommend, b.matchid,  SUM(b.actual_stake) AS Outstanding
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-			WHERE EXISTS (SELECT TOP 1 1 FROM #Result r WHERE r.CustId = b.srecommend AND r.MatchId = b.matchid AND r.RoleId = 4)
+			WHERE EXISTS (SELECT TOP 1 1 FROM #Result r WHERE r.CustId = b.srecommend AND r.MatchId = b.matchid AND r.EventDate = b.winlostdate AND r.RoleId = 4)
 				AND b.statusID IN (0, 1)
 			GROUP BY b.srecommend, b.matchid
 		)
@@ -87,7 +101,7 @@ BEGIN
 		;WITH CTE AS (
 			SELECT b.mrecommend, b.matchid,  SUM(b.actual_stake) AS Outstanding
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-			WHERE EXISTS (SELECT TOP 1 1 FROM #Result r WHERE r.CustId = b.mrecommend AND r.MatchId = b.matchid AND r.RoleId = 3)
+			WHERE EXISTS (SELECT TOP 1 1 FROM #Result r WHERE r.CustId = b.mrecommend AND r.MatchId = b.matchid AND r.EventDate = b.winlostdate AND r.RoleId = 3)
 				AND b.statusID IN (0, 1)
 			GROUP BY b.mrecommend, b.matchid
 		)
@@ -103,7 +117,7 @@ BEGIN
 		;WITH CTE AS (
 			SELECT b.recommend, b.matchid,  SUM(b.actual_stake) AS Outstanding
 			FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-		    WHERE EXISTS (SELECT TOP 1 1 FROM #Result r WHERE r.CustId = b.recommend AND r.MatchId = b.matchid AND r.RoleId = 2)
+		    WHERE EXISTS (SELECT TOP 1 1 FROM #Result r WHERE r.CustId = b.recommend AND r.MatchId = b.matchid AND r.EventDate = b.winlostdate AND r.RoleId = 2)
 				AND b.statusID IN (0, 1)
 			GROUP BY b.recommend, b.matchid
 		)
@@ -124,17 +138,6 @@ BEGIN
 	FROM #Result r
 		INNER JOIN dbo.crmTOControlOutstandingInfo i WITH(NOLOCK) ON i.LogID = r.LogId
 
-	UPDATE r
-		SET r.Sporttype = l.sporttype
-			,r.LeagueId = l.leagueid
-			,r.HomeId	= l.homeid
-			,r.AwayId	= l.awayid
-	FROM #Result r
-	CROSS APPLY(
-		SELECT TOP(1) m.sporttype, m.leagueid, m.homeid, m.awayid
-		FROM bodb02.dbo.match m WITH(NOLOCK)
-		WHERE m.matchid = r.MatchId
-	) AS l
 
 	SELECT
 		LogId	

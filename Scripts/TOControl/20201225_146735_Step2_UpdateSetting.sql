@@ -31,7 +31,7 @@ VALUES ('LastLogID', CONVERT(VARCHAR(20), @MaxLogId), 'ChatBot - TOControl')
 
 DECLARE @NotificationTemplate NVARCHAR(MAX)
 = N'<root>
-  <r IsTest="0" NotificationTemplateID="'+ CONVERT(NVARCHAR(MAX), @NotificationTemplateId) +'" NotificationTypeID="'+ CONVERT(NVARCHAR(MAX), @NotificationTypeID)+'">
+  <r IsTest="1" NotificationTemplateID="'+ CONVERT(NVARCHAR(MAX), @NotificationTemplateId) +'" NotificationTypeID="'+ CONVERT(NVARCHAR(MAX), @NotificationTypeID)+'">
 	<TemplateRequiredParam Value="{event_outstanding}" LanguageId="50000" Frequency="1"/>
     <TemplateRequiredParam Value="{event_outstanding}" LanguageId="50001" Frequency="1"/>
     <TemplateRequiredParam Value="{event_outstanding}" LanguageId="50003" Frequency="1"/>

@@ -18,6 +18,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
+		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
 	Param's Explanation:
 	- @Contents:
 		<Contents>
@@ -30,37 +31,25 @@ BEGIN
 	SET NOCOUNT ON
 
 	-- Check permission
-	CREATE TABLE #RequiredParameters(NotificationTemplateId SMALLINT ,[Value] NVARCHAR(300), LanguageId INT, Frenquency INT)
+	DECLARE @RequiredParameters TABLE(NotificationTemplateId SMALLINT ,[Value] NVARCHAR(300), LanguageId INT, Frenquency INT)
 
-	DECLARE @iDoc INT, @Setting_AbnormalBets XML, @Setting_CWL XML, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
+	DECLARE @iDoc INT, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
 			@_Contents XML, @Old_Title NVARCHAR(2000), @Old_NotificationTemplateName NVARCHAR(1000), 
-			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML
+			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML, @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL'
 
-	-- Get setting for AbnormalBets, CWL Service
-	SELECT 
-		@Setting_AbnormalBets = CASE WHEN s.ServiceName = 'ChatBot - AbnormalBets' THEN CAST(Value AS XML) 
-								ELSE @Setting_AbnormalBets END
-		,@Setting_CWL		  = CASE WHEN s.ServiceName = 'ChatBot - CWL' THEN CAST(Value AS XML) 
-								ELSE @Setting_CWL END
-	FROM SystemSetting s WITH(NOLOCK)
-	WHERE s.SettingName = 'NotificationTemplate' AND s.ServiceName IN ('ChatBot - AbnormalBets', 'ChatBot - CWL')
-
-	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
-	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId, 1
-	FROM @Setting_AbnormalBets.nodes('root/r') T(c)
+	-- Get setting for ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL
+	INSERT INTO @RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
+	SELECT d.NotificationTemplateID, d.Value, d.LanguageId, d.Frequency
+	FROM dbo.f_CRM_strSplit(@ServiceNames, ',') f
+	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.val ) AS i(Setting)
 	CROSS APPLY(
-		SELECT l.k.value('@Value','nvarchar(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId]
-		FROM T.c.nodes('TemplateRequiredParam') l(k)
-	) AS h
-
-	INSERT INTO #RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
-	SELECT T.c.value('@NotificationTemplateID','int') AS NotificationTemplateID, h.[Value], h.LanguageId, h.Frequency
-	FROM @Setting_CWL.nodes('root/r') T(c)
-	CROSS APPLY(
-		SELECT l.k.value('@Value','nvarchar(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId], l.k.value('@Frequency', 'INT') AS [Frequency]
-		FROM T.c.nodes('TemplateRequiredParam') l(k)
-	) AS h
-	
+		SELECT T.c.value('@NotificationTemplateID', 'INT') AS NotificationTemplateID , h.Value, h.LanguageId, h.Frequency
+		FROM i.Setting.nodes('root/r') AS T(c)
+		CROSS APPLY(
+			SELECT l.k.value('@Value','NVARCHAR(1000)') AS [Value], l.k.value('@LanguageId', 'INT') AS [LanguageId], ISNULL(l.k.value('@Frequency', 'INT'), 1) AS Frequency
+			FROM T.c.nodes('TemplateRequiredParam') as l(k)
+		) as h
+	) as d
 
 	-- Check exists NotificationTemplateId
 	IF NOT EXISTS (SELECT 1 FROM dbo.crmNotificationTemplate WITH (NOLOCK) WHERE NotificationTemplateId = @NotificationTemplateId)
@@ -107,7 +96,7 @@ BEGIN
 	END CATCH
 
 	IF EXISTS (SELECT 1 
-			   FROM #RequiredParameters r 
+			   FROM @RequiredParameters r 
 			   CROSS APPLY(
 		 	   		SELECT (LEN(c.Value) - LEN(REPLACE(c.Value, r.Value, '')))/LEN(r.Value) AS k FROM #Contents c WHERE c.LanguageId = r.LanguageId 
 			   ) d(k)
@@ -250,8 +239,6 @@ BEGIN
 							 
 	DROP TABLE #Contents
 	DROP TABLE #Tmp
-	DROP TABLE #RequiredParameters
-
 	
 END
 GO

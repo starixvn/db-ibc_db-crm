@@ -15,6 +15,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
+		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
 	Param's Explanation:
 */
 BEGIN
@@ -23,25 +24,15 @@ BEGIN
 	CREATE TABLE #NotificationTemplate(NotificationTemplateId INT)
 
 	DECLARE  @Setting_AbnormalBets XML, @Setting_CWL XML , @__Title NVARCHAR(200), @__NotificationTypeId SMALLINT, @__ContentXML XML, @__NotificationTypeXML XML,
-			 @NewValues NVARCHAR(MAX)
+			 @NewValues NVARCHAR(MAX), @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL'
 
-	-- Get setting for CWL, AbnormalBets Services
-
-	SELECT 
-		@Setting_AbnormalBets = CASE WHEN s.ServiceName = 'ChatBot - AbnormalBets' THEN CAST(Value AS XML) 
-								ELSE @Setting_AbnormalBets END
-		,@Setting_CWL		  = CASE WHEN s.ServiceName = 'ChatBot - CWL' THEN CAST(Value AS XML) 
-								ELSE @Setting_CWL END
-	FROM SystemSetting s WITH(NOLOCK)
-	WHERE s.SettingName = 'NotificationTemplate' AND s.ServiceName IN ('ChatBot - AbnormalBets', 'ChatBot - CWL')
+	-- Get setting for CWL, AbnormalBets Services, ChatBot - TOControl
 
 	INSERT INTO #NotificationTemplate(NotificationTemplateId)
-	SELECT  DISTINCT T.c.value('@NotificationTemplateID', 'INT')
-	FROM @Setting_AbnormalBets.nodes('/root/r') T(c)
-
-	INSERT INTO #NotificationTemplate(NotificationTemplateId)
-	SELECT  DISTINCT T.c.value('@NotificationTemplateID', 'INT')
-	FROM @Setting_CWL.nodes('/root/r') T(c)
+	SELECT DISTINCT s.NotificationTemplateID
+	FROM dbo.f_CRM_strSplit(@ServiceNames, ',') f
+	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.val ) AS i(Setting)
+	CROSS APPLY(SELECT DISTINCT T.c.value('@NotificationTemplateID', 'INT') AS NotificationTemplateID FROM i.Setting.nodes('/root/r') T(c)) s(NotificationTemplateID)
 
 	-- Check permission
 

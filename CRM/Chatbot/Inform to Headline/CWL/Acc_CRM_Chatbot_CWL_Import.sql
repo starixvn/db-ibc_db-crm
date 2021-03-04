@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20201104@Malcolm: Initialize SP [RedmineID: #144841]
+		- 20210303@Malcolm: Change format of winloss [RedmineID: #144841]
 
 	Param's Explanation:
 		. @XmlData
@@ -391,7 +392,7 @@ BEGIN
 							REPLACE(
 								REPLACE(
 									REPLACE(nt.Content, '{player_username}', r.Username)
-									,'{player_wl_amount}', CONVERT(INT, ROUND(r.Winloss, 0, 1)))
+									,'{player_wl_amount}', REPLACE(CONVERT(VARCHAR(20), ROUND(r.Winloss, 0, 1), 1), '.00', ''))
 								,'{player_currency}', r.CurrencyName)
 							,'{product_name_en}', r.ProductNameEN)
 						,'{product_name_th}', r.ProductNameTH)

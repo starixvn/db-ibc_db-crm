@@ -26,6 +26,7 @@ Original:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200814@Malcolm: Get default Pics [Redmine: #137144]
 		- 20200921@Percy: Enhance code to improve performance [RedmineId: #130544]
+		- 20210316@Malcolm: Get information of PIC [Redmine: #148881]
 
 	Param's Explanation:
 		@HeadlineType = 0 : Normal
@@ -53,6 +54,8 @@ BEGIN
 		Recommend       INT,
 		RowNum          INT
 	)
+
+	CREATE TABLE #PicTable (PicId INT)
 
 	DECLARE @tblGroupHeadline TABLE (GroupId INT)
 
@@ -259,5 +262,16 @@ BEGIN
 				  )
 	)d(PIC)
 
-	DROP TABLE #Tmp_DirectAccount
+	INSERT INTO #PicTable (PicId)
+	SELECT DISTINCT m.PicID
+	FROM #Tmp_DirectAccount t
+		INNER JOIN dbo.crmPicManagement m WITH(NOLOCK) ON t.CustID = m.CustID
+
+	SELECT t.PicId, p.Username, e.SettingValue, c.CommunicationValue 
+	FROM #PicTable t
+		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicId
+		INNER JOIN dbo.crmPICCommunication c WITH(NOLOCK) ON c.PicID = t.PicId
+		INNER JOIN dbo.crmSetting e WITH(NOLOCK) ON e.SettingID = c.CommunicationID AND e.IsActive = 1
+
+	DROP TABLE #Tmp_DirectAccount, #PicTable
 END

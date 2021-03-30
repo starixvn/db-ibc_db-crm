@@ -55,8 +55,8 @@ BEGIN
 	DECLARE	@CustID			INT
 		,	@GuestID		INT
 		,	@TotalPages		INT;
-		
-	CREATE TABLE #Feedback(ID INT IDENTITY(1, 1), FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME);
+
+	CREATE TABLE #Feedback( FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME);
 				
 	DECLARE	@HandledID		INT
 		,	@ReviewerID		INT;
@@ -340,8 +340,10 @@ BEGIN
 		END; -- end: get feedback for guest
 	END;
 
-	SELECT	@TotalRows = MAX(ID)
-	FROM	#Feedback;
+	--SELECT	@TotalRows = MAX(ID)
+	--FROM	#Feedback;
+	
+	SET @TotalRows = ISNULL((SELECT	COUNT(DISTINCT FeedbackID) AS ITEM	FROM #Feedback),0);
 	
 	SELECT	fb.FeedbackID
 		,	fb.CustID

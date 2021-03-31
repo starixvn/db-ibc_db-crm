@@ -56,7 +56,7 @@ BEGIN
 		,	@GuestID		INT
 		,	@TotalPages		INT;
 
-	CREATE TABLE #Feedback( FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME); --ID INT IDENTITY(1, 1), 
+	CREATE TABLE #Feedback( ID INT IDENTITY(1, 1),FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME);
 				
 	DECLARE	@HandledID		INT
 		,	@ReviewerID		INT;

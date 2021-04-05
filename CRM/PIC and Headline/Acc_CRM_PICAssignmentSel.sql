@@ -267,11 +267,12 @@ BEGIN
 	FROM #Tmp_DirectAccount t
 		INNER JOIN dbo.crmPicManagement m WITH(NOLOCK) ON t.CustID = m.CustID
 
-	SELECT t.PicId, p.Username, e.SettingValue, c.CommunicationValue 
+	SELECT t.PicId, p.Username, e.SettingValue AS CommunicationTool, c.CommunicationValue, r.SettingID AS RoleId, ISNULL(r.DisplayOrder, 0) AS  [Order]
 	FROM #PicTable t
 		INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicId
 		INNER JOIN dbo.crmPICCommunication c WITH(NOLOCK) ON c.PicID = t.PicId
 		INNER JOIN dbo.crmSetting e WITH(NOLOCK) ON e.SettingID = c.CommunicationID AND e.IsActive = 1
+		LEFT JOIN dbo.crmSetting r WITH(NOLOCK) ON r.SettingID = p.Role
 
 	DROP TABLE #Tmp_DirectAccount, #PicTable
 END

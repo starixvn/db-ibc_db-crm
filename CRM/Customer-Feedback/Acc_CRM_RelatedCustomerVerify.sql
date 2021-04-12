@@ -22,7 +22,6 @@ AS
 		- 20190506@Winnie:  CN88 Permission - [RedmineID: #112637]
 		- 20190701@Elodie: Offer for CN88 - [RedmineID: #112637]
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
-		- 202010315@Winfred: Related Customer displayed when not guest [redmine:#138771]		
 	Param's Explanation:	
 */
 BEGIN
@@ -44,7 +43,7 @@ BEGIN
 	INSERT INTO @Customer(CustID, UserName)
 	SELECT c.custid, c.username 
 	FROM crmCustomer c WITH (NOLOCK) INNER JOIN @tmpCustomer tc on c.username = tc.UserName
-	WHERE NOT EXISTS ( SELECT 1 FROM @Customer WHERE CustID =  c.CustID)
+	WHERE c.CustID < 0	
 		AND ((@UserRole=1 AND c.SiteID = 33002) OR (@UserRole=2 AND c.SiteID <> 33002))
 
 	INSERT INTO @Customer(CustID, UserName)

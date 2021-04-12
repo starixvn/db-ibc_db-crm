@@ -138,7 +138,7 @@ BEGIN
 	INSERT INTO #tblResult (CustId, Username)
 	SELECT CustId,Username
 	FROM (
-	SELECT c.CustId, c.Username , ROW_NUMBER() OVER (Order by CustId DESC) AS ROWNUM
+	SELECT c.CustId, c.Username , ROW_NUMBER() OVER (PARTITION BY Username Order by CustId) AS ROWNUM
 	FROM dbo.crmCustomer AS c WITH (NOLOCK)
 	WHERE c.SiteId <> 33002
 		AND EXISTS (

@@ -136,7 +136,9 @@ BEGIN
 			)
 
 	INSERT INTO #tblResult (CustId, Username)
-	SELECT TOP 1 c.CustId, c.Username
+	SELECT CustId,Username
+	FROM (
+	SELECT c.CustId, c.Username , ROW_NUMBER() OVER (Order by CustId DESC) AS ROWNUM
 	FROM dbo.crmCustomer AS c WITH (NOLOCK)
 	WHERE c.SiteId <> 33002
 		AND EXISTS (
@@ -144,7 +146,9 @@ BEGIN
 			FROM @tblCustomer AS tbl
 			WHERE tbl.Username = c.Username
 			)
-	 ORDER BY c.Username,c.CustId		
+	) KQ 
+	WHERE KQ .ROWNUM = 1
+	ORDER BY KQ.Username,KQ.CustId		
 
 	INSERT INTO #tblResult (CustId, Username)
 	SELECT 0, c.Username

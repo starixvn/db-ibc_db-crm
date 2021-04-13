@@ -4,7 +4,6 @@ CRM\BK\Customer- Feedback\Acc_CRM_FeedbackSelByDate.sql
 CRM\Customer-Feedback\Acc_CRM_FeedbackSelTop.sql
 CRM\Customer-Feedback\Acc_CRM_FeedbackSelTopByCustId.sql
 CRM\Report\Acc_CRM_Rpt_DeletedFeedbackStatistics.sql
-CRM\BK\Report\Acc_CRM_Rpt_FeedbackSelByDate.sql
 CRM\BK\Report\Acc_CRM_Rpt_FeedbackSelByLincensee.sql
 CRM\Report\Acc_CRM_Rpt_FeedbackStatisticDetails.sql
 

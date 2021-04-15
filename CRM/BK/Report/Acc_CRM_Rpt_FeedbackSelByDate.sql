@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackSelByDate]
 (
 	@FromDate datetime,
@@ -13,7 +13,8 @@ AS
 	Original:
 	Revisions:
 		- 20111126@Sophia: Not to show Status is Pending (StatusID = 11001)		
-		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774] 
+		- 202010315@Winfred: remove vnteam [Redmine: #112637]
 	Param's Explanation:
 	
 */
@@ -107,9 +108,3 @@ BEGIN
 	OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 	ORDER BY t.FeedbackDate DESC
 END
-
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackSelByDate] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_Rpt_FeedbackSelByDate] TO [vnteam]

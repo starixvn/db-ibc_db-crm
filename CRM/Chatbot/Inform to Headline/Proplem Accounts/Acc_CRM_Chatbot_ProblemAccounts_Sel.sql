@@ -30,6 +30,7 @@ BEGIN
 		SELECT h.custid, h.CategoryID, h.CustomerClass
 		FROM dbo.CustCategoryHistory h WITH(NOLOCK)
 		WHERE h.LogID > @LastLogId AND h.LogID <= @MaxLogId
+		ORDER BY h.LogID ASC
 
 		IF @@ROWCOUNT = 0
 			BREAK
@@ -49,9 +50,9 @@ BEGIN
 		END
 	END
 
-	SELECT TOP(@BatchSize) LogId, CustId, c.CategoryName, CustomerClass
+	SELECT TOP (@BatchSize) t.LogId, c.username, t.CustId,c.recommend, c.mrecommend, c.srecommend, t.CategoryId, CASE WHEN c.currency = 'UUS' THEN 1 ELSE 0 END AS IsTest
 	FROM @Tmp t
-		INNER JOIN dbo.CategoryConfig c WITH(NOLOCK) ON c.CategoryID = t.CategoryId
-	ORDER BY LogId
+		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = t.CustId
+	ORDER BY LogId ASC
 	
 END

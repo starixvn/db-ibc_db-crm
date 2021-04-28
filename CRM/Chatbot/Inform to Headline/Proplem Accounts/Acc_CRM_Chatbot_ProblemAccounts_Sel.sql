@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Sel]
 		@LastLogId  INT
-		,@BatchSize INT = 300
+		,@BatchSize INT = 1000
 AS
 
 /*

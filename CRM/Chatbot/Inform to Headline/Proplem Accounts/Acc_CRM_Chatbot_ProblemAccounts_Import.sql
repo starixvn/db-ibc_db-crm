@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Import]
+CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Import]
 	@XmlData				XML
 	,@Environment			VARCHAR(50) = ''
 	,@ErrCode				INT = 0 OUTPUT
@@ -16,7 +16,7 @@ AS
 
 	Param's Explanation:
 		. @XmlData = '<root>
-							<r LogId="1" CustId="114" Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" CategoryId="100" CategoryName_en="" CategoryName_sc="" CategoryName_ensc="" IsTest="0"/>
+							<r LogId="1" CustId="114" Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" CategoryId="100" CategoryNameEN="" CategoryNameSC="" CategoryNameENSC="" CategoryNameTH="" CategoryNameYN="" IsTest="0" />
 					  </root>'
 */
 
@@ -25,7 +25,7 @@ BEGIN
 
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
 
-	DECLARE @LanguegeEN INT = 50000, @LanguegeSC INT = 50001, @LanguegeEN_SC INT = 50002
+	DECLARE @LanguegeEN INT = 50000, @LanguegeSC INT = 50001, @LanguegeENSC INT = 50002, @LanguegeTH INT = 50003, @LanguegeYN INT = 50004
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' and SettingName = 'IncludeUUSCurrency'
 
@@ -49,32 +49,36 @@ BEGIN
 	-- Get Imported Data
 	CREATE TABLE #ImportData 
 	(
-		LogId			BIGINT, 
-		Username		VARCHAR(30), 
-		CustId			INT, 
-		Recommend		INT, 
-		Mrecommend		INT, 
-		Srecommend		INT, 
-		CategoryId		SMALLINT, 
-		CategoryName_EN NVARCHAR(100), 
-		CategoryName_SC NVARCHAR(100), 
-		CategoryName_ENSC NVARCHAR(100),
-		IsTest			BIT
+		LogId				BIGINT, 
+		Username			VARCHAR(30), 
+		CustId				INT, 
+		Recommend			INT, 
+		Mrecommend			INT, 
+		Srecommend			INT, 
+		CategoryId			SMALLINT, 
+		CategoryNameEN		NVARCHAR(100), 
+		CategoryNameSC		NVARCHAR(100), 
+		CategoryNameENSC	NVARCHAR(100),
+		CategoryNameTH	NVARCHAR(100),
+		CategoryNameYN	NVARCHAR(100),
+		IsTest				BIT
 	)
 
-	INSERT INTO #ImportData (LogId, CustId, Username, IsTest, Recommend, Mrecommend, Srecommend, CategoryId, CategoryName_en, CategoryName_sc, CategoryName_yn)
+	INSERT INTO #ImportData (LogId, CustId, Username, IsTest, Recommend, Mrecommend, Srecommend, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameENSC, CategoryNameTH, CategoryNameYN)
 	SELECT 
-		t.c.value('LogId', 'BIGINT')					AS LogId
-		,t.c.value('CustId', 'INT')						AS CustId
-		,t.c.value('Username', 'VARCHAR(30)')			AS Username
-		,t.c.value('IsTest', 'BIT')						AS IsTest
-		,t.c.value('Recommend', 'INT')					AS Recommend
-		,t.c.value('Mrecommend', 'INT')					AS Mrecommend
-		,t.c.value('Srecommend', 'INT')					AS Srecommend
-		,t.c.value('CategoryId', 'SMALLINT')			AS CategoryId
-		,t.c.value('CategoryName_en', 'NVARCHAR(100)')	AS CategoryName_en
-		,t.c.value('CategoryName_sc', 'NVARCHAR(100)')	AS CategoryName_sc
-		,t.c.value('CategoryName_ensc', 'NVARCHAR(100)')AS CategoryName_ENSC
+		t.c.value('LogId[1]', 'BIGINT')					    AS LogId
+		,t.c.value('CustId[1]', 'INT')						AS CustId
+		,t.c.value('Username[1]', 'VARCHAR(30)')			AS Username
+		,t.c.value('IsTest[1]', 'BIT')						AS IsTest
+		,t.c.value('Recommend[1]', 'INT')					AS Recommend
+		,t.c.value('Mrecommend[1]', 'INT')					AS Mrecommend
+		,t.c.value('Srecommend[1]', 'INT')					AS Srecommend
+		,t.c.value('CategoryId[1]', 'SMALLINT')			    AS CategoryId
+		,t.c.value('CategoryNameEN[1]', 'NVARCHAR(100)')	AS CategoryNameEN
+		,t.c.value('CategoryNameSC[1]', 'NVARCHAR(100)')	AS CategoryNameSC
+		,t.c.value('CategoryNameENSC[1]', 'NVARCHAR(100)')	AS CategoryNameENSC
+		,t.c.value('CategoryNameTH[1]', 'NVARCHAR(100)')	AS CategoryNameTH
+		,t.c.value('CategoryNameYN[1]', 'NVARCHAR(100)')	AS CategoryNameYN
 	FROM @XmlData.nodes ('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
@@ -192,23 +196,25 @@ BEGIN
 	-- Get Recipient
 	CREATE TABLE #LogRecipient
 	(
-		LogId			INT
-		,Username		VARCHAR(30)
-		,DirectAccount	INT
-		,HeadlineId		INT
-		,CustId			INT 
-		,Recommend		INT 
-		,Mrecommend		INT 
-		,Srecommend		INT 
-		,CategoryId		SMALLINT
-		,RecipientId	INT
-		,CategoryEn		NVARCHAR(100)
-		,CategorySC		NVARCHAR(100)
-		,CategoryEn_SC	NVARCHAR(100)
-		,IsTest			BIT
+		LogId				INT
+		,Username			VARCHAR(30)
+		,DirectAccount		INT
+		,HeadlineId			INT
+		,CustId				INT 
+		,Recommend			INT 
+		,Mrecommend			INT 
+		,Srecommend			INT 
+		,CategoryId			SMALLINT
+		,RecipientId		INT
+		,CategoryNameEn		NVARCHAR(100)
+		,CategoryNameSC		NVARCHAR(100)
+		,CategoryNameEnSC	NVARCHAR(100)
+		,CategoryNameTH		NVARCHAR(100)
+		,CategoryNameYN		NVARCHAR(100)
+		,IsTest				BIT
 	)
-	INSERT INTO #LogRecipient (LogId, CustId, CategoryId, CategoryEn, CategorySC, CategoryEn_SC, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
-	SELECT m.LogId, m.CustId, m.CategoryId, m.CategoryName_en, m.CategoryName_sc, m.CategoryName_ENSC,m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
+	INSERT INTO #LogRecipient (LogId, CustId, CategoryId, CategoryNameEn, CategoryNameSC, CategoryNameEnSC, CategoryNameTH, CategoryNameYN, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	SELECT m.LogId, m.CustId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameENSC, m.CategoryNameTH, m.CategoryNameYN, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
@@ -269,13 +275,15 @@ BEGIN
 		Username			VARCHAR(50), 
 		HeadlineId			INT, 
 		IsDuplicated		BIT,
-		CategoryEn			NVARCHAR(100),
-		CategorySC			NVARCHAR(100),
-		CategoryEn_SC		NVARCHAR(100),
+		CategoryNameEN		NVARCHAR(100),
+		CategoryNameSC		NVARCHAR(100),
+		CategoryNameENSC	NVARCHAR(100),
+		CategoryNameTH		NVARCHAR(100),
+		CategoryNameYN		NVARCHAR(100),
 		IsTest				BIT
 	)
-	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryEn, CategorySC, CategoryEn_SC, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
-	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryEn, m.CategorySC, m.CategoryEn_SC, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, IsTest
+	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameENSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
+	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameENSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.LogId = g.LogId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -371,8 +379,8 @@ BEGIN
 		GROUP BY r.Id
 
 	),CTE_Category AS (
-		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryEn, t.CategorySC, t.CategoryEn_SC,
-				STUFF ((SELECT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
+		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameENSC, t.CategoryNameTH, t.CategoryNameYN
+			   ,STUFF ((SELECT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult t
 		GROUP BY t.Id, t.CategoryId
 	),CTE_Content AS (	
@@ -380,9 +388,11 @@ BEGIN
 			   ,STUFF 
 			   (
 					(
-						SELECT CHAR(10) + CHAR(13) + CASE e.LanguageId WHEN @LanguegeEN    THEN CategoryEn
-													                   WHEN @LanguegeSC    THEN CategorySC
-													                   WHEN @LanguegeEN_SC THEN CategoryEn_SC 
+						SELECT CHAR(10) + CHAR(13) + CASE e.LanguageId WHEN @LanguegeEN	  THEN CategoryNameEN
+													                   WHEN @LanguegeSC	  THEN CategoryNameSC
+													                   WHEN @LanguegeENSC THEN CategoryNameENSC 
+																	   WHEN @LanguegeTH	  THEN CategoryNameTH
+																	   WHEN @LanguegeYN	  THEN CategoryNameYN
 								      ELSE '' END  + ' : ' + UsernameLst 
 						FROM CTE_Category e 
 						WHERE e.Id = i.Id

@@ -27,7 +27,7 @@ BEGIN
 	WHILE 1 = 1
 	BEGIN
 		INSERT INTO @Tmp (LogId, CustId, CategoryId, CustomerClass)
-		SELECT h.custid, h.CategoryID, h.CustomerClass
+		SELECT h.LogID, h.custid, h.CategoryID, h.CustomerClass
 		FROM dbo.CustCategoryHistory h WITH(NOLOCK)
 		WHERE h.LogID > @LastLogId AND h.LogID <= @MaxLogId
 		ORDER BY h.LogID ASC

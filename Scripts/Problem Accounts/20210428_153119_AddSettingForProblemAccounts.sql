@@ -61,18 +61,34 @@ Thank you for your kind attention!
 {content}
 
 谢谢您的关注与支持!')
+,(@NotificationTemplateID, 50003, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
+
+{content}
+
+คุณสำหรับความสนใจและการสนับสนุนของคุณ')
+,(@NotificationTemplateID, 50004, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
+
+{content}
+
+Xin cám ơn quý khách đã lưu tâm!')
 
 DECLARE @xml NVARCHAR(MAX) = ''
 
 SELECT @xml = '<root>
-					<r IsTest="0"> NotificationTemplateID="'+ CONVERT(NVARCHAR(MAX), @NotificationTemplateID) +'" NotificationTypeID="'+ CONVERT(NVARCHAR(MAX), @NotificationTypeID) +'>" 
+					<r IsTest="0" NotificationTemplateID="'+ CONVERT(NVARCHAR(MAX), @NotificationTemplateID) +'" NotificationTypeID="'+ CONVERT(NVARCHAR(MAX), @NotificationTypeID) +'"> 
 						<TemplateRequiredParam Value="{content}" LanguageId="50000" Frequency="1"/>
 						<TemplateRequiredParam Value="{content}" LanguageId="50001" Frequency="1"/>
-						<TemplateRequiredParam Value="{content}" LanguageId="50002" Frequency="1"/>
+						<TemplateRequiredParam Value="{content}" LanguageId="50002" Frequency="2"/>
+						<TemplateRequiredParam Value="{content}" LanguageId="50003" Frequency="1"/>
+						<TemplateRequiredParam Value="{content}" LanguageId="50004" Frequency="1"/>
 					</r>
 			  </root>'
 
 UPDATE SystemSetting WITH(ROWLOCK)
 	SET Value = @xml
 WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'NotificationTemplate'
+
+
+
+
 

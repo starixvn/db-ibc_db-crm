@@ -16,6 +16,7 @@ Original:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
 		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
+		- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
 	Param's Explanation:
 */
 BEGIN
@@ -24,7 +25,7 @@ BEGIN
 	CREATE TABLE #NotificationTemplate(NotificationTemplateId INT)
 
 	DECLARE  @Setting_AbnormalBets XML, @Setting_CWL XML , @__Title NVARCHAR(200), @__NotificationTypeId SMALLINT, @__ContentXML XML, @__NotificationTypeXML XML,
-			 @NewValues NVARCHAR(MAX), @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL'
+			 @NewValues NVARCHAR(MAX), @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL,ChatBot - ProblemAccounts'
 
 	-- Get setting for CWL, AbnormalBets Services, ChatBot - TOControl
 

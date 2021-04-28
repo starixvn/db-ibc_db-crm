@@ -27,7 +27,7 @@ BEGIN
 
 	DECLARE @LanguegeEN INT = 50000, @LanguegeSC INT = 50001, @LanguegeEN_SC INT = 50002
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - Problem Accounts' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -36,7 +36,7 @@ BEGIN
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
-	WHERE ServiceName = 'ChatBot - Problem Accounts'
+	WHERE ServiceName = 'ChatBot - ProblemAccounts'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
@@ -82,7 +82,7 @@ BEGIN
 	BEGIN	
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - Problem Accounts'
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -106,7 +106,7 @@ BEGIN
 	-- Get Job Setting
 	DECLARE @Xml XML
 	SELECT  @Xml = CONVERT(XML, Value) FROM dbo.SystemSetting WITH (NOLOCK)
-	WHERE ServiceName = 'ChatBot - Problem Accounts'
+	WHERE ServiceName = 'ChatBot - ProblemAccounts'
 		AND SettingName = 'NotificationTemplate'
 
 	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX))
@@ -126,7 +126,7 @@ BEGIN
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - Problem Accounts'
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -157,7 +157,7 @@ BEGIN
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - Problem Accounts'
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -177,12 +177,12 @@ BEGIN
 	BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = CONVERT(VARCHAR(20), @lastLogId)
-		WHERE ServiceName = 'ChatBot - Problem Accounts'
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOflastLogId
 
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - Problem Accounts'
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -449,13 +449,13 @@ BEGIN
 	-- Update lastLogId
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = CONVERT(VARCHAR(20), @lastLogId)
-	WHERE ServiceName = 'ChatBot - Problem Accounts'
+	WHERE ServiceName = 'ChatBot - ProblemAccounts'
 		AND SettingName = @SettingNameOflastLogId
 
 	-- Update crmMessageImport
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'
-	WHERE ServiceName = 'ChatBot - Problem Accounts'
+	WHERE ServiceName = 'ChatBot - ProblemAccounts'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 

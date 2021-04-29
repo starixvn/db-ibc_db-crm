@@ -487,4 +487,5 @@ BEGIN
 	DROP TABLE #tmpGroup
 	DROP TABLE #tmpResult
 END
+
 GO

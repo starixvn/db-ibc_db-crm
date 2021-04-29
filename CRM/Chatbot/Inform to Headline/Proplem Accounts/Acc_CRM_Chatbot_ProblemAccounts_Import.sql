@@ -195,7 +195,7 @@ BEGIN
 	-- Get Recipient
 	CREATE TABLE #LogRecipient
 	(
-		LogId				INT
+		LogId				BIGINT
 		,Username			VARCHAR(30)
 		,DirectAccount		INT
 		,HeadlineId			INT
@@ -219,7 +219,7 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (LogId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.LogId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
@@ -253,7 +253,7 @@ BEGIN
 	CREATE TABLE #tmpResult 
 	(
 		Id					INT, 
-		LogId				INT, 
+		LogId				BIGINT, 
 		CustId				INT, 
 		CategoryId			SMALLINT, 
 		ConversationGroupId	SMALLINT, 
@@ -360,7 +360,7 @@ BEGIN
 			   ,r.ChatTypeId
 			   ,r.LanguageId
 			   ,MAX(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
-			   ,MAX(r.RelatedIdLst) AS RelatedIdLst
+			   ,MAX(ISNULL(r.RelatedIdLst,'')) AS RelatedIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), LogId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst
 		FROM #tmpResult r
@@ -368,27 +368,27 @@ BEGIN
 	),CTE_Category AS 
 	(
 		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN
-			   ,STUFF ((SELECT DISTINCT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
+			   ,STUFF ((SELECT DISTINCT ', ' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult t
 		GROUP BY t.Id, t.LanguageId, t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN 
 	),CTE_Content AS 
 	(	
 		SELECT	i.Id
-			   ,STUFF ((SELECT CHAR(10) + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentEN
-			   ,STUFF ((SELECT CHAR(10) + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentSC
-			   ,STUFF ((SELECT CHAR(10) + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentTH
-			   ,STUFF ((SELECT CHAR(10) + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentYN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentEN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentSC
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentTH
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentYN
 			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)
 	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, HeadlineList, RelatedIds)
 	SELECT 
-		g.Id, 
-		g.LogIdLst, 
-		g.ConversationGroupId, 
-		g.ChatTypeId, 
-		g.LanguageId,
-		CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
+		g.Id 
+		,g.LogIdLst
+		,g.ConversationGroupId
+		,g.ChatTypeId
+		,g.LanguageId
+		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
 		,c.ContentEN
 		,c.ContentSC
 		,c.ContentTH
@@ -417,7 +417,7 @@ BEGIN
 						REPLACE(
 							REPLACE(nt.Content, '{Content_en}', r.ContentEN)
 								,'{Content_sc}', r.ContentSC)
-							,'{Content_TH}', r.ContentTH)
+							,'{Content_th}', r.ContentTH)
 						,'{Content_yn}', r.ContentYN)
 			   ,r.RelatedIds
 		FROM #Result r

@@ -42,33 +42,33 @@ SELECT @NotificationTemplateID = NotificationTemplateId FROM dbo.crmNotification
 INSERT INTO dbo.crmNotificationTemplateContent (NotificationTemplateId, LanguageId, Content)
 VALUES (@NotificationTemplateID, 50000, 'Dear Sir, Customer Support would like to inform the below announcement:
 
-{content}
+{content_en}
 
 Thank you for your kind attention'),
 (@NotificationTemplateID, 50001, N'您好，客服部在此通知以下的通告：
 
-{content}
+{content_sc}
 
 谢谢您的关注与支持!'),
 (@NotificationTemplateID, 50002,N'Dear Sir, Customer Support would like to inform the below announcement:
 
-{content}
+{content_en}
 
 Thank you for your kind attention!    
 
 您好，客服部在此通知以下的通告：
 
-{content}
+{content_sc}
 
 谢谢您的关注与支持!')
 ,(@NotificationTemplateID, 50003, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
 
-{content}
+{content_th}
 
 คุณสำหรับความสนใจและการสนับสนุนของคุณ')
 ,(@NotificationTemplateID, 50004, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
 
-{content}
+{content_yn}
 
 Xin cám ơn quý khách đã lưu tâm!')
 
@@ -76,11 +76,12 @@ DECLARE @xml NVARCHAR(MAX) = ''
 
 SELECT @xml = '<root>
 					<r IsTest="0" NotificationTemplateID="'+ CONVERT(NVARCHAR(MAX), @NotificationTemplateID) +'" NotificationTypeID="'+ CONVERT(NVARCHAR(MAX), @NotificationTypeID) +'"> 
-						<TemplateRequiredParam Value="{content}" LanguageId="50000" Frequency="1"/>
-						<TemplateRequiredParam Value="{content}" LanguageId="50001" Frequency="1"/>
-						<TemplateRequiredParam Value="{content}" LanguageId="50002" Frequency="2"/>
-						<TemplateRequiredParam Value="{content}" LanguageId="50003" Frequency="1"/>
-						<TemplateRequiredParam Value="{content}" LanguageId="50004" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_en}" LanguageId="50000" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_sc}" LanguageId="50001" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_en}" LanguageId="50002" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_sc}" LanguageId="50002" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_th}" LanguageId="50003" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_yn}" LanguageId="50004" Frequency="1"/>
 					</r>
 			  </root>'
 

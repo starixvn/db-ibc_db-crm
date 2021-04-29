@@ -35,6 +35,8 @@ BEGIN
 		IF @@ROWCOUNT = 0
 			BREAK
 
+		SELECT @LastLogId = MAX(LogId) FROM @Tmp
+
 		DELETE @Tmp WHERE CustomerClass NOT BETWEEN 8 AND 11
 
 		DELETE t
@@ -50,7 +52,7 @@ BEGIN
 		END
 	END
 
-	SELECT TOP (@BatchSize) t.LogId, c.username, t.CustId,c.recommend, c.mrecommend, c.srecommend, t.CategoryId, CASE WHEN c.currency = 'UUS' THEN 1 ELSE 0 END AS IsTest
+	SELECT TOP (@BatchSize) t.LogId, c.username, t.CustId,c.recommend, c.mrecommend, c.srecommend, t.CategoryId, CASE WHEN c.currency = 20 THEN 1 ELSE 0 END AS IsTest
 	FROM @Tmp t
 		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = t.CustId
 	ORDER BY LogId ASC

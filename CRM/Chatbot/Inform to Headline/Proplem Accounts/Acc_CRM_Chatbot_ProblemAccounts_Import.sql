@@ -27,6 +27,8 @@ BEGIN
 
 	DECLARE @LanguegeEN INT = 50000, @LanguegeSC INT = 50001, @LanguegeENSC INT = 50002, @LanguegeTH INT = 50003, @LanguegeYN INT = 50004
 
+	DECLARE @MaxBatchOfGroup INT = 250, @MaxGroup INT = 0
+
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
@@ -265,7 +267,7 @@ BEGIN
 
 	CREATE TABLE #tmpResult 
 	(
-		Id					INT, 
+		Id				INT, 
 		LogId				INT, 
 		CustId				INT, 
 		CategoryId			SMALLINT, 
@@ -280,6 +282,7 @@ BEGIN
 		CategoryNameENSC	NVARCHAR(100),
 		CategoryNameTH		NVARCHAR(100),
 		CategoryNameYN		NVARCHAR(100),
+		RelatedIdLst		NVARCHAR(MAX),
 		IsTest				BIT
 	)
 	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameENSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
@@ -296,9 +299,8 @@ BEGIN
 
 	CREATE TABLE #Result
 	(
-		Id						INT IDENTITY (1,1)
+		Id						INT
 		,LogIdLst				NVARCHAR(MAX)
-		,CurrencyName			NVARCHAR(50)
 		,ConversationGroupId	SMALLINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
@@ -313,78 +315,78 @@ BEGIN
 		SET @Status = 'Draft'
 
 	-- For Group, Personal Which have IsDuplicated = 0
-	;WITH CTE_RowId AS (
-		SELECT t.LogId, t.ConversationGroupId, ROW_NUMBER() OVER(PARTITION BY ConversationGroupId ORDER BY CustId ASC) AS RowId
+	;WITH CTE_Batch AS (
+		SELECT t.LogId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY ConversationGroupId ORDER BY CategoryId ASC, CustId ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 0
 	)
-	,CTE_IndexingGroup AS (
-		SELECT t.LogId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY (t.RowId - 1)/ 250, t.ConversationGroupId) AS Id
-		FROM CTE_RowId t
+	,CTE_Group AS (
+		SELECT t.LogId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY ConversationGroupId, BatchOfGroup) AS Id
+		FROM CTE_Batch t
 	)
 	UPDATE t
 		SET t.Id = g.Id
 	FROM #tmpResult t
-		INNER JOIN CTE_IndexingGroup g ON g.LogId = t.LogId AND g.ConversationGroupId = t.ConversationGroupId
+		INNER JOIN CTE_Group g ON g.LogId = t.LogId AND g.ConversationGroupId = t.ConversationGroupId
 
-	;WITH CTE_Group AS (
-		SELECT t.Id, t.ConversationGroupId, t.ChatTypeId, t.LanguageId, MAX(IsTest) AS Istest
-			   ,STUFF ((SELECT ',' + CONVERT(VARCHAR(50), i.LogId) FROM #tmpResult i WHERE i.Id = t.id FOR XML PATH('')), 1, 1, '') AS LogIdLst
-		FROM #tmpResult t
-		WHERE t.IsDuplicated = 0
-		GROUP BY t.Id, t.ConversationGroupId, t.ChatTypeId, t.LanguageId
-	)
-	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId, ChatTypeId, LanguageId, RelatedIds, Status)
-	SELECT g.Id, g.LogIdLst, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, 0, CASE WHEN g.Istest = 1 THEN 'Planned' ELSE @Status END AS Status
-	FROM CTE_Group g	
-
-	DECLARE @MaxId INT
-
-	SELECT @MaxId = MAX(Id) FROM #Result
-		
-	-- For Personal (Groups have IsDuplicated = 1)
-	;WITH CTE_tmpPersonal AS (
-		SELECT p.LogId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, t.RelatedIds 
-		FROM #tmpResult p
-		CROSS APPLY (SELECT STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(5), r.Id) FROM #tmpResult r WHERE p.LogId = r.LogId FOR XML PATH('')), 1, 1, '') AS RelatedIds) t(RelatedIds)
-		WHERE p.IsDuplicated = 1 -- Personal
-	),CTE_tempResult AS (
-		SELECT t.ConversationGroupId, t.ChatTypeId, t.LanguageId, t.RelatedIds
-				,STUFF ((SELECT ',' + CONVERT(VARCHAR(50), g.LogId) FROM CTE_tmpPersonal g WHERE g.RelatedIds = t.RelatedIds AND g.ConversationGroupId = t.ConversationGroupId FOR XML PATH('')), 1, 1, '') AS LogIdLst	
-				,@MaxId + ROW_NUMBER() OVER(ORDER BY t.ConversationGroupId ASC) AS Id
-		FROM CTE_tmpPersonal t
-		GROUP BY t.ConversationGroupId, t.ChatTypeId, t.LanguageId, t.RelatedIds
-	)
-	INSERT INTO #Result (id, LogIdLst, ConversationGroupId, ChatTypeId, LanguageId, Status, RelatedIds)
-	SELECT t.Id, t.LogIdLst, t.ConversationGroupId, t.ChatTypeId, t.LanguageId, 'Duplicated', t.RelatedIds
-	FROM CTE_tempResult t
-
-	;WITH CTE AS
-	(
-		SELECT r.Id, r.ConversationGroupId, f.val AS LogId
-		FROM #Result r
-		CROSS APPLY dbo.f_CRM_strSplit(r.LogIdLst, ',') f
-		WHERE r.Id > @MaxId
-	)
+	--Group which have IsDuplicated = 1
 	UPDATE t
-		SET t.Id = r.Id
+	SET t.RelatedIdLst = u.RelatedLst
 	FROM #tmpResult t
-		INNER JOIN CTE r ON r.ConversationGroupId = t.ConversationGroupId AND r.LogId = t.LogId
+	CROSS APPLY (
+		SELECT STUFF
+			   ( 
+					(
+						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
+						FROM #tmpResult p
+						WHERE p.ChatTypeId = 1 AND p.CustId = t.CustId AND p.CategoryId = t.CategoryId
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS RelatedLst
+	) u(RelatedLst)
 	WHERE t.IsDuplicated = 1
 
-	--Update Content and Headline list
-	;WITH CTE_index AS	(
-		SELECT r.Id, STUFF ((SELECT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
+	--Get Max Group
+	SELECT @MaxGroup = MAX(Id) FROM #tmpResult WHERE IsDuplicated = 0
+		
+	-- For Personal (Groups have IsDuplicated = 1)
+	;WITH CTE_Batch AS
+	(
+		SELECT LogId, ConversationGroupId, RelatedIdLst, ((DENSE_RANK() OVER(PARTITION BY ConversationGroupId, RelatedIdLst ORDER BY CategoryId, CustId) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
+		FROM #tmpResult t
+		WHERE t.IsDuplicated = 1
+	), CTE_Group AS
+	(
+		SELECT LogId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ConversationGroupId, RelatedIdLst, BatchOfGroup) AS Id
+		FROM CTE_Batch
+	)
+	UPDATE t
+		SET t.Id = @MaxGroup + g.Id
+	FROM #tmpResult t
+		INNER JOIN CTE_Group g ON g.LogId = t.LogId AND g.ConversationGroupId = t.ConversationGroupId
+
+	--Get Content and Headline list
+	;WITH CTE_Group AS
+	(
+		SELECT r.Id
+			   ,r.ConversationGroupId
+			   ,r.ChatTypeId
+			   ,r.LanguageId
+			   ,MAX(IsTest) AS IsTest
+			   ,MAX(r.RelatedIdLst) AS RelatedIdLst
+			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
+			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), LogId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst
 		FROM #tmpResult r
 		GROUP BY r.Id
-
-	),CTE_Category AS (
+	),CTE_Category AS 
+	(
 		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameENSC, t.CategoryNameTH, t.CategoryNameYN
-			   ,STUFF ((SELECT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
+			   ,STUFF ((SELECT DISTINCT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult t
 		GROUP BY t.Id, t.CategoryId
-	),CTE_Content AS (	
-		SELECT I.Id
+	),CTE_Content AS 
+	(	
+		SELECT	i.Id
 			   ,STUFF 
 			   (
 					(
@@ -399,12 +401,21 @@ BEGIN
 					), 1, 1, ''
 				) AS Content
 				,i.HeadlineIdLst
-		FROM CTE_index i 
+		FROM CTE_Group i 
 	)
-	UPDATE r
-		SET r.Content = c.Content, r.HeadlineList = c.HeadlineIdLst
-	FROM #Result r
-		INNER JOIN CTE_Content c ON c.Id = r.Id
+	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, Content, HeadlineList, RelatedIds)
+	SELECT 
+		g.Id, 
+		g.HeadlineIdLst, 
+		g.ConversationGroupId, 
+		g.ChatTypeId, 
+		g.LanguageId,
+		CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
+		,c.Content
+		,c.HeadlineIdLst
+		,g.RelatedIdLst
+	FROM CTE_Group g
+		INNER JOIN CTE_Content c ON g.Id = c.Id
 	
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT

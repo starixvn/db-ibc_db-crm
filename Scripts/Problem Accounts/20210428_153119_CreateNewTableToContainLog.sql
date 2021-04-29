@@ -14,5 +14,7 @@ CREATE TABLE dbo.crmNotificationReference
 	CONSTRAINT PK_crmNotificationReference PRIMARY KEY (DataSource, NotificationId, ReferenceId)
 ) ON [DATA]
 
-CREATE INDEX ix_CRM_NotificationReference ON dbo.crmNotificationReference (DataSource, NotificationId, ReferenceId) ON [DATA]
+CREATE INDEX CIX_CRM_NotificationReference ON dbo.crmNotificationReference (DataSource, ReferenceId) ON [DATA]
+
+CREATE NONCLUSTERED INDEX IX_DataSource_NotificationId ON dbo.crmNotificationReference (DataSource, NotificationId) ON [DATA] 
 

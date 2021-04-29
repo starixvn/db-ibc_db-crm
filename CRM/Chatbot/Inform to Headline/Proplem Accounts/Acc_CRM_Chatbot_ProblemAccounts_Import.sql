@@ -25,9 +25,13 @@ BEGIN
 
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
 
-	DECLARE @LanguegeEN INT = 50000, @LanguegeSC INT = 50001, @LanguegeENSC INT = 50002, @LanguegeTH INT = 50003, @LanguegeYN INT = 50004
-
-	DECLARE @MaxBatchOfGroup INT = 250, @MaxGroup INT = 0
+	DECLARE @LanguegeEN 	 INT = 50000, 
+			@LanguegeSC 	 INT = 50001, 
+			@LanguegeENSC 	 INT = 50002, 
+			@LanguegeTH 	 INT = 50003, 
+			@LanguegeYN 	 INT = 50004,	
+			@MaxGroup 		 INT = 0,
+			@MaxBatchOfGroup INT = 250
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' and SettingName = 'IncludeUUSCurrency'
 
@@ -61,26 +65,26 @@ BEGIN
 		CategoryNameEN		NVARCHAR(100), 
 		CategoryNameSC		NVARCHAR(100), 
 		CategoryNameENSC	NVARCHAR(100),
-		CategoryNameTH	NVARCHAR(100),
-		CategoryNameYN	NVARCHAR(100),
+		CategoryNameTH		NVARCHAR(100),
+		CategoryNameYN		NVARCHAR(100),
 		IsTest				BIT
 	)
 
 	INSERT INTO #ImportData (LogId, CustId, Username, IsTest, Recommend, Mrecommend, Srecommend, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameENSC, CategoryNameTH, CategoryNameYN)
 	SELECT 
-		t.c.value('LogId[1]', 'BIGINT')					    AS LogId
-		,t.c.value('CustId[1]', 'INT')						AS CustId
-		,t.c.value('Username[1]', 'VARCHAR(30)')			AS Username
-		,t.c.value('IsTest[1]', 'BIT')						AS IsTest
-		,t.c.value('Recommend[1]', 'INT')					AS Recommend
-		,t.c.value('Mrecommend[1]', 'INT')					AS Mrecommend
-		,t.c.value('Srecommend[1]', 'INT')					AS Srecommend
-		,t.c.value('CategoryId[1]', 'SMALLINT')			    AS CategoryId
-		,t.c.value('CategoryNameEN[1]', 'NVARCHAR(100)')	AS CategoryNameEN
-		,t.c.value('CategoryNameSC[1]', 'NVARCHAR(100)')	AS CategoryNameSC
-		,t.c.value('CategoryNameENSC[1]', 'NVARCHAR(100)')	AS CategoryNameENSC
-		,t.c.value('CategoryNameTH[1]', 'NVARCHAR(100)')	AS CategoryNameTH
-		,t.c.value('CategoryNameYN[1]', 'NVARCHAR(100)')	AS CategoryNameYN
+		t.c.value('@LogId', 'BIGINT')					    AS LogId
+		,t.c.value('@CustId', 'INT')						AS CustId
+		,t.c.value('@Username', 'VARCHAR(30)')				AS Username
+		,t.c.value('@IsTest', 'BIT')						AS IsTest
+		,t.c.value('@Recommend', 'INT')						AS Recommend
+		,t.c.value('@Mrecommend', 'INT')					AS Mrecommend
+		,t.c.value('@Srecommend', 'INT')					AS Srecommend
+		,t.c.value('@CategoryId', 'SMALLINT')			    AS CategoryId
+		,t.c.value('@CategoryNameEN', 'NVARCHAR(100)')		AS CategoryNameEN
+		,t.c.value('@CategoryNameSC', 'NVARCHAR(100)')		AS CategoryNameSC
+		,t.c.value('@CategoryNameENSC', 'NVARCHAR(100)')	AS CategoryNameENSC
+		,t.c.value('@CategoryNameTH', 'NVARCHAR(100)')		AS CategoryNameTH
+		,t.c.value('@CategoryNameYN', 'NVARCHAR(100)')		AS CategoryNameYN
 	FROM @XmlData.nodes ('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
@@ -175,8 +179,8 @@ BEGIN
 	FROM #ImportData i
 	CROSS APPLY (
 		SELECT TOP 1 n.ReferenceId
-		FROM dbo.crmNotification n WITH(NOLOCK)
-		WHERE n.ReferenceId = i.LogId AND n.DataSource = 'LogId'
+		FROM dbo.crmNotificationReference n WITH(NOLOCK)
+		WHERE n.ReferenceId = i.LogId AND n.DataSource = 'DBCust.CustDB.dbo.CustCategoryHistory'
 	) AS c
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData)
@@ -223,20 +227,9 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup 
-	(
-		LogId				INT, 
-		CustId				INT, 
-		CategoryId			SMALLINT, 
-		ConversationGroupId SMALLINT, 
-		ChatTypeId			TINYINT, 
-		LanguageId			INT, 
-		DirectAccount		INT, 
-		NoRecipient			INT
-
-	)
-	INSERT INTO #tmpGroup (LogId, CustId, CategoryId, ConversationGroupId, DirectAccount, NoRecipient)
-	SELECT m.LogId, m.CustId, m.CategoryId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
+	CREATE TABLE #tmpGroup (LogId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)
+	SELECT m.LogId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
@@ -267,7 +260,7 @@ BEGIN
 
 	CREATE TABLE #tmpResult 
 	(
-		Id				INT, 
+		Id					INT, 
 		LogId				INT, 
 		CustId				INT, 
 		CategoryId			SMALLINT, 
@@ -372,18 +365,18 @@ BEGIN
 			   ,r.ConversationGroupId
 			   ,r.ChatTypeId
 			   ,r.LanguageId
-			   ,MAX(IsTest) AS IsTest
+			   ,MAX(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
 			   ,MAX(r.RelatedIdLst) AS RelatedIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), LogId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst
 		FROM #tmpResult r
-		GROUP BY r.Id
+		GROUP BY r.Id, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	),CTE_Category AS 
 	(
 		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameENSC, t.CategoryNameTH, t.CategoryNameYN
 			   ,STUFF ((SELECT DISTINCT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult t
-		GROUP BY t.Id, t.CategoryId
+		GROUP BY t.Id, t.LanguageId, t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameENSC, t.CategoryNameTH, t.CategoryNameYN 
 	),CTE_Content AS 
 	(	
 		SELECT	i.Id
@@ -406,7 +399,7 @@ BEGIN
 	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, Content, HeadlineList, RelatedIds)
 	SELECT 
 		g.Id, 
-		g.HeadlineIdLst, 
+		g.LogIdLst, 
 		g.ConversationGroupId, 
 		g.ChatTypeId, 
 		g.LanguageId,
@@ -430,7 +423,7 @@ BEGIN
 			BREAK
 
 		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT '', '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status, REPLACE(nt.Content, '{Content}', r.content), r.RelatedIds
+		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status, REPLACE(nt.Content, '{Content}', r.content), r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId 
 		WHERE r.Id = @Id 
@@ -454,6 +447,12 @@ BEGIN
 			CROSS APPLY dbo.f_CRM_strSplit(r.HeadlineList, ',') f
 		WHERE r.Id = @Id
 
+		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)
+		SELECT @NotificationId, f.val, 'DBCust.CustDB.dbo.CustCategoryHistory'
+		FROM #Result r 
+			CROSS APPLY dbo.f_CRM_strSplit(r.LogIdLst, ',') f
+		WHERE r.Id = @Id
+
 		UPDATE r
 		SET r.RelatedIds = RIGHT(LEFT(t.tmpRelatedIds, LEN(t.tmpRelatedIds) - 1), LEN(t.tmpRelatedIds) - 2)
 		FROM #Result r
@@ -462,7 +461,7 @@ BEGIN
 			) t
 		WHERE r.Id > @Id
 			AND r.ChatTypeId = 2
-			AND ',' + r.RelatedIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), @Id) + ',%'
+			AND ',' + r.RelatedIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), @Id) + ',%'		
 
 		SELECT @Id = @Id + 1
 	END

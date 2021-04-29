@@ -16,7 +16,7 @@ AS
 
 	Param's Explanation:
 		. @XmlData = '<root>
-							<r LogId="1" CustId="114" Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" CategoryId="100" CategoryNameEN="" CategoryNameSC="" CategoryNameENSC="" CategoryNameTH="" CategoryNameYN="" IsTest="0" />
+							<r LogId="1" CustId="114" Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" CategoryId="100" CategoryNameEN="" CategoryNameSC="" CategoryNameTH="" CategoryNameYN="" IsTest="0" />
 					  </root>'
 */
 
@@ -64,13 +64,12 @@ BEGIN
 		CategoryId			SMALLINT, 
 		CategoryNameEN		NVARCHAR(100), 
 		CategoryNameSC		NVARCHAR(100), 
-		CategoryNameENSC	NVARCHAR(100),
 		CategoryNameTH		NVARCHAR(100),
 		CategoryNameYN		NVARCHAR(100),
 		IsTest				BIT
 	)
 
-	INSERT INTO #ImportData (LogId, CustId, Username, IsTest, Recommend, Mrecommend, Srecommend, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameENSC, CategoryNameTH, CategoryNameYN)
+	INSERT INTO #ImportData (LogId, CustId, Username, IsTest, Recommend, Mrecommend, Srecommend, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameTH, CategoryNameYN)
 	SELECT 
 		t.c.value('@LogId', 'BIGINT')					    AS LogId
 		,t.c.value('@CustId', 'INT')						AS CustId
@@ -82,7 +81,6 @@ BEGIN
 		,t.c.value('@CategoryId', 'SMALLINT')			    AS CategoryId
 		,t.c.value('@CategoryNameEN', 'NVARCHAR(100)')		AS CategoryNameEN
 		,t.c.value('@CategoryNameSC', 'NVARCHAR(100)')		AS CategoryNameSC
-		,t.c.value('@CategoryNameENSC', 'NVARCHAR(100)')	AS CategoryNameENSC
 		,t.c.value('@CategoryNameTH', 'NVARCHAR(100)')		AS CategoryNameTH
 		,t.c.value('@CategoryNameYN', 'NVARCHAR(100)')		AS CategoryNameYN
 	FROM @XmlData.nodes ('root/r') t(c)
@@ -214,13 +212,12 @@ BEGIN
 		,RecipientId		INT
 		,CategoryNameEn		NVARCHAR(100)
 		,CategoryNameSC		NVARCHAR(100)
-		,CategoryNameEnSC	NVARCHAR(100)
 		,CategoryNameTH		NVARCHAR(100)
 		,CategoryNameYN		NVARCHAR(100)
 		,IsTest				BIT
 	)
-	INSERT INTO #LogRecipient (LogId, CustId, CategoryId, CategoryNameEn, CategoryNameSC, CategoryNameEnSC, CategoryNameTH, CategoryNameYN, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
-	SELECT m.LogId, m.CustId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameENSC, m.CategoryNameTH, m.CategoryNameYN, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
+	INSERT INTO #LogRecipient (LogId, CustId, CategoryId, CategoryNameEn, CategoryNameSC, CategoryNameTH, CategoryNameYN, Username, DirectAccount, HeadlineId, IsTest, RecipientId)
+	SELECT m.LogId, m.CustId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameTH, m.CategoryNameYN, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
@@ -272,14 +269,13 @@ BEGIN
 		IsDuplicated		BIT,
 		CategoryNameEN		NVARCHAR(100),
 		CategoryNameSC		NVARCHAR(100),
-		CategoryNameENSC	NVARCHAR(100),
 		CategoryNameTH		NVARCHAR(100),
 		CategoryNameYN		NVARCHAR(100),
 		RelatedIdLst		NVARCHAR(MAX),
 		IsTest				BIT
 	)
-	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameENSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
-	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameENSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, IsTest
+	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
+	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.LogId = g.LogId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -298,7 +294,10 @@ BEGIN
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
 		,Status					VARCHAR(20)
-		,Content				NVARCHAR(MAX)
+		,ContentEN				NVARCHAR(MAX)
+		,ContentSC				NVARCHAR(MAX)
+		,ContentTH				NVARCHAR(MAX)
+		,ContentYN				NVARCHAR(MAX)
 		,HeadlineList			NVARCHAR(MAX)
 		,RelatedIds				VARCHAR(1000)
 	)
@@ -373,30 +372,21 @@ BEGIN
 		GROUP BY r.Id, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	),CTE_Category AS 
 	(
-		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameENSC, t.CategoryNameTH, t.CategoryNameYN
+		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN
 			   ,STUFF ((SELECT DISTINCT ',' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult t
-		GROUP BY t.Id, t.LanguageId, t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameENSC, t.CategoryNameTH, t.CategoryNameYN 
+		GROUP BY t.Id, t.LanguageId, t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN 
 	),CTE_Content AS 
 	(	
 		SELECT	i.Id
-			   ,STUFF 
-			   (
-					(
-						SELECT CHAR(10) + CHAR(13) + CASE e.LanguageId WHEN @LanguegeEN	  THEN CategoryNameEN
-													                   WHEN @LanguegeSC	  THEN CategoryNameSC
-													                   WHEN @LanguegeENSC THEN CategoryNameENSC 
-																	   WHEN @LanguegeTH	  THEN CategoryNameTH
-																	   WHEN @LanguegeYN	  THEN CategoryNameYN
-								      ELSE '' END  + ' : ' + UsernameLst 
-						FROM CTE_Category e 
-						WHERE e.Id = i.Id
-					), 1, 1, ''
-				) AS Content
-				,i.HeadlineIdLst
+			   ,STUFF ((SELECT CHAR(10) + CHAR(13) + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentEN
+			   ,STUFF ((SELECT CHAR(10) + CHAR(13) + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentSC
+			   ,STUFF ((SELECT CHAR(10) + CHAR(13) + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentTH
+			   ,STUFF ((SELECT CHAR(10) + CHAR(13) + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentYN
+			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)
-	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, Content, HeadlineList, RelatedIds)
+	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, HeadlineList, RelatedIds)
 	SELECT 
 		g.Id, 
 		g.LogIdLst, 
@@ -404,7 +394,10 @@ BEGIN
 		g.ChatTypeId, 
 		g.LanguageId,
 		CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
-		,c.Content
+		,c.ContentEN
+		,c.ContentSC
+		,c.ContentTH
+		,c.ContentYN
 		,c.HeadlineIdLst
 		,g.RelatedIdLst
 	FROM CTE_Group g
@@ -423,7 +416,15 @@ BEGIN
 			BREAK
 
 		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status, REPLACE(nt.Content, '{Content}', r.content), r.RelatedIds
+		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+			   ,REPLACE(
+					REPLACE(
+						REPLACE(
+							REPLACE(nt.Content, '{Content_en}', r.ContentEN)
+								,'{Content_sc}', r.ContentSC)
+							,'{Content_TH}', r.ContentTH)
+						,'{Content_yn}', r.ContentYN)
+			   ,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId 
 		WHERE r.Id = @Id 

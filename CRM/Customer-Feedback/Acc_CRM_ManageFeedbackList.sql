@@ -45,6 +45,7 @@ AS
 		- 20190614@Helen: CN88 - Performance Tuning [Redmine: #112637]
 		- 20201027@Johnson: - get Description to show tooltip for fb 
 							- show inactive setting [redmine: #142194]
+		- 202010315@Winfred: Related Customer displayed properly when search Username in Manage Feedback [redmine:#138771]							
 Param's Explanation:
 	
 */
@@ -54,8 +55,8 @@ BEGIN
 	DECLARE	@CustID			INT
 		,	@GuestID		INT
 		,	@TotalPages		INT;
-		
-	CREATE TABLE #Feedback(ID INT IDENTITY(1, 1), FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME);
+
+	CREATE TABLE #Feedback( ID INT IDENTITY(1, 1),FeedbackID INT, IsRelated BIT,FeedbackDate DATETIME);
 				
 	DECLARE	@HandledID		INT
 		,	@ReviewerID		INT;
@@ -72,10 +73,10 @@ BEGIN
 	BEGIN
 		DECLARE	@IsRelated INT = 0;
 
-		SELECT TOP 1 @IsRelated = @IsRelated
+		SELECT TOP 1 @IsRelated = IsRelated
 		FROM	crmFeedbackCustomer WITH (NOLOCK)
 		WHERE	FeedbackID = @FeedbackID
-			AND	@IsRelated = 1;
+			AND	IsRelated = 1;
 
 		IF	EXISTS(SELECT 1 FROM crmFeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID)
 			SELECT	@TotalRows = 1;
@@ -141,7 +142,7 @@ BEGIN
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			OUTER APPLY fb.Description2.nodes(N'//row') AS A(nr)
 		WHERE	fb.FeedbackID = @FeedbackID AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-		ORDER BY FeedbackDate DESC;
+		ORDER BY FeedbackDate DESC, FeedbackID DESC;
 			
 		SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
 		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
@@ -218,7 +219,7 @@ BEGIN
 			AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 			AND	(@ResponseID IS NULL OR ResponseID = @ResponseID) 
 			AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) ) 
-		ORDER BY fb.FeedbackDate DESC;
+		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC;
 		
 	END;	
 	ELSE  
@@ -257,7 +258,7 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-		ORDER BY fb.FeedbackDate DESC				
+		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC				
 		OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
 		END;		
@@ -296,7 +297,7 @@ BEGIN
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
 
-			ORDER BY fb.FeedbackDate DESC
+			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
 		END;   --- end: get feedback for customer
@@ -333,14 +334,16 @@ BEGIN
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
 
-			ORDER BY fb.FeedbackDate DESC
+			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )	
 			
 		END; -- end: get feedback for guest
 	END;
 
-	SELECT	@TotalRows = MAX(ID)
-	FROM	#Feedback;
+	--SELECT	@TotalRows = MAX(ID)
+	--FROM	#Feedback;
+	
+	SET @TotalRows = ISNULL((SELECT	COUNT(DISTINCT FeedbackID) AS ITEM	FROM #Feedback),0);
 	
 	SELECT	fb.FeedbackID
 		,	fb.CustID
@@ -391,7 +394,7 @@ BEGIN
 	WHERE	fbc.ID BETWEEN @PageIndex * @ItemsPerPage - @ItemsPerPage + 1
 				   AND	   @PageIndex * @ItemsPerPage OR @PageIndex = 0
 		
-	ORDER BY fb.FeedbackDate DESC
+	ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 
 	SELECT * FROM #tempResult
 

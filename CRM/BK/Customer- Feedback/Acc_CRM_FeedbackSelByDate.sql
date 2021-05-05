@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	[dbo].[Acc_CRM_FeedbackSelByDate] (
 					@CustID			INT
 				,	@FromDate		DATETIME
@@ -17,6 +17,8 @@ AS
 		- 20110629@Lukas:	support get multipe related customer
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
 		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
+		- 202010315@Winfred: remove vnteam [Redmine: #112637]
 	Param's Explanation:
 	
 */
@@ -129,9 +131,4 @@ BEGIN
 	OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
 	ORDER BY t.FeedbackDate DESC
 END
-GO
-
-GRANT EXECUTE ON [dbo].[Acc_CRM_FeedbackSelByDate] TO [bodbAdminNet]
-GO
-GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_FeedbackSelByDate] TO [vnteam]
 GO

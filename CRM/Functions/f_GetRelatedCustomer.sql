@@ -13,6 +13,7 @@ RETURNS TABLE
 	Revisions:
 		-- 20120131@Lukas: get related Guest user
 		- 20190614@Helen: CN88 - Performance Tuning [Redmine: #112637]
+		- 202010315@Winfred: get related customer when not guest [Redmine: #112637]
 		
 	Param's Explanation:	
 */
@@ -21,20 +22,12 @@ RETURN
 	SELECT ISNULL(STUFF((SELECT ',' + t.username
 	FROM
 		(
-			SELECT c.Username
+			SELECT ISNULL(c.Username,d.UserName) Username
 			FROM crmFeedbackCustomer fc WITH(NOLOCK) 
-				INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fc.CustID = c.CustID
+				LEFT JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fc.CustID = c.CustID
+				LEFT JOIN crmcustomer d WITH(NOLOCK) ON fc.CustID = d.CustID
 			WHERE FeedbackID = @FeedbackID
 				AND IsRelated = 1
-				
-			UNION ALL
-			
-			SELECT c.Username
-			FROM crmFeedbackCustomer fc WITH(NOLOCK) 
-				INNER JOIN crmcustomer c WITH(NOLOCK) ON fc.CustID = c.CustID
-			WHERE FeedbackID = @FeedbackID
-				AND IsRelated = 1
-				AND c.custid < 0
 		
 		) AS t
 	FOR XML PATH ('')), 1,1, ''), '') AS list

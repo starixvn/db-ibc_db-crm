@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20210415@Malcolm: Notify Tickets of AB (Real Member) [RedmineId : #153259]
 */
 
 BEGIN
@@ -16,7 +17,7 @@ BEGIN
 
 	SELECT DISTINCT vh.MessageId, vh.RequestId
 	FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND r.IssueTypeId = 11 -- abnormal bets
+		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND r.IssueTypeId IN (11, 15) -- abnormal bets, AB
 	WHERE vh.CreatedDate >= GETDATE() - 1
 END
 GO

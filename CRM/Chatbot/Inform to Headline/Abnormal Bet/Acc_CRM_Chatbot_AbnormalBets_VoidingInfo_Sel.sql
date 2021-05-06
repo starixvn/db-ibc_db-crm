@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20210415@Malcolm: Notify Tickets of AB (Real Member) [RedmineId : #153259]
 
 	Param's Explanation:
 		@Messages:
@@ -35,7 +36,7 @@ BEGIN
 	INSERT INTO #VoidingHistory (MessageId, TransId)
 	SELECT vh.MessageId, t.TransId
 	FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-		INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId = 11 -- Abnormal Bets
+		INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
 		CROSS APPLY (
 			SELECT val AS TransId FROM dbo.strSplit(vh.TransIds, ',')
 		) t

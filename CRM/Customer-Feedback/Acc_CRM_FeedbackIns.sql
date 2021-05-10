@@ -73,6 +73,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				, 	@MessageID 					INT 			= 0
 				,	@WinLimitLogID				BIGINT			= 0	
 				,	@TOControlLogID				VARCHAR(MAX)	= ''
+				,	@PALogID					VARCHAR(MAX)	= ''
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				)
@@ -107,6 +108,7 @@ AS
 		- 20201020@Johnson: - add WinlimitLogid for auto feedback company win limit
 							- remove limit amount for related customers [redmine:#142194]
 		- 20201130@Johnson: add @TOControlLogID for auto feedback TO Control [redmine:#145274]					
+		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -126,6 +128,7 @@ AS
 	@MessageID : MsgID from Auto fb service
 	@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
 	@TOControlLogID: LogID for TOContrl auto fb service
+	@PALogID: LogID for TOContrl auto fb service
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
@@ -288,6 +291,16 @@ BEGIN
 		--check fb for LogId create yet
 		IF EXISTS (SELECT 1 FROM crmTOControlFeedbackInfo WITH(NOLOCK)
 					WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@TOControlLogID,','))
+						AND status = 'completed'
+				)
+		RETURN;		
+	END
+	
+	IF ISNULL(@PALogID,'') <> ''
+	BEGIN
+		--check fb for LogId create yet
+		IF EXISTS (SELECT 1 FROM crmProblemAccountFeedbackInfo WITH(NOLOCK)
+					WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@PALogID,','))
 						AND status = 'completed'
 				)
 		RETURN;		
@@ -604,6 +617,27 @@ BEGIN
 		SET Status = 'completed',
 			UpdatedTime = GETDATE()
 		WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@TOControlLogID,','))
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;
+	END
+	
+	--Problem account service
+	IF ISNULL(@PALogID,'') <> ''
+	BEGIN
+		UPDATE crmProblemAccountFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+		SET Status = 'completed',
+			UpdatedTime = GETDATE()
+		WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@PALogID,','))
 		
 		IF	@@ERROR <> 0
 		BEGIN

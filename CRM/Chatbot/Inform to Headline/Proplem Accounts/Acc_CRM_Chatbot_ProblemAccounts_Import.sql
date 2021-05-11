@@ -369,7 +369,7 @@ BEGIN
 	),CTE_Category AS 
 	(
 		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN
-			   ,STUFF ((SELECT DISTINCT ', ' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId FOR XML PATH('')), 1, 1, '') AS UsernameLst
+			   ,STUFF ((SELECT DISTINCT ', ' + Username FROM #tmpResult d WHERE d.Id = t.Id AND d.CategoryId = t.CategoryId ORDER BY (', ' + Username) ASC FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult t
 		GROUP BY t.Id, t.LanguageId, t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN 
 	),CTE_Content AS 

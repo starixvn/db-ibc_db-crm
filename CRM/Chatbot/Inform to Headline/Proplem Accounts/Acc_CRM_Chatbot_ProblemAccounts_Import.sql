@@ -293,6 +293,7 @@ BEGIN
 		,ContentSC				NVARCHAR(MAX)
 		,ContentTH				NVARCHAR(MAX)
 		,ContentYN				NVARCHAR(MAX)
+		,ContentENSC			NVARCHAR(MAX)
 		,HeadlineList			NVARCHAR(MAX)
 		,RelatedIds				VARCHAR(1000)
 	)
@@ -378,10 +379,11 @@ BEGIN
 			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameSC FOR XML PATH('')), 1, 1, '') AS ContentSC
 			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameTH FOR XML PATH('')), 1, 1, '') AS ContentTH
 			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameYN FOR XML PATH('')), 1, 1, '') AS ContentYN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + '/' +  e.CategoryNameSC + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentENSC
 			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)
-	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, HeadlineList, RelatedIds)
+	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, ContentENSC, HeadlineList, RelatedIds)
 	SELECT 
 		g.Id 
 		,g.LogIdLst
@@ -393,6 +395,7 @@ BEGIN
 		,c.ContentSC
 		,c.ContentTH
 		,c.ContentYN
+		,c.ContentENSC
 		,c.HeadlineIdLst
 		,g.RelatedIdLst
 	FROM CTE_Group g
@@ -415,10 +418,12 @@ BEGIN
 			   ,REPLACE(
 					REPLACE(
 						REPLACE(
-							REPLACE(nt.Content, '{Content_en}', r.ContentEN)
-								,'{Content_sc}', r.ContentSC)
-							,'{Content_th}', r.ContentTH)
-						,'{Content_yn}', r.ContentYN)
+							REPLACE(
+								REPLACE(nt.Content, '{Content_en}', r.ContentEN)
+									,'{Content_sc}', r.ContentSC)
+								,'{Content_th}', r.ContentTH)
+							,'{Content_yn}', r.ContentYN)
+						,'{Content_yn}', r.ContentENSC)
 			   ,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId 

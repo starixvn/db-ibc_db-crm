@@ -53,7 +53,7 @@ Thank you for your kind attention'),
 (@NotificationTemplateID, 50002,N'Dear Sir, Customer Support would like to inform the below announcement:
 您好，客服部在此通知以下的通告:
 
-{content_en&sc}
+{content_en_sc}
 
 Thank you for your kind attention!    
 谢谢您的关注与支持!')
@@ -74,8 +74,7 @@ SELECT @xml = '<root>
 					<r IsTest="0" NotificationTemplateID="'+ CONVERT(NVARCHAR(MAX), @NotificationTemplateID) +'" NotificationTypeID="'+ CONVERT(NVARCHAR(MAX), @NotificationTypeID) +'"> 
 						<TemplateRequiredParam Value="{content_en}" LanguageId="50000" Frequency="1"/>
 						<TemplateRequiredParam Value="{content_sc}" LanguageId="50001" Frequency="1"/>
-						<TemplateRequiredParam Value="{content_en}" LanguageId="50002" Frequency="1"/>
-						<TemplateRequiredParam Value="{content_sc}" LanguageId="50002" Frequency="1"/>
+						<TemplateRequiredParam Value="{content_en_sc}" LanguageId="50002" Frequency="1"/>
 						<TemplateRequiredParam Value="{content_th}" LanguageId="50003" Frequency="1"/>
 						<TemplateRequiredParam Value="{content_yn}" LanguageId="50004" Frequency="1"/>
 					</r>

@@ -376,10 +376,10 @@ BEGIN
 	(	
 		SELECT	i.Id
 			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentEN
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameSC FOR XML PATH('')), 1, 1, '') AS ContentSC
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameTH FOR XML PATH('')), 1, 1, '') AS ContentTH
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentSC
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentTH
 			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameYN FOR XML PATH('')), 1, 1, '') AS ContentYN
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + '/' +  e.CategoryNameSC + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentENSC
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + '/' +  e.CategoryNameSC + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentENSC
 			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)
@@ -423,7 +423,7 @@ BEGIN
 									,'{Content_sc}', r.ContentSC)
 								,'{Content_th}', r.ContentTH)
 							,'{Content_yn}', r.ContentYN)
-						,'{content_en&sc}', r.ContentENSC)
+						,'{content_en_sc}', r.ContentENSC)
 			   ,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId 

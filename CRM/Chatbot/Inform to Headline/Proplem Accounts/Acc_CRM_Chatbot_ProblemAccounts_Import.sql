@@ -374,10 +374,10 @@ BEGIN
 	),CTE_Content AS 
 	(	
 		SELECT	i.Id
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentEN
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentSC
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentTH
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id FOR XML PATH('')), 1, 1, '') AS ContentYN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentEN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameSC FOR XML PATH('')), 1, 1, '') AS ContentSC
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameTH FOR XML PATH('')), 1, 1, '') AS ContentTH
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameYN FOR XML PATH('')), 1, 1, '') AS ContentYN
 			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)

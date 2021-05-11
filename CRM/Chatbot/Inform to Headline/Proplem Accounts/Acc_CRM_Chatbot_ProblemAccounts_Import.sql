@@ -423,7 +423,7 @@ BEGIN
 									,'{Content_sc}', r.ContentSC)
 								,'{Content_th}', r.ContentTH)
 							,'{Content_yn}', r.ContentYN)
-						,'{Content_yn}', r.ContentENSC)
+						,'{content_en&sc}', r.ContentENSC)
 			   ,r.RelatedIds
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId 

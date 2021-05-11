@@ -51,15 +51,11 @@ Thank you for your kind attention'),
 
 谢谢您的关注与支持!'),
 (@NotificationTemplateID, 50002,N'Dear Sir, Customer Support would like to inform the below announcement:
+您好，客服部在此通知以下的通告:
 
-{content_en}
+{content_en&sc}
 
 Thank you for your kind attention!    
-
-您好，客服部在此通知以下的通告：
-
-{content_sc}
-
 谢谢您的关注与支持!')
 ,(@NotificationTemplateID, 50003, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
 

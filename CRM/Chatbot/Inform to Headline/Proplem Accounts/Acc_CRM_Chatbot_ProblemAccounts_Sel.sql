@@ -37,7 +37,7 @@ BEGIN
 
 		SELECT @LastLogId = MAX(LogId) FROM @Tmp
 
-		DELETE @Tmp WHERE CustomerClass NOT BETWEEN 8 AND 12
+		DELETE @Tmp WHERE CustomerClass NOT BETWEEN 8 AND 11
 
 		DELETE t
 		FROM @Tmp t

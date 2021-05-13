@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Sel]
-		@LastLogId  INT
+		@LastLogId  BIGINT
 		,@BatchSize INT = 1000
 AS
 
@@ -37,7 +37,7 @@ BEGIN
 
 		SELECT @LastLogId = MAX(LogId) FROM @Tmp
 
-		DELETE @Tmp WHERE CustomerClass NOT BETWEEN 8 AND 11
+		DELETE @Tmp WHERE CustomerClass NOT BETWEEN 8 AND 12
 
 		DELETE t
 		FROM @Tmp t

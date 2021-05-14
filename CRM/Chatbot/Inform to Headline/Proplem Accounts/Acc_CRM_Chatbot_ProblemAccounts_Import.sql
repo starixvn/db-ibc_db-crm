@@ -449,9 +449,8 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)
-		SELECT @NotificationId, f.val, 'DBCust.CustDB.dbo.CustCategoryHistory'
-		FROM #Result r 
-			CROSS APPLY dbo.f_CRM_strSplit(r.LogIdLst, ',') f
+		SELECT DISTINCT @NotificationId, r.LogId, 'DBCust.CustDB.dbo.CustCategoryHistory'
+		FROM #tmpResult r 
 		WHERE r.Id = @Id
 
 		UPDATE r

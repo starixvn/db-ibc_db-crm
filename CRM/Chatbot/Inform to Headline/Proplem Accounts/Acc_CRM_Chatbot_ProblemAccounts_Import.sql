@@ -336,6 +336,8 @@ BEGIN
 
 	--Get Max Group
 	SELECT @MaxGroup = MAX(Id) FROM #tmpResult WHERE IsDuplicated = 0
+	
+	CREATE CLUSTERED INDEX IX_tmpResult ON #tmpResult (Id)
 		
 	-- For Personal (Groups have IsDuplicated = 1)
 	;WITH CTE_Batch AS

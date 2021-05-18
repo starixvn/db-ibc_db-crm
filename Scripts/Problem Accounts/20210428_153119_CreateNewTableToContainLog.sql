@@ -10,7 +10,7 @@ CREATE TABLE dbo.crmNotificationReference
 (
 	NotificationId INT,
 	ReferenceId	   BIGINT,
-	DataSource	   NVARCHAR(256),
+	DataSource	   NVARCHAR(128),
 	CONSTRAINT PK_crmNotificationReference PRIMARY KEY (DataSource, NotificationId, ReferenceId)
 ) ON [DATA]
 

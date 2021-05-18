@@ -6,7 +6,7 @@ AS
 
 /*
 	Created: 20210426@Malcolm
-	DB: DBCRM-bodb_CRM
+	DB: DBCUST-CustDB
 	Task: CRM - Problem Account - Get Problem Accounts (Only member Level)
 
 	Revisions:

@@ -180,6 +180,7 @@ BEGIN
 		,@CommName NVARCHAR(MAX)
 		,@tempRelatedCustIds VARCHAR(MAX)
 		,@tempRelatedCustomers NVARCHAR(MAX)
+		,@DefaultLanguage BiT = 0
 	
 	DECLARE @r_CustID INT,
 			@r_username VARCHAR(50),
@@ -199,6 +200,12 @@ BEGIN
 			FROM dbo.crmCountry WITH (NOLOCK)
 			WHERE CountryName = @CountryName
 	END
+	
+	IF @LanguageID =0
+	BEGIN
+		SET @DefaultLanguage =1
+	END	
+
 	
 	UPDATE t
 	SET t.FirstName = c.FirstName,
@@ -227,7 +234,7 @@ BEGIN
 		SELECT TOP 1 @CustID = CustId
 			,@tempUsername = Username
 		FROM @tmpUsername
-
+		
 		SELECT @ErrCode = 0
 			,@ErrMsg = ''
 			,@tempRelatedCustIds = ''
@@ -574,7 +581,7 @@ BEGIN
 			FROM bodb02.dbo.Customer c WITH (NOLOCK)
 			WHERE c.CustID = @CustID
 			
-			IF @LanguageID =0
+			IF @DefaultLanguage = 1
 			BEGIN
 				SELECT @LanguageID = LanguageID
 				FROM dbo.crmCustomerLanguage WITH (NOLOCK)
@@ -672,7 +679,12 @@ BEGIN
 		DELETE
 		FROM @tmpUsername
 		WHERE CustId = @CustID
-
+		
+		IF @DefaultLanguage = 1
+		BEGIN
+			SET @LanguageID = 0
+		END
+		
 		IF @IsCheckedDefaultComm = 1
 		BEGIN
 			TRUNCATE TABLE #tblComm

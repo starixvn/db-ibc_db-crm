@@ -76,6 +76,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@PALogID					VARCHAR(MAX)	= ''
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
+				,	@IsManualMultiple			BIT				= 0
 				)
 AS
 /*
@@ -109,6 +110,7 @@ AS
 							- remove limit amount for related customers [redmine:#142194]
 		- 20201130@Johnson: add @TOControlLogID for auto feedback TO Control [redmine:#145274]					
 		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
+		- 20210519@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -294,6 +296,26 @@ BEGIN
 						AND status = 'completed'
 				)
 		RETURN;		
+	END
+	
+	--check duplicate fb from Multiple Logs
+	IF @IsManualMultiple = 1
+	BEGIN
+		IF EXISTS (SELECT TOP (1) 1
+		FROM crmFeedback fb WITH(NOLOCK) 
+			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
+			INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
+		WHERE fb.CreateDate >= DATEADD(MINUTE, -1, GETDATE())
+			AND fb.CustID=@CustID
+			AND fb.CreatorID = @UserID
+			AND fb.Description = @Description
+		)
+		BEGIN
+			SELECT	@ErrCode = 110
+			,	@ErrMsg = 'Please try creating new feedback after ONE minute.';
+
+			RETURN;
+		END
 	END
 	
 	IF ISNULL(@PALogID,'') <> ''

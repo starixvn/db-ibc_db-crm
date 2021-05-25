@@ -6,6 +6,6 @@
 	Task: Update data [RedmineId : #153119]
 */
 UPDATE s
-	SET s.Value = '4652'
+	SET s.Value = '4850'
 FROM SystemSetting s WITH(ROWLOCK)
 WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName ='LastLogID'

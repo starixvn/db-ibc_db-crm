@@ -19,6 +19,7 @@ Original:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
 		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
+		- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
 	Param's Explanation:
 	- @Contents:
 		<Contents>
@@ -35,7 +36,7 @@ BEGIN
 
 	DECLARE @iDoc INT, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
 			@_Contents XML, @Old_Title NVARCHAR(2000), @Old_NotificationTemplateName NVARCHAR(1000), 
-			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML, @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL'
+			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML, @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL,ChatBot - ProblemAccounts'
 
 	-- Get setting for ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL
 	INSERT INTO @RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROC Acc_CRM_MainInformationVerifySel
+ALTER PROC Acc_CRM_MainInformationVerifySel
 	@CustID		INT,
 	@UserRole   TINYINT
 AS
@@ -14,6 +14,7 @@ Original:
 Revisions:	
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
+	- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
 Param's Explanation:	
 */
 
@@ -63,10 +64,13 @@ BEGIN
 				 WHEN c.roleid = 0 AND @UserRole=1 THEN 7006
 				 WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010		
 			END AS RoleID,
-			@IsCredit		IsCredit
+			@IsCredit		IsCredit,
+			ISNULL(s.SettingID,0) as SiteID
 	FROM bodb02.dbo.Customer(NOLOCK)c
-	INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
-	WHERE c.custid = @CustID 
+		INNER JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue
+	WHERE c.custid = @CustID
+		AND s.settingName = 'site'
 		AND((@UserRole=1 AND (c.srecommend IN(SELECT CustID FROM #Super) OR c.srecommend=0)) 
 			OR(@UserRole=2 AND ISNULL(c.srecommend,-1)<>0 AND ISNULL(c.srecommend,-1) NOT IN(SELECT CustID FROM #Super)) )
 END
@@ -96,9 +100,10 @@ BEGIN
 				 WHEN ci.roleid = 0 AND @UserRole=1 THEN 7006
 				 WHEN (ci.roleid NOT IN(1,2,3,4,0) OR ci.roleid IS NULL) AND @UserRole=1 THEN 7010					
 			END AS RoleID,
-			@IsCredit		IsCredit
+			@IsCredit		IsCredit,
+			c.SiteID
 	FROM crmCustomer(NOLOCK) c
-	LEFT JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid
+		LEFT JOIN bodb02.dbo.custInfo(NOLOCK) ci ON ci.custid = c.custid		
 	WHERE c.custid = @CustID
 		AND((@UserRole=1 AND c.SiteID=33002)
 			OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002)
@@ -107,6 +112,3 @@ END
 
 
 GO
- 
- GRANT EXECUTE ON [dbo].[Acc_CRM_MainInformationVerifySel] TO [bodbAdminNet]
-GO 

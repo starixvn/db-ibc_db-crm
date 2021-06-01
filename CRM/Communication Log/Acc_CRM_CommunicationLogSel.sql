@@ -19,6 +19,7 @@ AS
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
+		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 */
 BEGIN
 	DECLARE   @AutoField       NVARCHAR(MAX)
@@ -60,21 +61,32 @@ BEGIN
 		,	f.LicenseeType
 		,	CASE WHEN @UserRole=1 AND f.ProvinceID IS NULL THEN 1 ELSE f.ProvinceID END AS ProvinceID
 		,   ISNULL(f.Inquiries,0) AS NoInquiries
+		,	CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee
+		,	ISNULL(s.IsActive,0) as IsSiteActive
 	FROM		dbo.crmFeedback AS f WITH (NOLOCK)
 		LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
 			ON	c.CustID = f.CustID
 		LEFT JOIN	bodb02.dbo.Customer AS review WITH (NOLOCK)
 			ON	f.ReviewerID = review.custid
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.SiteID = s.SettingID		
+		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee
 	WHERE	f.FeedbackID = @FeedbackID
 		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002))
 
 	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
+		,	CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee
+		,	ISNULL(s.IsActive,0) as IsSiteActive
 	FROM		dbo.crmFeedbackCustomer AS cf WITH (NOLOCK)
 		LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
 			ON	c.CustID = cf.CustID
 		LEFT JOIN	bodb02.dbo.Customer AS c1 WITH (NOLOCK)
 			ON	c1.custid = cf.CustID
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON (c.SiteID = s.SettingID AND c.CustID IS NOT NULL)
+											OR (c1.site = s.SettingValue AND s.SettingName = 'Site' AND c.custid IS NULL)		
+		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee									
 	WHERE	cf.FeedbackID = @FeedbackID 	
 		AND	cf.IsRelated = 1;
 		

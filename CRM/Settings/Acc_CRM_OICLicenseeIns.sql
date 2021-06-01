@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_OICLicenseeIns
 	@Licensees xml = '',
+	@Environment	VARCHAR(50) = 'LIVE',
 	@ErrCode INT = 0 OUTPUT,
 	@ErrMsg VARCHAR(1000) = '' OUTPUT
 AS
@@ -43,13 +44,32 @@ BEGIN
 	INSERT INTO @tmpLicensee(LicenseeName,StatusID,IsActive)
 	SELECT LicenseeName, statusid, CASE WHEN statusid <> 4 THEN 1 ELSE 0 END
 	FROM t
-	
+		
+	--mapping IBO,KeanOcean to Kzing,LIVV88 in crm
+	UPDATE @tmpLicensee
+	SET LicenseeName = CASE WHEN LicenseeName = 'IBO' THEN 'Kzing'
+							WHEN LicenseeName = 'KeanOcean' THEN 'LIVV88'
+							ELSE LicenseeName END
+		
 	DECLARE @LicenseeSiteID INT,
 			@DisplayOrderMax INT,
 			@site 			NVARCHAR(100),
 			@SettingID		INT,
-			@IsActive		BIT
+			@IsActive		BIT,
+			@ConfigTestLicensee	BIT
 	
+	SELECT @ConfigTestLicensee = ISNULL(value,0)
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE ServiceName = 'SyncOICLicensee'
+		AND SettingName = 'ConfigTestLicensee'
+	
+	DELETE @tmpLicensee
+	WHERE 1= CASE WHEN @Environment = 'UAT' AND LicenseeName = 'Spondemo' THEN 1
+				WHEN @Environment = 'LIVE' AND (LicenseeName <> 'Spondemo' 
+												OR (LicenseeName='Spondemo' AND @ConfigTestLicensee = 1)
+											) THEN 1
+				ELSE 0 END
+			
 	SELECT @LicenseeSiteID = SettingID 
 	FROM crmSetting WITH(NOLOCK)
 	WHERE SettingValue = 'LicenseeSite'

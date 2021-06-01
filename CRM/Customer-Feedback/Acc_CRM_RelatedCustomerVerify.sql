@@ -29,25 +29,32 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @tmpCustomer TABLE(UserName VARCHAR(50))
-	DECLARE @Customer TABLE(CustID INT, UserName VARCHAR(50), siteID INT, IsSiteActive BIT)
+	DECLARE @Customer TABLE(CustID INT, UserName VARCHAR(50), IsLicensee BIT, IsSiteActive BIT)
 
 	INSERT INTO @tmpCustomer(UserName)
 	SELECT ltrim(rtrim(val)) UserName
 	FROM dbo.f_CRM_strSplit(@UserName,',')		
 		
-	INSERT INTO @Customer(CustID, UserName, SiteID, isSiteActive)
-	SELECT c.custid, c.username, siteID, s.isActive
-	FROM bodb02.dbo.Customer c WITH (NOLOCK)
-		INNER JOIN crmCustomer cm WITH(NOLOCK) ON c.custid = cm.custid
-		LEFT JOIN crmSetting s WITH(NOLOCK) ON cm.siteID = s.SettingID 
+	INSERT INTO @Customer(CustID, UserName, IsLicensee, isSiteActive)
+	SELECT c.custid, c.username, 
+		CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsLicensee,
+		s.isActive
+	FROM bodb02.dbo.Customer c WITH (NOLOCK)		
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue 
+		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee
 	WHERE c.username IN ( SELECT username FROM @tmpCustomer)
 		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 	
-	INSERT INTO @Customer(CustID, UserName, SiteID, IsSiteActive)
-	SELECT c.custid, c.username, c.SiteID, s.IsActive 
+	INSERT INTO @Customer(CustID, UserName, IsLicensee, IsSiteActive)
+	SELECT c.custid, c.username, 
+		CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsLicensee,
+		s.IsActive 
 	FROM crmCustomer c WITH (NOLOCK) 
 		INNER JOIN @tmpCustomer tc on c.username = tc.UserName
-		LEFT JOIN crmSetting s WITH(NOLOCK) ON cm.siteID = s.SettingID 
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.siteID = s.SettingID 
+		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee
 	WHERE c.CustID < 0	
 		AND ((@UserRole=1 AND c.SiteID = 33002) OR (@UserRole=2 AND c.SiteID <> 33002))
 
@@ -56,7 +63,7 @@ BEGIN
 	FROM @tmpCustomer tc 
 	WHERE tc.UserName NOT IN (SELECT UserName FROM @Customer)
 
-	SELECT CustID, UserName as val, ISNULL(SiteID,0) SiteID, ISNULL(IsSiteActive,0) as IsSiteActive
+	SELECT CustID, UserName as val, ISNULL(IsLicensee,0) IsLicensee, ISNULL(IsSiteActive,0) as IsSiteActive
 	FROM @Customer
 	ORDER BY UserName 
 END

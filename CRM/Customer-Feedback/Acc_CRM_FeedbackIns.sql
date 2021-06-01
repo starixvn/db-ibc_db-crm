@@ -113,6 +113,7 @@ AS
 		- 202010303@Winfred: Add AmendmentLogID [redmine:#147470]				
 		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
 		- 20210519@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
+		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -232,7 +233,13 @@ BEGIN
 	INSERT INTO	@tblComm(CommID)
 	SELECT SettingID
 	FROM dbo.strSplit(@CommunicationID,',')
+	
+	DECLARE	@relatedCustomer TABLE(CustID INT);
 
+	INSERT INTO	@relatedCustomer
+	SELECT	CONVERT(INT, val)
+	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+	
 	-- get solve date
 	SELECT	@SolveDate = CASE WHEN @IsReviewed = 0 THEN NULL ELSE GETDATE() END;
 
@@ -337,6 +344,52 @@ BEGIN
 						AND status = 'completed'
 				)
 		RETURN;		
+	END
+	
+	--check customer belong to inactive licensee
+	IF EXISTS(SELECT 1
+			FROM crmCustomer c WITH(NOLOCK) 
+			WHERE custid = @custid		
+				AND EXISTS (SELECT 1 
+							FROM crmSettingRelation sr WITH(NOLOCK) 
+								INNER JOIN	crmSetting s WITH(NOLOCK)
+										ON	sr.SettingID = s.SettingID
+										AND	s.SettingName = 'Site'
+							WHERE c.SiteID = s.SettingID
+								AND s.IsActive = 0
+								AND sr.ParentID = 33000--licensee
+						)
+			)
+	BEGIN 
+		SELECT @ErrCode = 111,
+			@ErrMsg = 'Cannot create Feedback for Inactive Site. Please recheck information.'
+		
+		RETURN;
+	END
+	
+	SELECT @ErrMsg = ''
+	
+	SELECT @ErrMsg =  ',' + @ErrMsg + username 
+	FROM crmCustomer c WITH(NOLOCK) 
+	WHERE custid IN (SELECT custid FROM @relatedCustomer)
+		AND EXISTS (SELECT 1 
+					FROM crmSettingRelation sr WITH(NOLOCK) 
+						INNER JOIN	crmSetting s WITH(NOLOCK)
+								ON	sr.SettingID = s.SettingID
+								AND	s.SettingName = 'Site'
+					WHERE c.SiteID = s.SettingID
+						AND s.IsActive = 0
+						AND sr.ParentID = 33000--licensee
+					)
+	
+	IF @ErrMsg <> ''
+	BEGIN
+		SELECT @ErrMsg = STUFF(@ErrMsg,1,1,'')
+		
+		SELECT @ErrCode = 108,
+			@ErrMsg = 'Some Usernames belong to Inactive Site: '+ @ErrMsg
+		
+		RETURN
 	END
 	
 	-- insert feedback
@@ -551,15 +604,8 @@ BEGIN
 		RETURN;
 	END;
 	
-
 	IF	@RelatedCustID IS NOT NULL AND @RelatedCustID <> ''
 	BEGIN
-		DECLARE	@relatedCustomer TABLE(CustID INT);
-
-		INSERT INTO	@relatedCustomer
-		SELECT	CONVERT(INT, val)
-		FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
-
 		-- insert feedback related
 		INSERT INTO	crmFeedbackCustomer
 					(	FeedbackID, CustID, IsRelated)	
@@ -578,7 +624,7 @@ BEGIN
 
 			RETURN;
 		END;
-	END;	
+	END;
 	
 	--update status for crmAutoFeedbackInfo 
 	IF  @MessageID > 0

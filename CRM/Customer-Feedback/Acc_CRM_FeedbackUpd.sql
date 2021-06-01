@@ -96,6 +96,7 @@ AS
 		- 20191104@Winnie:  [CRM] cannot search feedback of customer in manage feedback RedmineID: #123160
 		- 20201021@Johnson: remove limit amount for related customers[redmine:#142194]
 		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]				
+		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -459,7 +460,60 @@ BEGIN
 	IF	ISNULL(@RelatedCustID_Old, '') <> ''
 	SELECT	@RelatedCustID_Old = LEFT(@RelatedCustID_Old, LEN(@RelatedCustID_Old) - 1);
 
+	--check any new customers belong to terminated licensee site
+	DECLARE @tmpCustInvalid TABLE(custid INT, username NVARCHAR(100))
+		
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM crmCustomer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)
+			AND custid NOT IN (SELECT custid
+								FROM dbo.crmFeedbackCustomer AS fbc WITH (NOLOCK)
+								WHERE	fbc.FeedbackID = @FeedbackID
+									AND	fbc.IsRelated = 1)
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.SiteID = s.SettingID
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)
+
 	
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)
+			AND custid NOT IN (SELECT custid
+								FROM dbo.crmFeedbackCustomer AS fbc WITH (NOLOCK)
+								WHERE	fbc.FeedbackID = @FeedbackID
+									AND	fbc.IsRelated = 1)
+			AND custid NOT IN (SELECT custid FROM @tmpCustInvalid)						
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.site = s.settingValue
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)		
+	
+	IF EXISTS(SELECT 1 FROM @tmpCustInvalid)
+	BEGIN		
+		SELECT @ErrMsg = ''		
+		SELECT @ErrMsg = ','+ @ErrMsg + username		
+		FROM @tmpCustInvalid
+		
+		SELECT @ErrMsg = STUFF(@ErrMsg,1,1,'')
+		
+		SELECT @ErrCode = 106,
+			@ErrMsg = 'Some Usernames belong to Inactive Site: '+ @ErrMsg
+		
+		RETURN
+	END
 		
 	DELETE	crmFeedbackCustomer WITH(ROWLOCK, UPDLOCK)
 	WHERE	FeedbackID = @FeedbackID

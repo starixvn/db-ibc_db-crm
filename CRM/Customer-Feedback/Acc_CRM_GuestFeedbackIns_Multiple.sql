@@ -67,6 +67,7 @@ AS
 		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
 		- 20210517@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 		- 20210426@Winfred: Offer Country & Language checkbox like Communication Tool on Multiple Logs function [redmine:#153458]
+		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 		
 	Param's Explanation:
 		@RelatedCustomers: <ROOT><Row CustId='1' RelatedCustId='2' Username='test' /></ROOT>
@@ -228,6 +229,53 @@ BEGIN
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.RelatedCustId = c.custid
 		LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 		LEFT JOIN crmCountry ct ON c.country = ct.CountryName
+	
+	--remove customer belong to inactive site 
+	DECLARE @tmpCustInvalid TABLE(custid INT, username NVARCHAR(100))
+		
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM crmCustomer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @tmpUsername)			
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.SiteID = s.SettingID
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)
+	
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @tmpUsername)		
+			AND custid NOT IN (SELECT custid FROM @tmpCustInvalid)						
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.site = s.settingValue
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)		
+	
+	IF EXISTS(SELECT 1 FROM @tmpCustInvalid)
+	BEGIN
+		SELECT @ErrMsg = ''
+		
+		SELECT @ErrMsg = ',' + @ErrMsg + Username
+		FROM @tmpCustInvalid
+	
+		SELECT @ErrMsg = STUFF(@ErrMsg,1,1,'')
+		
+		SELECT @ErrCode = 103,
+			@ErrMsg = 'Some Usernames belong to Inactive Site: '+ @ErrMsg
+		
+		RETURN	
+	END
 	
 	WHILE EXISTS (
 			SELECT 1

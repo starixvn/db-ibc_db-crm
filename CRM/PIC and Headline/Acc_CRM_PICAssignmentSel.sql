@@ -27,6 +27,7 @@ Original:
 		- 20200814@Malcolm: Get default Pics [Redmine: #137144]
 		- 20200921@Percy: Enhance code to improve performance [RedmineId: #130544]
 		- 20210316@Malcolm: Get information of PIC [Redmine: #148881]
+		- 20210611@Malcolm: Enhance the Lock Access & indirect close account status[RedmineId: #152350]
 
 	Param's Explanation:
 		@HeadlineType = 0 : Normal
@@ -71,10 +72,11 @@ BEGIN
 	SELECT cda.CustID,
 		   c.Username,
 		   CASE WHEN ISNULL(o.Enabled,0) = 0 THEN 'Disabled' 
-				WHEN ISNULL(o.closed,0)  = 1 THEN 'Closed'
-				WHEN ISNULL(o.reject,0)  = 1 THEN 'Suspended'
+				WHEN ISNULL(cps.CloseInfo,0) > 0 THEN 'Closed'
+				WHEN ISNULL(cps.SuspendInfo,0)  > 0 THEN 'Suspended'
+				WHEN ISNULL(cps.Locked, 0) > 0 THEN 'Locked'
 				ELSE 'Open' END AS [Status],
-		   ISNULL(ag.site, c.site) AS [Site],
+		   c.site AS [Site],
 		   CASE c.roleid WHEN 1 THEN 'Member'
 			             WHEN 2 THEN 'Agent'
 						 WHEN 3 THEN 'Master'
@@ -87,9 +89,9 @@ BEGIN
 	FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)			
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON cda.custid = c.custid		
 		INNER JOIN bodb02.dbo.custinfo o WITH(NOLOCK) ON o.custid = c.custid
-		LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON ag.custid = c.recommend AND c.roleid = 1
+		INNER JOIN bodb02.dbo.CustProductStatus cps WITH(NOLOCK) ON cps.CustID = c.custid
 		OUTER APPLY (SELECT TOP 1 ca.GroupId FROM bodb02.dbo.custAccount ca WITH(NOLOCK) WHERE cda.CustID = ca.custid) ca
-	WHERE (@Site = '' OR ',' + @Site + ',' LIKE '%,' + ISNULL(ag.site, c.site)  + ',%')
+	WHERE (@Site = '' OR ',' + @Site + ',' LIKE '%,' + c.site  + ',%')
 		AND (@DirectAccount = '' OR c.username LIKE '%' + @DirectAccount + '%')
 		AND (@ExcludeIsTest = 0 OR  c.currency NOT IN (20,27,28))
 		AND (@Currency = '' OR ',' + @Currency + ',' LIKE '%,' + CONVERT(VARCHAR(4),c.currency) + ',%')

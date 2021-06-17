@@ -27,6 +27,7 @@ Revisions:
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
+	- 20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
 Param's Explanation:	
 */
 BEGIN
@@ -209,9 +210,16 @@ BEGIN
 				c.danger2,
 				c.danger3,
 
-				CASE	WHEN @UserRole = 2 THEN CASE	WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 0 THEN 'Active'
-														WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 1 THEN 'Suspended'
-														WHEN c.Closed = 1 THEN 'Closed' END
+				CASE	WHEN @UserRole = 2 THEN CASE	WHEN ((s.custid IS NOT NULL AND c.Closed = 1)
+															OR (s.custid IS NULL AND ISNULL(CloseInfo,0) > 0)
+															) THEN 'Closed' 
+														WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 1 )
+															OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) = 0 AND ISNULL(ps.SuspendInfo,0) > 0 )
+															) THEN 'Suspended'
+														WHEN s.custid IS NULL AND ps.Locked > 0 THEN 'Locked'	
+														WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 0) 
+															OR (s.custid IS NULL AND ISNULL(ps.SuspendInfo,0) = 0 AND ISNULL(ps.CloseInfo,0) = 0 )
+															)THEN 'Active' END
 						WHEN @UserRole = 1 THEN @StatusCN88 END AS CustStatus,
 
 				CASE WHEN @UserRole = 1 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Locked,
@@ -232,6 +240,8 @@ BEGIN
 				LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 				LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
 				LEFT JOIN bodb02.dbo.Customer cm WITH(NOLOCK) on c.custID = cm.CustID
+				LEFT JOIN bodb02.dbo.Dep_CustSuper s WITH(NOLOCK) ON c.srecommend = s.custid
+				LEFT JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) on c.custid = ps.custid				
 			WHERE c.custID = @custID
 		END
 		ELSE -- there is a customer in crm
@@ -304,9 +314,16 @@ BEGIN
 				c.danger2,
 				c.danger3,
 
-				CASE	WHEN @UserRole = 2 THEN CASE	WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 0 THEN 'Active'
-														WHEN c.Closed = 0 AND ISNULL(c.reject,0) = 1 THEN 'Suspended'
-														WHEN c.Closed = 1 THEN 'Closed' END
+				CASE	WHEN @UserRole = 2 THEN CASE	WHEN ((s.custid IS NOT NULL AND c.Closed = 1)
+															OR (s.custid IS NULL AND ISNULL(CloseInfo,0) > 0)
+															) THEN 'Closed' 
+														WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 1 )
+															OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) = 0 AND ISNULL(ps.SuspendInfo,0) > 0 )
+															) THEN 'Suspended'
+														WHEN s.custid IS NULL AND ps.Locked > 0 THEN 'Locked'	
+														WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 0) 
+															OR (s.custid IS NULL AND ISNULL(ps.SuspendInfo,0) = 0 AND ISNULL(ps.CloseInfo,0) = 0 )
+															)THEN 'Active' END
 						WHEN @UserRole = 1 THEN @StatusCN88 END AS CustStatus,
 
 				CASE WHEN @UserRole = 1 THEN CASE WHEN c.Closed = 1 THEN 1 ELSE 0 END ELSE NULL END Locked,
@@ -326,7 +343,9 @@ BEGIN
 				LEFT JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON crm.CreatorID = ci.custID
 				LEFT JOIN crmCountry ct WITH(NOLOCK) ON ct.CountryID = crm.CountryID
 				LEFT JOIN bodb02.dbo.customer cm WITH(NOLOCK) ON cm.custid = crm.custID			
-				LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = crm.CustID		
+				LEFT JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON c.custid = crm.CustID	
+				LEFT JOIN bodb02.dbo.Dep_CustSuper s WITH(NOLOCK) ON c.srecommend = s.custid	
+				LEFT JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) on crm.custid = ps.custid				
 			WHERE crm.custID = @custID			
 		END
 	END

@@ -74,6 +74,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@WinLimitLogID				BIGINT			= 0	
 				,	@TOControlLogID				VARCHAR(MAX)	= ''
 				,	@PALogID					VARCHAR(MAX)	= ''
+				,	@AmendmentLogID				INT	= 0
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				,	@IsManualMultiple			BIT				= 0
@@ -108,7 +109,8 @@ AS
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 		- 20201020@Johnson: - add WinlimitLogid for auto feedback company win limit
 							- remove limit amount for related customers [redmine:#142194]
-		- 20201130@Johnson: add @TOControlLogID for auto feedback TO Control [redmine:#145274]					
+		- 20201130@Johnson: add @TOControlLogID for auto feedback TO Control [redmine:#145274]	
+		- 202010303@Winfred: Add AmendmentLogID [redmine:#147470]				
 		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
 		- 20210519@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 	Param's Explanation:
@@ -131,6 +133,7 @@ AS
 	@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
 	@TOControlLogID: LogID for TOContrl auto fb service
 	@PALogID: LogID for TOContrl auto fb service
+	@AmendmentLogID LogID from Amendment notification auto fb service, process 1 logid with 1 feedback
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
@@ -294,6 +297,14 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM crmTOControlFeedbackInfo WITH(NOLOCK)
 					WHERE LogID IN (SELECT val FROM dbo.f_CRM_strSplit(@TOControlLogID,','))
 						AND status = 'completed'
+				)
+		RETURN;		
+	END
+	
+	IF @AmendmentLogID > 0
+	BEGIN
+		IF EXISTS (SELECT 1 FROM crmAmendmentNotiFeedbackInfo WITH(NOLOCK)
+					WHERE LogID = @AmendmentLogID AND status = 'completed'
 				)
 		RETURN;		
 	END
@@ -673,6 +684,28 @@ BEGIN
 			RETURN;
 		END;
 	END
+	
+	--Amendment Notification
+	IF @AmendmentLogID > 0
+	BEGIN
+		UPDATE crmAmendmentNotiFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+		SET Status = 'completed',
+			UpdatedTime = GETDATE()
+		WHERE LogID = @AmendmentLogID
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;
+	END
+	
 	-- write log
 	DECLARE @LogElement XML;
 

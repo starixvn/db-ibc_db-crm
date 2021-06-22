@@ -1,16 +1,17 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBACC-bodb02,DBEXT-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_GroupHeadlineSel]
-	@custids VARCHAR(MAX)
+	@custids VARCHAR(MAX) 
 AS
 /*
 	Created: 20200417@Johnson
 	Task : Get headline for list customers
-	DB: DBACC/bodb02
+	DB: DBACC/bodb02,DBEXT-bodb02
 	Original:
 
 	Revisions:
 		- 20200417@Johnson: Initial sp [redmine:#130949]
 		- 20200831@Johnson: remove temp table [redmine:#139158]
+		- 202010303@Winfred: Add new metadata [redmine:#147470]
 	Param's Explanation:
 		
 */

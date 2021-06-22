@@ -34,6 +34,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@WinLimitLogID		BIGINT			= 0	
 	,@TOControlLogID	VARCHAR(MAX)	= ''
 	,@PALogID			VARCHAR(MAX)	= ''
+	,@AmendmentLogID	INT	= 0
 	,@RequestIDs		VARCHAR(1000)	= ''
 	,@ListOrigCustIDs 	VARCHAR(MAX)	= ''
 	,@IsManualMultiple  BIT = 0
@@ -62,6 +63,7 @@ AS
 							and remove checking limit related customers [redmine:#142194]
 		- 20201130@Johnson: add @TOControlLogID for auto feedback TO Control [redmine:#145274]					
 		- 20210125@Johnson: check existing before sync related customers [redmine:#149205]
+		- 202010303@Winfred: Add AmendmentLogID [redmine:#147470]
 		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
 		- 20210517@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 		- 20210426@Winfred: Offer Country & Language checkbox like Communication Tool on Multiple Logs function [redmine:#153458]
@@ -72,6 +74,7 @@ AS
 		@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
 		@TOControlLogID for auto fb TO control service
 		@PALogID for auto fb Problem account service
+		@AmendmentLogID LogID from Amendment notification auto fb service, process 1 logid with 1 feedback
 		@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN
@@ -472,56 +475,74 @@ BEGIN
 				END;
 			END;
 			
-			--Sync profile for related customers to CRM
-			WHILE (1=1)
-			BEGIN 
-				UPDATE TOP (1) t
-				SET isFinished = 1,
-					@r_Custid = RelatedCustID,
-					@r_username = username,
-					@r_FirstName = FirstName,
-					@r_LastName = LastName, 
-					@r_phone = phone,
-					@r_MobilePhone = MobilePhone,
-					@r_Fax = Fax,
-					@r_Email = Email,
-					@r_Birthday = Birthday,
-					@r_CountryID = CountryID,
-					@r_SiteID = siteID
-				FROM #tblRelatedCustomer t
-				WHERE isFinished = 0
-					AND custid = @custid		
-					AND NOT EXISTS (SELECT 1
-									FROM dbo.crmCustomer c WITH (NOLOCK)
-									WHERE c.CustID = t.RelatedCustID)
-					
-				IF @@ROWCOUNT = 0
-					BREAK;
-					
-				EXECUTE	dbo.Acc_CRM_CustomerIns_New
-						@UserID					= @UserID
-					,	@CustID					= @r_CustID
-					,	@UserName				= @r_UserName
-					,	@FirstName				= @r_FirstName
-					,	@LastName				= @r_LastName			
-					,	@Birthday				= @r_Birthday				
-					,	@Phone					= @r_Phone	
-					,	@MobilePhone			= @r_MobilePhone				
-					,	@Fax					= @r_Fax				
-					,	@Email					= @r_Email				
-					,	@CountryID				= @r_CountryID				
-					,	@SiteID					= @r_SiteID
-					,	@CreatorID				= @CreatorID
-					,	@LanguageID				= @LanguageID
+			IF @AmendmentLogID > 0
+			BEGIN
+				EXECUTE	dbo.Acc_CRM_AmendmentNoti_MultiCustIns
+					@RelatedCustomers = @RelatedCustomers
+					,	@UserID					= @UserID
+					,   @CreatorID				= @CreatorID
 					,	@IP						= @IP
 					,	@ErrCode				= @ErrCode OUTPUT
 					,	@ErrMsg					= @ErrMsg OUTPUT;
 				IF @ErrCode <> 0
 				BEGIN
-					--SELECT @ErrCode = 100
+					--SELECT @ErrCode 
 					RETURN;
-				END;	
+				END;
 			END
+			ELSE
+			BEGIN
+				--Sync profile for related customers to CRM
+				WHILE (1=1)
+				BEGIN 
+					UPDATE TOP (1) t
+					SET isFinished = 1,
+						@r_Custid = RelatedCustID,
+						@r_username = username,
+						@r_FirstName = FirstName,
+						@r_LastName = LastName, 
+						@r_phone = phone,
+						@r_MobilePhone = MobilePhone,
+						@r_Fax = Fax,
+						@r_Email = Email,
+						@r_Birthday = Birthday,
+						@r_CountryID = CountryID,
+						@r_SiteID = siteID
+					FROM #tblRelatedCustomer t
+					WHERE isFinished = 0
+						AND custid = @custid		
+						AND NOT EXISTS (SELECT 1
+										FROM dbo.crmCustomer c WITH (NOLOCK)
+										WHERE c.CustID = t.RelatedCustID)
+						
+					IF @@ROWCOUNT = 0
+						BREAK;
+						
+					EXECUTE	dbo.Acc_CRM_CustomerIns_New
+							@UserID					= @UserID
+						,	@CustID					= @r_CustID
+						,	@UserName				= @r_UserName
+						,	@FirstName				= @r_FirstName
+						,	@LastName				= @r_LastName			
+						,	@Birthday				= @r_Birthday				
+						,	@Phone					= @r_Phone	
+						,	@MobilePhone			= @r_MobilePhone				
+						,	@Fax					= @r_Fax				
+						,	@Email					= @r_Email				
+						,	@CountryID				= @r_CountryID				
+						,	@SiteID					= @r_SiteID
+						,	@CreatorID				= @CreatorID
+					,	@LanguageID				= @LanguageID
+						,	@IP						= @IP
+						,	@ErrCode				= @ErrCode OUTPUT
+						,	@ErrMsg					= @ErrMsg OUTPUT;
+					IF @ErrCode <> 0
+					BEGIN
+						--SELECT @ErrCode = 100
+						RETURN;
+					END;	
+				END
+			END	
 		
 			--- create account for guest		
 			SELECT @CustID = c.CustID
@@ -658,8 +679,9 @@ BEGIN
 				,@NoInquiries = @NoInquiries
 				,@MessageID = @MessageID
 				,@WinLimitLogID = @WinLimitLogID
-				,@TOControlLogID = @TOControlLogID				
+				,@TOControlLogID = @TOControlLogID	
 				,@PALogID = @PALogID	
+				,@AmendmentLogID = @AmendmentLogID
 				,@RequestIDs = @RequestIDs
 				,@ListOrigCustIDs = @ListOrigCustIDs
 				,@IsManualMultiple = @IsManualMultiple

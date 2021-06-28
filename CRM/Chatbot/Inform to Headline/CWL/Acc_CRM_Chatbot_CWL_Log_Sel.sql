@@ -11,6 +11,7 @@ AS
 
 	Revisions:
 		- 20201104@Malcolm: Initialize SP [RedmineId: #144265]
+		- 20210626@Percy: Fix code loop LogId [RedmineId: #144265]
 */
 
 BEGIN
@@ -50,6 +51,8 @@ BEGIN
 
 		IF @@ROWCOUNT = 0
 			BREAK
+
+		SELECT @tmpLogId = MAX(LogId) FROM @Result
 
 		UPDATE r
 		SET r.LevelId = h.LevelId, r.Winloss = h.WinAmt, r.ActionID = h.ActionID
@@ -95,7 +98,6 @@ BEGIN
 			BREAK
 		END
 
-		SELECT @tmpLogId = MAX(LogId) FROM @Result
 		DELETE @Result WHERE recommend IS NULL
 	END
 

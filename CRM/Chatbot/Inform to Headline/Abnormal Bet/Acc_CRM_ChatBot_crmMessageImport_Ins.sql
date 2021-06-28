@@ -17,20 +17,21 @@ AS
 	Param's Explanation:
 		@Messages:
 			<root>
-				<r MessageID=1 RequestID=1 />
-				<r MessageID=1 RequestID=2 />
-				<r MessageID=3 RequestID=2 />
+				<r MessageID="1" RequestID="1" Usernames="" />
+				<r MessageID="1" RequestID="2" Usernames="Supertest1" />
+				<r MessageID="3" RequestID="2" Usernames="" />
 			</root>
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Messages (MessageId INT, RequestId INT)
+	CREATE TABLE #Messages (MessageId INT, RequestId INT, Usernames NVARCHAR(MAX))
 	INSERT INTO  #Messages (MessageId, RequestId)
 	SELECT DISTINCT
 		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@RequestID', 'INT') AS RequestId
+		,t.c.value('@Usernames', 'NVARCHAR(MAX)') AS Usernames
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
@@ -39,8 +40,8 @@ BEGIN
 	WHILE @i < @maxTry
 	BEGIN
 		BEGIN TRY
-			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, CreatedDate)
-			SELECT m.MessageId, m.RequestId, GETDATE()
+			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, Usernames, CreatedDate)
+			SELECT m.MessageId, m.RequestId, M.Usernames, GETDATE()
 			FROM #Messages m
 				OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
 			WHERE cm.MessageId IS NULL

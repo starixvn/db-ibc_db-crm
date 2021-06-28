@@ -37,7 +37,7 @@ BEGIN
 		INNER JOIN #Messages t ON m.MessageId = t.MessageId
 	WHERE m.msgtype = 1
 		AND m.isbatch = 1
-		AND m.MsgContentsType = 103
+		AND m.MsgContentsType IN (101, 102, 103)
 		AND m.Content_en LIKE '%@@%'
 	ORDER BY m.MessageId
 	OPTION (RECOMPILE)

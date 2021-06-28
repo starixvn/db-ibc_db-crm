@@ -18,58 +18,28 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MaxLogId INT = 0
+	DECLARE @MaxLogId BIGINT = 0
 
-	DECLARE @Result TABLE
-	(
-		LogId			BIGINT
-		,CustId			INT
-		,Currency		INT
-		,CurrencyName	NVARCHAR(50)
-		,Username		VARCHAR(30)
-		,Recommend		INT
-		,Mrecommend		INT
-		,Srecommend		INT
-		,Winloss		MONEY
-		,ProductId		TINYINT
-		,LevelId		INT
-		,GroupId		INT
-		,ActionID		TINYINT
-	)
+	SELECT @MaxLogId = MAX(LogID) FROM WinLimit_CustGameMonitoring_History WITH(NOLOCK) WHERE WinlostDate >= CONVERT(DATE, GETDATE() - 1) AND LogID > @LastLogId
 
-	SELECT @MaxLogId = MAX(LogID) FROM WinLimit_CustGameMonitoring_History WITH(NOLOCK) WHERE WinlostDate >= CONVERT(DATE, GETDATE() - 1)
+	IF ISNULL(@MaxLogId, 0) = 0
+	BEGIN
+		SELECT TOP(0) '' AS LogID, '' AS CustID, '' AS [CurrencyName], '' AS Username, '' AS Recommend, '' AS Mrecommend, '' AS Srecommend, '' AS Winloss, '' AS ProductID, '' AS LevelID, '' AS GroupID
+		RETURN
+	END
 
 	WAITFOR DELAY '00:00:00.200'
 
-	INSERT INTO @Result (LogId, CustId, Username, Recommend, Mrecommend, Srecommend, Winloss, ProductId, LevelId, GroupId, ActionID, Currency)
-	SELECT TOP(@BatchSize) h.LogID, h.CustID, c.username, c.recommend, c.mrecommend, c.srecommend, h.WinAmt, h.ProductID, h.LevelID, h.GroupID, h.ActionID, c.currency
+	SELECT TOP(@BatchSize) h.LogID, h.CustID, e.currency AS [CurrencyName], c.Username, c.Recommend, c.Mrecommend, c.Srecommend, h.WinAmt AS Winloss, h.ProductID, h.LevelID, h.GroupID
 	FROM dbo.WinLimit_CustGameMonitoring_History h WITH(NOLOCK)
 		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = h.CustID
 		INNER JOIN dbo.Site s WITH(NOLOCK) ON s.site = c.site
-	WHERE LogId BETWEEN (@LastLogId + 1) AND @MaxLogId
-		AND WinlostDate >= CONVERT(DATE, GETDATE() - 1)
-		AND ActionID NOT IN (2, 4)
+		INNER JOIN dbo.exchange e WITH(NOLOCK) ON e.ExchangeId = c.currency
+	WHERE h.LogId > @LastLogId AND h.LogID <= @MaxLogId
+		AND h.WinlostDate >= CONVERT(DATE, GETDATE() - 1)
+		AND h.ActionID NOT IN (2, 4)
 		AND s.isDeposit = 0 AND s.isActive = 1 AND s.site <> 'CN88'
 	ORDER BY LogId ASC
 
-	UPDATE r
-		SET r.CurrencyName = e.currency
-	FROM @Result r
-		INNER JOIN dbo.exchange e WITH(NOLOCK) ON e.ExchangeId = r.Currency
-
-	SELECT
-		LogId
-		,CustId
-		,CurrencyName
-		,Username
-		,Recommend
-		,Mrecommend
-		,Srecommend
-		,Winloss
-		,ProductId
-		,LevelId
-		,GroupId
-	FROM @Result
-	ORDER BY LogId
 END
 GO

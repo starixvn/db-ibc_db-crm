@@ -7,8 +7,14 @@
 */
 USE bodb_CRM
 GO
-
+--68099	
 UPDATE s
-	SET s.Value = 68030
+	SET s.Value = 68099
 FROM SystemSetting s WITH(ROWLOCK)
 WHERE s.ServiceName = 'ChatBot - CWL'  AND s.SettingName = 'LastLogIdUAT' AND s.ID = 27
+
+
+UPDATE s
+	SET s.Value = 0
+FROM SystemSetting s WITH(ROWLOCK)
+WHERE s.ServiceName = 'ChatBot - CWL'  AND s.SettingName = 'IncludeUUSCurrency' AND s.ID = 28

@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 
 	Param's Explanation:
 		@Messages:

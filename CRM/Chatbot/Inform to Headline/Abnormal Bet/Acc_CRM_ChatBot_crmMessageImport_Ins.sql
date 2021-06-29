@@ -17,21 +17,23 @@ AS
 	Param's Explanation:
 		@Messages:
 			<root>
-				<r MessageID="1" RequestID="1" Usernames="" />
-				<r MessageID="1" RequestID="2" Usernames="Supertest1" />
-				<r MessageID="3" RequestID="2" Usernames="" />
-			</root>
+				<r MessageID="1" RequestID="1" UsernameList="xxx,u1" CustIdList=""/>
+				<r MessageID="1" RequestID="2" UsernameList="xxx,u1" CustIdList=""/>
+				<r MessageID="3" RequestID="2" UsernameList="xxx,u1" CustIdList=""/>
+			</root>	
+		
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Messages (MessageId INT, RequestId INT, Usernames NVARCHAR(MAX))
-	INSERT INTO  #Messages (MessageId, RequestId)
+	CREATE TABLE #Messages (MessageId INT, RequestId INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))
+	INSERT INTO  #Messages (MessageId, RequestId, UsernameList, CustIdList)
 	SELECT DISTINCT
 		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@RequestID', 'INT') AS RequestId
-		,t.c.value('@Usernames', 'NVARCHAR(MAX)') AS Usernames
+		,t.c.value('@UsernameList', 'NVARCHAR(MAX)') AS UsernameList
+		,t.c.value('@CustIdList', 'VARCHAR(MAX)') AS CustIdList
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
@@ -40,8 +42,8 @@ BEGIN
 	WHILE @i < @maxTry
 	BEGIN
 		BEGIN TRY
-			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, Usernames, CreatedDate)
-			SELECT m.MessageId, m.RequestId, M.Usernames, GETDATE()
+			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, UsernameList, CustIdList, CreatedDate)
+			SELECT m.MessageId, m.RequestId, M.UsernameList, M.CustIdList, GETDATE()
 			FROM #Messages m
 				OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
 			WHERE cm.MessageId IS NULL
@@ -70,8 +72,8 @@ BEGIN
 
 	CREATE CLUSTERED INDEX CIX_Msg ON #Messages (MessageId, RequestId)
 
-	INSERT INTO #Messages (MessageId, RequestId)
-	SELECT MessageId, RequestId
+	INSERT INTO #Messages (MessageId, RequestId, UsernameList, CustIdList)
+	SELECT MessageId, RequestId, UsernameList, CustIdList
 	FROM dbo.crmMessageImport m WITH (NOLOCK)
 	WHERE IsChatBotProcessed = 0
 		AND NOT EXISTS (
@@ -83,7 +85,7 @@ BEGIN
 	;WITH CTE_Msg AS (
 		SELECT TOP (@BatchSize) MessageId FROM #Messages GROUP BY MessageId ORDER BY MessageId
 	)
-	SELECT m.MessageId, m.RequestId
+	SELECT m.MessageId, m.RequestId, ISNULL(m.UsernameList, '') AS UsernameList, ISNULL(m.CustIdList, '') AS CustIdList
 	FROM #Messages m
 	WHERE EXISTS (SELECT 1 FROM CTE_Msg c WHERE m.MessageId = c.MessageId)
 

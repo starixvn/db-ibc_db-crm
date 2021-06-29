@@ -4,7 +4,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_crmMessageImport_Check]
 AS
 
 /*
-	Created: 20200811@Percy
+	Created: 20210628@Malcolm
 	DB: DBCRM-bodb_CRM
 	Task: CRM - ChatBot - Check what if tickets belong to abnormal accounts type or no
 	Revisions:
@@ -13,28 +13,28 @@ AS
 	Param's Explanation:
 		@Messages:
 			<root>
-				<r MessageID="1" RequestID="1" VoidingHistoryId="0"/>
-				<r MessageID="1" RequestID="2" VoidingHistoryId="0"/>
-				<r MessageID="3" RequestID="2" VoidingHistoryId="15"/>
-			</root>			   
+				<r MessageID="1" RequestID="1" VoidingHistoryID="0" UsernameList="a,b"/>
+				<r MessageID="1" RequestID="2" VoidingHistoryID="0" UsernameList=""/>
+				<r MessageID="3" RequestID="2" VoidingHistoryID="15" UsernameList=""/>
+			</root>			                                  
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Messages (MessageId INT, RequestId INT, VoidingHistoryId INT)
-	INSERT INTO  #Messages (MessageId, RequestId, VoidingHistoryId)
+	CREATE TABLE #Messages (MessageId INT, RequestId INT, VoidingHistoryId INT, UsernameList NVARCHAR(MAX))
+	INSERT INTO  #Messages (MessageId, RequestId, VoidingHistoryId, UsernameList)
 	SELECT DISTINCT
 		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@RequestID', 'INT') AS RequestId
-		,t.c.value('@VoidingHistoryId', 'TINYINT') AS VoidingHistoryId
+		,t.c.value('@VoidingHistoryID', 'INT') AS VoidingHistoryId
+		,t.c.value('@UsernameList', 'NVARCHAR(MAX)') AS UsernameList
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
-	SELECT me.MessageId, me.RequestId, me.VoidingHistoryId
+	SELECT me.MessageId, me.RequestId, me.VoidingHistoryId, me.UsernameList
 	FROM #Messages me
 	WHERE NOT EXISTS (SELECT 1 FROM dbo.crmMessageImport m WITH (NOLOCK) WHERE m.MessageID = me.MessageId AND m.RequestID = me.RequestId) 
-		AND me.VoidingHistoryId <> 0
 		
 	DROP TABLE #Messages
 END

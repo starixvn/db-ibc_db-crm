@@ -50,13 +50,13 @@ BEGIN
 		WHERE c.username = m.Username
 	) l
 
-	CREATE TABLE #Result (VoidingHistoryId INT,CustId INT)
+	CREATE TABLE #Result (VoidingHistoryId INT, CustId INT, MessageId INT, RequestId INT)
 	CREATE CLUSTERED INDEX Ix_Result ON #Result (VoidingHistoryId)
 
-	INSERT INTO #Result (VoidingHistoryId, CustId)
-	SELECT DISTINCT VoidingHistoryId, CustId
+	INSERT INTO #Result (VoidingHistoryId, CustId, MessageId, RequestId)
+	SELECT DISTINCT m.VoidingHistoryId, b.CustId, m.MessageId, m.RequestID
 	FROM dbo.zzzbettrans b WITH(NOLOCK)
-	WHERE EXISTS(SELECT 1 FROM #MessageLst m WHERE b.VoidingHistoryId = m.VoidingHistoryId)
+		INNER JOIN #MessageLst m ON m.VoidingHistoryId = b.VoidingHistoryId
 
 	UPDATE m
 		SET m.IsValid = 1
@@ -77,12 +77,12 @@ BEGIN
 
 	;WITH CTE AS
 	(
-		SELECT DISTINCT MessageId, RequestID, VoidingHistoryId
+		SELECT DISTINCT MessageId, RequestID
 		FROM #MessageLst
 	)
 	SELECT e.MessageId, e.RequestID
 		  ,STUFF((SELECT DISTINCT ',' + m.Username FROM #MessageLst m  WHERE m.Messageid = e.MessageId AND m.RequestID = e.RequestID FOR XML PATH('')), 1, 1, '') AS UsernameList
-		  ,STUFF((SELECT DISTINCT ',' + CONVERT(VARCHAR(20), r.CustId) FROM #Result r WHERE R.VoidingHistoryId = e.VoidingHistoryId FOR XML PATH('')), 1, 1, '') AS CustIdList
+		  ,STUFF((SELECT DISTINCT ',' + CONVERT(VARCHAR(20), r.CustId) FROM #Result r WHERE r.MessageId = e.MessageId AND r.RequestId = e.RequestID FOR XML PATH('')), 1, 1, '') AS CustIdList
 	FROM CTE e
 
 	DROP TABLE #MessageLst

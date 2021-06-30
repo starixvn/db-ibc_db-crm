@@ -2,7 +2,7 @@
 /*
 	Created: 20210629@Malcolm
 	DB: DBCRM.bodb_CRM
-	Task: Create new tables [RedmineId : #157303]
+	Task: Add new column [RedmineId : #157303]
 */
 
 ALTER TABLE crmMessageImport

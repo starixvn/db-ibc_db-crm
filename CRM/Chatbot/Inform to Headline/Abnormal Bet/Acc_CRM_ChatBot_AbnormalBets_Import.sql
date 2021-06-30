@@ -18,25 +18,27 @@ AS
 		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 
 	Param's Explanation:
-		. @XmlData
+		- @XmlData
 			<root>
-				<r MessageId="1" Username="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
-				<r MessageId="1" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
+				<r MessageID="1" Username="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
+				<r MessageID="1" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
 			</root>
-		. @Messages:
+				+ Type = 1 : get member of tickets belong to abnormal bets
+				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MAX(IsTest) of member have tickets voided
+		- @Messages:
 			<root>
 				<r MessageID=1 RequestID=1 UsernameList=""/>
 				<r MessageID=1 RequestID=2 UsernameList=""/>
 				<r MessageID=3 RequestID=2 UsernameList=""/>
 			</root>
+				+ If request belong to abnormal bets, UsernameList = "" 
+				+ If request belong to abnormal accounts, UsernameList <> ""
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @IncludeUUSCurrency BIT
-
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - AbnormalBets' and SettingName = 'IncludeUUSCurrency'
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = ''
 
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 
@@ -52,6 +54,18 @@ BEGIN
 		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
 		RETURN
 	END
+	-- Get messageId and requestId
+	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT, Username VARCHAR(30))
+	INSERT INTO #MessageRequest (MessageID, RequestID, Username)
+	SELECT 
+		t.c.value('@MessageID', 'INT') AS MessageID
+		,t.c.value('@RequestID', 'INT') AS RequestID
+		,l.Username AS Username
+	FROM @Messages.nodes('root/r') t(c)
+		CROSS APPLY (
+			SELECT f.val FROM dbo.f_CRM_strSplit(t.c.value('@UsernameList', 'NVARCHAR(MAX)'), ',') f
+		) l(Username)
+	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
 	-- Get Imported Data
 	CREATE TABLE #ImportMessage
@@ -71,7 +85,7 @@ BEGIN
 	)
 	INSERT INTO #ImportMessage (MessageId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn, [Type])
 	SELECT
-		t.c.value('@MessageId', 'INT') AS MessageId
+		t.c.value('@MessageID', 'INT') AS MessageId
 		,t.c.value('@Username', 'VARCHAR(50)') AS Username
 		,t.c.value('@CustId', 'INT') AS CustId
 		,t.c.value('@Recommend', 'INT') AS Recommend
@@ -100,32 +114,8 @@ BEGIN
 		RETURN
 	END
 
-		-- Only import testing data for UAT environment
-	IF @Environment = 'UAT'
-	BEGIN
-		DELETE i FROM #ImportMessage i WHERE i.IsTest = 0
-	END
-
-	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'LIVE'
-	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
-	BEGIN
-		DELETE i FROM #ImportMessage i WHERE i.IsTest = 1
-	END
-
-	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT, Username VARCHAR(30))
-	INSERT INTO #MessageRequest (MessageID, RequestID, Username)
-	SELECT 
-		t.c.value('@MessageID', 'INT') AS MessageID
-		,t.c.value('@RequestID', 'INT') AS RequestID
-		,l.Username AS Username
-	FROM @Messages.nodes('root/r') t(c)
-		CROSS APPLY (
-			SELECT f.val FROM dbo.f_CRM_strSplit(t.c.value('@UsernameList', 'NVARCHAR(MAX)'), ',') f
-		) l(Username)
-	OPTION (OPTIMIZE FOR (@Messages = NULL))
-
-	-- Remove message belong to abnormal bets type
-	DELETE mr FROM #MessageRequest mr WHERE NOT EXISTS (SELECT 1 FROM #ImportMessage im WHERE im.MessageId = mr.MessageID AND im.[Type] = 2)
+	-- Remove message and request are invalid
+	DELETE mr FROM #MessageRequest mr WHERE NOT EXISTS (SELECT 1 FROM #ImportMessage im WHERE im.MessageId = mr.MessageID)
 
 	-- Get Job Setting
 	DECLARE @Xml XML
@@ -367,7 +357,7 @@ BEGIN
 			WHERE r.MessageId = m.MessageId
 		) m
 
-	-- Update Username List
+	-- Update Username List of abnormal accounts (Type = 2)
 	;WITH CTE AS
 	(
 		SELECT mr.MessageID, STUFF((SELECT ',' + Username FROM #MessageRequest m WHERE m.MessageID = mr.MessageID FOR XML PATH('')), 1, 1, '') AS UsernameList
@@ -378,6 +368,7 @@ BEGIN
 		SET r.AffectedList = e.UsernameList
 	FROM #Result r
 		INNER JOIN CTE e ON e.MessageID = r.MessageId
+	WHERE r.[Type] = 2
 	
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
@@ -430,13 +421,8 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	IF @Environment = 'UAT' OR (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
-	BEGIN
-		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
-							FROM @Messages.nodes('/root/r') T(c)
-							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportMessage i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
-							FOR XML PATH('r'), ROOT('root'))
-	END
+	SELECT @Messages = (SELECT mr.MessageID AS '@MessageID', mr.RequestID AS '@RequestID'FROM #MessageRequest mr FOR XML PATH('r'), ROOT('root'))
+
 	-- Update crmMessageImport
 	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 

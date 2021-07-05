@@ -21,15 +21,14 @@ AS
 		- @XmlData
 			<root>
 				<r MessageID="1" Username="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
-				<r MessageID="1" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
+				<r MessageID="2" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
 			</root>
 				+ Type = 1 : get member of tickets belong to abnormal bets
 				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MAX(IsTest) of member have tickets voided
 		- @Messages:
 			<root>
-				<r MessageID=1 RequestID=1 UsernameList=""/>
-				<r MessageID=1 RequestID=2 UsernameList=""/>
-				<r MessageID=3 RequestID=2 UsernameList=""/>
+				<r MessageID="1" RequestID="1" UsernameList=""/>
+				<r MessageID="2" RequestID="2" UsernameList="Supertest1"/>
 			</root>
 				+ If request belong to abnormal bets, UsernameList = "" 
 				+ If request belong to abnormal accounts, UsernameList <> ""
@@ -113,9 +112,6 @@ BEGIN
 
 		RETURN
 	END
-
-	-- Remove message and request are invalid
-	DELETE mr FROM #MessageRequest mr WHERE NOT EXISTS (SELECT 1 FROM #ImportMessage im WHERE im.MessageId = mr.MessageID)
 
 	-- Get Job Setting
 	DECLARE @Xml XML
@@ -282,7 +278,7 @@ BEGIN
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
-			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
+			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM #tmpResult t1
 		WHERE t1.ChatTypeId = 1 -- Group
 		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId
@@ -341,7 +337,7 @@ BEGIN
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
-			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
+			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM CTE_tempResult t1
 		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 	) t
@@ -360,7 +356,7 @@ BEGIN
 	-- Update Username List of abnormal accounts (Type = 2)
 	;WITH CTE AS
 	(
-		SELECT mr.MessageID, STUFF((SELECT ',' + Username FROM #MessageRequest m WHERE m.MessageID = mr.MessageID FOR XML PATH('')), 1, 1, '') AS UsernameList
+		SELECT mr.MessageID, STUFF((SELECT DISTINCT ',' + Username FROM #MessageRequest m WHERE m.MessageID = mr.MessageID FOR XML PATH('')), 1, 1, '') AS UsernameList
 		FROM #MessageRequest mr
 		GROUP BY mr.MessageID
 	)

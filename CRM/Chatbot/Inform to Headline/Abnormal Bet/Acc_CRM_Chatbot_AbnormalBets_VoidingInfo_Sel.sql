@@ -65,15 +65,15 @@ BEGIN
 			AND vh.StatusId = 2
 
 		INSERT INTO #Result (MessageId, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest, [Type])
-		SELECT vh.MessageId, b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, MAX(CONVERT(TINYINT, IsTest)) AS IsTest, 1 AS [Type]
+		SELECT vh.MessageId, b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, MIN(CONVERT(TINYINT, IsTest)) AS IsTest, 1 AS [Type]
 		FROM #AbnormalBetsInfo vh
 			CROSS APPLY (
 				SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest
 				FROM dbo.bettrans b WITH (NOLOCK)
 				WHERE b.transid = vh.TransId
 			) b
-		WHERE (b.IsTest = @IsTest OR @IsTest IS NULL)
 		GROUP BY MessageId,	b.CustId, Username, Srecommend, Mrecommend, Recommend
+
 	END
 
 	-- Get data for abnormal accounts (only get direct account of member who have tickets voided)
@@ -97,11 +97,9 @@ BEGIN
 			) l
 			LEFT JOIN dbo.CustDirectAccount cda WITH(NOLOCK) ON cda.CustID IN (l.CustId, l.Recommend, l.Mrecommend, l.Srecommend)
 
-		DELETE ai FROM #AbnormalAccountsInfo ai WHERE (ai.IsTest = (1 - @IsTest) AND @IsTest IS NOT NULL)
-
 		;WITH CTE AS
 		(
-			SELECT ai.MessageId, ai.DirectAccount AS CustId, MAX(CONVERT(TINYINT, ai.IsTest)) AS IsTest
+			SELECT ai.MessageId, ai.DirectAccount AS CustId, MIN(CONVERT(TINYINT, ai.IsTest)) AS IsTest
 			FROM #AbnormalAccountsInfo ai
 			GROUP BY ai.MessageId, ai.DirectAccount
 		)
@@ -116,6 +114,19 @@ BEGIN
 	
 	END
 
+	--Get data by environment
+	IF @IsTest IS NOT NULL
+	BEGIN
+		;WITH CTE AS
+		(
+			SELECT DISTINCT MessageId FROM #Result WHERE IsTest = 0
+		)
+		DELETE r
+		FROM #Result r 
+			LEFT JOIN CTE e ON e.MessageId = r.MessageId
+		WHERE (e.MessageId IS NULL AND @IsTest = 0) 
+			OR (e.MessageId IS NOT NULL AND @IsTest = 1)
+	END
 	--Return Data
 	SELECT
 		MessageId
@@ -124,7 +135,8 @@ BEGIN
 		,ISNULL(Recommend, 0) AS Recommend
 		,ISNULL(Mrecommend, 0) AS Mrecommend
 		,ISNULL(Srecommend, 0) AS Srecommend
-		,ISNULL(IsTest, 1) AS IsTest, [Type]
+		,ISNULL(IsTest, 1) AS IsTest
+		,[Type]
 	FROM #Result
 	ORDER BY MessageId ASC
 
@@ -136,6 +148,9 @@ BEGIN
 	WHERE EXISTS (SELECT 1 FROM #Result r WHERE r.MessageId = m.MessageId)
 
 	DROP TABLE #Messages
+	DROP TABLE #Result
 	DROP TABLE #AbnormalBetsInfo
+	DROP TABLE #AbnormalAccountsInfo	
+
 END
 GO

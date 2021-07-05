@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_crmMessageImport_Check]
+CREATE PROCEDURE [dbo].[Acc_CRM_crmMessageImport_Check]
 	@Messages XML
 AS
 

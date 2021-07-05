@@ -1,5 +1,5 @@
 /*<info serverAlias="DBTXN-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_AbnormalAccount_GetUsernameList]
+CREATE PROCEDURE [dbo].[Acc_CRM_AbnormalAccount_GetUsernameList]
 	@Messages XML
 AS
 
@@ -14,7 +14,7 @@ AS
 		@Messages:
 			<root>
 				<r MessageID="1" RequestID="1" VoidingHistoryID="0" UsernameList="xxx,u1"/>
-				<r MessageID="1" RequestID="2" VoidingHistoryID="0" UsernameList="xxx,u1"/>
+				<r MessageID="2" RequestID="2" VoidingHistoryID="0" UsernameList="xxx,u1"/>
 				<r MessageID="3" RequestID="2" VoidingHistoryID="15" UsernameList="xxx,u1"/>
 			</root>			   
 */

@@ -20,18 +20,16 @@ AS
 	Param's Explanation:
 		- @XmlData
 			<root>
-				<r MessageID="1" Username="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
-				<r MessageID="2" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
+				<r MessageID="1" UsernameList="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
+				<r MessageID="2" UsernameList="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
 			</root>
 				+ Type = 1 : get member of tickets belong to abnormal bets
 				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MAX(IsTest) of member have tickets voided
 		- @Messages:
 			<root>
-				<r MessageID="1" RequestID="1" UsernameList=""/>
-				<r MessageID="2" RequestID="2" UsernameList="Supertest1"/>
+				<r MessageID="1" RequestID="1"/>
+				<r MessageID="2" RequestID="2"/>
 			</root>
-				+ If request belong to abnormal bets, UsernameList = "" 
-				+ If request belong to abnormal accounts, UsernameList <> ""
 */
 
 BEGIN
@@ -54,16 +52,12 @@ BEGIN
 		RETURN
 	END
 	-- Get messageId and requestId
-	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT, Username VARCHAR(30))
-	INSERT INTO #MessageRequest (MessageID, RequestID, Username)
+	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT)
+	INSERT INTO #MessageRequest (MessageID, RequestID)
 	SELECT 
 		t.c.value('@MessageID', 'INT') AS MessageID
 		,t.c.value('@RequestID', 'INT') AS RequestID
-		,l.Username AS Username
 	FROM @Messages.nodes('root/r') t(c)
-		CROSS APPLY (
-			SELECT f.val FROM dbo.f_CRM_strSplit(t.c.value('@UsernameList', 'NVARCHAR(MAX)'), ',') f
-		) l(Username)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
 	-- Get Imported Data
@@ -85,7 +79,7 @@ BEGIN
 	INSERT INTO #ImportMessage (MessageId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn, [Type])
 	SELECT
 		t.c.value('@MessageID', 'INT') AS MessageId
-		,t.c.value('@Username', 'VARCHAR(50)') AS Username
+		,ISNULL(l.Username, '') AS Username
 		,t.c.value('@CustId', 'INT') AS CustId
 		,t.c.value('@Recommend', 'INT') AS Recommend
 		,t.c.value('@Mrecommend', 'INT') AS Mrecommend
@@ -97,6 +91,9 @@ BEGIN
 		,t.c.value('@Content_vn', 'NVARCHAR(4000)') AS Content_vn
 		,t.c.value('@Type', 'TINYINT') AS [Type]
 	FROM @XmlData.nodes('root/r') t(c)
+		OUTER APPLY (
+			SELECT f.val FROM dbo.f_CRM_strSplit(t.c.value('@UsernameList', 'NVARCHAR(MAX)'), ',') f
+		) l(Username)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 	IF @@ROWCOUNT = 0
@@ -352,19 +349,6 @@ BEGIN
 			FROM #ImportMessage m
 			WHERE r.MessageId = m.MessageId
 		) m
-
-	-- Update Username List of abnormal accounts (Type = 2)
-	;WITH CTE AS
-	(
-		SELECT mr.MessageID, STUFF((SELECT DISTINCT ',' + Username FROM #MessageRequest m WHERE m.MessageID = mr.MessageID FOR XML PATH('')), 1, 1, '') AS UsernameList
-		FROM #MessageRequest mr
-		GROUP BY mr.MessageID
-	)
-	UPDATE r
-		SET r.AffectedList = e.UsernameList
-	FROM #Result r
-		INNER JOIN CTE e ON e.MessageID = r.MessageId
-	WHERE r.[Type] = 2
 	
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT

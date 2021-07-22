@@ -1,6 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-USE bodb_CRM
-GO 
 ALTER PROCEDURE [dbo].[Acc_Crm_Rpt_CustomerReport]
 	@UserName 				NVARCHAR(100) = '',
 	@LanguageID				VARCHAR(1000) = NULL,	
@@ -28,6 +26,7 @@ Revisions:
 	- 20160914@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067	
 	- 20170911@Winnie: Get Checker from NAP RedmineID #82040
 	- 20190715@Winnie: Get CN88's customer status [RedmineId: #112637]
+	- 20210616@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
 Param's Explanation:
 declare @p1 int
 set @p1=9608
@@ -286,9 +285,14 @@ BEGIN
 			c.Birthday,
 			c.Passport,
 			site.SiteName,
-			CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
-				 WHEN ISNULL(reject,0)=1 THEN 'Suspended'
-				 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+			CASE WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+				WHEN ((s.custid IS NOT NULL AND ISNULL(closed,0)=1)
+						OR (s.custid IS NULL AND ISNULL(CloseInfo,0) > 0)
+						) THEN 'Closed' 
+				 WHEN ((s.custid IS NOT NULL AND ISNULL(reject,0)=1)
+						OR (s.custid IS NULL AND ISNULL(SuspendInfo,0) > 0)
+						) THEN 'Suspended'
+				 WHEN s.custid IS NULL AND ISNULL(ps.Locked,0) > 0 THEN 'Locked'
 				 ELSE 'Active' END AS Status,
 			ct.CountryName,
 			ch.username AS Checker,
@@ -305,6 +309,8 @@ BEGIN
 	LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker
 	LEFT JOIN #tempHeadline hed ON cus.groupID=hed.groupID
 	LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
+	LEFT JOIN bodb02.dbo.Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
+	LEFT JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) on c.custid = ps.custid	
 	OUTER APPLY(
 		SELECT Stuff((SELECT ',' + lang.Name
 					 FROM  crmCustomerLanguage(nolock) clang
@@ -403,9 +409,14 @@ BEGIN
 			c.Birthday,
 			c.Passport,
 			site.SiteName,		
-			CASE WHEN ISNULL(closed,0)=1 THEN 'Closed' 
-				 WHEN ISNULL(reject,0)=1 THEN 'Suspended'
-				 WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+			CASE WHEN ISNULL(Enabled,1)=0 THEN 'Disabled'
+				WHEN ((s.custid IS NOT NULL AND ISNULL(closed,0)=1)
+						OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) > 0)
+						) THEN 'Closed' 
+				 WHEN ((s.custid IS NOT NULL AND ISNULL(reject,0)=1)
+						OR (s.custid IS NULL AND ISNULL(ps.SuspendInfo,0) > 0)
+						) THEN 'Suspended'
+				 WHEN s.custid IS NULL AND ISNULL(ps.Locked,0) > 0 THEN 'Locked'
 				 ELSE 'Active' END AS Status,
 			ct.CountryName ,
 			ch.username AS Checker,
@@ -422,6 +433,8 @@ BEGIN
 	LEFT JOIN  bodb02.dbo.Customer Ch WITH(NOLOCK) ON Ch.CustID=cus.checker
 	LEFT JOIN #tempHeadline hed  ON cus.groupID=hed.groupID 
 	LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.CountryID=ct.CountryID
+	LEFT JOIN bodb02.dbo.Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
+	LEFT JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) on c.custid = ps.custid	
 	OUTER APPLY(
 		SELECT Stuff((SELECT ',' + lang.Name
 					 FROM  crmCustomerLanguage(nolock) clang

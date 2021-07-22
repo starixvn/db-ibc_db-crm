@@ -19,6 +19,7 @@ AS
 		- 20190708@Elodie: Get CN88's customer status [RedmineId: #112637]
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 		- 20200320@Tim: fix bug get headline [RedmineId: #129144]
+		- 20210705@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
 	Param's Explanation:	
 */
 BEGIN
@@ -86,14 +87,18 @@ BEGIN
 				,ci.CustID
 				,ci.roleid
 				,CASE 
-					WHEN ci.Closed = 0
-						AND ISNULL(ci.reject, 0) = 0 THEN 'Active'
-					WHEN ci.Closed = 0
-						AND ISNULL(ci.reject, 0) = 1 THEN 'Suspended'
-					WHEN ci.Closed = 1 THEN 'Closed'
+					WHEN (s.custid IS NOT NULL AND ci.Closed = 1)
+						OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) > 0) THEN 'Closed'
+					WHEN (s.custid IS NOT NULL AND ci.Closed = 0 AND ISNULL(ci.reject, 0) = 1)
+						OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) = 0 AND ISNULL(ps.SuspendInfo,0) >0) THEN 'Suspended'
+					WHEN s.custid IS NULL AND ISNULL(ps.Locked,0) > 0 THEN 'Locked'	
+					WHEN (s.custid IS NOT NULL AND ci.Closed = 0 AND ISNULL(ci.reject, 0) = 0)
+						OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) =0 AND ISNULL(ps.SuspendInfo,0)=0) THEN 'Active'
 					END AS CustStatus
 				,NULL AS Locked
 			FROM bodb02.dbo.custinfo ci WITH (NOLOCK)
+				LEFT JOIN bodb02.dbo.Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
+				LEFT JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) ON ci.custid = ps.custid
 			WHERE ci.CustID IN (@srecommend, @mrecommend, @recommend)
 			
 			UNION ALL
@@ -101,11 +106,12 @@ BEGIN
 				,h.CustID
 				,7006 AS RoleID
 				,CASE 
-					WHEN h.Closed = 0
-						AND ISNULL(h.reject, 0) = 0 THEN 'Active'
-					WHEN h.Closed = 0
-						AND ISNULL(h.reject, 0) = 1 THEN 'Suspended'
-					WHEN h.Closed = 1 THEN 'Closed'
+					WHEN ISNULL(h.CloseInfo,0) > 0 THEN 'Closed'
+					WHEN ISNULL(h.CloseInfo,0) = 0
+						AND ISNULL(h.SuspendInfo, 0) > 0 THEN 'Suspended'
+					WHEN ISNULL(h.Locked,0) > 0 THEN 'Locked'	
+					WHEN ISNULL(h.CloseInfo,0) = 0
+						AND ISNULL(h.SuspendInfo, 0) = 0 THEN 'Active'
 					END AS CustStatus
 				,NULL AS Locked
 			FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
@@ -115,10 +121,12 @@ BEGIN
 				CROSS APPLY (
 				SELECT ci.custid
 					,ci.username
-					,ci.closed
-					,ci.reject
+					,ps.CloseInfo
+					,ps.SuspendInfo
+					,ps.Locked
 				FROM bodb02.dbo.custAccount AS h WITH (NOLOCK)
 					INNER JOIN bodb02.dbo.custInfo AS ci WITH (NOLOCK) ON h.custid = ci.custid
+					INNER JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) ON ps.custid = ci.custid
 				WHERE upline.groupID = h.groupID
 					AND h.IsGroupHeadLine = 1
 					AND NOT EXISTS (

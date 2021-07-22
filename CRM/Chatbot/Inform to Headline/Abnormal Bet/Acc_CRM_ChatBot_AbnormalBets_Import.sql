@@ -24,7 +24,7 @@ AS
 				<r MessageID="2" UsernameList="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
 			</root>
 				+ Type = 1 : get member of tickets belong to abnormal bets
-				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MAX(IsTest) of member have tickets voided
+				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MIN(IsTest) of member have tickets voided
 		- @Messages:
 			<root>
 				<r MessageID="1" RequestID="1"/>

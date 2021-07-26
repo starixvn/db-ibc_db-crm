@@ -13,7 +13,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicIns]
 AS
 /*
 Created: 20200506@Malcolm
-Task :  CRM - Staff/Boss Management of headline
+Task :  CRM - PIC and Headlin -> PIC Management -> Insert
 DB: DBCRM/bodb_CRM
 Original:
 
@@ -37,7 +37,6 @@ BEGIN
 	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @RecipientTypeId INT
 
 	DECLARE  @NewValues NVARCHAR(MAX), @PicID INT = 0, @Username NVARCHAR(200)
-
 
 	CREATE TABLE #input
 	(	
@@ -115,7 +114,25 @@ BEGIN
 
 	-- Insert Into crmRecipient Table 
 	BEGIN TRY
-		SELECT @RecipientTypeId = RecipientTypeId FROM dbo.crmRecipientType WITH(NOLOCK) WHERE RecipientTypeName = 'PIC of headline'
+
+		DECLARE @RecipientTypeName VARCHAR(200) = ''
+
+		SELECT @RecipientTypeName = t.SettingValue
+		FROM dbo.crmSetting s WITH(NOLOCK)
+			INNER JOIN dbo.crmSettingRelation r WITH(NOLOCK) ON r.SettingID = s.SettingID
+			INNER JOIN dbo.crmSetting t WITH(NOLOCK) ON t.SettingID = r.ParentID
+		WHERE s.SettingID = @Role AND t.SettingName = 'PICType'
+
+		SELECT @RecipientTypeId = RecipientTypeId FROM dbo.crmRecipientType WITH(NOLOCK) WHERE RecipientTypeName = @RecipientTypeName
+
+		IF @RecipientTypeId IS NULL
+		BEGIN
+			SELECT  @ErrCode = 100,@ErrMsg = 'Recipient type does not exist. Please check again!'
+
+			DELETE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
+			WHERE PicID = @PicID
+			RETURN
+		END
 
 		INSERT INTO dbo.crmRecipient (RecipientTypeId, SourceId, DataSource)
 		VALUES(@RecipientTypeId, @PicID, 'bodb_CRM.dbo.crmPIC')

@@ -9,13 +9,14 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicManagementSel]
 AS
 /*
 Created: 20200506@Malcolm
-Task :  CRM - Staff/Boss Management of headline
+Task :  CRM - PIC and Headline -> PIC Management
 DB: DBCRM/bodb_CRM
 Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200814@Malcolm: Sort Ouput by IsActive ,Username [Redmine: #137144]
+		- 20210726@Malcolm: Get Pic type [RedmineId : #151509]
 	Param's Explanation:	
 		
 */
@@ -81,9 +82,7 @@ BEGIN
 			WHERE c.username  LIKE '%' + @HeadlineName + '%' AND t.PicID = h.PicID)
 	END
 
-	SELECT  @TotalRows = COUNT(*)  FROM #Tmp
-
-
+	SELECT  @TotalRows = COUNT(1)  FROM #Tmp
 
 	INSERT INTO #TmpLanguage
 	(
@@ -125,6 +124,7 @@ BEGIN
 			Username,
 			GroupHeadline,
 			t.Role						AS [RoleID],
+			pt.SettingValue				AS [PicType],
 			ISNULL(s.SettingValue,'')	AS [RoleName], 			
 			ISNULL(l.Language,'')		AS [Language],
 			ISNULL(c.CountryName,'')	AS CountryName,
@@ -133,14 +133,17 @@ BEGIN
 			t.Remark,
 			t.RowNum
 	FROM #Tmp t
-	LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.Role 
-	LEFT JOIN dbo.crmCountry c WITH(NOLOCK) ON c.CountryID = t.Country 
-	OUTER APPLY(
-	    SELECT CONVERT(XML,(SELECT  l.SettingID AS '@Id',  l.SettingValue AS '@Value'
-		FROM #TmpLanguage l WITH(NOLOCK) 
-		WHERE ',' + t.Language + ',' LIKE '%,' + CONVERT(VARCHAR(20),l.SettingID) + ',%' 
-		FOR XML PATH('Setting'),ROOT('ROOT')))
-	) AS l(Language)
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.Role 
+		INNER JOIN dbo.crmSettingRelation csr WITH(NOLOCK) ON csr.SettingID = s.SettingID
+		INNER JOIN dbo.crmSetting pt WITH(NOLOCK) ON pt.SettingID = csr.ParentID 
+		LEFT JOIN dbo.crmCountry c WITH(NOLOCK) ON c.CountryID = t.Country 
+		OUTER APPLY(
+			SELECT CONVERT(XML,(SELECT  l.SettingID AS '@Id',  l.SettingValue AS '@Value'
+			FROM #TmpLanguage l WITH(NOLOCK) 
+			WHERE ',' + t.Language + ',' LIKE '%,' + CONVERT(VARCHAR(20),l.SettingID) + ',%' 
+			FOR XML PATH('Setting'),ROOT('ROOT')))
+		) AS l(Language)
+	WHERE pt.SettingName = 'PICType'
 	ORDER BY IsActive DESC, Username
 
 	SELECT p.PicID, 

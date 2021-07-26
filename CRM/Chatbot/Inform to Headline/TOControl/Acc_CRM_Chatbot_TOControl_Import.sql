@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20201104@Malcolm: Initialize SP [RedmineID: #146735]
+		- 20210726@Malcolm: Change data type of logId [RedmineID: #157303]
 
 	Param's Explanation:
 		. @XmlData
@@ -233,7 +234,7 @@ BEGIN
 	-- Get Recipient
 	CREATE TABLE #LogRecipient
 	(
-		LogId				INT
+		LogId				BIGINT
 		,Username			VARCHAR(30)
 		,DirectAccount		INT
 		,HeadlineId			INT
@@ -259,7 +260,7 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (LogId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.LogId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
@@ -290,7 +291,7 @@ BEGIN
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
-	CREATE TABLE #tmpResult (LogId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT)
+	CREATE TABLE #tmpResult (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT)
 	INSERT INTO #tmpResult (LogId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId)
 	SELECT m.LogId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId
 	FROM #LogRecipient m

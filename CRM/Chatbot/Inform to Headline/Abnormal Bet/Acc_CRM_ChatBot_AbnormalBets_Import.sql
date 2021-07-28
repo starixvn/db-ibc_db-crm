@@ -15,7 +15,8 @@ AS
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20201116@Malcolm: Change the MessageID column to the ReferenceId column [RedmineID: #144265]
-		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20210728@Malcolm: Get notification template for abnormal bets [RedmineID: #157303]
+		- 20210729@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 
 	Param's Explanation:
 		- @XmlData

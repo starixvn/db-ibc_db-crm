@@ -7,9 +7,9 @@
 */
 
 UPDATE SystemSetting WITH(ROWLOCK)
-	SET Value = '71296'
+	SET Value = '71408'
 WHERE ServiceName = 'ChatBot - CWL' AND SettingName = 'LastLogIdUAT'
 
-UPDATE SystemSetting
-	SET Value = '3761'
+UPDATE SystemSetting WITH(ROWLOCK)
+	SET Value = '3767'
 WHERE ServiceName = 'ChatBot - TOControl' AND SettingName = 'LastLogIdUAT'

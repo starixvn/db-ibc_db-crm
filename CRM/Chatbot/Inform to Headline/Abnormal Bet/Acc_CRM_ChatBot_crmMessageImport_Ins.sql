@@ -42,8 +42,8 @@ BEGIN
 	WHILE @i < @maxTry
 	BEGIN
 		BEGIN TRY
-			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, UsernameList, CustIdList, CreatedDate)
-			SELECT m.MessageId, m.RequestId, m.UsernameList, m.CustIdList, GETDATE()
+			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, UsernameList, CustIdList, CreatedDate, IsProcessed)
+			SELECT m.MessageId, m.RequestId, m.UsernameList, m.CustIdList, GETDATE(), CASE WHEN m.UsernameList IS NOT NULL AND m.UsernameList <> '' THEN 1 ELSE 0 END AS isProcessed
 			FROM #Messages m
 				OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
 			WHERE cm.MessageId IS NULL

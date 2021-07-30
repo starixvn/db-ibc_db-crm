@@ -26,6 +26,7 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
+	DECLARE @StartData DATETIME = GETDATE(), @EndTime DATETIME, @SessionId INT = @@SPID
 
 	CREATE TABLE #Messages (MessageId INT, RequestId INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))
 	INSERT INTO  #Messages (MessageId, RequestId, UsernameList, CustIdList)
@@ -37,12 +38,16 @@ BEGIN
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
+	INSERT INTO MonDB.dbo.crmMessageImportLog(XmlData, StartDate, SessionId, Comment) VALUES (@Messages, @StartData, @SessionId, 'Start')
+
 	DECLARE @i TINYINT = 0, @maxTry TINYINT = 5, @msg VARCHAR(1024) = ''
 
 	WHILE @i < @maxTry
 	BEGIN
 		BEGIN TRY
 			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, UsernameList, CustIdList, CreatedDate, IsProcessed)
+			OUTPUT inserted.MessageID, inserted.RequestID, inserted.UsernameList, inserted.CustIdList, inserted.CreatedDate, @Messages, @i, @StartData, @SessionId, 'In progress'
+				INTO MonDB.dbo.crmMessageImportLog (MessageID, RequestID, UsernameList, CustIdList, CreatedDate, XmlData, Retry, StartDate, SessionId, Comment)
 			SELECT m.MessageId, m.RequestId, m.UsernameList, m.CustIdList, GETDATE(), CASE WHEN m.UsernameList IS NOT NULL AND m.UsernameList <> '' THEN 1 ELSE 0 END AS isProcessed
 			FROM #Messages m
 				OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
@@ -53,6 +58,7 @@ BEGIN
 				SET @i = @i + 1
 			ELSE
 				SET @i = @maxTry
+			INSERT INTO MonDB.dbo.crmMessageImportLog (XmlData, Retry, Comment, SessionId) VALUES (@Messages, @i, 'Error', @SessionId)
 
 			SET @msg = ERROR_MESSAGE()
 		END CATCH
@@ -60,6 +66,8 @@ BEGIN
 		IF @msg = ''
 			BREAK
 	END
+
+	INSERT INTO MonDB.dbo.crmMessageImportLog(XmlData, EndData, SessionId, Comment) VALUES (@Messages, @EndTime, @SessionId, 'End')
 
 	IF ISNULL(@msg, '') <> ''
 	BEGIN

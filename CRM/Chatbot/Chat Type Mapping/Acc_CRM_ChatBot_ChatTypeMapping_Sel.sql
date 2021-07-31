@@ -50,6 +50,7 @@ BEGIN
 		 ,Remark				NVARCHAR(2000)
 		 ,MappingStatusID       INT
 		 ,RowNum                INT
+		 ,Type					TINYINT DEFAULT (0) -- 1 For Accounting Pic
 	)
 
 	INSERT INTO #Tmp
@@ -86,6 +87,21 @@ BEGIN
 		AND (cg.LanguageId = @LanguageId OR @LanguageId IS NULL)
 		AND (cgb.BotId = @BotId OR @BotId IS NULL)
 
+	-- Get Group of Accounting PIC
+	CREATE TABLE #AccGroup (ConversationGroupId SMALLINT)
+	INSERT INTO #AccGroup (ConversationGroupId)
+	SELECT DISTINCT g.ConversationGroupId
+	FROM dbo.crmConversationGroup g WITH(NOLOCK)
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
+		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
+		INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
+	WHERE rt.RecipientTypeName = 'Accounting PIC'
+
+	UPDATE t
+		SET t.[Type] = 1
+	FROM #Tmp t
+	WHERE EXISTS (SELECT 1 FROM #AccGroup g WHERE g.ConversationGroupId = t.ConversationGroupId)
+
 	IF @Headline <> ''
 	BEGIN
 		INSERT INTO #HeadlineId (ID)
@@ -104,7 +120,7 @@ BEGIN
 				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
 					INNER JOIN #HeadlineId h ON h.Id = gh.HeadlineId
 				WHERE t.ConversationGroupId = gh.ConversationGroupId
-		)
+		)  AND t.Type <> 1
 	END
 
 	IF @RecipientName <> ''
@@ -154,10 +170,9 @@ BEGIN
 			)
 			AND NOT EXISTS (
 				SELECT 1
-				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
-				WHERE gh.ConversationGroupId = t.ConversationGroupId
-			)
+				FROM dbo.crmConversationGroupRecipient gr WITH(NOLOCK) 
+				WHERE gr.ConversationGroupId = t.ConversationGroupId
+			) 
 	END
 
 	IF ',' + @MappingStatus + ',' NOT LIKE '%,2,%'--Mapped
@@ -172,9 +187,8 @@ BEGIN
 			)
 			AND EXISTS (
 				SELECT 1
-				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
-				WHERE gh.ConversationGroupId = t.ConversationGroupId
+				FROM dbo.crmConversationGroupRecipient gr WITH(NOLOCK)
+				WHERE gr.ConversationGroupId = t.ConversationGroupId
 			)
 	END
 	
@@ -224,9 +238,8 @@ BEGIN
 			)
 			AND NOT EXISTS (
 				SELECT 1
-				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
-				WHERE gh.ConversationGroupId = t.ConversationGroupId
+				FROM dbo.crmConversationGroupRecipient gr WITH(NOLOCK)
+				WHERE gr.ConversationGroupId = t.ConversationGroupId
 			)
 	END
 
@@ -243,9 +256,8 @@ BEGIN
 			)
 			AND EXISTS (
 				SELECT 1
-				FROM dbo.crmConversationGroupHeadline gh WITH(NOLOCK)
-					INNER JOIN dbo.crmConversationGroupRecipient gr WITH(NOLOCK) ON gr.ConversationGroupId = gh.ConversationGroupId
-				WHERE gh.ConversationGroupId = t.ConversationGroupId
+				FROM dbo.crmConversationGroupRecipient gr WITH(NOLOCK)
+				WHERE gr.ConversationGroupId = t.ConversationGroupId
 			)
 	END
 
@@ -272,6 +284,28 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupHeadline gh WITH(NOLOCK) ON gh.ConversationGroupId = t.ConversationGroupId 
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON gh.HeadlineId = c.custid
 
+	UNION ALL
+
+	SELECT t.ConversationGroupId, cgh.CustID, ISNULL(c.username,'Not Assigned Group') AS HeadlineName 
+	FROM #Tmp t
+		CROSS APPLY bodb02.dbo.custAccount ca WITH(NOLOCK)
+		INNER JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.GroupID = ca.groupID
+		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = ca.CustID
+	WHERE t.Type = 1 AND c.site <> 'CN88'
+
+	UNION ALL 
+
+	SELECT t.ConversationGroupId, 'Not Assigned Group'
+	FROM #Tmp t 
+	WHERE t.Type = 1
+	AND EXISTS (
+		SELECT 1
+		FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)
+			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = cda.CustID
+			LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
+		WHERE ca.custid IS NULL OR ca.groupID = 0 AND c.site <> 'CN88'
+	)
+	
 	SELECT 
 		cgr.RecipientId
 		,p.Username AS RecipientName
@@ -289,7 +323,7 @@ BEGIN
 		LEFT JOIN dbo.crmPICCommunication cm WITH(NOLOCK) ON p.PicID = cm.PicID AND cm.CommunicationID = @PICCommunicationLetStalkId
 
 	DROP TABLE #Tmp
-
+	DROP TABLE #AccGroup
 	DROP TABLE #HeadlineId
 END
 GO

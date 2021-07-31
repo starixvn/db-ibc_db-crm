@@ -18,6 +18,7 @@ Original:
 	Revisions:
 		- 20200724@Malcolm: Get log of PIC [Redmine: #137144]
 		- 20210726@Malcolm: Get pic type [Redmine: #151509]
+		- 20210731@Malcolm: Get pic type [RedmineId : #151509] 
 	Param's Explanation:
 
 		
@@ -55,6 +56,7 @@ BEGIN
 		EditBy,
 		PIC, 
 		Role,
+		[Type],
 		ActionId,
 		NewValues,
 		OldValues,
@@ -65,7 +67,8 @@ BEGIN
 		DATEADD(HOUR,12,r.LogDate) AS LogDate, 
 		c.username AS Edit_By, 
 		p.Username AS PIC, 
-		p.Role,
+		p.[Role],
+		p.[Type],
 		r.ActionID,
 		r.NewValues,
 		r.OldValues,
@@ -97,9 +100,7 @@ BEGIN
 		t.OldValues
 	FROM @Tmp t
 		INNER JOIN dbo.crmLogAction a WITH(NOLOCK) ON t.ActionID = a.ActionID
-		INNER JOIN dbo.crmSettingRelation csr WITH(NOLOCK) ON csr.SettingID = t.Role
-		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = csr.ParentID
-	WHERE s.SettingName = 'PICType'
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.[Type]
 	ORDER BY t.LogDate DESC, t.LogID DESC
 
 END

@@ -353,11 +353,18 @@ BEGIN
 		INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
 	WHERE rt.RecipientTypeName = 'Accouting PIC' AND g.ChatTypeId = 2 -- Personal
 
+	CREATE TABLE #DirectAccount (CustId INT PRIMARY KEY CLUSTERED)
+	INSERT INTO #DirectAccount (CustId)
+	SELECT cda.CustID
+	FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)
+		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
+	WHERE c.site <> 'CN88'
+
 	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, PICTye)
 	SELECT t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, t.Username, ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, 1
 	FROM @Group g 
 		CROSS JOIN #TicketData t 
-		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH(NOLOCK) ON cda.CustID IN (t.CustId, t.Recommend, t.Mrecommend, t.Srecommend)
+		INNER JOIN #DirectAccount cda WITH(NOLOCK) ON cda.CustID IN (t.CustId, t.Recommend, t.Mrecommend, t.Srecommend)
 		LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = cda.CustID
 		LEFT JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.GroupID = ca.groupID
 	
@@ -638,6 +645,7 @@ BEGIN
 	DROP TABLE #NotificationTemplate
 	DROP TABLE #Result
 	DROP TABLE #tmpGroup
+	DROP TABLE #DirectAccount
 	DROP TABLE #tmpResult
 END
 GO

@@ -2,6 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_PicUpd]
 	@PicID					INT,
 	@PicName				NVARCHAR(200),
+	@Type					INT,
 	@Role					INT,
 	@Remark					NVARCHAR(1000),
 	@Language				VARCHAR(200),
@@ -14,7 +15,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_PicUpd]
 AS
 /*
 Created: 20200506@Malcolm
-Task :  CRM - Staff/Boss Management of headline
+Task : CRM - PIC and Headlin -> PIC Management -> Edit
 DB: DBCRM/bodb_CRM
 Original:
 
@@ -22,6 +23,7 @@ Original:
 		- 20200506@Malcolm: Update information of PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
 		- 20200916@Malcolm : Update chat Type mapping [Redmine : #130544]
+		- 20210731@Malcolm : Add pic type [RedmineId : #151509] 
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -38,11 +40,11 @@ BEGIN
 	
 	DECLARE @idoc INT
 
-	DECLARE	@NewValues NVARCHAR(MAX),@OldValues NVARCHAR(MAX), @CountryXML XML, @LanguageXML XML,@RoleXML XML
+	DECLARE	@NewValues NVARCHAR(MAX),@OldValues NVARCHAR(MAX), @CountryXML XML, @LanguageXML XML, @RoleXML XML, @TypeXML XML
 	
-	DECLARE @CountryXML_Old XML, @LanguageXML_Old XML, @RoleXML_Old XML
+	DECLARE @CountryXML_Old XML, @LanguageXML_Old XML, @RoleXML_Old XML, @TypeXML_Old XML
 
-	DECLARE @Role_Old INT, @Country_Old INT, @Language_Old VARCHAR(200), @Remark_Old NVARCHAR(1000), @PicName_Old NVARCHAR(200)
+	DECLARE @Role_Old INT, @Type_Old INT, @Country_Old INT, @Language_Old VARCHAR(200), @Remark_Old NVARCHAR(1000), @PicName_Old NVARCHAR(200)
 
 	DECLARE @Tmp TABLE (PicID INT, CommunicationID INT, CommunicationValue NVARCHAR(200))
 
@@ -85,16 +87,17 @@ BEGIN
 	SELECT @Remark  = ISNULL(@Remark,''), @Language  = ISNULL(@Language,'')
 
 	SELECT	@Role_Old		= Role,
+			@Type_Old		= [Type],
 			@Remark_Old		= Remark,
 			@PicName_Old	= Username,
 			@Country_Old	= Country,
 			@Language_Old	= Language			
-	FROM crmPIC WITH(NOLOCK)
+	FROM dbo.crmPIC WITH(NOLOCK)
 	WHERE PicID = @PicID
 
 	INSERT INTO @Tmp (PicID, CommunicationID, CommunicationValue)
 	SELECT pc.PicID, pc.CommunicationID, pc.CommunicationValue
-	FROM crmPICCommunication pc WITH(NOLOCK)
+	FROM dbo.crmPICCommunication pc WITH(NOLOCK)
 	WHERE pc.PicID = @PicID
 
 	SELECT @RoleXML_Old = (
@@ -102,6 +105,12 @@ BEGIN
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID = @Role_Old
 				FOR XML PATH('Role'))
+
+	SELECT @TypeXML_Old = (
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
+				FROM dbo.crmSetting WITH(NOLOCK) 
+				WHERE SettingID = @Type_Old
+				FOR XML PATH('Type'))
 
 	SELECT @CountryXML_Old = (
 				SELECT CountryID AS '@Id', CountryName AS '@Name' 
@@ -118,6 +127,7 @@ BEGIN
 	SELECT @OldValues =	CAST((SELECT	@PicName_Old    AS '@PicName',
 										@Remark_Old	  	AS '@Remark',
 										@RoleXML_Old,
+										@TypeXML_Old,
 										@CountryXML_Old,
 										@LanguageXML_Old,
 										(
@@ -280,6 +290,12 @@ BEGIN
 				WHERE SettingID = @Role
 				FOR XML PATH('Role'))
 
+	SELECT @TypeXML = (
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
+				FROM crmSetting WITH(NOLOCK) 
+				WHERE SettingID = @Role
+				FOR XML PATH('Type'))
+
 	SELECT @CountryXML = (
 				SELECT CountryID AS '@Id', CountryName AS '@Name' 
 				FROM crmCountry WITH(NOLOCK) 
@@ -295,6 +311,7 @@ BEGIN
 	SELECT @NewValues =	CAST((SELECT	@PicName        AS '@PicName',
 										@Remark	  		AS '@Remark',
 										@RoleXML,
+										@TypeXML,
 										@CountryXML,
 										@LanguageXML,								
 										(

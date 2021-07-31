@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PicIns]	
 	@PicName				NVARCHAR(200),
+	@Type					INT,			
 	@Role					INT,
 	@Remark					NVARCHAR(1000),
 	@Language				VARCHAR(200),
@@ -13,7 +14,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicIns]
 AS
 /*
 Created: 20200506@Malcolm
-Task :  CRM - PIC and Headlin -> PIC Management -> Insert
+Task : CRM - PIC and Headlin -> PIC Management -> Insert
 DB: DBCRM/bodb_CRM
 Original:
 
@@ -21,6 +22,7 @@ Original:
 		- 20200506@Malcolm: insert a new PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
 		- 20200921@Malcolm : New PIC shall be inserted in table crmRecipient[RedmineId : #130544] 
+		- 20210731@Malcolm : Add pic type [RedmineId : #151509] 
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -34,7 +36,7 @@ BEGIN
 	IF ISNULL(@CommunicationTools,'') = ''
 		RETURN
 	
-	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @RecipientTypeId INT
+	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @TypeXML XML, @RecipientTypeId INT
 
 	DECLARE  @NewValues NVARCHAR(MAX), @PicID INT = 0, @Username NVARCHAR(200)
 
@@ -80,12 +82,13 @@ BEGIN
 		(
 			Username, 
 			Role,
+			[Type],
 			Language,
 			Country,
 			IsActive,
 			Remark
 		)
-		VALUES(	@PicName, @Role, @Language, @Country, 1, @Remark)
+		VALUES(	@PicName, @Role, @Type, @Language, @Country, 1, @Remark)
 		
 		SET @PicID = SCOPE_IDENTITY();
 
@@ -117,18 +120,16 @@ BEGIN
 
 		DECLARE @RecipientTypeName VARCHAR(200) = ''
 
-		SELECT @RecipientTypeName = t.SettingValue
-		FROM dbo.crmSetting s WITH(NOLOCK)
-			INNER JOIN dbo.crmSettingRelation r WITH(NOLOCK) ON r.SettingID = s.SettingID
-			INNER JOIN dbo.crmSetting t WITH(NOLOCK) ON t.SettingID = r.ParentID
-		WHERE s.SettingID = @Role AND t.SettingName = 'PICType'
+		SELECT @RecipientTypeName = SettingValue FROM dbo.crmSetting WITH(NOLOCK) WHERE SettingID = @Type
+
+		IF @RecipientTypeName = 'Headline PIC'
+			SET @RecipientTypeName = 'PIC of headline'
 
 		SELECT @RecipientTypeId = RecipientTypeId FROM dbo.crmRecipientType WITH(NOLOCK) WHERE RecipientTypeName = @RecipientTypeName
 
 		IF @RecipientTypeId IS NULL
 		BEGIN
-			SELECT  @ErrCode = 100,@ErrMsg = 'Recipient type does not exist. Please check again!'
-
+			SELECT @ErrCode = 100, @ErrMsg = 'Recipient type does not exist. Please check again!'
 			DELETE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
 			WHERE PicID = @PicID
 			RETURN
@@ -139,19 +140,23 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT  @ErrCode = ERROR_NUMBER(),@ErrMsg = ERROR_MESSAGE()
-
 		DELETE dbo.crmPIC WITH(ROWLOCK, UPDLOCK)
 		WHERE PicID = @PicID
 		RETURN
 	END CATCH
 	
 	--Write log
-
 	SELECT @RoleXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID = @Role
 				FOR XML PATH('Role'))
+
+	SELECT @TypeXML = (
+				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
+				FROM crmSetting WITH(NOLOCK) 
+				WHERE SettingID = @Type
+				FOR XML PATH('PICType'))
 
 	SELECT @CountryXML = (
 				SELECT CountryID AS '@Id', CountryName AS '@Name' 
@@ -168,6 +173,7 @@ BEGIN
 	SELECT @NewValues =	CAST((SELECT	@PicName        AS '@PicName',
 										@Remark	  		AS '@Remark',
 										1               AS '@Active',
+										@TypeXML,
 										@RoleXML,
 										@CountryXML,
 										@LanguageXML,								

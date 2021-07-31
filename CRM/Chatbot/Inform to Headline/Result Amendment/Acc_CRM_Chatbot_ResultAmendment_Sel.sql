@@ -25,25 +25,52 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #TicketDetail (TicketId INT, CustId INT, TicketEventId INT)
-	INSERT INTO #TicketDetail (TicketId, CustId, TicketEventId)
-	SELECT TOP(@BatchSize) d.TicketId, d.CustId, d.TicketEventId
-	FROM dbo.TicketAmendment_Detail d WITH(NOLOCK)
+	DECLARE @NRows INT = 0
+
+	CREATE TABLE #TicketDetail (TicketId INT, CustId INT, TicketEventId INT, Seq INT)
+	INSERT INTO #TicketDetail (TicketId, CustId, TicketEventId, Seq)
+	SELECT TOP(@BatchSize) d.TicketId, d.CustId, d.TicketEventId, d.Seq
+	FROM dbo.TicketAmendment_Detail d WITH(NOLOCK) -- TicketAmendment_Event
 		INNER JOIN dbo.TicketAmendment_Event e WITH(NOLOCK) ON e.TicketEventId = d.TicketEventId
 	WHERE e.SubmitDate > @SubmitDate OR (e.SubmitDate = @SubmitDate AND d.Seq > @Seq)
+	ORDER BY e.SubmitDate ASC, e.TicketEventId ASC, d.Seq
 
-	DECLARE @EventId TABLE (TicketEventId INT)
+	SELECT @NRows = @@ROWCOUNT
+
+	DECLARE @EventId TABLE (TicketEventId INT PRIMARY KEY CLUSTERED)
 	INSERT INTO @EventId (TicketEventId)
 	SELECT DISTINCT TicketEventId
 	FROM #TicketDetail
 
-	IF EXISTS (
+	IF EXISTS 
+	(
 		SELECT 1 
 		FROM dbo.TicketAmendment_Event e WITH(NOLOCK)
 			INNER JOIN @EventId i ON i.TicketEventId = e.TicketEventId
 		WHERE e.Status IS NULL
-	) 
+	) OR @NRows = 0
 	BEGIN
+		SELECT TOP(0) '' AS TicketId, '' AS TicketEventId,'' AS Seq, '' AS Username, '' AS CustId, '' AS Recommend, '' AS Mrecommend, '' AS Srecommend, '' AS IsTest
+
+		SELECT TOP(0)
+			'' AS TicketEventId	
+			,'' AS ProductId		
+			,'' AS MatchId		
+			,'' AS MatchCode		
+			,'' AS EventType		
+			,'' AS EventDate
+			,'' AS SubmitDate
+			,'' AS ActualResult	
+			,'' AS WrongResult	
+			,'' AS Status			
+			,'' AS MessageId				
+			,'' AS Sporttype	    
+			,'' AS HomeId			
+			,'' AS AwayId			
+			,'' AS LeagueId	
+			,'' AS Type
+
+		SELECT TOP(0) '' AS TicketEventId, '' AS MessageId
 		RETURN
 	END
 
@@ -79,11 +106,7 @@ BEGIN
 		,WrongResult	
 		,Status			
 		,MessageId		
-		,SubmitDate		
-		,Sporttype	    
-		,HomeId			
-		,AwayId			
-		,LeagueId		
+		,SubmitDate			
 	)
 	SELECT	 
 		e.TicketEventId	
@@ -109,7 +132,7 @@ BEGIN
 		WHERE e.EventType = 1
 
 		UPDATE e
-			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.LeagueId, e.Sporttype = m.Sporttype, e.MatchCode = m.matchcode
+			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.LeagueId, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
 		FROM #TicketEvent e
 			INNER JOIN dbo.match14 m WITH(NOLOCK) ON m.matchid = e.MatchId
 		WHERE e.EventType = 1
@@ -121,13 +144,21 @@ BEGIN
 			SET e.Sporttype = vs.SportType
 		FROM #TicketEvent e
 			INNER JOIN dbo.VSRaceInfo vs WITH(NOLOCK) ON vs.EventID = e.MatchId
-		WHERE e.EventType = 1
+		WHERE e.EventType = 3
 
 		UPDATE e
 			SET e.Sporttype = vs.SportType
 		FROM #TicketEvent e
 			INNER JOIN dbo.VSRaceInfo14 vs WITH(NOLOCK) ON vs.EventID = e.MatchId
-		WHERE e.EventType = 1
+		WHERE e.EventType = 3
+	END
+
+	IF EXISTS (SELECT 1 FROM #TicketEvent WHERE EventType = 0)
+	BEGIN
+		UPDATE t
+			SET t.Sporttype = t.MatchId
+		FROM #TicketEvent t
+		WHERE EventType = 0
 	END
 
 	-- Update template
@@ -140,12 +171,12 @@ BEGIN
 				     END
 	FROM #TicketEvent t
 
-	SELECT t.TicketId, t.TicketEventId, n.Username, t.CustId, n.Recommend, n.Mrecommend, n.Srecommend, n.IsTest
+	SELECT t.TicketId, t.TicketEventId, t.Seq, n.Username, t.CustId, n.Recommend, n.Mrecommend, n.Srecommend, n.IsTest
 	FROM #TicketDetail t
 	CROSS APPLY
 	(
 		SELECT TOP(1) c.username, c.recommend, c.mrecommend, c.srecommend, CASE WHEN c.currency = 20 THEN 1 ELSE 0 END AS IsTest
-		FROM dbo.Customer c WITH(NOLOCK)
+		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 		WHERE c.custid = t.CustId
 	) AS n
 
@@ -154,7 +185,8 @@ BEGIN
 		,ProductId		
 		,MatchId		
 		,MatchCode		
-		,EventType		
+		,EventType
+		,SubmitDate		
 		,EventDate		
 		,ActualResult	
 		,WrongResult	
@@ -170,6 +202,8 @@ BEGIN
 	SELECT TicketEventId, MessageId
 	FROM #TicketEvent
 	WHERE EventType = 9
-	 
+	
+	DROP TABLE #TicketDetail
+	DROP TABLE #TicketEvent
 END
 GO

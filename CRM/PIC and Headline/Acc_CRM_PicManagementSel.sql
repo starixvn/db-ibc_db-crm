@@ -127,9 +127,10 @@ BEGIN
 			Username,
 			GroupHeadline,
 			t.Role						AS [RoleID],
-			t.Type						AS [Type]
+			t.Type						AS [Type],
 			pt.SettingValue				AS [PicType],
-			ISNULL(s.SettingValue,'')	AS [RoleName], 			
+			ISNULL(s.SettingValue,'')	AS [RoleName], 		
+			ISNULL(pt.SettingValue, '') AS [TypeName],
 			ISNULL(l.Language,'')		AS [Language],
 			ISNULL(c.CountryName,'')	AS CountryName,
 			t.Country					AS CountryID,

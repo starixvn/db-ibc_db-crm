@@ -36,20 +36,20 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
-
-	DECLARE @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250
+	DECLARE @Submitdate DATETIME2(7), @TicketEventId INT, @Seq INT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
-		   ,@SettingNameOflastLogId = CASE WHEN @Environment = 'UAT' THEN 'LastLogIdUAT' ELSE 'LastLogID' END
+		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
+		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'running'
-	WHERE ServiceName = 'ChatBot - CWL'
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'Completed'
 	
@@ -64,6 +64,7 @@ BEGIN
 		TicketEventId	INT
 		,ProductId		TINYINT
 		,EventDate		SMALLDATETIME
+		,SubmitDate     DATETIME2(7)
 		,EventType		TINYINT
 		,ActualResult	NVARCHAR(MAX)
 		,WrongResult	NVARCHAR(MAX)
@@ -93,6 +94,7 @@ BEGIN
 		TicketEventId 
 		,ProductId 
 		,EventDate 
+		,SubmitDate
 		,EventType 
 		,ActualResult 
 		,WrongResult 
@@ -119,8 +121,9 @@ BEGIN
 	SELECT
 		t.c.value('@TicketEventId ', 'INT') AS TicketEventId
 		,t.c.value('@ProductId', 'INT') AS ProductId
-		,t.c.value('@EventDate', 'DATETIME') AS EventDate
-		,t.c.value('@EventType', 'INT') AS EventType
+		,t.c.value('@EventDate', 'SMALLDATETIME') AS EventDate
+		,t.c.value('@SubmitDate', 'DATETIME2(7)') AS SubmitDate
+		,t.c.value('@EventType', 'TINYINT') AS EventType
 		,t.c.value('@ActualResult', 'NVARCHAR(MAX)') AS ActualResult
 		,t.c.value('@WrongResult', 'NVARCHAR(MAX)') AS WrongResult
 		,t.c.value('@MessageId', 'INT') AS MessageId
@@ -157,11 +160,12 @@ BEGIN
 	FROM @MessageData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@MessageData = NULL))
 
-	CREATE TABLE #TicketData (TicketId INT,TicketEventId INT,CustId INT,Username VARCHAR(30),Recommend INT,Mrecommend INT,Srecommend INT,IsTest BIT)
-	INSERT INTO #TicketData (TicketId, TicketEventId, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
+	CREATE TABLE #TicketData (TicketId INT,TicketEventId INT, Seq INT, CustId INT,Username VARCHAR(30),Recommend INT,Mrecommend INT,Srecommend INT,IsTest BIT)
+	INSERT INTO #TicketData (TicketId, TicketEventId, Seq, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
 	SELECT
-		t.c.value('@TicketId', 'BIGINT') AS TicketId
+		t.c.value('@TicketId', 'INT') AS TicketId
 		,t.c.value('@TicketEventId', 'INT') AS TicketEventId
+		,t.c.value('@Seq', 'INT') AS Seq
 		,t.c.value('@CustId', 'INT') AS CustId
 		,t.c.value('@Username', 'VARCHAR(30)') AS Username
 		,t.c.value('@Recommend', 'INT') AS Recommend
@@ -175,14 +179,18 @@ BEGIN
 	BEGIN	
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - CWL'
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
 		RETURN
 	END
 
-	SELECT @lastLogId = MAX(TicketId) FROM #TicketData
+	SELECT @Submitdate = MAX(SubmitDate) FROM #EventData
+
+	SELECT @TicketEventId = TicketEventId FROM #EventData WHERE SubmitDate = @Submitdate
+
+	SELECT @Seq = MAX(Seq) FROM #TicketData WHERE TicketEventId = @TicketEventId
 
 		-- Only import testing accounts with uat environment
 	IF @Environment = 'UAT'
@@ -193,13 +201,13 @@ BEGIN
 
 	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
 	BEGIN
-		DELETE i FROM #TicketData i WHERE i.IsTest = 0
+		DELETE i FROM #TicketData i WHERE i.IsTest = 1
 	END
 
 	-- Get Job Setting
 	DECLARE @Xml XML
 	SELECT  @Xml = CONVERT(XML, Value) FROM dbo.SystemSetting WITH (NOLOCK)
-	WHERE ServiceName = 'ChatBot - CWL'
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
 		AND SettingName = 'NotificationTemplate'
 
 	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX), [Type] TINYINT)
@@ -220,7 +228,7 @@ BEGIN
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - CWL'
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -251,7 +259,7 @@ BEGIN
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - CWL'
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -261,13 +269,18 @@ BEGIN
 	IF NOT EXISTS (SELECT 1 FROM #TicketData)
 	BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = CONVERT(VARCHAR(20), @lastLogId)
-		WHERE ServiceName = 'ChatBot - CWL'
-			AND SettingName = @SettingNameOflastLogId
+		SET Value = CONVERT(VARCHAR(50), @Submitdate)
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
+			AND SettingName = @SettingNameOfSubmitDate
+
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = CONVERT(VARCHAR(20), @Seq)
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
+			AND SettingName = @SettingNameOfSeq
 
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - CWL'
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
@@ -371,7 +384,7 @@ BEGIN
 	CREATE TABLE #Result
 	(
 		Id						INT
-		,LogIdLst				NVARCHAR(MAX)
+		,TicketIdLst			NVARCHAR(MAX)
 		,ConversationGroupId	SMALLINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
@@ -464,7 +477,7 @@ BEGIN
 	FROM #tmpResult t
 		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.ConversationGroupId = t.ConversationGroupId
 
-	--Get Userame list and Headline list
+	--Get Userame list, Headline list, ticket list
 	;WITH CTE_Group AS
 	(
 		SELECT r.Id
@@ -476,20 +489,58 @@ BEGIN
 			   ,MIN(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
 			   ,MIN(ISNULL(r.RelatedIds,'')) AS RelatedIds
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
-			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst
+			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UserameLst
 		FROM #tmpResult r
 		GROUP BY r.Id, r.ticketEventId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	)
-	INSERT INTO #Result (Id, RelatedIds, ConversationGroupId ,ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, ContentENSC, HeadlineList, RelatedIds, UsernameLst)
+	INSERT INTO #Result 
+	(
+		Id
+		,TicketIdLst
+		,RelatedIds
+		,HeadlineList
+		,UsernameLst
+		,ConversationGroupId
+		,ChatTypeId
+		,LanguageId
+		,Status
+		,EventDate 
+		,ActualResult
+		,WrongResult 
+		,SportNameEN
+		,SportNameSC
+		,SportNameTH
+		,SportNameYN
+		,HomeNameEN
+		,HomeNameSC
+		,HomeNameTH
+		,HomeNameYN
+		,AwayNameEN
+		,AwayNameSC
+		,AwayNameTH
+		,AwayNameYN
+		,LeagueNameEN
+		,LeagueNameSC
+		,LeagueNameTH
+		,LeagueNameYN
+		,MatchCode
+		,ContentEN
+		,ContentSC
+		,ContentTH
+		,ContentYN
+		,[Type]
+	)
 	SELECT 
 		g.Id 
-		,g.LogIdLst
+		,g.TicketIdLst
+		,g.RelatedIds
+		,g.HeadlineIdLst
+		,g.UserameLst
 		,g.ConversationGroupId
 		,g.ChatTypeId
 		,g.LanguageId
 		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
-		,g.RelatedIds
 		,ev.EventDate
 		,ev.ActualResult
 		,ev.WrongResult
@@ -501,6 +552,10 @@ BEGIN
 		,ev.HomeNameSC
 		,ev.HomeNameTH
 		,ev.HomeNameYN
+		,ev.AwayNameEN
+		,ev.AwayNameSC
+		,ev.AwayNameTH
+		,ev.AwayNameYN
 		,ev.LeagueNameEN
 		,ev.LeagueNameSC
 		,ev.LeagueNameTH
@@ -510,8 +565,7 @@ BEGIN
 		,m.Content_cs
 		,m.Content_th
 		,m.Content_yn
-		,CASE WHEN g.PICTye = 1 THEN ev.[Type] + 100 ELSE ev.[Type] END AS [Type]
-		,g.UserameLst
+		,CASE WHEN g.PICTye = 1 THEN ev.[Type] + 100 ELSE ev.[Type] END AS [Type]		
 	FROM CTE_Group g
 		INNER JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
 		LEFT JOIN #MessageData m ON m.TicketEventId = g.TicketEventId
@@ -529,8 +583,7 @@ BEGIN
 
 		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
 		SELECT TOP(1) NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
-			,REPLACE(
-				REPLACE(
+				,REPLACE(
 					REPLACE(
 						REPLACE(
 							REPLACE(
@@ -581,7 +634,6 @@ BEGIN
 								,'{message_content_sc}', r.ContentSC)
 							,'{message_content_th}', r.ContentTH)
 						,'{message_content_yn}', r.ContentYN)
-					,'{message_content_ensc}', r.ContentENSC)
 				,'{affected_list}', r.UsernameLst)		
 			, r.RelatedIds
 		FROM #Result r
@@ -625,16 +677,22 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	-- Update lastLogId
+	-- Update Submit date
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
-	SET Value = CONVERT(VARCHAR(20), @lastLogId)
-	WHERE ServiceName = 'ChatBot - CWL'
-		AND SettingName = @SettingNameOflastLogId
+	SET Value = CONVERT(VARCHAR(50), @Submitdate)
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
+		AND SettingName = @SettingNameOfSubmitDate
 
-	-- Update crmMessageImport
+	-- Update Seq
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), @Seq)
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
+		AND SettingName = @SettingNameOfSeq
+
+	-- Update Status of Job
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'
-	WHERE ServiceName = 'ChatBot - CWL'
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 

@@ -35,6 +35,7 @@ BEGIN
 		EditBy		VARCHAR(30), 
 		PIC			NVARCHAR(200), 
 		Role		INT,
+		[Type]		INT,
 		ActionId	INT, 
 		NewValues	XML,
 		OldValues	XML,

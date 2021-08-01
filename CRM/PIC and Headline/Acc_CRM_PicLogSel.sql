@@ -18,7 +18,6 @@ Original:
 	Revisions:
 		- 20200724@Malcolm: Get log of PIC [Redmine: #137144]
 		- 20210726@Malcolm: Get pic type [Redmine: #151509]
-		- 20210731@Malcolm: Get pic type [RedmineId : #151509] 
 	Param's Explanation:
 
 		

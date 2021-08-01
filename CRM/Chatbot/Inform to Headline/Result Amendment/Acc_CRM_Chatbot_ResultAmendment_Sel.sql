@@ -1,17 +1,17 @@
-/*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ResultAmendment_Sel]
 	@BatchSize INT = 3000
-	,@SubmitDate DATETIME2 
+	,@SubmitDate DATETIME2(7) 
 	,@Seq INT
 AS
 
 /*
-	Created: 20200811@Percy
-	DB: DBMSG-bodb_Message
+	Created: 20210731@Malcolm
+	DB: DBEXT-bodb02
 	Task: CRM - ChatBot - Get ticket
 
 	Revisions:
-		- 20210728@Malcolm: Initialize SP [RedmineID: #130544]
+		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
 
 	Param's Explanation:
 		Type = 1: Result Amendment Template - Sportsbook	
@@ -33,7 +33,7 @@ BEGIN
 	FROM dbo.TicketAmendment_Detail d WITH(NOLOCK) -- TicketAmendment_Event
 		INNER JOIN dbo.TicketAmendment_Event e WITH(NOLOCK) ON e.TicketEventId = d.TicketEventId
 	WHERE e.SubmitDate > @SubmitDate OR (e.SubmitDate = @SubmitDate AND d.Seq > @Seq)
-	ORDER BY e.SubmitDate ASC, e.TicketEventId ASC, d.Seq
+	ORDER BY e.SubmitDate ASC, e.TicketEventId ASC, d.Seq ASC
 
 	SELECT @NRows = @@ROWCOUNT
 
@@ -141,13 +141,13 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #TicketEvent WHERE EventType = 3)
 	BEGIN
 		UPDATE e
-			SET e.Sporttype = vs.SportType
+			SET e.Sporttype = vs.SportType, e.EventDate = CONVERT(DATE, vs.EventTime)
 		FROM #TicketEvent e
 			INNER JOIN dbo.VSRaceInfo vs WITH(NOLOCK) ON vs.EventID = e.MatchId
 		WHERE e.EventType = 3
 
 		UPDATE e
-			SET e.Sporttype = vs.SportType
+			SET e.Sporttype = vs.SportType, e.EventDate = CONVERT(DATE, vs.EventTime)
 		FROM #TicketEvent e
 			INNER JOIN dbo.VSRaceInfo14 vs WITH(NOLOCK) ON vs.EventID = e.MatchId
 		WHERE e.EventType = 3

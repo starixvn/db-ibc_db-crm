@@ -18,12 +18,12 @@ AS
 	Param's Explanation:
 		. @TicketData
 			<root>
-				<r TicketId="1" TicketEventId="" CustId="114"  Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" />
+				<r TicketId="1" TicketEventId="" Seq="" CustId="114"  Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" />
 			</root>
 
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="1" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" Type=""
+				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" Type=""
 				/>
 			</root>
 
@@ -244,28 +244,6 @@ BEGIN
 		INNER JOIN dbo.crmNotificationTemplate nt WITH (NOLOCK) ON s.NotificationTemplateId = nt.NotificationTemplateId
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
 
-	-- Check require param
-	IF EXISTS (
-		SELECT 1
-		FROM @tmpSetting s
-			INNER JOIN #NotificationTemplate nt
-				ON		s.NotificationTemplateId = nt.NotificationTemplateId
-					AND s.NotificationTypeId = nt.NotificationTypeId
-					AND s.LanguageId = nt.LanguageId
-		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
-	)
-	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
-		
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
-
-		RETURN
-	END
-
 	IF NOT EXISTS (SELECT 1 FROM #TicketData)
 	BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -364,7 +342,7 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
-	WHERE rt.RecipientTypeName = 'Accouting PIC' AND g.ChatTypeId = 2 -- Personal
+	WHERE rt.RecipientTypeName = 'Accounting PIC' AND g.ChatTypeId = 2 -- Personal
 
 	CREATE TABLE #DirectAccount (CustId INT PRIMARY KEY CLUSTERED)
 	INSERT INTO #DirectAccount (CustId)
@@ -412,7 +390,6 @@ BEGIN
 		,ContentSC				NVARCHAR(MAX)
 		,ContentTH				NVARCHAR(MAX)
 		,ContentYN				NVARCHAR(MAX)
-		,ContentENSC			NVARCHAR(MAX)
 		,HeadlineList			NVARCHAR(MAX)
 		,RelatedIds				VARCHAR(1000)
 		,UsernameLst			NVARCHAR(MAX)
@@ -464,12 +441,12 @@ BEGIN
 	--For Personal (Groups have IsDuplicated = 1)
 	;WITH CTE_Batch AS
 	(
-		SELECT t.TicketId, ConversationGroupId, RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
+		SELECT t.TicketId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 1
 	), CTE_Group AS
 	(
-		SELECT TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ticketEventId, ConversationGroupId, RelatedIdLst, BatchOfGroup) AS Id
+		SELECT TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
 		FROM CTE_Batch
 	)
 	UPDATE t
@@ -492,7 +469,7 @@ BEGIN
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UserameLst
 		FROM #tmpResult r
-		GROUP BY r.Id, r.ticketEventId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
+		GROUP BY r.Id, r.ticketEventId, r.PICTye, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	)
 	INSERT INTO #Result 
 	(
@@ -534,38 +511,38 @@ BEGIN
 	SELECT 
 		g.Id 
 		,g.TicketIdLst
-		,g.RelatedIds
+		,ISNULL(g.RelatedIds,'')
 		,g.HeadlineIdLst
 		,g.UserameLst
 		,g.ConversationGroupId
 		,g.ChatTypeId
 		,g.LanguageId
 		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
-		,ev.EventDate
-		,ev.ActualResult
-		,ev.WrongResult
-		,ev.SportNameEN
-		,ev.SportNameSC
-		,ev.SportNameTH
-		,ev.SportNameYN
-		,ev.HomeNameEN
-		,ev.HomeNameSC
-		,ev.HomeNameTH
-		,ev.HomeNameYN
-		,ev.AwayNameEN
-		,ev.AwayNameSC
-		,ev.AwayNameTH
-		,ev.AwayNameYN
-		,ev.LeagueNameEN
-		,ev.LeagueNameSC
-		,ev.LeagueNameTH
-		,ev.LeagueNameYN
-		,ev.MatchCode
-		,m.Content_en
-		,m.Content_cs
-		,m.Content_th
-		,m.Content_yn
-		,CASE WHEN g.PICTye = 1 THEN ev.[Type] + 100 ELSE ev.[Type] END AS [Type]		
+		,ISNULL(ev.EventDate, '')
+		,ISNULL(ev.ActualResult,'')
+		,ISNULL(ev.WrongResult,'')
+		,ISNULL(ev.SportNameEN,'')
+		,ISNULL(ev.SportNameSC,'')
+		,ISNULL(ev.SportNameTH,'')
+		,ISNULL(ev.SportNameYN,'')
+		,ISNULL(ev.HomeNameEN,'')
+		,ISNULL(ev.HomeNameSC,'')
+		,ISNULL(ev.HomeNameTH,'')
+		,ISNULL(ev.HomeNameYN,'')
+		,ISNULL(ev.AwayNameEN,'')
+		,ISNULL(ev.AwayNameSC,'')
+		,ISNULL(ev.AwayNameTH,'')
+		,ISNULL(ev.AwayNameYN,'')
+		,ISNULL(ev.LeagueNameEN,'')
+		,ISNULL(ev.LeagueNameSC,'')
+		,ISNULL(ev.LeagueNameTH,'')
+		,ISNULL(ev.LeagueNameYN,'')
+		,ISNULL(ev.MatchCode,'')
+		,ISNULL(m.Content_en,'')
+		,ISNULL(m.Content_cs,'')
+		,ISNULL(m.Content_th,'')
+		,ISNULL(m.Content_yn,'')
+		,CASE WHEN g.PICTye = 1 AND ev.Type = 5 THEN ev.[Type] + 100 ELSE ev.[Type] END AS [Type]		
 	FROM CTE_Group g
 		INNER JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
 		LEFT JOIN #MessageData m ON m.TicketEventId = g.TicketEventId
@@ -582,7 +559,7 @@ BEGIN
 			BREAK
 
 		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT TOP(1) NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 				,REPLACE(
 					REPLACE(
 						REPLACE(

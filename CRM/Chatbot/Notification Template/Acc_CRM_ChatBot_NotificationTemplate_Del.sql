@@ -17,6 +17,7 @@ Original:
 		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
 		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
 		- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
+		- 20210801@Malcolm: Get settings of Result Amendment [RedmineID: #151509]
 	Param's Explanation:
 */
 BEGIN
@@ -25,7 +26,7 @@ BEGIN
 	CREATE TABLE #NotificationTemplate(NotificationTemplateId INT)
 
 	DECLARE  @Setting_AbnormalBets XML, @Setting_CWL XML , @__Title NVARCHAR(200), @__NotificationTypeId SMALLINT, @__ContentXML XML, @__NotificationTypeXML XML,
-			 @NewValues NVARCHAR(MAX), @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL,ChatBot - ProblemAccounts'
+			 @NewValues NVARCHAR(MAX), @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL,ChatBot - ProblemAccounts,ChatBot - ResultAmendment'
 
 	-- Get setting for CWL, AbnormalBets Services, ChatBot - TOControl
 

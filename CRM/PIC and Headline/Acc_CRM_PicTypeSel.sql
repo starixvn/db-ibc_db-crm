@@ -16,7 +16,7 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT s.SettingName, s.SettingId, s.SettingValue, s.DisplayOrder
+	SELECT s.SettingId AS Type, s.SettingValue AS [TypeName], s.DisplayOrder
 	FROM crmSetting s WITH(NOLOCK)
 	WHERE s.SettingName = 'PICType' AND s.IsActive = 1
 

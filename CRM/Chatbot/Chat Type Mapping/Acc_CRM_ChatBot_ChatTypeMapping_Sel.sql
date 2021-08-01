@@ -20,6 +20,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20210801@Malcolm: get info for accouting pic [Redmine: #151509]
 	Param's Explanation:
 		
 */

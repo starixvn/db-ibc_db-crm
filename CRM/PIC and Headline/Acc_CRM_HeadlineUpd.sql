@@ -20,6 +20,7 @@ Original:
 		- 20200717@Malcolm:  Integrate Credit Term & Staff/Boss Management  [Redmine: #137144]
 		- 20200916@Malcolm : Update Chat Type Mapping [Redmine : #130544]
 		- 20200916@Malcolm : Update chat Type mapping property[Redmine : #130544]
+		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 
 	Param's Explanation:
 		@Case = 0 : No change
@@ -347,7 +348,7 @@ BEGIN
 							      FROM @TmpLog t
 									INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = P.PicID
 									INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
-							      WHERE Type = 1
+							      WHERE t.Type = 1
 						      FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
 		IF ISNULL(@NewValues,'') <> ''
 		BEGIN
@@ -376,7 +377,7 @@ BEGIN
 							      FROM @TmpLog t
 									INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON t.PicID = P.PicID
 									INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
-							      WHERE Type = 2
+							      WHERE t.Type = 2
 							      FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
 	    IF ISNULL(@NewValues,'') <> ''
 		BEGIN
@@ -408,7 +409,7 @@ BEGIN
 							FROM @TmpLog t
 								INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicID
 								INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
-							WHERE Type = 7 
+							WHERE t.Type = 7 
 							FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
 		BEGIN TRY
 			IF ISNULL(@NewValues,'') <> ''
@@ -437,7 +438,7 @@ BEGIN
 							FROM @TmpLog t
 								INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = t.PicID
 								INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID
-							WHERE Type = 11
+							WHERE t.Type = 11
 							FOR XML PATH('PIC'),ROOT('Acc_CRM_HeadlineUpd')) AS NVARCHAR(MAX))
 		BEGIN TRY
 			IF ISNULL(@NewValues,'') <> ''

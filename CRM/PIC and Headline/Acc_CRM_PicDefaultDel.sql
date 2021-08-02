@@ -14,6 +14,7 @@ Original:
 
 	Revisions:
 		- 20200717@Malcolm: remove default PICs from a headline [Redmine: #137144]
+		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 	Param's Explanation:
 		
 */
@@ -37,7 +38,7 @@ BEGIN
 							  FROM dbo.crmPICDefault d WITH(NOLOCK)
 								 INNER JOIN dbo.crmPIC p WITH(NOLOCK)  ON d.PicID = p.PicID
 								 INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
-							  WHERE HeadlineID = @HeadlineID
+							  WHERE d.HeadlineID = @HeadlineID
 							  FOR XML PATH('PIC'),ROOT('Acc_CRM_PicDefaultDel')) AS NVARCHAR(MAX))
 
 	BEGIN TRY

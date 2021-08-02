@@ -7,7 +7,7 @@
 */
 
 ALTER TABLE crmPIC
-ADD Type INT
+ADD PicType INT
 
 DECLARE @HeadlinePic INT,  @AccountingPIC INT
 SELECT 
@@ -17,13 +17,13 @@ FROM crmSetting WITH(NOLOCK)
 WHERE SettingName = 'PICType'
 
 UPDATE p
-	SET p.Type = @HeadlinePic
+	SET p.PicType = @HeadlinePic
 FROM crmPIC p WITH(ROWLOCK)
 	INNER JOIN crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
 WHERE s.SettingValue IN ('Boss','Staff','Partner','Assistant', 'PIC')
 
 UPDATE p
-	SET p.Type = @AccountingPIC
+	SET p.PicType = @AccountingPIC
 FROM crmPIC p WITH(ROWLOCK)
 	INNER JOIN crmSetting s WITH(NOLOCK) ON s.SettingID = p.Role
 WHERE s.SettingValue IN ('Accountant')

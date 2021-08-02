@@ -12,6 +12,7 @@ Original:
 	Revisions:
 		- 20200511@Malcolm: Get information of PIC [Redmine: #108739]
 		- 20201013@Malcolm : change data type of @IsActive from TINYINT to BIT [Redmine: #130544]
+		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 	Param's Explanation:
 		@IsActive = 0 : Load all PIC which is inactive
 		          = 1 : Load all PIC which is active
@@ -23,8 +24,8 @@ BEGIN
 
 	SELECT @Username = ISNULL(@Username,'')
 
-	SELECT PicID,
-		   Username,
+	SELECT p.PicID,
+		   p.Username,
 		   s.SettingValue AS RoleName 
 	FROM dbo.crmPIC p WITH(NOLOCK)
 		LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON p.Role = s.SettingID

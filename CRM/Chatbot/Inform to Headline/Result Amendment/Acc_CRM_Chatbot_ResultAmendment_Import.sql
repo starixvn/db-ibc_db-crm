@@ -352,7 +352,7 @@ BEGIN
 	WHERE c.site <> 'CN88'
 
 	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, PICTye)
-	SELECT t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, t.Username, ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, 1
+	SELECT t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, 1
 	FROM @Group g 
 		CROSS JOIN #TicketData t 
 		INNER JOIN #DirectAccount cda WITH(NOLOCK) ON cda.CustID IN (t.CustId, t.Recommend, t.Mrecommend, t.Srecommend)

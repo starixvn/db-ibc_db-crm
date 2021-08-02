@@ -9,14 +9,14 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicManagementSel]
 AS
 /*
 Created: 20200506@Malcolm
-Task :  CRM - PIC and Headline -> PIC Management
+Task :  CRM - Staff/Boss Management of headline
 DB: DBCRM/bodb_CRM
 Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200814@Malcolm: Sort Ouput by IsActive ,Username [Redmine: #137144]
-		- 20210726@Malcolm: Get Pic type [RedmineId : #151509]
+		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 	Param's Explanation:	
 		
 */
@@ -40,7 +40,6 @@ BEGIN
 		PicID			INT,
 		Username		NVARCHAR(200) PRIMARY KEY,
 		Role			INT,
-		Type			INT,
 		GroupHeadline	VARCHAR(1000),
 		Language		VARCHAR(1000),
 		Country			INT,
@@ -56,7 +55,6 @@ BEGIN
 			PicID,
 			Username,
 			Role,
-			Type,
 			Language,
 			Country,
 			IsActive,
@@ -65,7 +63,6 @@ BEGIN
 	SELECT p.PicID,
 		   p.Username,
 		   P.Role,
-		   p.Type,
 		   p.Language,
 		   p.Country,
 		   p.IsActive,
@@ -85,7 +82,9 @@ BEGIN
 			WHERE c.username  LIKE '%' + @HeadlineName + '%' AND t.PicID = h.PicID)
 	END
 
-	SELECT  @TotalRows = COUNT(1)  FROM #Tmp
+	SELECT  @TotalRows = COUNT(*)  FROM #Tmp
+
+
 
 	INSERT INTO #TmpLanguage
 	(
@@ -127,10 +126,7 @@ BEGIN
 			Username,
 			GroupHeadline,
 			t.Role						AS [RoleID],
-			t.Type						AS [Type],
-			pt.SettingValue				AS [PicType],
-			ISNULL(s.SettingValue,'')	AS [RoleName], 		
-			ISNULL(pt.SettingValue, '') AS [TypeName],
+			ISNULL(s.SettingValue,'')	AS [RoleName], 			
 			ISNULL(l.Language,'')		AS [Language],
 			ISNULL(c.CountryName,'')	AS CountryName,
 			t.Country					AS CountryID,
@@ -138,16 +134,14 @@ BEGIN
 			t.Remark,
 			t.RowNum
 	FROM #Tmp t
-		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.Role 
-		INNER JOIN dbo.crmSetting pt WITH(NOLOCK) ON pt.SettingId = t.[Type]
-		LEFT JOIN dbo.crmCountry c WITH(NOLOCK) ON c.CountryID = t.Country 
-		OUTER APPLY(
-			SELECT CONVERT(XML,(SELECT  l.SettingID AS '@Id',  l.SettingValue AS '@Value'
-			FROM #TmpLanguage l WITH(NOLOCK) 
-			WHERE ',' + t.Language + ',' LIKE '%,' + CONVERT(VARCHAR(20),l.SettingID) + ',%' 
-			FOR XML PATH('Setting'),ROOT('ROOT')))
-		) AS l(Language)
-	WHERE pt.SettingName = 'PICType'
+	LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.Role 
+	LEFT JOIN dbo.crmCountry c WITH(NOLOCK) ON c.CountryID = t.Country 
+	OUTER APPLY(
+	    SELECT CONVERT(XML,(SELECT  l.SettingID AS '@Id',  l.SettingValue AS '@Value'
+		FROM #TmpLanguage l WITH(NOLOCK) 
+		WHERE ',' + t.Language + ',' LIKE '%,' + CONVERT(VARCHAR(20),l.SettingID) + ',%' 
+		FOR XML PATH('Setting'),ROOT('ROOT')))
+	) AS l(Language)
 	ORDER BY IsActive DESC, Username
 
 	SELECT p.PicID, 
@@ -157,7 +151,7 @@ BEGIN
 	FROM dbo.crmPIC p WITH(NOLOCK)
 	    INNER JOIN dbo.crmPICCommunication i WITH(NOLOCK) ON p.PicID = i.PicID
 		INNER JOIN dbo.crmSetting e WITH(NOLOCK) ON e.SettingID = i.CommunicationID AND e.IsActive = 1
-    WHERE EXISTS(SELECT 1 FROM #Tmp WHERE PicID = p.PicID)
+    WHERE EXISTS(SELECT 1 FROM #Tmp t WHERE t.PicID = p.PicID)
 	
 	DROP TABLE #Tmp
 

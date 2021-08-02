@@ -64,11 +64,11 @@ BEGIN
 		AND SettingName = 'ConfigTestLicensee'
 	
 	DELETE @tmpLicensee
-	WHERE 1= CASE WHEN @Environment = 'UAT' AND LicenseeName = 'Spondemo' THEN 1
+	WHERE 1= CASE WHEN @Environment = 'UAT' AND LicenseeName = 'Spondemo' THEN 0
 				WHEN @Environment = 'LIVE' AND (LicenseeName <> 'Spondemo' 
 												OR (LicenseeName='Spondemo' AND @ConfigTestLicensee = 1)
-											) THEN 1
-				ELSE 0 END
+											) THEN 0
+				ELSE 1 END
 			
 	SELECT @LicenseeSiteID = SettingID 
 	FROM crmSetting WITH(NOLOCK)

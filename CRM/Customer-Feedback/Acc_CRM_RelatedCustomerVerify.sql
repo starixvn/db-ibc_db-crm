@@ -40,7 +40,7 @@ BEGIN
 		CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsLicensee,
 		s.isActive
 	FROM bodb02.dbo.Customer c WITH (NOLOCK)		
-		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue 
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue AND s.SettingName = 'Site'
 		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
 														AND sr.ParentID = 33000--licensee
 	WHERE c.username IN ( SELECT username FROM @tmpCustomer)

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_PicLogSel]
+ALTER PROCEDURE [dbo].[Acc_CRM_PicLogSel]
 	@PicName		NVARCHAR(200) = '',
 	@EditBy			VARCHAR(30)  = '', 
 	@FromDate		DATETIME,
@@ -34,7 +34,7 @@ BEGIN
 		EditBy		VARCHAR(30), 
 		PIC			NVARCHAR(200), 
 		Role		INT,
-		[Type]		INT,
+		[PicType]	INT,
 		ActionId	INT, 
 		NewValues	XML,
 		OldValues	XML,
@@ -56,7 +56,7 @@ BEGIN
 		EditBy,
 		PIC, 
 		Role,
-		[Type],
+		[PicType],
 		ActionId,
 		NewValues,
 		OldValues,
@@ -68,7 +68,7 @@ BEGIN
 		c.username AS Edit_By, 
 		p.Username AS PIC, 
 		p.[Role],
-		p.[Type],
+		p.[PicType],
 		r.ActionID,
 		r.NewValues,
 		r.OldValues,
@@ -93,14 +93,14 @@ BEGIN
 		t.LogDate, 
 		t.EditBy,
 		t.PIC, 
-		s.SettingValue AS [PicType],
+		s.SettingValue AS [PicTypeName],
 		a.ActionNameEN AS [Action], 
 		t.ActionId,
 		t.NewValues, 
 		t.OldValues
 	FROM @Tmp t
 		INNER JOIN dbo.crmLogAction a WITH(NOLOCK) ON t.ActionID = a.ActionID
-		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.[Type]
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.[PicType]
 	ORDER BY t.LogDate DESC, t.LogID DESC
 
 END

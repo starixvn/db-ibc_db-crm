@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,bodbExtAccNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_HeadlineUpd]
+ALTER PROCEDURE [dbo].[Acc_CRM_HeadlineUpd]
 	@CustID			INT = 0,
 	@Old_Headline   INT = 0,
 	@New_Headline   INT = 0,
@@ -161,9 +161,9 @@ BEGIN
 
 			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
 			BEGIN
-				DELETE  dbo.crmPicManagement  WITH(ROWLOCK, UPDLOCK)
+				DELETE  dbo.crmPicManagement WITH(ROWLOCK, UPDLOCK)
 				WHERE EXISTS (SELECT 1 FROM @TmpLog t 
-							  WHERE PicID = t.PicID AND CustID = t.CustID AND Type = 2)			 
+							  WHERE PicID = t.PicID AND CustID = t.CustID AND t.Type = 2)			 
 			END			
 
 			IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 3)
@@ -263,9 +263,9 @@ BEGIN
 
 		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 2)
 		BEGIN
-			DELETE  dbo.crmPicManagement  WITH(ROWLOCK, UPDLOCK)
+			DELETE  dbo.crmPicManagement WITH(ROWLOCK, UPDLOCK)
 			WHERE EXISTS (SELECT 1 FROM @TmpLog t 
-						  WHERE PicID = t.PicID AND CustID = t.CustID AND Type = 2)			 
+						  WHERE PicID = t.PicID AND CustID = t.CustID AND t.Type = 2)			 
 		END			
 
 		IF EXISTS(SELECT 1 FROM @TmpLog WHERE Type = 3)

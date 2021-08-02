@@ -36,7 +36,7 @@ BEGIN
 		,m.Content_en
 		,CASE WHEN ISNULL(m.Content_cs,'') = '' THEN m.Content_en ELSE m.Content_cs END AS [Content_cs]
 		,CASE WHEN ISNULL(m.Content_th,'') = '' THEN m.Content_en ELSE m.Content_th END AS [Content_th]
-		,CASE WHEN ISNULL(m.Content_vn,'') = '' THEN m.Content_en ELSE m.Content_vn END AS [Content_vn]
+		,CASE WHEN ISNULL(m.Content_vn,'') = '' THEN m.Content_en ELSE m.Content_vn END AS [Content_yn]
 	FROM dbo.Msg m WITH (NOLOCK)
 	WHERE EXISTS (SELECT 1 FROM #Messages t WHERE m.MessageId = t.MessageId)
 	

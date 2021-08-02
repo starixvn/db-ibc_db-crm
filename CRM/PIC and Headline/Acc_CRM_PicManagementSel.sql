@@ -40,6 +40,7 @@ BEGIN
 		PicID			INT,
 		Username		NVARCHAR(200) PRIMARY KEY,
 		Role			INT,
+		PicType			INT,
 		GroupHeadline	VARCHAR(1000),
 		Language		VARCHAR(1000),
 		Country			INT,
@@ -55,6 +56,7 @@ BEGIN
 			PicID,
 			Username,
 			Role,
+			PicType,
 			Language,
 			Country,
 			IsActive,
@@ -63,6 +65,7 @@ BEGIN
 	SELECT p.PicID,
 		   p.Username,
 		   P.Role,
+		   p.PicType,
 		   p.Language,
 		   p.Country,
 		   p.IsActive,
@@ -126,7 +129,9 @@ BEGIN
 			Username,
 			GroupHeadline,
 			t.Role						AS [RoleID],
-			ISNULL(s.SettingValue,'')	AS [RoleName], 			
+			ISNULL(s.SettingValue,'')	AS [RoleName], 	
+			t.PicType					AS [PicType],
+			ISNULL(pt.SettingValue,'')	AS [PicTypeName], 	
 			ISNULL(l.Language,'')		AS [Language],
 			ISNULL(c.CountryName,'')	AS CountryName,
 			t.Country					AS CountryID,
@@ -136,6 +141,7 @@ BEGIN
 	FROM #Tmp t
 	LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.Role 
 	LEFT JOIN dbo.crmCountry c WITH(NOLOCK) ON c.CountryID = t.Country 
+	LEFT JOIN dbo.crmSetting pt WITH(NOLOCK) ON pt.SettingID = t.PicType 
 	OUTER APPLY(
 	    SELECT CONVERT(XML,(SELECT  l.SettingID AS '@Id',  l.SettingValue AS '@Value'
 		FROM #TmpLanguage l WITH(NOLOCK) 

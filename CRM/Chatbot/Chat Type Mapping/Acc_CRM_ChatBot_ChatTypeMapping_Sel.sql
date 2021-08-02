@@ -277,35 +277,15 @@ BEGIN
 	FROM #Tmp t
 	ORDER BY t.ChatTypeId DESC, t.ConversationGroupName  
 
-	SELECT 
-		t.ConversationGroupId,
-		gh.HeadlineId,
-		ISNULL(c.username,'Not Assigned Group') AS HeadlineName 
+	SELECT t.ConversationGroupId,gh.HeadlineId,ISNULL(c.username,'Not Assigned Group') AS HeadlineName 
 	FROM #Tmp t
 		INNER JOIN dbo.crmConversationGroupHeadline gh WITH(NOLOCK) ON gh.ConversationGroupId = t.ConversationGroupId 
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON gh.HeadlineId = c.custid
-
+	WHERE t.Type = 0
 	UNION ALL
-
-	SELECT t.ConversationGroupId, cgh.CustID, ISNULL(c.username,'Not Assigned Group') AS HeadlineName 
+	SELECT t.ConversationGroupId, NULL AS HeadlineId, 'All Group Headline & Not Assigned Group' AS HeadlineName 
 	FROM #Tmp t
-		CROSS APPLY bodb02.dbo.custAccount ca WITH(NOLOCK)
-		INNER JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.GroupID = ca.groupID
-		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = ca.CustID
-	WHERE t.Type = 1 AND c.site <> 'CN88'
-
-	UNION ALL 
-
-	SELECT t.ConversationGroupId, 'Not Assigned Group'
-	FROM #Tmp t 
 	WHERE t.Type = 1
-	AND EXISTS (
-		SELECT 1
-		FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)
-			LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = cda.CustID
-			LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
-		WHERE ca.custid IS NULL OR ca.groupID = 0 AND c.site <> 'CN88'
-	)
 	
 	SELECT 
 		cgr.RecipientId

@@ -23,7 +23,7 @@ AS
 
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" Type=""
+				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfo="" Type=""
 				/>
 			</root>
 
@@ -31,6 +31,12 @@ AS
 			<root>
 				<r TicketEventId="1" MessageId="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
 			</root>
+		.@EventData.Type: 
+			Type = 1: Result Amendment Template - Sportsbook	
+			Type = 2: Result Amendment Template - Virtual Sports 2	
+			Type = 3: Result Amendment Template - Virtual Sports
+			Type = 4: Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
+			Type = 5: Result Amendment Template - Outright	
 */
 
 BEGIN
@@ -85,7 +91,8 @@ BEGIN
 		,LeagueNameSC	NVARCHAR(500)
 		,LeagueNameTH	NVARCHAR(500)
 		,LeagueNameYN	NVARCHAR(500)
-		,MatchCode		NVARCHAR(500)
+		,MatchCode		NVARCHAR(100)
+		,MatchInfo		NVARCHAR(1000)
 		,[Type]			TINYINT
 	)
 	-- Get Imported Data
@@ -116,6 +123,7 @@ BEGIN
 		,LeagueNameTH 
 		,LeagueNameYN 
 		,MatchCode
+		,MatchInfo
 		,Type 
 	)
 	SELECT
@@ -143,12 +151,13 @@ BEGIN
 		,t.c.value('@LeagueNameSC', 'NVARCHAR(500)') AS LeagueNameSC
 		,t.c.value('@LeagueNameTH', 'NVARCHAR(500)') AS LeagueNameTH
 		,t.c.value('@LeagueNameYN', 'NVARCHAR(500)') AS LeagueNameYN
-		,t.c.value('@MatchCode', 'NVARCHAR(500)') AS MatchCode
+		,t.c.value('@MatchCode', 'NVARCHAR(100)') AS MatchCode
+		,t.c.value('@MatchInfo', 'NVARCHAR(1000)') AS MatchInfo
 		,t.c.value('@Type', 'TINYINT') AS Type
 	FROM @EventData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@EventData = NULL))
 
-	CREATE TABLE #MessageData(TicketEventId INT,MessageId INT,Content_en NVARCHAR(200),Content_cs NVARCHAR(200),Content_th NVARCHAR(200),Content_yn NVARCHAR(200))
+	CREATE TABLE #MessageData(TicketEventId INT,MessageId INT,Content_en NVARCHAR(4000),Content_cs NVARCHAR(4000),Content_th NVARCHAR(4000),Content_yn NVARCHAR(4000))
 	INSERT INTO #MessageData (TicketEventId ,MessageId ,Content_en ,Content_cs ,Content_th ,Content_yn)
 	SELECT 
 		t.c.value('@TicketEventId', 'INT') AS TicketEventId
@@ -393,7 +402,8 @@ BEGIN
 		,HeadlineList			NVARCHAR(MAX)
 		,RelatedIds				VARCHAR(1000)
 		,UsernameLst			NVARCHAR(MAX)
-		,MatchCode	            NVARCHAR(500)
+		,MatchCode	            NVARCHAR(100)
+		,MatchInfo              NVARCHAR(1000)
 		,[Type]					TINYINT
 	)
 
@@ -502,6 +512,7 @@ BEGIN
 		,LeagueNameTH
 		,LeagueNameYN
 		,MatchCode
+		,MatchInfo
 		,ContentEN
 		,ContentSC
 		,ContentTH
@@ -538,6 +549,7 @@ BEGIN
 		,ISNULL(ev.LeagueNameTH,'')
 		,ISNULL(ev.LeagueNameYN,'')
 		,ISNULL(ev.MatchCode,'')
+		,ISNULL(ev.MatchInfo,'')
 		,ISNULL(m.Content_en,'')
 		,ISNULL(m.Content_cs,'')
 		,ISNULL(m.Content_th,'')
@@ -605,7 +617,7 @@ BEGIN
 														,'{date}', r.EventDate)
 													,'{actual_result}', r.ActualResult)
 												,'{wrong_result}', r.WrongResult)
-											,'{round_match_info}', r.MatchCode)
+											,'{round_match_info}', r.MatchInfo)
 										,'{match_code}', r.MatchCode)
 									,'{message_content_en}', r.ContentEN)
 								,'{message_content_sc}', r.ContentSC)

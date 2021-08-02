@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PicIns]	
 	@PicName				NVARCHAR(200),
-	@Type					INT,			
+	@PicType					INT,			
 	@Role					INT,
 	@Remark					NVARCHAR(1000),
 	@Language				VARCHAR(200),
@@ -36,7 +36,7 @@ BEGIN
 	IF ISNULL(@CommunicationTools,'') = ''
 		RETURN
 	
-	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @TypeXML XML, @RecipientTypeId INT
+	DECLARE @idoc INT, @CountryXML XML, @LanguageXML XML, @RoleXML XML, @PicXML XML, @RemarkXML XML, @PicTypeXML XML, @RecipientTypeId INT
 
 	DECLARE  @NewValues NVARCHAR(MAX), @PicID INT = 0, @Username NVARCHAR(200)
 
@@ -82,13 +82,13 @@ BEGIN
 		(
 			Username, 
 			Role,
-			[Type],
+			[PicType],
 			Language,
 			Country,
 			IsActive,
 			Remark
 		)
-		VALUES(	@PicName, @Role, @Type, @Language, @Country, 1, @Remark)
+		VALUES(	@PicName, @Role, @PicType, @Language, @Country, 1, @Remark)
 		
 		SET @PicID = SCOPE_IDENTITY();
 
@@ -120,7 +120,7 @@ BEGIN
 
 		DECLARE @RecipientTypeName VARCHAR(200) = ''
 
-		SELECT @RecipientTypeName = SettingValue FROM dbo.crmSetting WITH(NOLOCK) WHERE SettingID = @Type
+		SELECT @RecipientTypeName = SettingValue FROM dbo.crmSetting WITH(NOLOCK) WHERE SettingID = @PicType
 
 		IF @RecipientTypeName = 'Headline PIC'
 			SET @RecipientTypeName = 'PIC of headline'
@@ -152,10 +152,10 @@ BEGIN
 				WHERE SettingID = @Role
 				FOR XML PATH('Role'))
 
-	SELECT @TypeXML = (
+	SELECT @PicTypeXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
-				WHERE SettingID = @Type
+				WHERE SettingID = @PicType
 				FOR XML PATH('PICType'))
 
 	SELECT @CountryXML = (
@@ -173,7 +173,7 @@ BEGIN
 	SELECT @NewValues =	CAST((SELECT	@PicName        AS '@PicName',
 										@Remark	  		AS '@Remark',
 										1               AS '@Active',
-										@TypeXML,
+										@PicTypeXML,
 										@RoleXML,
 										@CountryXML,
 										@LanguageXML,								

@@ -26,9 +26,6 @@ AS
 
 BEGIN
 	SET NOCOUNT ON
-	DECLARE @StartData DATETIME = GETDATE(), @EndTime DATETIME, @SessionId INT = @@SPID, @duration INT
-
-	DECLARE @t TABLE(MessageId INT, RequestId INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX),CreatedDate DATETIME, isProcessed BIT)
 
 	CREATE TABLE #Messages (MessageId INT, RequestId INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))
 	INSERT INTO  #Messages (MessageId, RequestId, UsernameList, CustIdList)
@@ -40,49 +37,31 @@ BEGIN
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
-	INSERT INTO MonDB.dbo.crmMessageImportLog(XmlData, StartDate, SessionId, Comment, Duration) VALUES (@Messages, @StartData, @SessionId, 'Start',@duration)
-
 	DECLARE @i TINYINT = 0, @maxTry TINYINT = 5, @msg VARCHAR(1024) = ''
 
 	WHILE @i < @maxTry
 	BEGIN
-		--SET @msg = ''
-		
+		SET @msg = ''
+
 		BEGIN TRY
-			INSERT INTO @t (MessageId, RequestId, UsernameList, CustIdList, CreatedDate, isProcessed)
-			SELECT m.MessageId, m.RequestId, m.UsernameList, m.CustIdList, GETDATE(), CASE WHEN m.UsernameList IS NOT NULL AND m.UsernameList <> '' THEN 1 ELSE 0 END AS isProcessed
+			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, UsernameList, CustIdList, CreatedDate)
+			SELECT m.MessageId, m.RequestId, m.UsernameList, m.CustIdList, GETDATE()
 			FROM #Messages m
 				OUTER APPLY (SELECT TOP 1 cm.MessageId FROM dbo.crmMessageImport cm WITH (NOLOCK) WHERE m.MessageId = cm.MessageId AND m.RequestId = cm.RequestId) cm
-			WHERE cm.MessageId IS NOT NULL
-
-			PRINT 'Start wait for'
-			WAITFOR DELAY '00:00:10'
-
-			INSERT INTO dbo.crmMessageImport (MessageId, RequestId, UsernameList, CustIdList, CreatedDate, IsProcessed)
-			SELECT MessageId, RequestId, UsernameList, CustIdList, CreatedDate, IsProcessed
-			FROM @t
+			WHERE cm.MessageId IS NULL
 		END TRY
 		BEGIN CATCH
 			IF ERROR_NUMBER() = 2627 -- violation of primary key
 				SET @i = @i + 1
 			ELSE
 				SET @i = @maxTry
-			
 
 			SET @msg = ERROR_MESSAGE()
-
-			INSERT INTO MonDB.dbo.crmMessageImportLog (Retry, Comment, SessionId, Msg, Error) VALUES (@i, 'Error', @SessionId, @msg, ERROR_NUMBER())
 		END CATCH
 
 		IF @msg = ''
 			BREAK
 	END
-
-	SELECT @EndTime = GETDATE()
-
-	SET @duration = DATEDIFF (MILLISECOND,@StartData,@EndTime)
-
-	INSERT INTO MonDB.dbo.crmMessageImportLog(XmlData, StartDate, SessionId, Comment, Duration) VALUES (@Messages, @StartData, @SessionId, 'End',@duration)
 
 	IF ISNULL(@msg, '') <> ''
 	BEGIN
@@ -93,3 +72,5 @@ BEGIN
 	DROP TABLE #Messages
 END
 GO
+
+

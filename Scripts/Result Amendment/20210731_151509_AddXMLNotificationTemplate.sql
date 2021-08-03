@@ -54,8 +54,8 @@ SELECT @RecipientTypeAccoutingPic = CASE WHEN RecipientTypeName = 'Accounting PI
 FROM crmRecipientType WITH(NOLOCK)
 
 DECLARE @XML VARCHAR(MAX) = 
-N'<root>
-<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_SB AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="1" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeHeadlinePic)+'">
+'<root>
+<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_SB AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="1" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeHeadlinePic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50001" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50002" Frequency="1"/>
@@ -108,7 +108,7 @@ N'<root>
 		<TemplateRequiredParam Value="{affected_list}" LanguageId="50003" Frequency="1"/>
 		<TemplateRequiredParam Value="{affected_list}" LanguageId="50004" Frequency="1"/>
 	</r>
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS2	 AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="2" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeHeadlinePic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS2	 AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="2" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeHeadlinePic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50001" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50002" Frequency="1"/>
@@ -161,7 +161,7 @@ N'<root>
 		<TemplateRequiredParam Value="{affected_list}" LanguageId="50003" Frequency="1"/>
 		<TemplateRequiredParam Value="{affected_list}" LanguageId="50004" Frequency="1"/>
 	</r>
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="3" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeHeadlinePic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="3" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeHeadlinePic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50001" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50002" Frequency="1"/>
@@ -175,7 +175,7 @@ N'<root>
 		<TemplateRequiredParam Value="{affected_list}" LanguageId="50003" Frequency="1"/>
 		<TemplateRequiredParam Value="{affected_list}" LanguageId="50004" Frequency="1"/>	
 	</r>
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_NG AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="4" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeHeadlinePic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_NG AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="4" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeHeadlinePic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="2"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50001" Frequency="2"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50002" Frequency="2"/>
@@ -203,7 +203,7 @@ N'<root>
 		
 		
 	</r>
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_OR AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="5" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeHeadlinePic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_OR AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="5" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeHeadlinePic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50001" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50002" Frequency="1"/>
@@ -212,7 +212,7 @@ N'<root>
 		<TemplateRequiredParam Value="{sport_name_yn}" LanguageId="50004" Frequency="1"/>
 		
 	</r>
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_SB_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="6" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeAccoutingPic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_SB_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="6" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeAccoutingPic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50001" Frequency="1"/>
@@ -276,7 +276,7 @@ N'<root>
 		<TemplateRequiredParam Value="{wrong_result}" LanguageId="50004" Frequency="2"/>
 	</r>
 
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS2_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="7" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeAccoutingPic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS2_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="7" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeAccoutingPic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50001" Frequency="1"/>
@@ -340,7 +340,7 @@ N'<root>
 		<TemplateRequiredParam Value="{wrong_result}" LanguageId="50004" Frequency="2"/>
 	</r>
 
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="8" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeAccoutingPic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_VS_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="8" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeAccoutingPic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50000" Frequency="1"/>
 
@@ -357,7 +357,7 @@ N'<root>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50004" Frequency="1"/>
 	</r>
 
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_NG_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="9" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeAccoutingPic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_NG_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="9" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeAccoutingPic)+'">
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50000" Frequency="2"/>
 		<TemplateRequiredParam Value="{sport_name_sc}" LanguageId="50000" Frequency="2"/>
 		<TemplateRequiredParam Value="{sport_name_en}" LanguageId="50001" Frequency="2"/>
@@ -382,7 +382,7 @@ N'<root>
 		<TemplateRequiredParam Value="{date}" LanguageId="50004" Frequency="2"/>
 	</r>
 
-	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_OR_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="10" RecipientTypeId="'+ CONVERT(VARCHAR(20), @RecipientTypeAccoutingPic)+'">
+	<r IsTest="0" NotificationTemplateID="' + CAST(@NotificationTemplateID_OR_AccPic AS VARCHAR(MAX)) +'" NotificationTypeID="' + CAST(@NotificationTypeID AS VARCHAR(MAX))+'" Type="10" RecipientTypeId="'+ CONVERT(VARCHAR(MAX), @RecipientTypeAccoutingPic)+'">
 		<TemplateRequiredParam Value="{message_content_en}" LanguageId="50000" Frequency="1"/>
 		<TemplateRequiredParam Value="{message_content_sc}" LanguageId="50000" Frequency="1"/>
 

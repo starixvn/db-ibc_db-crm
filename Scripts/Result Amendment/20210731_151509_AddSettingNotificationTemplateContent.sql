@@ -10,6 +10,31 @@ DECLARE @NotificationTemplateID INT, @NotificationTypeID INT, @EN INT, @SC INT, 
 
 SELECT @NotificationTypeID = NotificationTypeId FROM dbo.crmNotificationType WITH(NOLOCK) WHERE NotificationTypeName = 'Result Amendment Announcement'
 
+INSERT INTO dbo.crmNotificationTemplate (NotificationTemplateName, NotificationTypeId, Title)
+VALUES 
+	('Result Amendment Template - Sportsbook', @NotificationTypeID, 'Result Amendment Template - Sportsbook')
+	,('Result Amendment Template - Virtual Sports 2', @NotificationTypeID, 'Result Amendment Template - Virtual Sports 2')
+	,('Result Amendment Template - Virtual Sports', @NotificationTypeID, 'Result Amendment Template - Virtual Sports')
+	,('Result Amendment Template - Number Game
+(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @NotificationTypeID, 'Result Amendment Template - Number Game
+(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)')
+	,('Result Amendment Template - Outright - Uncalc Template', @NotificationTypeID, 'Result Amendment Template - Outright - Uncalc Template')
+	,('Result Amendment Template - Accounting PIC
+(Sportsbook)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Sportsbook)')
+	,('Result Amendment Template - Accounting PIC
+(Virtual Sports 2)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Virtual Sports 2)')
+	,('Result Amendment Template - Accounting PIC
+(Virtual Sports)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Virtual Sports)')
+	,('Result Amendment Template - Accounting PIC
+(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)')
+	,('Result Amendment Template - Accounting PIC
+(Outright - Uncalc Template)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Outright - Uncalc Template)')
+
 DECLARE @Contents TABLE (NotificationTemplateName NVARCHAR(1000) , LanguageId INT, Value NVARCHAR(MAX))
 SELECT 
 	@EN		= CASE WHEN SettingValue = 'EN'		 THEN SettingID ELSE @EN	END,

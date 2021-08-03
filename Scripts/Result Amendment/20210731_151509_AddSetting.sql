@@ -42,28 +42,3 @@ FROM @RecipientType
 INSERT INTO dbo.crmNotificationChatType (NotificationTypeId, ChatTypeId)
 VALUES (@NotificationTypeId, 1), (@NotificationTypeId, 2)
 
-INSERT INTO dbo.crmNotificationTemplate (NotificationTemplateName, NotificationTypeId, Title)
-VALUES 
-	('Result Amendment Template - Sportsbook', @NotificationTypeID, 'Result Amendment Template - Sportsbook')
-	,('Result Amendment Template - Virtual Sports 2', @NotificationTypeID, 'Result Amendment Template - Virtual Sports 2')
-	,('Result Amendment Template - Virtual Sports', @NotificationTypeID, 'Result Amendment Template - Virtual Sports')
-	,('Result Amendment Template - Number Game
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @NotificationTypeID, 'Result Amendment Template - Number Game
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)')
-	,('Result Amendment Template - Outright - Uncalc Template', @NotificationTypeID, 'Result Amendment Template - Outright - Uncalc Template')
-	,('Result Amendment Template - Accounting PIC
-(Sportsbook)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Sportsbook)')
-	,('Result Amendment Template - Accounting PIC
-(Virtual Sports 2)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Virtual Sports 2)')
-	,('Result Amendment Template - Accounting PIC
-(Virtual Sports)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Virtual Sports)')
-	,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)')
-	,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)')
-

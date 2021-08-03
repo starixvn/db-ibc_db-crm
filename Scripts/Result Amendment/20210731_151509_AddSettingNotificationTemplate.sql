@@ -28,142 +28,59 @@ VALUES --Result Amendment Template - Sportsbook
 ,('Result Amendment Template - Sportsbook', @TH, N'')
 ,('Result Amendment Template - Sportsbook', @YN, N'')
 -- Result Amendment Template - Virtual Sports 2
-,('Result Amendment Template - Virtual Sports 2', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
-The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
-
-Affected user: {affected_list}')
-,('Result Amendment Template - Virtual Sports 2', @SC,N'您好，客服部在此通知以下的通告：
-
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
-
-受影响会员: {affected_list}')
-,('Result Amendment Template - Virtual Sports 2', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
-The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
-
-您好，客服部在此通知以下的通告：
-
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
-
-Affected user/受影响会员: {affected_list}')
-,('Result Amendment Template - Virtual Sports 2', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
-
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_th} -vs- {away_name_th}" [{sport_name_th} ({round_match_info}) - {date}] has been re-settled. 
-The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
-
-บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}')
-,('Result Amendment Template - Virtual Sports 2', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo đến quý khách thông báo dưới đây:
-
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_yn} -vs- {away_name_yn}" [{sport_name_yn} ({round_match_info}) - {date}] has been re-settled. 
-The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
-
-Tài khoản bị ảnh hưởng: {affected_list}')
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
 -- Result Amendment Template - Virtual Sports
-,('Result Amendment Template - Virtual Sports', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-Attn:[{sport_name_en}] Due to the wrong calculation, bet ID: "" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-Affected user: {affected_list}')
-,('Result Amendment Template - Virtual Sports', @SC,N'您好，客服部予通知以下的通告：
-
-请注意:[{sport_name_sc}] 由于成绩结算有误, 注单: "" 已重新结算. 请重新检查您的帐目. 不便之处 敬请见谅!
-
-受影响会员: {affected_list}')
-,('Result Amendment Template - Virtual Sports', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-Attn:[{sport_name_en}] Due to the wrong calculation, bet ID: "" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-您好，客服部在此通知以下的通告：
-
-请注意:[{sport_name_sc}] 由于成绩结算有误, 注单: "" 已重新结算. 请重新检查您的帐目. 不便之处 敬请见谅!
-
-Affected user/受影响会员: {affected_list}')
-,('Result Amendment Template - Virtual Sports', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
-
-Attn:[{sport_name_th}] Due to the wrong calculation, bet ID: "" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}')
-,('Result Amendment Template - Virtual Sports', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo đến quý khách thông báo dưới đây:
-
-Attn:[{sport_name_yn}] Due to the wrong calculation, bet ID: "" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-Tài khoản bị ảnh hưởng: {affected_list}')
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
 --Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
-,('Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. 
-Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-Affected user: {affected_list}')
-,('Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @SC,N'您好，客服部在此通知以下的通告：
-
-请注意:[{sport_name_sc}] 由于技术有误, 所有注单投注于 [{sport_name_sc} #{match_code} - {date}] 已重新结算为退款. 请重新检查您的帐目. 不便之处 敬请见谅!
-
-受影响会员: {affected_list}')
-,('Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. 
-Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-您好，客服部在此通知以下的通告：
-
-请注意:[{sport_name_sc}] 由于技术有误, 所有注单投注于 [{sport_name_sc} #{match_code} - {date}] 已重新结算为退款. 请重新检查您的帐目. 不便之处 敬请见谅!
-
-Affected user/受影响会员: {affected_list}')
-,('Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
-
-Attn:[{sport_name_th}] Due to technical error, all bets placed on [{sport_name_th} Event #{match_code} - {date}] has been re-settled as REFUNDED. 
-Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}')
-,('Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
-
-Attn:[{sport_name_yn}] Due to technical error, all bets placed on [{sport_name_yn} Event #{match_code} - {date}] has been re-settled as REFUNDED. 
-Kindly double check your statement again. Sorry for the inconvenience caused! 
-
-Tài khoản bị ảnh hưởng: {affected_list}')
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
 --Result Amendment Template - Outright
-,('Result Amendment Template - Outright', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-{message_content_en}
-
-Affected user: {affected_list}')
-,('Result Amendment Template - Outright', @SC,N'您好，客服部在此通知以下的通告：
-
-{message_content_sc}
-
-受影响会员: {affected_list}')
-,('Result Amendment Template - Outright', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
-
-{message_content_en}                     
-
-您好，客服部在此通知以下的通告：
-
-{message_content_sc}
-   
-Affected user/受影响会员: {affected_list}')
-,('Result Amendment Template - Outright', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
-
-{message_content_th}
-บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}')
-,('Result Amendment Template - Outright', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
-
-{message_content_yn}
-
-Tài khoản bị ảnh hưởng: {affected_list}')
-
---Result Amendment Template - Accounting PIC
-,('Result Amendment Template - Accounting PIC', @EN, N'Hi, Kindly take note below announcement: 
-
-{message_content_en}
-
-{message_content_sc}
-
-Thank you')
-
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
+--Accouting Pic Result Amendment Template - Sportsbook
+('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
+-- Accouting Pic  Result Amendment Template - Virtual Sports 2
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
+-- Accouting Pic  Result Amendment Template - Virtual Sports
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
+-- Accouting Pic Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
+--Accouting Pic  Result Amendment Template - Outright
+,('Result Amendment Template - Sportsbook', @EN, N'')
+,('Result Amendment Template - Sportsbook', @SC,N'')
+,('Result Amendment Template - Sportsbook', @EN_SC, N'')
+,('Result Amendment Template - Sportsbook', @TH, N'')
+,('Result Amendment Template - Sportsbook', @YN, N'')
 
 
 INSERT INTO dbo.crmNotificationTemplateContent (NotificationTemplateId, LanguageId, Content)

@@ -30,7 +30,7 @@ BEGIN
 	CREATE TABLE #TicketDetail (TicketId INT, CustId INT, TicketEventId INT, Seq INT)
 	INSERT INTO #TicketDetail (TicketId, CustId, TicketEventId, Seq)
 	SELECT TOP(@BatchSize) d.TicketId, d.CustId, d.TicketEventId, d.Seq
-	FROM dbo.TicketAmendment_Detail d WITH(NOLOCK) -- TicketAmendment_Event
+	FROM dbo.TicketAmendment_Detail d WITH(NOLOCK) 
 		INNER JOIN dbo.TicketAmendment_Event e WITH(NOLOCK) ON e.TicketEventId = d.TicketEventId
 	WHERE e.SubmitDate > @SubmitDate OR (e.SubmitDate = @SubmitDate AND d.Seq > @Seq)
 	ORDER BY e.SubmitDate ASC, e.TicketEventId ASC, d.Seq ASC

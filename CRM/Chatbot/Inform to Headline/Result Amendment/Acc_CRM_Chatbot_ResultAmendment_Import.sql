@@ -23,7 +23,7 @@ AS
 
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfo="" Type=""
+				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type=""
 				/>
 			</root>
 
@@ -43,7 +43,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Submitdate DATETIME2(7), @TicketEventId INT, @Seq INT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @ServerName NVARCHAR(200) = @@SERVERNAME
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
@@ -92,7 +92,10 @@ BEGIN
 		,LeagueNameTH	NVARCHAR(500)
 		,LeagueNameYN	NVARCHAR(500)
 		,MatchCode		NVARCHAR(100)
-		,MatchInfo		NVARCHAR(1000)
+		,MatchInfoEN	NVARCHAR(1000)
+		,MatchInfoSC	NVARCHAR(1000)
+		,MatchInfoTH	NVARCHAR(1000)
+		,MatchInfoYN	NVARCHAR(1000)
 		,[Type]			TINYINT
 	)
 	-- Get Imported Data
@@ -123,7 +126,10 @@ BEGIN
 		,LeagueNameTH 
 		,LeagueNameYN 
 		,MatchCode
-		,MatchInfo
+		,MatchInfoEN
+		,MatchInfoSC
+		,MatchInfoTH
+		,MatchInfoYN
 		,Type 
 	)
 	SELECT
@@ -152,7 +158,10 @@ BEGIN
 		,t.c.value('@LeagueNameTH', 'NVARCHAR(500)') AS LeagueNameTH
 		,t.c.value('@LeagueNameYN', 'NVARCHAR(500)') AS LeagueNameYN
 		,t.c.value('@MatchCode', 'NVARCHAR(100)') AS MatchCode
-		,t.c.value('@MatchInfo', 'NVARCHAR(1000)') AS MatchInfo
+		,t.c.value('@MatchInfoEN', 'NVARCHAR(1000)') AS MatchInfoEN
+		,t.c.value('@MatchInfoSC', 'NVARCHAR(1000)') AS MatchInfoSC
+		,t.c.value('@MatchInfoTH', 'NVARCHAR(1000)') AS MatchInfoTH
+		,t.c.value('@MatchInfoYN', 'NVARCHAR(1000)') AS MatchInfoYN
 		,t.c.value('@Type', 'TINYINT') AS Type
 	FROM @EventData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@EventData = NULL))
@@ -219,8 +228,8 @@ BEGIN
 	WHERE ServiceName = 'ChatBot - ResultAmendment'
 		AND SettingName = 'NotificationTemplate'
 
-	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX), [Type] TINYINT)
-	INSERT INTO @tmpSetting (NotificationTemplateId, NotificationTypeId, IsTest, LanguageId, TemplateRequiredParam, [Type])
+	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX), [Type] TINYINT, RecipientTypeId TINYINT)
+	INSERT INTO @tmpSetting (NotificationTemplateId, NotificationTypeId, IsTest, LanguageId, TemplateRequiredParam, [Type], RecipientTypeId)
 	SELECT
 		t.c.value('@NotificationTemplateID', 'SMALLINT') AS NotificationTemplateId
 		,t.c.value('@NotificationTypeID', 'SMALLINT') AS NotificationTypeId
@@ -228,8 +237,13 @@ BEGIN
 		,t1.c.value('@LanguageId', 'INT') AS LanguageId
 		,t1.c.value('@Value', 'NVARCHAR(MAX)') AS TemplateRequiredParam
 		,t.c.value('@Type', 'TINYINT') AS [Type]
+		,r.c AS RecipientTypeId
 	FROM @Xml.nodes('root/r') t(c)
 		CROSS APPLY t.c.nodes('TemplateRequiredParam') t1(c)
+		CROSS APPLY (
+			select f.val 
+			from dbo.f_CRM_strSplit(t.c.value('@RecipientTypeIds', 'VARCHAR(MAX)'), ',') AS  f
+		) as r(c)
 
 	IF @@ROWCOUNT = 0
 	BEGIN
@@ -245,13 +259,22 @@ BEGIN
 	END
 
 	-- Get Notification Template
-	CREATE TABLE #NotificationTemplate (NotificationTypeId SMALLINT, NotificationTemplateId SMALLINT, Title NVARCHAR(2000), IsTest BIT, LanguageId INT, Content NVARCHAR(MAX), [Type] TINYINT)
-	;WITH CTE_Setting AS (SELECT DISTINCT NotificationTemplateId, NotificationTypeId, IsTest, [Type] FROM @tmpSetting)
-	INSERT INTO #NotificationTemplate (NotificationTypeId, NotificationTemplateId, Title, IsTest, LanguageId, Content, [Type])
-	SELECT s.NotificationTypeId, nt.NotificationTemplateId, nt.Title, s.IsTest, ntc.LanguageId, ntc.Content, s.[Type]
+	CREATE TABLE #NotificationTemplate (NotificationTypeId SMALLINT, NotificationTemplateId SMALLINT, Title NVARCHAR(2000), IsTest BIT, LanguageId INT, Content NVARCHAR(MAX), [Type] TINYINT, RecipientTypeId TINYINT)
+	;WITH CTE_Setting AS (SELECT DISTINCT NotificationTemplateId, NotificationTypeId, IsTest, [Type], RecipientTypeId FROM @tmpSetting)
+	INSERT INTO #NotificationTemplate (NotificationTypeId, NotificationTemplateId, Title, IsTest, LanguageId, Content, [Type], RecipientTypeId)
+	SELECT s.NotificationTypeId, nt.NotificationTemplateId, nt.Title, s.IsTest, ntc.LanguageId, ntc.Content, s.[Type], s.RecipientTypeId
 	FROM CTE_Setting s
 		INNER JOIN dbo.crmNotificationTemplate nt WITH (NOLOCK) ON s.NotificationTemplateId = nt.NotificationTemplateId
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
+
+	-- Delete Logs which are imported into crmNotification
+	DELETE i
+	FROM #TicketData i
+	CROSS APPLY (
+		SELECT TOP 1 n.ReferenceId
+		FROM dbo.crmNotificationReference n WITH(NOLOCK)
+		WHERE n.ReferenceId = i.TicketId AND n.DataSource = @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
+	) AS c
 
 	IF NOT EXISTS (SELECT 1 FROM #TicketData)
 	BEGIN
@@ -328,14 +351,15 @@ BEGIN
 		,IsDuplicated			BIT
 		,RelatedIds				NVARCHAR(MAX)
 		,IsTest					BIT
-		,PICTye					TINYINT DEFAULT 0 -- 1 for accouting pic
+		,RecipientTypeId		TINYINT
 	)
-	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
-	SELECT m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, m.IsTest
+	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
+	SELECT m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.TicketId = g.TicketId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
+		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 
 	UPDATE t
 		SET t.IsDuplicated = 1
@@ -343,10 +367,10 @@ BEGIN
 	WHERE EXISTS (SELECT 1 FROM #tmpResult g WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId) AND t.ChatTypeId = 2
 
 	---- For Accounting PIC
-	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChatTypeId TINYINT)
+	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChatTypeId TINYINT, RecipientTypeId TINYINT)
 
-	INSERT INTO @Group (ConversationGroupId, LanguageId, ChatTypeId)
-	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, 2
+	INSERT INTO @Group (ConversationGroupId, LanguageId, ChatTypeId, RecipientTypeId)
+	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, 2, r.RecipientTypeId
 	FROM dbo.crmConversationGroup g WITH(NOLOCK)
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
@@ -360,8 +384,8 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
 	WHERE c.site <> 'CN88'
 
-	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, PICTye)
-	SELECT t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, 1
+	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
+	SELECT t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
 	FROM @Group g 
 		CROSS JOIN #TicketData t 
 		INNER JOIN #DirectAccount cda WITH(NOLOCK) ON cda.CustID IN (t.CustId, t.Recommend, t.Mrecommend, t.Srecommend)
@@ -395,15 +419,19 @@ BEGIN
 		,LeagueNameSC			NVARCHAR(500)
 		,LeagueNameTH			NVARCHAR(500)
 		,LeagueNameYN			NVARCHAR(500)
-		,ContentEN				NVARCHAR(MAX)
-		,ContentSC				NVARCHAR(MAX)
-		,ContentTH				NVARCHAR(MAX)
-		,ContentYN				NVARCHAR(MAX)
+		,ContentEN				NVARCHAR(4000)
+		,ContentSC				NVARCHAR(4000)
+		,ContentTH				NVARCHAR(4000)
+		,ContentYN				NVARCHAR(4000)
 		,HeadlineList			NVARCHAR(MAX)
 		,RelatedIds				VARCHAR(1000)
 		,UsernameLst			NVARCHAR(MAX)
 		,MatchCode	            NVARCHAR(100)
-		,MatchInfo              NVARCHAR(1000)
+		,MatchInfoEN            NVARCHAR(1000)
+		,MatchInfoSC            NVARCHAR(1000)
+		,MatchInfoTH            NVARCHAR(1000)
+		,MatchInfoYN            NVARCHAR(1000)
+		,RecipientTypeId		TINYINT
 		,[Type]					TINYINT
 	)
 
@@ -472,14 +500,14 @@ BEGIN
 			   ,r.ConversationGroupId
 			   ,r.ChatTypeId
 			   ,r.LanguageId
-			   ,r.PICTye
+			   ,r.RecipientTypeId
 			   ,MIN(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
 			   ,MIN(ISNULL(r.RelatedIds,'')) AS RelatedIds
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UserameLst
 		FROM #tmpResult r
-		GROUP BY r.Id, r.ticketEventId, r.PICTye, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
+		GROUP BY r.Id, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	)
 	INSERT INTO #Result 
 	(
@@ -512,11 +540,15 @@ BEGIN
 		,LeagueNameTH
 		,LeagueNameYN
 		,MatchCode
-		,MatchInfo
+		,MatchInfoEN
+		,MatchInfoSC
+		,MatchInfoTH
+		,MatchInfoYN
 		,ContentEN
 		,ContentSC
 		,ContentTH
 		,ContentYN
+		,RecipientTypeId
 		,[Type]
 	)
 	SELECT 
@@ -549,12 +581,16 @@ BEGIN
 		,ISNULL(ev.LeagueNameTH,'')
 		,ISNULL(ev.LeagueNameYN,'')
 		,ISNULL(ev.MatchCode,'')
-		,ISNULL(ev.MatchInfo,'')
+		,ISNULL(ev.MatchInfoEN,'')
+		,ISNULL(ev.MatchInfoSC,'')
+		,ISNULL(ev.MatchInfoTH,'')
+		,ISNULL(ev.MatchInfoYN,'')
 		,ISNULL(m.Content_en,'')
 		,ISNULL(m.Content_cs,'')
 		,ISNULL(m.Content_th,'')
 		,ISNULL(m.Content_yn,'')
-		,CASE WHEN g.PICTye = 1 AND ev.Type = 5 THEN ev.[Type] + 100 ELSE ev.[Type] END AS [Type]		
+		,g.RecipientTypeId
+		,ev.[Type]
 	FROM CTE_Group g
 		INNER JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
 		LEFT JOIN #MessageData m ON m.TicketEventId = g.TicketEventId
@@ -572,61 +608,67 @@ BEGIN
 
 		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
 		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
-				,REPLACE(
-					REPLACE(
-						REPLACE(
-							REPLACE(
-								REPLACE(
-									REPLACE(
-										REPLACE(
-											REPLACE(
-												REPLACE(
-													REPLACE(
-														REPLACE(
-															REPLACE(
-																REPLACE(
-																	REPLACE(
-																		REPLACE(
-																			REPLACE(
-																				REPLACE(
-																					REPLACE(
-																						REPLACE(
-																							REPLACE(
-																								REPLACE(
-																									REPLACE(
-																										REPLACE(
-																											REPLACE(
-																												REPLACE(
-																													REPLACE(
-																														nt.Content, '{sport_name_en}', r.SportNameEN)
-																													,'{sport_name_sc}', r.SportNameSC)
-																												,'{sport_name_th}', r.SportNameTH)
-																											,'{sport_name_yn}', r.SportNameYN)
-																										,'{home_name_en}', r.HomeNameEN)
-																									,'{home_name_sc}', r.HomeNameSC)
-																								,'{home_name_th}', r.HomeNameTH)
-																							,'{home_name_yn}', r.HomeNameYN)
-																						,'{away_name_en}', r.AwayNameEN)
-																					,'{away_name_sc}', r.AwayNameSC)
-																				,'{away_name_th}', r.AwayNameTH)
-																			,'{away_name_yn}', r.AwayNameYN)
-																		,'{league_name_en}', r.LeagueNameEN)
-																	,'{league_name_sc}', r.LeagueNameSC)
-																,'{league_name_th}', r.LeagueNameTH)
-															,'{league_name_yn}', r.LeagueNameYN)
-														,'{date}', r.EventDate)
-													,'{actual_result}', r.ActualResult)
-												,'{wrong_result}', r.WrongResult)
-											,'{round_match_info}', r.MatchInfo)
-										,'{match_code}', r.MatchCode)
-									,'{message_content_en}', r.ContentEN)
-								,'{message_content_sc}', r.ContentSC)
-							,'{message_content_th}', r.ContentTH)
-						,'{message_content_yn}', r.ContentYN)
-				,'{affected_list}', r.UsernameLst)		
-			, r.RelatedIds
+			 ,REPLACE(
+			 	REPLACE(
+			 		REPLACE(
+			 			REPLACE(
+			 				REPLACE(
+			 					REPLACE(
+			 						REPLACE(
+			 							REPLACE(
+			 								REPLACE(
+			 									REPLACE(
+			 										REPLACE(
+			 											REPLACE(
+			 												REPLACE(
+			 													REPLACE(
+			 														REPLACE(
+			 															REPLACE(
+			 																REPLACE(
+			 																	REPLACE(
+			 																		REPLACE(
+			 																			REPLACE(
+			 																				REPLACE(
+			 																					REPLACE(
+			 																						REPLACE(
+			 																							REPLACE(
+			 																								REPLACE(
+			 																									REPLACE(
+			 																										REPLACE(
+			 																											REPLACE(
+			 																												REPLACE(
+			 																													nt.Content, '{sport_name_en}', r.SportNameEN)
+			 																												,'{sport_name_sc}', r.SportNameSC)
+			 																											,'{sport_name_th}', r.SportNameTH)
+			 																										,'{sport_name_yn}', r.SportNameYN)
+			 																									,'{home_name_en}', r.HomeNameEN)
+			 																								,'{home_name_sc}', r.HomeNameSC)
+			 																							,'{home_name_th}', r.HomeNameTH)
+			 																						,'{home_name_yn}', r.HomeNameYN)
+			 																					,'{away_name_en}', r.AwayNameEN)
+			 																				,'{away_name_sc}', r.AwayNameSC)
+			 																			,'{away_name_th}', r.AwayNameTH)
+			 																		,'{away_name_yn}', r.AwayNameYN)
+			 																	,'{league_name_en}', r.LeagueNameEN)
+			 																,'{league_name_sc}', r.LeagueNameSC)
+			 															,'{league_name_th}', r.LeagueNameTH)
+			 														,'{league_name_yn}', r.LeagueNameYN)
+			 													,'{date}', r.EventDate)
+			 												,'{actual_result}', r.ActualResult)
+			 											,'{wrong_result}', r.WrongResult)
+			 										,'{round_match_info_en}', r.MatchInfoEN)
+			 									,'{round_match_info_sc}', r.MatchInfoSC)
+			 								,'{round_match_info_th}', r.MatchInfoTH)
+			 							,'{round_match_info_yn}', r.MatchInfoYN)
+			 						,'{match_code}', r.MatchCode)
+			 					,'{message_content_en}', r.ContentEN)
+			 				,'{message_content_sc}', r.ContentSC)
+			 			,'{message_content_th}', r.ContentTH)
+			 		,'{message_content_yn}', r.ContentYN)
+			 	,'{affected_list}', r.UsernameLst)		
+			 ,r.RelatedIds
 		FROM #Result r
-			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId AND nt.[Type] = r.[Type] 
+			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId AND nt.[Type] = r.[Type] AND r.RecipientTypeId = nt.RecipientTypeId
 		WHERE r.Id = @Id 
 
 		SELECT @NotificationId = SCOPE_IDENTITY()
@@ -649,7 +691,7 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)
-		SELECT DISTINCT @NotificationId, r.TicketId, 'DBEXT.bodb02.dbo.TicketAmendment_Detail'
+		SELECT DISTINCT @NotificationId, r.TicketId, @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
 		FROM #tmpResult r 
 		WHERE r.Id = @Id
 

@@ -400,7 +400,7 @@ BEGIN
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
 		,Status					VARCHAR(20)
-		,EventDate				DATETIME
+		,EventDate				VARCHAR(20)
 		,ActualResult			NVARCHAR(MAX)
 		,WrongResult			NVARCHAR(MAX)
 		,SportNameEN			NVARCHAR(50)
@@ -561,7 +561,7 @@ BEGIN
 		,g.ChatTypeId
 		,g.LanguageId
 		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
-		,ISNULL(ev.EventDate, '')
+		,ISNULL(CONVERT(VARCHAR(2), DAY(ev.EventDate)) + '/' + CONVERT(VARCHAR(2), MONTH(ev.EventDate)), '') AS EventDate
 		,ISNULL(ev.ActualResult,'')
 		,ISNULL(ev.WrongResult,'')
 		,ISNULL(ev.SportNameEN,'')

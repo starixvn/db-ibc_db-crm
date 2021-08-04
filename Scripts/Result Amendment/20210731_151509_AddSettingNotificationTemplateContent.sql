@@ -29,8 +29,8 @@ VALUES
 (Virtual Sports)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
 (Virtual Sports)')
 	,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)')
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))')
 	,('Result Amendment Template - Accounting PIC
 (Outright - Uncalc Template)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
 (Outright - Uncalc Template)')
@@ -184,11 +184,35 @@ Kindly double check your statement again. Sorry for the inconvenience caused!
 
 Tài khoản bị ảnh hưởng: {affected_list}')
 --Result Amendment Template - Outright
-,('Result Amendment Template - Outright - Uncalc Template', @EN, N'')
-,('Result Amendment Template - Outright - Uncalc Template', @SC,N'')
-,('Result Amendment Template - Outright - Uncalc Template', @EN_SC, N'')
-,('Result Amendment Template - Outright - Uncalc Template', @TH, N'')
-,('Result Amendment Template - Outright - Uncalc Template', @YN, N'')
+,('Result Amendment Template - Outright - Uncalc Template', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
+
+{message_content_en}
+
+Affected user: {affected_list}')
+,('Result Amendment Template - Outright - Uncalc Template', @SC,N'您好，客服部在此通知以下的通告：
+
+{message_content_sc}
+
+受影响会员: {affected_list}')
+,('Result Amendment Template - Outright - Uncalc Template', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
+
+{message_content_en}                     
+
+您好，客服部在此通知以下的通告：
+
+{message_content_sc}
+   
+Affected user/受影响会员: {affected_list}')
+,('Result Amendment Template - Outright - Uncalc Template', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
+
+{message_content_th}
+
+บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}')
+,('Result Amendment Template - Outright - Uncalc Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
+
+{message_content_yn}
+
+Tài khoản bị ảnh hưởng: {affected_list}')
 --Result Amendment Template - Accounting PIC (Sportsbook)
 ,('Result Amendment Template - Accounting PIC
 (Sportsbook)', @EN, N'Hi, Kindly take note below announcement: 
@@ -324,7 +348,7 @@ Attn:[{sport_name_en}] Due to the wrong calculation, bet ID: "" has been re-sett
 Thank you')
 --Result Amendment Template - Accounting PIC (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
 ,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @EN, N'Hi, Kindly take note below announcement: 
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @EN, N'Hi, Kindly take note below announcement: 
 
 Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. Kindly double check your statement again. Sorry for the inconvenience caused! 
 
@@ -332,7 +356,7 @@ Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_e
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @SC,N'Hi, Kindly take note below announcement: 
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @SC,N'Hi, Kindly take note below announcement: 
 
 Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. Kindly double check your statement again. Sorry for the inconvenience caused! 
 
@@ -340,7 +364,7 @@ Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_e
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @EN_SC, N'Hi, Kindly take note below announcement: 
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @EN_SC, N'Hi, Kindly take note below announcement: 
 
 Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. Kindly double check your statement again. Sorry for the inconvenience caused! 
 
@@ -348,7 +372,7 @@ Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_e
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @TH, N'Hi, Kindly take note below announcement: 
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @TH, N'Hi, Kindly take note below announcement: 
 
 Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. Kindly double check your statement again. Sorry for the inconvenience caused! 
 
@@ -356,7 +380,7 @@ Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_e
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @YN, N'Hi, Kindly take note below announcement: 
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @YN, N'Hi, Kindly take note below announcement: 
 
 Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_en} Event #{match_code} - {date}] has been re-settled as REFUNDED. Kindly double check your statement again. Sorry for the inconvenience caused! 
 

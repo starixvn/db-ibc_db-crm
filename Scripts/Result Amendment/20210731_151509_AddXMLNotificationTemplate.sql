@@ -41,7 +41,7 @@ SELECT
 	,@NotificationTemplateID_VS_AccPic = CASE WHEN  NotificationTemplateName = 'Result Amendment Template - Accounting PIC
 (Virtual Sports)' THEN NotificationTemplateId ELSE @NotificationTemplateID_VS_AccPic END
 	,@NotificationTemplateID_NG_AccPic = CASE WHEN  NotificationTemplateName = 'Result Amendment Template - Accounting PIC
-(Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)' THEN NotificationTemplateId ELSE @NotificationTemplateID_NG_AccPic END
+(Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))' THEN NotificationTemplateId ELSE @NotificationTemplateID_NG_AccPic END
 	,@NotificationTemplateID_OR_AccPic = CASE WHEN  NotificationTemplateName = 'Result Amendment Template - Accounting PIC
 (Outright - Uncalc Template)' THEN NotificationTemplateId ELSE @NotificationTemplateID_OR_AccPic END
 FROM crmNotificationTemplate WITH(NOLOCK)

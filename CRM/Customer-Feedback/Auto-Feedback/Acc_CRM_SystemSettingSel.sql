@@ -13,6 +13,7 @@ AS
 		- 20200519@Johnson: add setting serviceflag/lastruntime [redmine:#134220]	Param's Explanation:
 		- 20200612@Johnson: remove LastMsgID [redmine:#135719]
 		- 20200812@Johnson: Filter by serviceName = 'AutoFB' [redmine:#139158]
+		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -22,7 +23,10 @@ BEGIN
 			@ConfigUAT BIT,
 			@ConfigPRO BIT,
 			@ServiceFlag BIT,
-			@LastRuntime DATETIME
+			@LastRuntime DATETIME,
+			@JobStatusUAT VARCHAR(50),
+			@LastRuntimeUAT DATETIME,
+			@LastDateUAT DATETIME
 	
 	SELECT @JobStatus = value 
 	FROM SystemSetting WITH(NOLOCK)
@@ -53,11 +57,29 @@ BEGIN
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'LastRuntime'
 		AND ServiceName = 'AutoFB'
+	
+	SELECT @JobStatusUAT = value 
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'JobStatusUAT'
+		AND ServiceName = 'AutoFB'
 		
+	SELECT @LastRuntimeUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'LastRuntimeUAT'
+		AND ServiceName = 'AutoFB'	
+	
+	SELECT @LastDateUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'LastDateUAT'
+		AND ServiceName = 'AutoFB'	
+			
 	SELECT @JobStatus as JobStatus, 
 		@BatchSize as BatchSize, 
 		@ConfigUAT as ConfigUAT,
 		@ConfigPRO as ConfigPRO,
 		@ServiceFlag as ServiceFlag,
-		@LastRuntime as LastRuntime
+		@LastRuntime as LastRuntime,
+		@JobStatusUAT as JobStatusUAT,
+		@LastRuntimeUAT as LastRuntimeUAT,
+		@LastDateUAT as LastDateUAT
 END

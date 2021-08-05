@@ -1,9 +1,3 @@
-CRM\Customer-Feedback\Acc_CRM_FeedbackGetDeleted.sql
-CRM\Customer-Feedback\Acc_CRM_FeedbackGetLatest.sql
-CRM\BK\Customer- Feedback\Acc_CRM_FeedbackSelByDate.sql
-CRM\Customer-Feedback\Acc_CRM_FeedbackSelTop.sql
-CRM\Customer-Feedback\Acc_CRM_FeedbackSelTopByCustId.sql
-CRM\Report\Acc_CRM_Rpt_DeletedFeedbackStatistics.sql
-CRM\Report\Acc_CRM_Rpt_FeedbackStatisticDetails.sql
-
+CRM\Customer-Feedback\Acc_CRM_CustomerFeedbackIns.sql
+CRM\Customer-Feedback\Acc_CRM_GuestFeedbackIns_Multiple.sql
 

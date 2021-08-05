@@ -604,11 +604,14 @@ BEGIN
 			RETURN;
 		END;
 		
-		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
-		SET isProcessed = 1		
-		WHERE MessageID = @MessageID
-			AND RequestID IN (SELECT requestID FROM @tmpRequest)
-			AND isProcessed = 0
+		UPDATE m WITH(UPDLOCK,ROWLOCK)
+		SET m.IsProcessed = CASE WHEN fb.Environment = 'LIVE'  THEN 1 ELSE m.IsProcessed END,
+			m.IsProcessedUAT = 	CASE WHEN fb.Environment = 'UAT'  THEN 1 ELSE m.IsProcessedUAT END
+		FROM crmMessageImport m	
+		INNER JOIN crmAutoFeedbackInfo fb WITH(NOLOCK) ON m.MessageID = fb.MessageID AND m.RequestID = fb.RequestID
+		WHERE fb.MessageID = @MessageID
+			AND fb.RequestID IN (SELECT requestID FROM @tmpRequest)
+			AND ( (fb.Environment = 'LIVE' AND IsProcessed = 0) OR (fb.Environment = 'UAT' AND IsProcessedUAT = 0) )
 
 		IF	@@ERROR <> 0
 		BEGIN

@@ -4,7 +4,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_AutoFeedbackInfoUpd]
 	@RequestIDs	VARCHAR(100),
 	@Custids 	VARCHAR(MAX),
 	@Status 	VARCHAR(20),
-	@Description VARCHAR(1000)
+	@Description VARCHAR(1000),
+	@Environment	VARCHAR(10) = 'LIVE'
 AS
 /*
 	Created: 20200519@Johnson
@@ -17,6 +18,7 @@ AS
 		- 20200604@Johnson: update retrycount when fail [redmine:#135337]
 		- 20200612@Johnson: enhance to check missing feedback [redmine:#135719]
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
+		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
 	Param's Explanation:		
 		- @custids: list custids for each feedback
 		- @RequestIDs : void requestid of this msg
@@ -44,9 +46,21 @@ BEGIN
 		AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 		AND custid IN (SELECT custid FROM @tmpCust)
 	
-	UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
-	SET isProcessed = 1		
-	WHERE MessageID = @MessageID
-		AND RequestID IN (SELECT RequestID FROM @tmpRequest)
-		AND isProcessed = 0
+	IF @Environment = 'LIVE'
+	BEGIN
+		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
+		SET isProcessed = 1		
+		WHERE MessageID = @MessageID
+			AND RequestID IN (SELECT RequestID FROM @tmpRequest)
+			AND isProcessed = 0
+	END
+	ELSE
+	BEGIN
+		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
+		SET IsProcessedUAT = 1		
+		WHERE MessageID = @MessageID
+			AND RequestID IN (SELECT RequestID FROM @tmpRequest)
+			AND IsProcessedUAT = 0
+	END
+	
 END	

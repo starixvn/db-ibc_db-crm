@@ -16,7 +16,7 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT s.SettingID AS [Role], s.SettingValue AS [RoleName], s.DisplayOrder
+	SELECT s.SettingID, s.SettingValue, s.DisplayOrder
 	FROM dbo.crmSetting s WITH(NOLOCK)
 		INNER JOIN dbo.crmSettingRelation r WITH(NOLOCK) ON r.SettingID = s.SettingID
 	WHERE r.ParentID = @PicType AND s.SettingName = 'PICRole'

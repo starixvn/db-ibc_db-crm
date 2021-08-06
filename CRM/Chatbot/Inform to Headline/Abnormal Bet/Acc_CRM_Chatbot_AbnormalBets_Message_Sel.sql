@@ -10,13 +10,14 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 
 	Param's Explanation:
 		@Messages:
 			<root>
-				<r MessageID=1 RequestID=1 />
-				<r MessageID=1 RequestID=2 />
-				<r MessageID=3 RequestID=2 />
+				<r MessageID="1" RequestID="1" />
+				<r MessageID="1" RequestID="2" />
+				<r MessageID="3" RequestID="2" />
 			</root>
 */
 
@@ -37,7 +38,6 @@ BEGIN
 		INNER JOIN #Messages t ON m.MessageId = t.MessageId
 	WHERE m.msgtype = 1
 		AND m.isbatch = 1
-		AND m.MsgContentsType = 103
 		AND m.Content_en LIKE '%@@%'
 	ORDER BY m.MessageId
 	OPTION (RECOMPILE)

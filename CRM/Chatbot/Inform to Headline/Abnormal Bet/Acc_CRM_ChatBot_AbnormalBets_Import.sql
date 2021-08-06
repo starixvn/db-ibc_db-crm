@@ -15,27 +15,28 @@ AS
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20201116@Malcolm: Change the MessageID column to the ReferenceId column [RedmineID: #144265]
+		- 20210728@Malcolm: Get notification template for abnormal bets [RedmineID: #157303]
+		- 20210729@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 
 	Param's Explanation:
-		. @XmlData
+		- @XmlData
 			<root>
-				<r MessageId="1" Username="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" />
-				<r MessageId="1" Username="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" />
+				<r MessageID="1" UsernameList="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
+				<r MessageID="2" UsernameList="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
 			</root>
-		. @Messages:
+				+ Type = 1 : get member of tickets belong to abnormal bets
+				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MIN(IsTest) of member have tickets voided
+		- @Messages:
 			<root>
-				<r MessageID=1 RequestID=1 />
-				<r MessageID=1 RequestID=2 />
-				<r MessageID=3 RequestID=2 />
+				<r MessageID="1" RequestID="1"/>
+				<r MessageID="2" RequestID="2"/>
 			</root>
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @IncludeUUSCurrency BIT
-
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - AbnormalBets' and SettingName = 'IncludeUUSCurrency'
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = ''
 
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 
@@ -51,26 +52,35 @@ BEGIN
 		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
 		RETURN
 	END
+	-- Get messageId and requestId
+	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT)
+	INSERT INTO #MessageRequest (MessageID, RequestID)
+	SELECT 
+		t.c.value('@MessageID', 'INT') AS MessageID
+		,t.c.value('@RequestID', 'INT') AS RequestID
+	FROM @Messages.nodes('root/r') t(c)
+	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
 	-- Get Imported Data
 	CREATE TABLE #ImportMessage
 	(
-		MessageId INT
-		,Username VARCHAR(50)
-		,CustId INT
-		,Recommend INT
-		,Mrecommend INT
-		,Srecommend INT
-		,IsTest BIT
-		,Content_en NVARCHAR(4000)
-		,Content_cs NVARCHAR(4000)
-		,Content_th NVARCHAR(4000)
-		,Content_vn NVARCHAR(4000)
+		MessageId	INT
+		,Username	VARCHAR(50)
+		,CustId		INT
+		,Recommend	INT
+		,Mrecommend	INT
+		,Srecommend	INT
+		,IsTest		BIT
+		,Content_en	NVARCHAR(4000)
+		,Content_cs	NVARCHAR(4000)
+		,Content_th	NVARCHAR(4000)
+		,Content_vn	NVARCHAR(4000)
+		,[Type]		TINYINT
 	)
-	INSERT INTO #ImportMessage (MessageId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn)
+	INSERT INTO #ImportMessage (MessageId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn, [Type])
 	SELECT
-		t.c.value('@MessageId', 'INT') AS MessageId
-		,t.c.value('@Username', 'VARCHAR(50)') AS Username
+		t.c.value('@MessageID', 'INT') AS MessageId
+		,ISNULL(l.Username, '') AS Username
 		,t.c.value('@CustId', 'INT') AS CustId
 		,t.c.value('@Recommend', 'INT') AS Recommend
 		,t.c.value('@Mrecommend', 'INT') AS Mrecommend
@@ -80,7 +90,11 @@ BEGIN
 		,t.c.value('@Content_cs', 'NVARCHAR(4000)') AS Content_cs
 		,t.c.value('@Content_th', 'NVARCHAR(4000)') AS Content_th
 		,t.c.value('@Content_vn', 'NVARCHAR(4000)') AS Content_vn
+		,t.c.value('@Type', 'TINYINT') AS [Type]
 	FROM @XmlData.nodes('root/r') t(c)
+		OUTER APPLY (
+			SELECT f.val FROM dbo.f_CRM_strSplit(t.c.value('@UsernameList', 'NVARCHAR(MAX)'), ',') f
+		) l(Username)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
 	IF @@ROWCOUNT = 0
@@ -97,32 +111,21 @@ BEGIN
 		RETURN
 	END
 
-		-- Only import testing data for UAT environment
-	IF @Environment = 'UAT'
-	BEGIN
-		DELETE i FROM #ImportMessage i WHERE i.IsTest = 0
-	END
-
-	--Exclude testing data if @IncludeUUSCurrency = 0 and @environment = 'LIVE'
-	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
-	BEGIN
-		DELETE i FROM #ImportMessage i WHERE i.IsTest = 1
-	END
-
 	-- Get Job Setting
 	DECLARE @Xml XML
 	SELECT  @Xml = CONVERT(XML, Value) FROM dbo.SystemSetting WITH (NOLOCK)
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
 		AND SettingName = 'NotificationTemplate'
 
-	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX))
-	INSERT INTO @tmpSetting (NotificationTemplateId, NotificationTypeId, IsTest, LanguageId, TemplateRequiredParam)
+	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX), [Type] TINYINT)
+	INSERT INTO @tmpSetting (NotificationTemplateId, NotificationTypeId, IsTest, LanguageId, TemplateRequiredParam, [Type])
 	SELECT
 		t.c.value('@NotificationTemplateID', 'SMALLINT') AS NotificationTemplateId
 		,t.c.value('@NotificationTypeID', 'SMALLINT') AS NotificationTypeId
 		,t.c.value('@IsTest', 'BIT') AS IsTest
 		,t1.c.value('@LanguageId', 'INT') AS LanguageId
 		,t1.c.value('@Value', 'NVARCHAR(MAX)') AS TemplateRequiredParam
+		,t.c.value('@Type', 'TINYINT') AS [Type]
 	FROM @Xml.nodes('root/r') t(c)
 		CROSS APPLY t.c.nodes('TemplateRequiredParam') t1(c)
 
@@ -140,10 +143,10 @@ BEGIN
 	END
 
 	-- Get Notification Template
-	CREATE TABLE #NotificationTemplate (NotificationTypeId SMALLINT, NotificationTemplateId SMALLINT, Title NVARCHAR(2000), IsTest BIT, LanguageId INT, Content NVARCHAR(MAX))
-	;WITH CTE_Setting AS (SELECT DISTINCT NotificationTemplateId, NotificationTypeId, IsTest FROM @tmpSetting)
-	INSERT INTO #NotificationTemplate (NotificationTypeId, NotificationTemplateId, Title, IsTest, LanguageId, Content)
-	SELECT s.NotificationTypeId, nt.NotificationTemplateId, nt.Title, s.IsTest, ntc.LanguageId, ntc.Content
+	CREATE TABLE #NotificationTemplate (NotificationTypeId SMALLINT, NotificationTemplateId SMALLINT, Title NVARCHAR(2000), IsTest BIT, LanguageId INT, Content NVARCHAR(MAX), [Type] TINYINT)
+	;WITH CTE_Setting AS (SELECT DISTINCT NotificationTemplateId, NotificationTypeId, IsTest, [Type] FROM @tmpSetting)
+	INSERT INTO #NotificationTemplate (NotificationTypeId, NotificationTemplateId, Title, IsTest, LanguageId, Content, [Type])
+	SELECT s.NotificationTypeId, nt.NotificationTemplateId, nt.Title, s.IsTest, ntc.LanguageId, ntc.Content, s.[Type]
 	FROM CTE_Setting s
 		INNER JOIN dbo.crmNotificationTemplate nt WITH (NOLOCK) ON s.NotificationTemplateId = nt.NotificationTemplateId
 		INNER JOIN dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
@@ -247,6 +250,7 @@ BEGIN
 		,IsTest BIT
 		,Status VARCHAR(20)
 		,RelatedIds VARCHAR(1000)
+		,[Type] TINYINT
 	)
 
 	DECLARE @Status VARCHAR(20) = 'Planned'
@@ -272,7 +276,7 @@ BEGIN
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
-			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
+			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM #tmpResult t1
 		WHERE t1.ChatTypeId = 1 -- Group
 		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId
@@ -331,7 +335,7 @@ BEGIN
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
-			,MAX(CONVERT(TINYINT, t1.IsTest)) AS IsTest
+			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM CTE_tempResult t1
 		GROUP BY MessageId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 	) t
@@ -339,14 +343,14 @@ BEGIN
 	UPDATE #Result SET Status = 'Planned' WHERE IsTest = 1 AND Status = 'Draft'
 
 	UPDATE r
-	SET r.Content_en = m.Content_en, r.Content_cs = m.Content_cs, r.Content_th = m.Content_th, r.Content_vn = m.Content_vn
+	SET r.Content_en = m.Content_en, r.Content_cs = m.Content_cs, r.Content_th = m.Content_th, r.Content_vn = m.Content_vn, r.[Type] = m.[Type]
 	FROM #Result r
 		CROSS APPLY (
-			SELECT TOP 1 m.Content_en, m.Content_cs, m.Content_th, m.Content_vn
+			SELECT TOP 1 m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, m.[Type]
 			FROM #ImportMessage m
 			WHERE r.MessageId = m.MessageId
 		) m
-
+	
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
 			,@SendDate			DATETIME = GETDATE()
@@ -363,7 +367,7 @@ BEGIN
 			,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nt.Content, '{EN Announcement}', r.Content_en), '{SC Announcement}', r.Content_cs), '{TH Announcement}', r.Content_th), '{YN Announcement}', r.Content_vn), '{Affected List}', r.AffectedList)
 			,r.RelatedIds
 		FROM #Result r
-			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId
+			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId AND r.[Type] = nt.[Type]
 		WHERE r.Id = @Id
 
 		SELECT @NotificationId = SCOPE_IDENTITY()
@@ -398,13 +402,8 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	IF @Environment = 'UAT' OR (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
-	BEGIN
-		SELECT @Messages = (SELECT DISTINCT t.c.value('@MessageID', 'INT') AS '@MessageID' , t.c.value('@RequestID', 'INT') AS '@RequestID'
-							FROM @Messages.nodes('/root/r') T(c)
-							WHERE EXISTS(SELECT TOP(1) 1 FROM #ImportMessage i WHERE T.c.value('@MessageID', 'INT') = i.MessageId) 
-							FOR XML PATH('r'), ROOT('root'))
-	END
+	SELECT @Messages = (SELECT mr.MessageID AS '@MessageID', mr.RequestID AS '@RequestID'FROM #MessageRequest mr FOR XML PATH('r'), ROOT('root'))
+
 	-- Update crmMessageImport
 	EXEC dbo.Acc_CRM_ChatBot_crmMessageImport_Upd @Messages = @Messages
 
@@ -420,5 +419,6 @@ BEGIN
 	DROP TABLE #Result
 	DROP TABLE #tmpGroup
 	DROP TABLE #tmpResult
+	DROP TABLE #MessageRequest
 END
 GO

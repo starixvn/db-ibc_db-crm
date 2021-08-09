@@ -23,6 +23,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20210726@Malcolm: Add log for accouting Pic [Redmine: #151509]
 	Param's Explanation:
 		
 */
@@ -31,7 +32,7 @@ BEGIN
 
 	DECLARE @Existing_GroupName NVARCHAR(1000) = '',@NumberOfRecipients BIT = 0, @SourceId INT, @NewValues NVARCHAR(MAX), 
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, 
-			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
+			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000), @Old_RecipientTypeId TINYINT
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
@@ -43,10 +44,14 @@ BEGIN
 										ELSE @LanguageId END
 			   ,@Remark				  = CASE WHEN @Remark IS NULL THEN cg.Remark 
 										ELSE @Remark END
-			   ,@RecipientTypeId	  = 0
 		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		WHERE cg.ConversationGroupId = @ConversationGroupId
 
+		SELECT TOP(1) @RecipientTypeId = r.RecipientTypeId
+		FROM dbo.crmConversationGroupRecipient cg WITH(NOLOCK)
+			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON cg.RecipientId = r.RecipientId 
+		WHERE cg.ConversationGroupId = @ConversationGroupId
+		
 		SELECT @BotId = CASE WHEN @BotId IS NULL THEN cgb.BotId ELSE @BotId END
 		FROM dbo.crmConversationGroupBot cgb WITH(NOLOCK)
 		WHERE cgb.ConversationGroupId = @ConversationGroupId
@@ -70,6 +75,12 @@ BEGIN
 		END
 
 	END
+
+	SELECT TOP(1) @Old_RecipientTypeId = r.RecipientTypeId
+	FROM dbo.crmConversationGroupRecipient cg WITH(NOLOCK)
+		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON cg.RecipientId = r.RecipientId 
+	WHERE cg.ConversationGroupId = @ConversationGroupId
+
 	CREATE TABLE  #Recipients  (ID INT PRIMARY KEY CLUSTERED)
 	CREATE TABLE  #Headlines  (ID INT PRIMARY KEY CLUSTERED)
 
@@ -275,14 +286,20 @@ BEGIN
 				WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				FOR XML PATH('Recipient'))
 
-	SELECT @__HeadlineXML =	(
-				SELECT  t.HeadlineId AS '@Id', 
-						CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
-						ELSE c.username END AS '@Name'
-				FROM #Tmp t
-						LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
-				WHERE t.Type = 4
-				FOR XML PATH('Headline'))
+	IF EXISTS (SELECT 1 FROM dbo.crmRecipientType WITH(NOLOCK) WHERE @Old_RecipientTypeId = RecipientTypeId AND RecipientTypeName = 'Accounting PIC')
+	BEGIN
+		SELECT @__HeadlineXML = (SELECT  0 AS '@Id', 'All Group Headline & Not Assigned Group' AS '@Name'  FOR XML PATH('Headline'))
+	END
+	BEGIN
+		SELECT @__HeadlineXML =	(
+					SELECT  t.HeadlineId AS '@Id', 
+							CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
+							ELSE c.username END AS '@Name'
+					FROM #Tmp t
+							LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
+					WHERE t.Type = 4
+					FOR XML PATH('Headline'))
+	END
 
 	SELECT @OldValues =	CAST((SELECT @ConversationGroupId AS '@Id',
 									 t.ConversationGroupName AS '@Name',
@@ -324,14 +341,21 @@ BEGIN
 				WHERE s.SettingID = @LanguageId
 				FOR XML PATH ('Language'))
 
-	SELECT @__HeadlineXML = (
-				SELECT  f.val AS '@Id', 
-						CASE WHEN  f.val = 0 THEN 'Not Assigned Group' 
-						ELSE c.username END AS '@Name'
-				FROM dbo.f_CRM_strSplit(@HeadlineIds, ',') f
-					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
-				WHERE f.val <> ''
-				FOR XML PATH('Headline'))
+	IF EXISTS (SELECT 1 FROM dbo.crmRecipientType WITH(NOLOCK) WHERE @RecipientTypeId = RecipientTypeId AND RecipientTypeName = 'Accounting PIC')
+	BEGIN
+		SELECT @__HeadlineXML = (SELECT  0 AS '@Id', 'All Group Headline & Not Assigned Group' AS '@Name'  FOR XML PATH('Headline'))
+	END
+	ELSE 
+	BEGIN
+		SELECT @__HeadlineXML = (
+					SELECT  f.val AS '@Id', 
+							CASE WHEN  f.val = 0 THEN 'Not Assigned Group' 
+							ELSE c.username END AS '@Name'
+					FROM dbo.f_CRM_strSplit(@HeadlineIds, ',') f
+						LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
+					WHERE f.val <> ''
+					FOR XML PATH('Headline'))
+	END
 
 	SELECT @NewValues =	CAST((SELECT @ConversationGroupId AS '@Id',
 									 @ConversationGroupName AS '@Name',

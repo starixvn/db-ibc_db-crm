@@ -22,7 +22,6 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
-		- 20210726@Malcolm: Add log for accouting Pic [Redmine: #151509]
 	Param's Explanation:
 		
 */
@@ -149,12 +148,6 @@ BEGIN
 				  WHERE rt.RecipientTypeId = @RecipientTypeId
 				  FOR XML PATH('RecipientType'))
 
-	IF EXISTS (SELECT 1 FROM dbo.crmRecipientType WITH(NOLOCK) WHERE @RecipientTypeId = RecipientTypeId AND RecipientTypeName = 'Accounting PIC')
-	BEGIN
-		SELECT @__HeadlineXML = (SELECT  0 AS '@Id', 'All Group Headline & Not Assigned Group' AS '@Name'  FOR XML PATH('Headline'))
-	END
-	ELSE 
-	BEGIN
 	SELECT @__HeadlineXML = (
 				  SELECT  f.val AS '@Id', 
 				  	   CASE WHEN f.val = 0 THEN 'Not Assigned Group' 
@@ -163,7 +156,6 @@ BEGIN
 				     LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = f.val
 				  WHERE f.val <> ''
 				  FOR XML PATH('Headline'))
-	END
 
 	SELECT @__LanguageXML = (
 				  SELECT @LanguageId AS '@Id', s.SettingValue AS '@Name'

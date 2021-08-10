@@ -104,7 +104,7 @@ BEGIN
 			WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC' AND r.SourceId = @PicId
 		)
 		BEGIN
-			SELECT @ErrCode = 1009, @ErrMsg = 'User can not update Pic type because recpient is already mapped with letstalk group. Please check again!'
+			SELECT @ErrCode = 1009, @ErrMsg = 'Cannot change PIC Type since the Accounting PIC already created Chat Type Mapping'
 			RETURN
 		END
 		 

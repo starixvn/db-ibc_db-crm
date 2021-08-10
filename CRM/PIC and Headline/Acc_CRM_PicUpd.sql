@@ -181,7 +181,8 @@ BEGIN
 			p.Role		= @Role,
 			p.Remark	= @Remark,
 			P.Language  = @Language,
-			P.Country   = @Country
+			P.Country   = @Country,
+			P.PicType   = @PicType
 		FROM dbo.crmPIC AS p WITH(ROWLOCK)
 		WHERE p.PicID = @PicID;
 	END TRY
@@ -327,7 +328,7 @@ BEGIN
 	SELECT @PicTypeXML = (
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
-				WHERE SettingID = @Role
+				WHERE SettingID = @PicType
 				FOR XML PATH('PicType'))
 
 	SELECT @CountryXML = (

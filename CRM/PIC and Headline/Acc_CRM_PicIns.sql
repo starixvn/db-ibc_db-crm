@@ -156,7 +156,7 @@ BEGIN
 				SELECT SettingID AS '@Id', SettingValue AS '@Name' 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingID = @PicType
-				FOR XML PATH('PICType'))
+				FOR XML PATH('PicType'))
 
 	SELECT @CountryXML = (
 				SELECT CountryID AS '@Id', CountryName AS '@Name' 

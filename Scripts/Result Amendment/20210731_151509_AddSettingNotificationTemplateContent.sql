@@ -18,7 +18,7 @@ VALUES
 	,('Result Amendment Template - Number Game
 (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)', @NotificationTypeID, 'Result Amendment Template - Number Game
 (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)')
-	,('Result Amendment Template - Outright - Uncalc Template', @NotificationTypeID, 'Result Amendment Template - Outright - Uncalc Template')
+	,('Result Amendment Template - Outright - Uncalculation', @NotificationTypeID, 'Result Amendment Template - Outright - Uncalculation')
 	,('Result Amendment Template - Accounting PIC
 (Sportsbook)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
 (Sportsbook)')
@@ -32,8 +32,8 @@ VALUES
 (Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
 (Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game))')
 	,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)')
+(Outright - Uncalculation)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
+(Outright - Uncalculation)')
 
 DECLARE @Contents TABLE (NotificationTemplateName NVARCHAR(1000) , LanguageId INT, Value NVARCHAR(MAX))
 SELECT 
@@ -184,17 +184,17 @@ Kindly double check your statement again. Sorry for the inconvenience caused!
 
 Tài khoản bị ảnh hưởng: {affected_list}')
 --Result Amendment Template - Outright
-,('Result Amendment Template - Outright - Uncalc Template', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
+,('Result Amendment Template - Outright - Uncalculation', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
 
 {message_content_en}
 
 Affected user: {affected_list}')
-,('Result Amendment Template - Outright - Uncalc Template', @SC,N'您好，客服部在此通知以下的通告：
+,('Result Amendment Template - Outright - Uncalculation', @SC,N'您好，客服部在此通知以下的通告：
 
 {message_content_sc}
 
 受影响会员: {affected_list}')
-,('Result Amendment Template - Outright - Uncalc Template', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
+,('Result Amendment Template - Outright - Uncalculation', @EN_SC, N'Dear Sir, Customer Support would like to inform the below announcement:
 
 {message_content_en}                     
 
@@ -203,12 +203,12 @@ Affected user: {affected_list}')
 {message_content_sc}
    
 Affected user/受影响会员: {affected_list}')
-,('Result Amendment Template - Outright - Uncalc Template', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
+,('Result Amendment Template - Outright - Uncalculation', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
 
 {message_content_th}
 
 บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}')
-,('Result Amendment Template - Outright - Uncalc Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
+,('Result Amendment Template - Outright - Uncalculation', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
 
 {message_content_yn}
 
@@ -387,9 +387,9 @@ Attn:[{sport_name_en}] Due to technical error, all bets placed on [{sport_name_e
 请注意:[{sport_name_sc}] 由于技术有误, 所有注单投注于 [{sport_name_sc} #{match_code} - {date}] 已重新结算为退款. 请重新检查您的帐目. 不便之处 敬请见谅!
 
 Thank you')
---Result Amendment Template - Accounting PIC (Outright - Uncalc Template)
+--Result Amendment Template - Accounting PIC (Outright - Uncalculation)
 ,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @EN, N'Hi, Kindly take note below announcement: 
+(Outright - Uncalculation)', @EN, N'Hi, Kindly take note below announcement: 
 
 {message_content_en}
 
@@ -397,7 +397,7 @@ Thank you')
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @SC,N'Hi, Kindly take note below announcement: 
+(Outright - Uncalculation)', @SC,N'Hi, Kindly take note below announcement: 
 
 {message_content_en}
 
@@ -405,7 +405,7 @@ Thank you')
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @EN_SC, N'Hi, Kindly take note below announcement: 
+(Outright - Uncalculation)', @EN_SC, N'Hi, Kindly take note below announcement: 
 
 {message_content_en}
 
@@ -413,7 +413,7 @@ Thank you')
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @TH, N'Hi, Kindly take note below announcement: 
+(Outright - Uncalculation)', @TH, N'Hi, Kindly take note below announcement: 
 
 {message_content_en}
 
@@ -421,7 +421,7 @@ Thank you')
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
-(Outright - Uncalc Template)', @YN, N'Hi, Kindly take note below announcement: 
+(Outright - Uncalculation)', @YN, N'Hi, Kindly take note below announcement: 
 
 {message_content_en}
 

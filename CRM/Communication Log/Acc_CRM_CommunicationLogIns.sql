@@ -106,29 +106,51 @@ BEGIN
 		RETURN
 	END
 	
-	SELECT @ErrMsg = ''
-	
-	SELECT @ErrMsg =  ',' + @ErrMsg + username 
+	--remove customer belong to inactive site 
+	DECLARE @tmpCustInvalid TABLE(custid INT, username NVARCHAR(100))
+		
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
 	FROM crmCustomer c WITH(NOLOCK) 
-	WHERE custid IN (SELECT custid FROM @relatedCustomer)
-		AND EXISTS (SELECT 1 
-					FROM crmSettingRelation sr WITH(NOLOCK) 
-						INNER JOIN	crmSetting s WITH(NOLOCK)
-								ON	sr.SettingID = s.SettingID
-								AND	s.SettingName = 'Site'
-					WHERE c.SiteID = s.SettingID
-						AND s.IsActive = 0
-						AND sr.ParentID = 33000--licensee
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)			
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.SiteID = s.SettingID
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
 					)
 	
-	IF @ErrMsg <> ''
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)		
+			AND custid NOT IN (SELECT custid FROM @tmpCustInvalid)						
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.site = s.settingValue
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)		
+	
+	IF EXISTS(SELECT 1 FROM @tmpCustInvalid)
 	BEGIN
+		SELECT @ErrMsg = ''
+		
+		SELECT @ErrMsg = ',' + @ErrMsg + Username
+		FROM @tmpCustInvalid
+	
 		SELECT @ErrMsg = STUFF(@ErrMsg,1,1,'')
 		
-		SELECT @ErrCode = 108,
+		SELECT @ErrCode = 103,
 			@ErrMsg = 'Some Usernames belong to Inactive Site: '+ @ErrMsg
 		
-		RETURN
+		RETURN	
 	END
 	
 	DECLARE @Remark							NVARCHAR(MAX)

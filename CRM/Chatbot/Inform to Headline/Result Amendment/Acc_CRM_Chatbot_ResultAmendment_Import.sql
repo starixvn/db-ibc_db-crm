@@ -188,8 +188,16 @@ BEGIN
 	FROM @MessageData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@MessageData = NULL))
 
-	CREATE TABLE #TicketData (TicketId INT,TicketEventId INT, Seq INT, CustId INT,Username VARCHAR(30),Recommend INT,Mrecommend INT,Srecommend INT,IsTest BIT)
-	INSERT INTO #TicketData (TicketId, TicketEventId, Seq, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
+	CREATE TABLE #TargetMessage (MessageId INT,MsgTargetId INT)
+	INSERT INTO #TargetMessage (MessageId, MsgTargetId)
+	SELECT
+		t.c.value('@MessageId', 'INT') AS MessageId
+		,t.c.value('@MsgTargetId', 'INT') AS MsgTargetId
+	FROM @TargetMessage.nodes('root/r') t(c)
+	OPTION (OPTIMIZE FOR (@TargetMessage = NULL))
+
+	CREATE TABLE #ImportData (MessageId INT, TicketId INT,TicketEventId INT, Seq INT, CustId INT,Username VARCHAR(30),Recommend INT,Mrecommend INT,Srecommend INT,IsTest BIT)
+	INSERT INTO #ImportData (TicketId, TicketEventId, Seq, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
 	SELECT
 		t.c.value('@TicketId', 'INT') AS TicketId
 		,t.c.value('@TicketEventId', 'INT') AS TicketEventId
@@ -203,7 +211,19 @@ BEGIN
 	FROM @TicketData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@TicketData = NULL))
 
-	IF @@ROWCOUNT = 0
+	INSERT INTO #ImportData (MessageId, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
+	SELECT
+		t.c.value('@MessageId', 'INT') AS MessageId
+		,t.c.value('@CustId', 'INT') AS CustId
+		,t.c.value('@Username', 'VARCHAR(30)') AS Username
+		,t.c.value('@Recommend', 'INT') AS Recommend
+		,t.c.value('@Mrecommend', 'INT') AS Mrecommend
+		,t.c.value('@Srecommend', 'INT') AS Srecommend
+		,t.c.value('@IsTest', 'BIT') AS IsTest
+	FROM @InfoMessage.nodes('root/r') t(c)
+	OPTION (OPTIMIZE FOR (@InfoMessage = NULL))
+
+	IF NOT EXISTS (SELECT 1 FROM #ImportData)
 	BEGIN	
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -218,18 +238,18 @@ BEGIN
 
 	SELECT @TicketEventId = TicketEventId FROM #EventData WHERE SubmitDate = @Submitdate
 
-	SELECT @Seq = MAX(Seq) FROM #TicketData WHERE TicketEventId = @TicketEventId
+	SELECT @Seq = MAX(Seq) FROM #ImportData WHERE TicketEventId = @TicketEventId
 
 		-- Only import testing accounts with uat environment
 	IF @Environment = 'UAT'
 	BEGIN
-		DELETE i FROM #TicketData i WHERE i.IsTest = 0
+		DELETE i FROM #ImportData i WHERE i.IsTest = 0
 	END
 	--Exclude UUS currency with LIVE environment
 
 	IF @Environment = 'LIVE' AND @IncludeUUSCurrency = 0
 	BEGIN
-		DELETE i FROM #TicketData i WHERE i.IsTest = 1
+		DELETE i FROM #ImportData i WHERE i.IsTest = 1
 	END
 
 	-- Get Job Setting
@@ -279,14 +299,14 @@ BEGIN
 
 	-- Delete Logs which are imported into crmNotification
 	DELETE i
-	FROM #TicketData i
+	FROM #ImportData i
 	CROSS APPLY (
 		SELECT TOP 1 n.ReferenceId
 		FROM dbo.crmNotificationReference n WITH(NOLOCK)
 		WHERE n.ReferenceId = i.TicketId AND n.DataSource = @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
 	) AS c
 
-	IF NOT EXISTS (SELECT 1 FROM #TicketData)
+	IF NOT EXISTS (SELECT 1 FROM #ImportData)
 	BEGIN
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = CONVERT(VARCHAR(50), @Submitdate)
@@ -308,24 +328,24 @@ BEGIN
 	END
 
 	-- Get Recipient
-	CREATE TABLE #LogRecipient (TicketId INT,TicketEventId INT,Username VARCHAR(30),DirectAccount INT,HeadlineId INT,RecipientId INT,IsTest BIT)
-	INSERT INTO #LogRecipient (TicketId, TicketEventId, Username, DirectAccount, HeadlineId, RecipientId, IsTest)
-	SELECT m.TicketId, m.TicketEventId, m.Username, pm.CustId, pm.HeadlineId, r.RecipientId, m.IsTest
-	FROM #TicketData m
+	CREATE TABLE #LogRecipient (MessageId INT, TicketId INT,TicketEventId INT,Username VARCHAR(30),DirectAccount INT,HeadlineId INT,RecipientId INT,IsTest BIT)
+	INSERT INTO #LogRecipient (MessageId, TicketId, TicketEventId, Username, DirectAccount, HeadlineId, RecipientId, IsTest)
+	SELECT m.MessageId, m.TicketId, m.TicketEventId, m.Username, pm.CustId, pm.HeadlineId, r.RecipientId, m.IsTest
+	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (TicketId INT, TicketEventId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
-	INSERT INTO #tmpGroup (TicketId, TicketEventId, ConversationGroupId, DirectAccount, NoRecipient)
-	SELECT m.TicketId, m.TicketEventId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
+	CREATE TABLE #tmpGroup (MessageId INT, TicketId INT, TicketEventId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	INSERT INTO #tmpGroup (MessageId, TicketId, TicketEventId, ConversationGroupId, DirectAccount, NoRecipient)
+	SELECT m.MessageId, m.TicketId, m.TicketEventId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND cgr.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 	WHERE cg.IsActive = 1
-	GROUP BY m.TicketId, m.TicketEventId, cgr.ConversationGroupId, m.DirectAccount
+	GROUP BY m.MessageId, m.TicketId, m.TicketEventId, cgr.ConversationGroupId, m.DirectAccount
 
 	;WITH CTE_Group AS
 	(
@@ -351,6 +371,7 @@ BEGIN
 	CREATE TABLE #tmpResult 
 	(
 		Id						INT 
+		,MessageId				INT
 		,TicketId				INT 
 		,TicketEventId			INT
 		,ConversationGroupId	SMALLINT
@@ -363,8 +384,8 @@ BEGIN
 		,IsTest					BIT
 		,RecipientTypeId		TINYINT
 	)
-	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
-	SELECT m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
+	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
+	SELECT m.MessageId, m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.TicketId = g.TicketId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -394,10 +415,10 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
 	WHERE c.site <> 'CN88'
 
-	INSERT INTO #tmpResult (TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
-	SELECT t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
+	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
+	SELECT t.MessageId, t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
 	FROM @Group g 
-		CROSS JOIN #TicketData t 
+		CROSS JOIN #ImportData t 
 		INNER JOIN #DirectAccount cda WITH(NOLOCK) ON cda.CustID IN (t.CustId, t.Recommend, t.Mrecommend, t.Srecommend)
 		LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = cda.CustID
 		LEFT JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.GroupID = ca.groupID
@@ -405,6 +426,7 @@ BEGIN
 	CREATE TABLE #Result
 	(
 		Id						INT
+		,MessageId				INT
 		,TicketIdLst			NVARCHAR(MAX)
 		,ConversationGroupId	SMALLINT
 		,ChatTypeId				TINYINT
@@ -451,18 +473,18 @@ BEGIN
 
 	-- For Group, Personal Which have IsDuplicated = 0
 	;WITH CTE_Batch AS (
-		SELECT t.TicketEventId, t.TicketId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY t.TicketEventId, t.ConversationGroupId ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
+		SELECT t.MessageId, t.TicketEventId, t.TicketId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY t.MessageId, t.TicketEventId, t.ConversationGroupId ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 0
 	)
 	,CTE_Group AS (
-		SELECT t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
+		SELECT t.MessageId, t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
 		FROM CTE_Batch t
 	)
 	UPDATE t
 		SET t.Id = g.Id
 	FROM #tmpResult t
-		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.ConversationGroupId = t.ConversationGroupId AND g.TicketEventId = t.TicketEventId
+		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.ConversationGroupId = t.ConversationGroupId AND g.TicketEventId = t.TicketEventId AND t.MessageId = g.MessageId
 
 	--Group which have IsDuplicated = 1
 	UPDATE t

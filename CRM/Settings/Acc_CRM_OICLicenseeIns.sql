@@ -49,7 +49,7 @@ BEGIN
 	--mapping IBO,KeanOcean to Kzing,LIVV88 in crm
 	UPDATE @tmpLicensee
 	SET LicenseeName = CASE WHEN LicenseeName = 'IBO' THEN 'Kzing'
-							WHEN LicenseeName = 'KeanOcean' THEN 'LIVV88'
+							WHEN LicenseeName = 'KeenOcean' THEN 'LIVV88'
 							ELSE LicenseeName END
 	
 	--check site's licensees exists in CRM
@@ -83,13 +83,15 @@ BEGIN
 	FROM crmSetting WITH(NOLOCK)
 	WHERE SettingValue = 'LicenseeSite'
 	
-	--update relationship for licensees in-case have setting in crm but not have relationship
-	UPDATE s
-	SET s.ParentID = @LicenseeSiteID
-	FROM crmSettingRelation s WITH(UPDLOCK,ROWLOCK)
-		INNER JOIN @tmpLicensee t ON t.SettingID = s.SettingID
-	WHERE s.ParentID <> @LicenseeSiteID
-		AND t.SettingID IS NOT NULL
+	--add relationship for licensees in-case have setting in crm but not have relationship
+	INSERT INTO crmSettingRelation(SettingID,ParentID,DisplayOrder)
+	SELECT SettingID, @LicenseeSiteID, 0
+	FROM @tmpLicensee t
+	WHERE t.SettingID IS NOT NULL
+		AND NOT EXISTS (SELECT 1 FROM crmSettingRelation s WITH(NOLOCK)
+						WHERE t.SettingID = s.SettingID
+							AND s.ParentID = @LicenseeSiteID
+						)
 		
 	INSERT INTO @tmpCRMSite(settingid, site, isActive, DisplayOrder)
 	SELECT settingid, SettingValue as Site, IsActive, DisplayOrder

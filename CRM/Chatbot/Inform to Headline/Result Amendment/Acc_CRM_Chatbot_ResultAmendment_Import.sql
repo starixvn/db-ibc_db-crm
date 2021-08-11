@@ -3,6 +3,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ResultAmendment_Import]
 	@TicketData				XML
 	,@EventData				XML
 	,@MessageData           XML
+	,@TargetMessage			XML
+	,@InfoMessage			XML
 	,@Environment			VARCHAR(50) = ''
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
@@ -30,6 +32,14 @@ AS
 		. @MessageData
 			<root>
 				<r TicketEventId="1" MessageId="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
+			</root>
+		. @TargetMessage
+			<root>
+				<r MessageId="1" MsgTargetId="2"/>
+			</root>
+		.@InfoMessage
+			<root>
+				<r MessageId="1" CustId="" Username="" Recommend="" Mrecommend="" Srecommend="" IsTest="" Type="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
 			</root>
 		.@EventData.Type: 
 			Type = 1: Result Amendment Template - Sportsbook	

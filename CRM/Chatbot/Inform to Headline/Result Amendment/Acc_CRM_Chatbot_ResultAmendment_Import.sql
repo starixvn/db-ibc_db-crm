@@ -11,7 +11,7 @@ AS
 /*
 	Created: 20210731@Malcolm
 	DB: DBCRM-bodb_CRM
-	Task: CRM - CWL - Import Notification
+	Task: CRM - ResultAmendment - Import Notification
 
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
@@ -375,7 +375,7 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
-	WHERE rt.RecipientTypeName = 'Accounting PIC' AND g.ChatTypeId = 2 AND g.IsActive = 1-- Personal
+	WHERE rt.RecipientTypeName = 'Accounting PIC' AND g.IsActive = 1-- Personal
 
 	CREATE TABLE #DirectAccount (CustId INT PRIMARY KEY CLUSTERED)
 	INSERT INTO #DirectAccount (CustId)

@@ -22,6 +22,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
 	Param's Explanation:
 		
 */
@@ -109,6 +110,7 @@ BEGIN
 			@ConversationGroupId
 			,f.Val
 		FROM dbo.f_CRM_strSplit(@HeadlineIds,',') f
+		WHERE f.val <> ''
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_NUMBER()

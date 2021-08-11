@@ -263,46 +263,46 @@ Thank you')
 ,('Result Amendment Template - Accounting PIC
 (Virtual Sports 2)', @EN, N'Hi, Kindly take note below announcement: 
 
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
+Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info_en}) - {date}] has been re-settled. 
 The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
 
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
+请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info_sc}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
 (Virtual Sports 2)', @SC,N'Hi, Kindly take note below announcement: 
 
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
+Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info_en}) - {date}] has been re-settled. 
 The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
 
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
+请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info_sc}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
 (Virtual Sports 2)', @EN_SC, N'Hi, Kindly take note below announcement: 
 
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
+Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info_en}) - {date}] has been re-settled. 
 The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
 
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
+请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info_sc}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
 (Virtual Sports 2)', @TH, N'Hi, Kindly take note below announcement: 
 
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
+Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info_en}) - {date}] has been re-settled. 
 The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
 
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
+请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info_sc}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
 
 Thank you')
 ,('Result Amendment Template - Accounting PIC
 (Virtual Sports 2)', @YN, N'Hi, Kindly take note below announcement: 
 
-Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info}) - {date}] has been re-settled. 
+Attn:[Virtual Sports] Due to wrong result displayed, the match between "{home_name_en} -vs- {away_name_en}" [{sport_name_en} ({round_match_info_en}) - {date}] has been re-settled. 
 The actual result is "{actual_result}" instead of "{wrong_result}". Kindly double check your statement again. Sorry for the inconvenience caused!
 
-请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
+请注意:[Virtual Sports] 由于赛果显示错误, "{home_name_sc} -vs- {away_name_sc}" [{sport_name_sc} ({round_match_info_sc}) - {date}]  已重新结算. 正确之赛果为 "{actual_result}" 而不是 "{wrong_result}". 请重新检查您的帐目. 不便之处 敬请见谅!
 
 Thank you')
 -- Result Amendment Template - Accounting PIC (Virtual Sports)

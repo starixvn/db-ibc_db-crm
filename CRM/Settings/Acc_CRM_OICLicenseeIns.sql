@@ -26,6 +26,7 @@ BEGIN
 	
 	DECLARE @tmpLicensee TABLE (
 						LicenseeName	NVARCHAR(100),
+						SettingID		INT,
 						StatusID		INT,
 						IsActive 		BIT,
 						IsProcessed		BIT DEFAULT 0
@@ -44,12 +45,20 @@ BEGIN
 	INSERT INTO @tmpLicensee(LicenseeName,StatusID,IsActive)
 	SELECT LicenseeName, statusid, CASE WHEN statusid <> 4 THEN 1 ELSE 0 END
 	FROM t
-		
+			
 	--mapping IBO,KeanOcean to Kzing,LIVV88 in crm
 	UPDATE @tmpLicensee
 	SET LicenseeName = CASE WHEN LicenseeName = 'IBO' THEN 'Kzing'
 							WHEN LicenseeName = 'KeanOcean' THEN 'LIVV88'
 							ELSE LicenseeName END
+	
+	--check site's licensees exists in CRM
+	UPDATE t
+	SET t.SettingID = s.SettingID
+	FROM @tmpLicensee t
+		INNER JOIN crmSetting s WITH(NOLOCK) ON s.SettingName = 'Site' 
+											AND s.SettingValue = t.LicenseeName
+		
 		
 	DECLARE @LicenseeSiteID INT,
 			@DisplayOrderMax INT,
@@ -69,10 +78,18 @@ BEGIN
 												OR (LicenseeName='Spondemo' AND @ConfigTestLicensee = 1)
 											) THEN 0
 				ELSE 1 END
-			
+		
 	SELECT @LicenseeSiteID = SettingID 
 	FROM crmSetting WITH(NOLOCK)
 	WHERE SettingValue = 'LicenseeSite'
+	
+	--update relationship for licensees in-case have setting in crm but not have relationship
+	UPDATE s
+	SET s.ParentID = @LicenseeSiteID
+	FROM crmSettingRelation s WITH(UPDLOCK,ROWLOCK)
+		INNER JOIN @tmpLicensee t ON t.SettingID = s.SettingID
+	WHERE s.ParentID <> @LicenseeSiteID
+		AND t.SettingID IS NOT NULL
 		
 	INSERT INTO @tmpCRMSite(settingid, site, isActive, DisplayOrder)
 	SELECT settingid, SettingValue as Site, IsActive, DisplayOrder
@@ -80,13 +97,14 @@ BEGIN
 	WHERE SettingID IN (SELECT settingid 
 						FROM crmSettingRelation WITH(NOLOCK) 
 						WHERE ParentID= @LicenseeSiteID)
-
+	
 	DELETE t 
 	FROM @tmpLicensee t
 	WHERE EXISTS (SELECT 1 FROM @tmpCRMSite s WHERE s.site = t.LicenseeName AND s.IsActive = t.IsActive)
 	
 	SELECT @DisplayOrderMax = MAX(DisplayOrder)
 	FROM @tmpCRMSite
+	
 	
 	--add new Licensees in OIC
 	WHILE(1=1)

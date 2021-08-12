@@ -3,6 +3,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ResultAmendment_Sel]
 	@BatchSize INT = 3000
 	,@SubmitDate DATETIME2(7) 
 	,@Seq INT
+	,@ServerName NVARCHAR(128) OUTPUT
 AS
 
 /*
@@ -26,6 +27,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @NRows INT = 0
+
+	SELECT @ServerName = @@SERVERNAME
 
 	CREATE TABLE #TicketDetail (TicketId INT, CustId INT, TicketEventId INT, Seq INT)
 	INSERT INTO #TicketDetail (TicketId, CustId, TicketEventId, Seq)

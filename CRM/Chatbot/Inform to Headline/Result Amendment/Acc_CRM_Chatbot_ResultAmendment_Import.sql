@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ResultAmendment_Import]
 	,@TargetMessage			XML
 	,@InfoMessage			XML
 	,@Environment			VARCHAR(50) = ''
+	,@Servername			NVARCHAR(128) = ''
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
 AS
@@ -25,13 +26,13 @@ AS
 
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type=""
+				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type="" MessageId=""
 				/>
 			</root>
 
 		. @MessageData
 			<root>
-				<r TicketEventId="1" MessageId="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
+				<r MessageId="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
 			</root>
 		. @TargetMessage
 			<root>
@@ -39,7 +40,7 @@ AS
 			</root>
 		.@InfoMessage
 			<root>
-				<r MessageId="1" CustId="" Username="" Recommend="" Mrecommend="" Srecommend="" IsTest="" Type="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
+				<r MessageId="1" CustId="" Username="" Recommend="" Mrecommend="" Srecommend="" IsTest="" Type=""/>
 			</root>
 		.@EventData.Type: 
 			Type = 1: Result Amendment Template - Sportsbook	
@@ -52,8 +53,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Submitdate DATETIME2(7), @TicketEventId INT, @Seq INT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @ServerName NVARCHAR(200) = @@SERVERNAME
+	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
@@ -176,11 +177,10 @@ BEGIN
 	FROM @EventData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@EventData = NULL))
 
-	CREATE TABLE #MessageData(TicketEventId INT,MessageId INT,Content_en NVARCHAR(4000),Content_cs NVARCHAR(4000),Content_th NVARCHAR(4000),Content_yn NVARCHAR(4000))
-	INSERT INTO #MessageData (TicketEventId ,MessageId ,Content_en ,Content_cs ,Content_th ,Content_yn)
+	CREATE TABLE #MessageData(MessageId INT,Content_en NVARCHAR(4000),Content_cs NVARCHAR(4000),Content_th NVARCHAR(4000),Content_yn NVARCHAR(4000))
+	INSERT INTO #MessageData (MessageId ,Content_en ,Content_cs ,Content_th ,Content_yn)
 	SELECT 
-		t.c.value('@TicketEventId', 'INT') AS TicketEventId
-		,t.c.value('@MessageId', 'INT') AS MessageId
+		t.c.value('@MessageId', 'INT') AS MessageId
 		,t.c.value('@Content_en', 'NVARCHAR(4000)') AS Content_en
 		,t.c.value('@Content_cs', 'NVARCHAR(4000)') AS Content_cs
 		,t.c.value('@Content_th', 'NVARCHAR(4000)') AS Content_th
@@ -234,13 +234,13 @@ BEGIN
 		RETURN
 	END
 
-	SELECT @Submitdate = MAX(SubmitDate) FROM #EventData
+	SELECT @Submitdate = MAX(SubmitDate) FROM #EventData WHERE TicketEventId <> 0
 
-	SELECT @TicketEventId = TicketEventId FROM #EventData WHERE SubmitDate = @Submitdate
+	SELECT @TicketEventId = TicketEventId FROM #EventData WHERE SubmitDate = @Submitdate AND TicketEventId <> 0
 
 	SELECT @Seq = MAX(Seq) FROM #ImportData WHERE TicketEventId = @TicketEventId
 
-		-- Only import testing accounts with uat environment
+	-- Only import testing accounts with uat environment
 	IF @Environment = 'UAT'
 	BEGIN
 		DELETE i FROM #ImportData i WHERE i.IsTest = 0
@@ -306,17 +306,31 @@ BEGIN
 		WHERE n.ReferenceId = i.TicketId AND n.DataSource = @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
 	) AS c
 
-	IF NOT EXISTS (SELECT 1 FROM #ImportData)
-	BEGIN
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = CONVERT(VARCHAR(50), @Submitdate)
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfSubmitDate
+	DELETE i
+	FROM #ImportData i
+	WHERE NOT EXISTS (
+		SELECT 1 
+		FROM #TargetMessage t 
+			INNER JOIN dbo.crmVoidingMessage m WITH(NOLOCK) ON m.MessageId = t.MessageId AND m.MsgTargetId = t.MsgTargetId
+		WHERE m.IsChatBotProcessed = 0 AND i.MessageId = t.MessageId
+	)
 
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = CONVERT(VARCHAR(20), @Seq)
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfSeq
+	IF NOT EXISTS (SELECT 1 FROM #ImportData) 
+	BEGIN
+		IF @Submitdate IS NOT NULL AND @Seq IS NOT NULL
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = CONVERT(VARCHAR(50), @Submitdate)
+			WHERE ServiceName = 'ChatBot - ResultAmendment'
+				AND SettingName = @SettingNameOfSubmitDate
+
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = CONVERT(VARCHAR(20), @Seq)
+			WHERE ServiceName = 'ChatBot - ResultAmendment'
+				AND SettingName = @SettingNameOfSeq
+		END	
+
+		EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
 
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -392,16 +406,11 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 
-	UPDATE t
-		SET t.IsDuplicated = 1
-	FROM #tmpResult t
-	WHERE EXISTS (SELECT 1 FROM #tmpResult g WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId) AND t.ChatTypeId = 2
-
 	---- For Accounting PIC
 	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChatTypeId TINYINT, RecipientTypeId TINYINT)
 
 	INSERT INTO @Group (ConversationGroupId, LanguageId, ChatTypeId, RecipientTypeId)
-	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, 2, r.RecipientTypeId
+	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, g.ChatTypeId, r.RecipientTypeId
 	FROM dbo.crmConversationGroup g WITH(NOLOCK)
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
@@ -423,6 +432,17 @@ BEGIN
 		LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = cda.CustID
 		LEFT JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.GroupID = ca.groupID
 	
+	UPDATE t
+		SET t.IsDuplicated = 1
+	FROM #tmpResult t
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
+	WHERE EXISTS (
+					SELECT 1 
+					FROM #tmpResult g 
+						INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = g.ConversationGroupId
+					WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId
+				 ) AND t.ChatTypeId = 2 
+
 	CREATE TABLE #Result
 	(
 		Id						INT
@@ -490,13 +510,15 @@ BEGIN
 	UPDATE t
 	SET t.RelatedIds = u.RelatedIds
 	FROM #tmpResult t
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
 	CROSS APPLY (
 		SELECT STUFF
 			   ( 
 					(
 						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
-						FROM #tmpResult p
-						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId 
+						FROM #tmpResult p	
+							INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
+						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
@@ -511,23 +533,24 @@ BEGIN
 	--For Personal (Groups have IsDuplicated = 1)
 	;WITH CTE_Batch AS
 	(
-		SELECT t.TicketId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
+		SELECT t.MessageId, t.TicketId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.MessageId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 1
 	), CTE_Group AS
 	(
-		SELECT TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
+		SELECT MessageId, TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY MessageId, ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
 		FROM CTE_Batch
 	)
 	UPDATE t
 		SET t.Id = @MaxGroup + g.Id
 	FROM #tmpResult t
-		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.ConversationGroupId = t.ConversationGroupId
+		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND g.ConversationGroupId = t.ConversationGroupId
 
 	--Get Userame list, Headline list, ticket list
 	;WITH CTE_Group AS
 	(
 		SELECT r.Id
+			   ,r.MessageId
 			   ,r.TicketEventId
 			   ,r.ConversationGroupId
 			   ,r.ChatTypeId
@@ -539,11 +562,12 @@ BEGIN
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UserameLst
 		FROM #tmpResult r
-		GROUP BY r.Id, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
+		GROUP BY r.Id, r.MessageId, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	)
 	INSERT INTO #Result 
 	(
 		Id
+		,MessageId
 		,TicketIdLst
 		,RelatedIds
 		,HeadlineList
@@ -584,7 +608,8 @@ BEGIN
 		,[Type]
 	)
 	SELECT 
-		g.Id 
+		g.Id
+		,CASE WHEN g.MessageId = 0 THEN ISNULL(ev.MessageId,0) END AS MessageId
 		,g.TicketIdLst
 		,ISNULL(g.RelatedIds,'')
 		,g.HeadlineIdLst
@@ -617,16 +642,19 @@ BEGIN
 		,ISNULL(ev.MatchInfoSC,'')
 		,ISNULL(ev.MatchInfoTH,'')
 		,ISNULL(ev.MatchInfoYN,'')
-		,ISNULL(m.Content_en,'')
-		,ISNULL(m.Content_cs,'')
-		,ISNULL(m.Content_th,'')
-		,ISNULL(m.Content_yn,'')
 		,g.RecipientTypeId
 		,ev.[Type]
 	FROM CTE_Group g
-		INNER JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
-		LEFT JOIN #MessageData m ON m.TicketEventId = g.TicketEventId
+		LEFT JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
 
+	UPDATE r
+		SET r.ContentEN = ISNULL(m.Content_en, '')
+			,r.ContentSC = ISNULL(m.Content_cs, '')
+			,r.ContentTH = ISNULL(m.Content_th, '')
+			,r.ContentYN = ISNULL(m.Content_yn, '')
+	FROM #Result r
+		INNER JOIN #MessageData m ON r.MessageId = m.MessageId
+		
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
 			,@SendDate			DATETIME = GETDATE()
@@ -723,7 +751,9 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)
-		SELECT DISTINCT @NotificationId, r.TicketId, @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
+		SELECT  @NotificationId
+				,CASE WHEN r.TicketId <> 0 THEN r.TicketId ELSE r.MessageId END AS ReferenceId
+				,CASE WHEN r.TicketId <> 0 THEN  @ServerName + '.bodb02.dbo.TicketAmendment_Detail' ELSE 'DBMSG.bodb_Message.dbo.Msg' END AS DataSource
 		FROM #tmpResult r 
 		WHERE r.Id = @Id
 
@@ -740,18 +770,22 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	-- Update Submit date
-	UPDATE dbo.SystemSetting WITH (ROWLOCK)
-	SET Value = CONVERT(VARCHAR(50), @Submitdate)
-	WHERE ServiceName = 'ChatBot - ResultAmendment'
-		AND SettingName = @SettingNameOfSubmitDate
+	IF @Submitdate IS NOT NULL AND @Seq IS NOT NULL
+	BEGIN
+		-- Update Submit date
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = CONVERT(VARCHAR(50), @Submitdate)
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
+			AND SettingName = @SettingNameOfSubmitDate
 
-	-- Update Seq
-	UPDATE dbo.SystemSetting WITH (ROWLOCK)
-	SET Value = CONVERT(VARCHAR(20), @Seq)
-	WHERE ServiceName = 'ChatBot - ResultAmendment'
-		AND SettingName = @SettingNameOfSeq
-
+		-- Update Seq
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = CONVERT(VARCHAR(20), @Seq)
+		WHERE ServiceName = 'ChatBot - ResultAmendment'
+			AND SettingName = @SettingNameOfSeq
+	END
+	 
+	EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
 	-- Update Status of Job
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
 	SET Value = 'Completed'
@@ -759,7 +793,6 @@ BEGIN
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
 
-	DROP TABLE #TicketData
 	DROP TABLE #EventData
 	DROP TABLE #MessageData
 	DROP TABLE #LogRecipient

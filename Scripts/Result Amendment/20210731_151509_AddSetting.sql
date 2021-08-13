@@ -16,6 +16,7 @@ VALUES ('ServiceFlag', '1', 'ChatBot - ResultAmendment')
 	,('Seq', '0', 'ChatBot - ResultAmendment')
 	,('SeqUAT', '0', 'ChatBot - ResultAmendment')
 	,('NotificationTemplate', '', 'ChatBot - ResultAmendment')
+	,('IsSyncSettingsForUAT', '0', 'ChatBot - ResultAmendment')
 
 DECLARE @SystemId INT
 DECLARE @NotificationTemplateID INT, @NotificationTypeID INT, @EN INT, @SC INT, @EN_SC INT, @TH INT, @YN INT

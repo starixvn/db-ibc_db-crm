@@ -54,14 +54,18 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @SettingUpd XML
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) 
+	FROM SystemSetting 
+	WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
 		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
+
+	--('IsSyncSettingsForUAT', '0', 'ChatBot - ResultAmendment')
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -305,6 +309,7 @@ BEGIN
 		FROM dbo.crmNotificationReference n WITH(NOLOCK)
 		WHERE n.ReferenceId = i.TicketId AND n.DataSource = @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
 	) AS c
+	WHERE i.TicketId <> 0
 
 	DELETE i
 	FROM #ImportData i
@@ -313,7 +318,11 @@ BEGIN
 		FROM #TargetMessage t 
 			INNER JOIN dbo.crmVoidingMessage m WITH(NOLOCK) ON m.MessageId = t.MessageId AND m.MsgTargetId = t.MsgTargetId
 		WHERE m.IsChatBotProcessed = 0 AND i.MessageId = t.MessageId
-	)
+	) AND i.TicketId = 0
+
+	DELETE t
+	FROM #TargetMessage t 
+	WHERE NOT EXISTS (SELECT 1 FROM #ImportData i WHERE i.TicketId = 0 AND i.MessageId = t.MessageId )
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData) 
 	BEGIN
@@ -437,11 +446,11 @@ BEGIN
 	FROM #tmpResult t
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
 	WHERE EXISTS (
-					SELECT 1 
-					FROM #tmpResult g 
-						INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = g.ConversationGroupId
-					WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId
-				 ) AND t.ChatTypeId = 2 
+			SELECT 1 
+			FROM #tmpResult g 
+				INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = g.ConversationGroupId
+			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId
+		) AND t.ChatTypeId = 2 
 
 	CREATE TABLE #Result
 	(
@@ -783,7 +792,25 @@ BEGIN
 		SET Value = CONVERT(VARCHAR(20), @Seq)
 		WHERE ServiceName = 'ChatBot - ResultAmendment'
 			AND SettingName = @SettingNameOfSeq
+
+		SELECT ServiceName, Value
+		FROM (VALUES (@SettingNameOfSubmitDate, @Submitdate), (@SettingNameOfSeq, @Seq))C(ServiceName, [Value])
+		FOR XML PATH('r'), root('root'),type,elements xsinil
 	END
+
+	SELECT @SettingUpd = NULL
+		  ,@SettingUpd = 
+				(	
+						  SELECT ServiceName, Value
+						  FROM (
+									VALUES (@SettingNameOfSubmitDate, @Submitdate)
+										   ,(@SettingNameOfSeq, @Seq)
+										   ,(@SettingNameOfJobStatus, 'Completed')
+										   ,(@SettingNameOfJobStatus, 'Completed')
+										   ,(@SettingNameOfJobStatus, 'Completed')
+						   )t(ServiceName, [Value])
+						  FOR XML PATH('r'), ROOT('root'),TYPE,ELEMENTS XSINIL
+				)
 	 
 	EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
 	-- Update Status of Job

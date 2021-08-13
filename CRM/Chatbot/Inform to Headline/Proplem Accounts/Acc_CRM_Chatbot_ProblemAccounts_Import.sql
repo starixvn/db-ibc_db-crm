@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20210428@Malcolm: Initialize SP [RedmineID: #153119]
+		- 20210813@Malcolm: fix wrongly marking status as duplicated [RedmineID: #151509]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -23,12 +24,14 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
+	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT, @IsSyncSettingsForUAT BIT = 0
 
 	DECLARE @MaxGroup 		 INT = 0,
 			@MaxBatchOfGroup INT = 250
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IncludeUUSCurrency'
+
+	SELECT @IsSyncSettingsForUAT = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IsSyncSettingsForUAT' AND @Environment <> 'UAT'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -178,10 +181,18 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData)
 	BEGIN
+		--Update lastlogId
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = CONVERT(VARCHAR(20), @lastLogId)
 		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOflastLogId
+
+		-- Update LastLogId for UAT
+		UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = CONVERT(VARCHAR(20), @lastLogId)
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
+			AND SettingName = @SettingNameOflastLogId + 'UAT'
+			AND @IsSyncSettingsForUAT = 1
 
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -279,7 +290,13 @@ BEGIN
 	UPDATE t
 		SET t.IsDuplicated = 1
 	FROM #tmpResult t
-	WHERE EXISTS (SELECT 1 FROM #tmpResult g WHERE g.ChatTypeId = 1 AND g.LogId = t.LogId) AND t.ChatTypeId = 2
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId 
+	WHERE EXISTS (
+			SELECT 1 
+			FROM #tmpResult g 
+				INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = g.ConversationGroupId
+			WHERE g.ChatTypeId = 1 AND g.LogId = t.LogId AND cg.RecipientId = cgr.RecipientId
+	) AND t.ChatTypeId = 2
 
 	CREATE TABLE #Result
 	(
@@ -321,13 +338,15 @@ BEGIN
 	UPDATE t
 	SET t.RelatedIdLst = u.RelatedLst
 	FROM #tmpResult t
+		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
 	CROSS APPLY (
 		SELECT STUFF
 			   ( 
 					(
 						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
 						FROM #tmpResult p
-						WHERE p.ChatTypeId = 1 AND p.CustId = t.CustId AND p.CategoryId = t.CategoryId
+							INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
+						WHERE p.ChatTypeId = 1 AND p.CustId = t.CustId AND p.CategoryId = t.CategoryId AND cg.RecipientId = cgr.RecipientId
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedLst
@@ -362,8 +381,8 @@ BEGIN
 			   ,r.ConversationGroupId
 			   ,r.ChatTypeId
 			   ,r.LanguageId
-			   ,MAX(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
-			   ,MAX(ISNULL(r.RelatedIdLst,'')) AS RelatedIdLst
+			   ,MIN(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
+			   ,MIN(ISNULL(r.RelatedIdLst,'')) AS RelatedIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), LogId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst
 		FROM #tmpResult r
@@ -473,6 +492,13 @@ BEGIN
 	SET Value = CONVERT(VARCHAR(20), @lastLogId)
 	WHERE ServiceName = 'ChatBot - ProblemAccounts'
 		AND SettingName = @SettingNameOflastLogId
+
+	-- Update LastLogId for UAT
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+		SET Value = CONVERT(VARCHAR(20), @lastLogId)
+		WHERE ServiceName = 'ChatBot - ProblemAccounts'
+			AND SettingName = @SettingNameOflastLogId + 'UAT'
+			AND @IsSyncSettingsForUAT = 1
 
 	-- Update crmMessageImport
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)

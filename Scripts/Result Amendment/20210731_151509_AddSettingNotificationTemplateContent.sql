@@ -34,6 +34,8 @@ VALUES
 	,('Result Amendment Template - Accounting PIC
 (Outright - Uncalculation)', @NotificationTypeID, 'Result Amendment Template - Accounting PIC
 (Outright - Uncalculation)')
+	,('Voided Settled Tickets Template', @NotificationTypeID, 'Voided Settled Tickets Template')
+	,('Voided Settled Tickets Template - Accounting PIC', @NotificationTypeID, 'Voided Settled Tickets Template - Accounting PIC')
 
 DECLARE @Contents TABLE (NotificationTemplateName NVARCHAR(1000) , LanguageId INT, Value NVARCHAR(MAX))
 SELECT 
@@ -422,6 +424,82 @@ Thank you')
 Thank you')
 ,('Result Amendment Template - Accounting PIC
 (Outright - Uncalculation)', @YN, N'Hi, Kindly take note below announcement: 
+
+{message_content_en}
+
+{message_content_sc}
+
+Thank you')
+-- Voided Settled Tickets Template
+,('Voided Settled Tickets Template', @EN, N'Dear Sir, Customer Support would like to inform the below announcement:
+
+{message_content_en}
+
+Affected user: {affected_list}
+
+Thank you for your kind attention!')
+,('Voided Settled Tickets Template', @SC,N'您好，客服部在此通知以下的通告:
+
+{message_content_sc}
+
+受影响会员: {affected_list}
+
+谢谢您的关注与支持!')
+,('Voided Settled Tickets Template', @EN_SC, N'Dear Sir, Customer service would like to inform the below announcement:
+您好，客服部在此通知以下的通告:
+
+{message_content_en}
+
+{message_content_sc}
+
+Affected user / 受影响会员: {affected_list}
+
+Thank you for your kind attention!
+谢谢您的关注与支持!')
+,('Voided Settled Tickets Template', @TH, N'เรียนลูกค้าที่เคารพ ฝ่ายบริการลูกค้าขอแจ้งให้ทราบเกี่ยวกับประกาศด้านล่างนี้:
+
+{message_content_th}
+
+บัญชีสมาชิกที่ได้รับผลกระทบ: {affected_list}
+
+คุณสำหรับความสนใจและการสนับสนุนของคุณ')
+,('Voided Settled Tickets Template', @YN, N'Xin chào quý khách, Bộ phận chăm sóc khách hàng xin thông báo thông báo dưới đây:
+
+{message_content_yn}
+
+Tài khoản bị ảnh hưởng: {affected_list}
+
+Xin cám ơn quý khách đã lưu tâm!')
+-- Voided Settled Tickets Template - Accounting PIC
+,('Voided Settled Tickets Template - Accounting PIC', @EN, N'Hi, Kindly take note below announcement: 
+
+{message_content_en}
+
+{message_content_sc}
+
+Thank you')
+,('Voided Settled Tickets Template - Accounting PIC', @SC,N'Hi, Kindly take note below announcement: 
+
+{message_content_en}
+
+{message_content_sc}
+
+Thank you')
+,('Voided Settled Tickets Template - Accounting PIC', @EN_SC, N'Hi, Kindly take note below announcement: 
+
+{message_content_en}
+
+{message_content_sc}
+
+Thank you')
+,('Voided Settled Tickets Template - Accounting PIC', @TH, N'Hi, Kindly take note below announcement: 
+
+{message_content_en}
+
+{message_content_sc}
+
+Thank you')
+,('Voided Settled Tickets Template - Accounting PIC', @YN, N'Hi, Kindly take note below announcement: 
 
 {message_content_en}
 

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_VoidingMsg_Sel]
+ALTER PROCEDURE [dbo].[Acc_CRM_VoidingMsg_GetMessage]
 AS
 /*
 Created: 20210811@Malcolm

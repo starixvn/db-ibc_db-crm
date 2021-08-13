@@ -60,9 +60,9 @@ BEGIN
 			,'' AS ProductId		
 			,'' AS MatchId		
 			,'' AS MatchCode		
-			,'' AS EventType		
-			,'' AS EventDate
+			,'' AS EventType
 			,'' AS SubmitDate
+			,'' AS EventDate	
 			,'' AS ActualResult	
 			,'' AS WrongResult	
 			,'' AS Status			
@@ -73,7 +73,7 @@ BEGIN
 			,'' AS LeagueId	
 			,'' AS Type
 
-		SELECT TOP(0) '' AS TicketEventId, '' AS MessageId
+		SELECT TOP(0) '' AS MessageId
 		RETURN
 	END
 
@@ -166,7 +166,7 @@ BEGIN
 
 	-- Update template
 	UPDATE t
-		SET t.Type = CASE WHEN	t.EventType = 9  THEN 5
+		SET t.Type = CASE WHEN	t.EventType IN (2, 9) THEN 5
 						  WHEN  t.ProductId = 1  THEN 1
 						  WHEN  t.ProductId = 27 THEN 2
 						  WHEN  t.ProductId = 5  THEN 3
@@ -202,9 +202,9 @@ BEGIN
 		,Type
 	FROM #TicketEvent
 
-	SELECT TicketEventId, MessageId
+	SELECT MessageId
 	FROM #TicketEvent
-	WHERE EventType = 9
+	WHERE EventType IN (2, 9)
 	
 	DROP TABLE #TicketDetail
 	DROP TABLE #TicketEvent

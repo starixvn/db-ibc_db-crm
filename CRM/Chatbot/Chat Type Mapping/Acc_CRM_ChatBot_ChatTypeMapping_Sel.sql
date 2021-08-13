@@ -122,6 +122,27 @@ BEGIN
 					INNER JOIN #HeadlineId h ON h.Id = gh.HeadlineId
 				WHERE t.ConversationGroupId = gh.ConversationGroupId
 		)  AND t.Type <> 1
+
+		IF NOT EXISTS (SELECT 1 FROM #HeadlineId)
+		BEGIN
+			DECLARE @HeadlineGroup TABLE (CustId INT PRIMARY KEY, GroupId SMALLINT)
+			INSERT INTO @HeadlineGroup (CustId, GroupId)
+			SELECT h.CustID, h.GroupID
+			FROM bodb02.dbo.CustGroupHeadline h WITH(NOLOCK)
+				INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = h.CustID
+			WHERE c.username LIKE '%' + @Headline + '%'
+
+			IF NOT EXISTS (
+				SELECT 1
+				FROM @HeadlineGroup hg 
+					INNER JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.groupID = hg.GroupID
+					INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = ca.custid
+				WHERE c.site <> 'CN88' 
+			)
+			BEGIN
+				DELETE #Tmp
+			END
+		END
 	END
 
 	IF @RecipientName <> ''

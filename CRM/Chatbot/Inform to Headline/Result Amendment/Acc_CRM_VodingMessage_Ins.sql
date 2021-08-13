@@ -35,8 +35,8 @@ BEGIN
 		SET @msg = ''
 
 		BEGIN TRY
-			INSERT INTO dbo.crmVoidingMessage (MessageId, MsgTargetId, BetTransId)
-			SELECT m.MessageId, m.MsgTargetId, m.BetTransId
+			INSERT INTO dbo.crmVoidingMessage (MessageId, MsgTargetId, BetTransId, CreatedDate)
+			SELECT m.MessageId, m.MsgTargetId, m.BetTransId, GETDATE()
 			FROM #Message m 
 			WHERE NOT EXISTS (SELECT TOP 1 1 FROM dbo.crmVoidingMessage vm WITH(NOLOCK) WHERE vm.MessageId = m.MessageId AND vm.MsgTargetId = m.MsgTargetId)
 		END TRY
@@ -55,7 +55,10 @@ BEGIN
 	END
 
 	IF @msg <> ''
-		PRINT(@msg)
+	BEGIN
+		RAISERROR(@Msg, 16, 1)
+		RETURN
+	END
 
 	DROP TABLE #Message
 END

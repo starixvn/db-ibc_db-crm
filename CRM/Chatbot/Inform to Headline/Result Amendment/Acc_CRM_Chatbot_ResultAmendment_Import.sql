@@ -23,24 +23,22 @@ AS
 			<root>
 				<r TicketId="1" TicketEventId="" Seq="" CustId="114"  Username="XXX" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" />
 			</root>
-
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type="" MessageId=""
+				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type=""
 				/>
 			</root>
-
 		. @MessageData
 			<root>
-				<r MessageId="" Content_en="" Content_cs="" Content_th="" Content_yn=""/>
+				<r MessageId="" Content_en="" Content_cs="" Content_th="" Content_vn=""/>
 			</root>
 		. @TargetMessage
 			<root>
-				<r MessageId="1" MsgTargetId="2"/>
+				<r MessageId="1" MsgTargetId="2" Type="6"/>
 			</root>
-		.@InfoMessage
+		. @InfoMessage
 			<root>
-				<r MessageId="1" CustId="" Username="" Recommend="" Mrecommend="" Srecommend="" IsTest="" Type=""/>
+				<r MessageId="1" CustId="" Username="" Recommend="" Mrecommend="" Srecommend="" IsTest=""/>
 			</root>
 		.@EventData.Type: 
 			Type = 1: Result Amendment Template - Sportsbook	
@@ -53,19 +51,15 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @SettingUpd XML
+	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) 
-	FROM SystemSetting 
-	WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency' 
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
 		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
-
-	--('IsSyncSettingsForUAT', '0', 'ChatBot - ResultAmendment')
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -188,22 +182,24 @@ BEGIN
 		,t.c.value('@Content_en', 'NVARCHAR(4000)') AS Content_en
 		,t.c.value('@Content_cs', 'NVARCHAR(4000)') AS Content_cs
 		,t.c.value('@Content_th', 'NVARCHAR(4000)') AS Content_th
-		,t.c.value('@Content_yn', 'NVARCHAR(4000)') AS Content_yn
+		,t.c.value('@Content_vn', 'NVARCHAR(4000)') AS Content_yn
 	FROM @MessageData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@MessageData = NULL))
 
-	CREATE TABLE #TargetMessage (MessageId INT,MsgTargetId INT)
-	INSERT INTO #TargetMessage (MessageId, MsgTargetId)
+	CREATE TABLE #TargetMessage (MessageId INT,MsgTargetId INT, Type TINYINT)
+	INSERT INTO #TargetMessage (MessageId, MsgTargetId, Type)
 	SELECT
 		t.c.value('@MessageId', 'INT') AS MessageId
 		,t.c.value('@MsgTargetId', 'INT') AS MsgTargetId
+		,t.c.value('@Type', 'TINYINT') AS Type
 	FROM @TargetMessage.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@TargetMessage = NULL))
 
 	CREATE TABLE #ImportData (MessageId INT, TicketId INT,TicketEventId INT, Seq INT, CustId INT,Username VARCHAR(30),Recommend INT,Mrecommend INT,Srecommend INT,IsTest BIT)
-	INSERT INTO #ImportData (TicketId, TicketEventId, Seq, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
+	INSERT INTO #ImportData (MessageId, TicketId, TicketEventId, Seq, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
 	SELECT
-		t.c.value('@TicketId', 'INT') AS TicketId
+		0 AS MessageId
+		,t.c.value('@TicketId', 'INT') AS TicketId
 		,t.c.value('@TicketEventId', 'INT') AS TicketEventId
 		,t.c.value('@Seq', 'INT') AS Seq
 		,t.c.value('@CustId', 'INT') AS CustId
@@ -215,9 +211,11 @@ BEGIN
 	FROM @TicketData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@TicketData = NULL))
 
-	INSERT INTO #ImportData (MessageId, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
+	INSERT INTO #ImportData (MessageId, TicketId, TicketEventId, CustId, Username, Recommend, Mrecommend, Srecommend, IsTest)
 	SELECT
 		t.c.value('@MessageId', 'INT') AS MessageId
+		,0 AS TicketId
+		,0 AS TicketEventId
 		,t.c.value('@CustId', 'INT') AS CustId
 		,t.c.value('@Username', 'VARCHAR(30)') AS Username
 		,t.c.value('@Recommend', 'INT') AS Recommend
@@ -229,18 +227,14 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData)
 	BEGIN	
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
-
+		SELECT @Settings = NULL, @Settings = (SELECT @SettingNameOfJobStatus AS 'SettingName', 'Completed' AS 'Value' FOR XML PATH('r'), ROOT('root'), TYPE, ELEMENTS XSINIL)
+	    EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 		RETURN
 	END
 
-	SELECT @Submitdate = MAX(SubmitDate) FROM #EventData WHERE TicketEventId <> 0
+	SELECT @Submitdate = MAX(SubmitDate) FROM #EventData WHERE ISNULL(TicketEventId, 0) <> 0
 
-	SELECT @TicketEventId = TicketEventId FROM #EventData WHERE SubmitDate = @Submitdate AND TicketEventId <> 0
+	SELECT @TicketEventId = TicketEventId FROM #EventData WHERE SubmitDate = @Submitdate AND ISNULL(TicketEventId, 0) <> 0
 
 	SELECT @Seq = MAX(Seq) FROM #ImportData WHERE TicketEventId = @TicketEventId
 
@@ -283,12 +277,8 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
 		
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
-
+		SELECT @Settings = NULL, @Settings = (SELECT @SettingNameOfJobStatus AS 'SettingName', 'Completed' AS 'Value' FOR XML PATH('r'), ROOT('root') ,TYPE,ELEMENTS XSINIL)
+		EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 		RETURN
 	END
 
@@ -326,27 +316,20 @@ BEGIN
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData) 
 	BEGIN
-		IF @Submitdate IS NOT NULL AND @Seq IS NOT NULL
-		BEGIN
-			UPDATE dbo.SystemSetting WITH (ROWLOCK)
-			SET Value = CONVERT(VARCHAR(50), @Submitdate)
-			WHERE ServiceName = 'ChatBot - ResultAmendment'
-				AND SettingName = @SettingNameOfSubmitDate
-
-			UPDATE dbo.SystemSetting WITH (ROWLOCK)
-			SET Value = CONVERT(VARCHAR(20), @Seq)
-			WHERE ServiceName = 'ChatBot - ResultAmendment'
-				AND SettingName = @SettingNameOfSeq
-		END	
+		SELECT @Settings = NULL
+			  ,@Settings = 
+			   (	
+		   			  SELECT SettingName, Value
+		   			  FROM (
+		   						VALUES (@SettingNameOfSubmitDate, CONVERT(VARCHAR(MAX), @Submitdate))
+		   							   ,(@SettingNameOfSeq, CONVERT(VARCHAR(MAX),@Seq))
+		   							   ,(@SettingNameOfJobStatus, 'Completed')
+		   			   ) t(SettingName, [Value])
+		   			  FOR XML PATH('r'), ROOT('root'),TYPE,ELEMENTS XSINIL
+			   )
 
 		EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
-
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
-
+		EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 		RETURN
 	END
 
@@ -507,7 +490,7 @@ BEGIN
 		WHERE t.IsDuplicated = 0
 	)
 	,CTE_Group AS (
-		SELECT t.MessageId, t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
+		SELECT t.MessageId, t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.MessageId, t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
 		FROM CTE_Batch t
 	)
 	UPDATE t
@@ -609,16 +592,12 @@ BEGIN
 		,MatchInfoSC
 		,MatchInfoTH
 		,MatchInfoYN
-		,ContentEN
-		,ContentSC
-		,ContentTH
-		,ContentYN
 		,RecipientTypeId
 		,[Type]
 	)
 	SELECT 
 		g.Id
-		,CASE WHEN g.MessageId = 0 THEN ISNULL(ev.MessageId,0) END AS MessageId
+		,CASE WHEN g.MessageId = 0 THEN ISNULL(ev.MessageId,0) ELSE g.MessageId END AS MessageId
 		,g.TicketIdLst
 		,ISNULL(g.RelatedIds,'')
 		,g.HeadlineIdLst
@@ -661,8 +640,11 @@ BEGIN
 			,r.ContentSC = ISNULL(m.Content_cs, '')
 			,r.ContentTH = ISNULL(m.Content_th, '')
 			,r.ContentYN = ISNULL(m.Content_yn, '')
+			,r.Type = CASE WHEN r.Type IS NULL THEN t.Type ELSE r.Type END
 	FROM #Result r
-		INNER JOIN #MessageData m ON r.MessageId = m.MessageId
+		LEFT JOIN #MessageData m ON r.MessageId = m.MessageId
+		LEFT JOIN #TargetMessage t ON t.MessageId = r.MessageId
+
 		
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
@@ -730,10 +712,10 @@ BEGIN
 			 								,'{round_match_info_th}', r.MatchInfoTH)
 			 							,'{round_match_info_yn}', r.MatchInfoYN)
 			 						,'{match_code}', r.MatchCode)
-			 					,'{message_content_en}', r.ContentEN)
-			 				,'{message_content_sc}', r.ContentSC)
-			 			,'{message_content_th}', r.ContentTH)
-			 		,'{message_content_yn}', r.ContentYN)
+			 					,'{message_content_en}', REPLACE(r.ContentEN, '@@', ''))
+			 				,'{message_content_sc}', REPLACE(r.ContentSC, '@@', ''))
+			 			,'{message_content_th}', REPLACE(r.ContentTH, '@@', ''))
+			 		,'{message_content_yn}', REPLACE(r.ContentYN, '@@', ''))
 			 	,'{affected_list}', r.UsernameLst)		
 			 ,r.RelatedIds
 		FROM #Result r
@@ -760,7 +742,7 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)
-		SELECT  @NotificationId
+		SELECT  DISTINCT @NotificationId
 				,CASE WHEN r.TicketId <> 0 THEN r.TicketId ELSE r.MessageId END AS ReferenceId
 				,CASE WHEN r.TicketId <> 0 THEN  @ServerName + '.bodb02.dbo.TicketAmendment_Detail' ELSE 'DBMSG.bodb_Message.dbo.Msg' END AS DataSource
 		FROM #tmpResult r 
@@ -779,46 +761,20 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	IF @Submitdate IS NOT NULL AND @Seq IS NOT NULL
-	BEGIN
-		-- Update Submit date
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = CONVERT(VARCHAR(50), @Submitdate)
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfSubmitDate
+	SELECT @Settings = NULL
+		  ,@Settings = 
+		   (	
+		   		  SELECT SettingName, Value
+		   		  FROM (
+		   					VALUES (@SettingNameOfSubmitDate, CONVERT(VARCHAR(MAX),@Submitdate))
+		   						   ,(@SettingNameOfSeq, CONVERT(VARCHAR(MAX),@Seq))
+		   						   ,(@SettingNameOfJobStatus, 'Completed')
+		   		   ) t(SettingName, [Value])
+		   		  FOR XML PATH('r'), ROOT('root'),TYPE,ELEMENTS XSINIL
+		   )
 
-		-- Update Seq
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = CONVERT(VARCHAR(20), @Seq)
-		WHERE ServiceName = 'ChatBot - ResultAmendment'
-			AND SettingName = @SettingNameOfSeq
-
-		SELECT ServiceName, Value
-		FROM (VALUES (@SettingNameOfSubmitDate, @Submitdate), (@SettingNameOfSeq, @Seq))C(ServiceName, [Value])
-		FOR XML PATH('r'), root('root'),type,elements xsinil
-	END
-
-	SELECT @SettingUpd = NULL
-		  ,@SettingUpd = 
-				(	
-						  SELECT ServiceName, Value
-						  FROM (
-									VALUES (@SettingNameOfSubmitDate, @Submitdate)
-										   ,(@SettingNameOfSeq, @Seq)
-										   ,(@SettingNameOfJobStatus, 'Completed')
-										   ,(@SettingNameOfJobStatus, 'Completed')
-										   ,(@SettingNameOfJobStatus, 'Completed')
-						   )t(ServiceName, [Value])
-						  FOR XML PATH('r'), ROOT('root'),TYPE,ELEMENTS XSINIL
-				)
-	 
 	EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
-	-- Update Status of Job
-	UPDATE dbo.SystemSetting WITH (ROWLOCK)
-	SET Value = 'Completed'
-	WHERE ServiceName = 'ChatBot - ResultAmendment'
-		AND SettingName = @SettingNameOfJobStatus
-		AND Value = 'running'
+	EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 
 	DROP TABLE #EventData
 	DROP TABLE #MessageData
@@ -828,5 +784,7 @@ BEGIN
 	DROP TABLE #tmpGroup
 	DROP TABLE #DirectAccount
 	DROP TABLE #tmpResult
+	DROP TABLE #ImportData
+	DROP TABLE #TargetMessage
 END
 GO

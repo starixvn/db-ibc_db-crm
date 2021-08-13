@@ -14,9 +14,9 @@ AS
 	Param's Explanation:
 		@Messages:
 			<root>
-				<r MessageID=1 MsgTargetId=1 />
-				<r MessageID=1 MsgTargetId=2 />
-				<r MessageID=3 MsgTargetId=2 />
+				<r MessageId=1 MsgTargetId=1 />
+				<r MessageId=1 MsgTargetId=2 />
+				<r MessageId=3 MsgTargetId=2 />
 			</root>
 */
 
@@ -26,7 +26,7 @@ BEGIN
 	CREATE TABLE #Messages (MessageId INT, MsgTargetId INT)
 	INSERT INTO  #Messages (MessageId, MsgTargetId)
 	SELECT
-		t.c.value('@MessageID', 'INT') AS MessageId
+		t.c.value('@MessageId', 'INT') AS MessageId
 		,t.c.value('@MsgTargetId', 'INT') AS RequestId
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))

@@ -5,10 +5,12 @@
 	DB: DBCRM-bodb_CRM
 	Task: Insert data [RedmineId : #153119]
 */
+-- Add settings for ChatBot - ResultAmendment
 INSERT INTO dbo.SystemSetting (SettingName, Value, ServiceName)
 VALUES ('ServiceFlag', '1', 'ChatBot - ResultAmendment')
 	,('IncludeUUSCurrency', '1', 'ChatBot - ResultAmendment')
 	,('BatchSize', '3000', 'ChatBot - ResultAmendment')
+	,('BatchSizeGetMsg', '10', 'ChatBot - ResultAmendment')
 	,('JobStatus', 'Completed', 'ChatBot - ResultAmendment')
 	,('JobStatusUAT', 'Completed', 'ChatBot - ResultAmendment')
 	,('SubmitDate', '2021-07-31', 'ChatBot - ResultAmendment')
@@ -16,7 +18,11 @@ VALUES ('ServiceFlag', '1', 'ChatBot - ResultAmendment')
 	,('Seq', '0', 'ChatBot - ResultAmendment')
 	,('SeqUAT', '0', 'ChatBot - ResultAmendment')
 	,('NotificationTemplate', '', 'ChatBot - ResultAmendment')
-	,('IsSyncSettingsForUAT', '0', 'ChatBot - ResultAmendment')
+	,('IsSyncSettingsForUAT', '1', 'ChatBot - ResultAmendment')
+
+-- Add settings for ChatBot - ProblemAccounts
+INSERT INTO dbo.SystemSetting (SettingName, Value, ServiceName)
+VALUES ('IsSyncSettingsForUAT', '1', 'ChatBot - ProblemAccounts')
 
 DECLARE @SystemId INT
 DECLARE @NotificationTemplateID INT, @NotificationTypeID INT, @EN INT, @SC INT, @EN_SC INT, @TH INT, @YN INT

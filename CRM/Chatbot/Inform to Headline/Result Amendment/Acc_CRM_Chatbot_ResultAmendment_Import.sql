@@ -552,7 +552,7 @@ BEGIN
 			   ,MIN(ISNULL(r.RelatedIds,'')) AS RelatedIds
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
-			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UserameLst
+			   ,STUFF ((SELECT DISTINCT ', ' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult r
 		GROUP BY r.Id, r.MessageId, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
 	)
@@ -601,7 +601,7 @@ BEGIN
 		,g.TicketIdLst
 		,ISNULL(g.RelatedIds,'')
 		,g.HeadlineIdLst
-		,g.UserameLst
+		,g.UsernameLst
 		,g.ConversationGroupId
 		,g.ChatTypeId
 		,g.LanguageId

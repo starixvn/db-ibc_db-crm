@@ -43,11 +43,6 @@ FROM crmSetting s WITH(NOLOCK)
 WHERE s.SettingValue <> 'Accountant' AND SettingName = 'PICRole'
 
 INSERT INTO dbo.crmSettingRelation (SettingID, ParentID, DisplayOrder)
-SELECT s.SettingID, 0, s.DisplayOrder
-FROM crmSetting s WITH(NOLOCK)
-WHERE s.SettingValue <> 'Accountant' AND SettingName = 'PICRole'
-
-INSERT INTO dbo.crmSettingRelation (SettingID, ParentID, DisplayOrder)
 SELECT s.SettingID, @AccountingPIC, s.DisplayOrder
 FROM crmSetting s WITH(NOLOCK)
 WHERE s.SettingValue  = 'Accountant' AND SettingName = 'PICRole'
@@ -56,3 +51,11 @@ INSERT INTO dbo.crmSettingRelation (SettingID, ParentID, DisplayOrder)
 SELECT s.SettingID, 0, s.DisplayOrder
 FROM crmSetting s WITH(NOLOCK)
 WHERE s.SettingValue  = 'Accountant' AND SettingName = 'PICRole'
+
+-- Add recipient type
+INSERT INTO dbo.crmRecipientType 
+SELECT n.v
+FROM (
+	VALUES ('Accounting PIC')
+) AS n(v)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.crmRecipientType r WITH(NOLOCK) WHERE r.RecipientTypeName = 'Accounting PIC')

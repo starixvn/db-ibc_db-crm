@@ -47,6 +47,7 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20201102@Johnson: - remove limit amount for related customers
 							- sync customer profile to CRM for related customers [redmine:#142194]
+		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
 	Param's Explanation:
 */
 BEGIN
@@ -188,7 +189,62 @@ BEGIN
 		,	@NoInquiries_Old		= Inquiries
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
+	
+	--check any new customers belong to terminated licensee site
+	DECLARE @tmpCustInvalid TABLE(custid INT, username NVARCHAR(100))
+		
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM crmCustomer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)
+			AND custid NOT IN (SELECT custid
+								FROM dbo.crmFeedbackCustomer AS fbc WITH (NOLOCK)
+								WHERE	fbc.FeedbackID = @FeedbackID
+									AND	fbc.IsRelated = 1)
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.SiteID = s.SettingID
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)
 
+	
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)
+			AND custid NOT IN (SELECT custid
+								FROM dbo.crmFeedbackCustomer AS fbc WITH (NOLOCK)
+								WHERE	fbc.FeedbackID = @FeedbackID
+									AND	fbc.IsRelated = 1)
+			AND custid NOT IN (SELECT custid FROM @tmpCustInvalid)						
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.site = s.settingValue
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)		
+	
+	IF EXISTS(SELECT 1 FROM @tmpCustInvalid)
+	BEGIN		
+		SELECT @ErrMsg = ''		
+		SELECT @ErrMsg = ','+ @ErrMsg + username		
+		FROM @tmpCustInvalid
+		
+		SELECT @ErrMsg = STUFF(@ErrMsg,1,1,'')
+		
+		SELECT @ErrCode = 106,
+			@ErrMsg = 'Some Usernames belong to Inactive Site: '+ @ErrMsg
+		
+		RETURN
+	END
+	
 	SELECT	@RelatedCustID_Old = '';
 
 	SELECT	@RelatedCustID_Old = @RelatedCustID_Old + CAST(fbc.CustID AS VARCHAR(1000)) + ','
@@ -541,5 +597,3 @@ BEGIN
 END;
 GO 
 
-GRANT EXECUTE ON dbo.Acc_CRM_CommunicationLogUpd TO bodbAdminNet;
-GO 

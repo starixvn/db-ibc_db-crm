@@ -23,6 +23,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
+		- 20210604@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 	Param's Explanation:
 		
 */
@@ -116,6 +117,8 @@ BEGIN
 		,	fb.LicenseeType
 		,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 		,   ISNULL(fb.Inquiries,0) AS NoInquiries
+		,	CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee
+		,	ISNULL(s.IsActive,0) as IsSiteActive
 	FROM	crmFeedback fb WITH (NOLOCK)	
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	fb.CustID = ctm.CustID
@@ -123,16 +126,25 @@ BEGIN
 			ON	fb.CreatorID = c.custid
 	LEFT JOIN bodb02.dbo.custInfo rv WITH (NOLOCK)
 			ON	fb.ReviewerID = rv.custid
+	LEFT JOIN crmSetting s WITH(NOLOCK) ON ctm.SiteID = s.SettingID		
+	LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee		
 	WHERE	fb.FeedbackID = @FeedbackID
 		AND ((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002))
 	
 	SELECT	cf.CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
+		,	CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee
+		,	ISNULL(s.IsActive,0) as IsSiteActive
 	FROM		dbo.crmFeedbackCustomer AS cf WITH (NOLOCK)
 	LEFT JOIN	dbo.crmCustomer AS c WITH (NOLOCK)
 			ON	c.CustID = cf.CustID
 	LEFT JOIN	bodb02.dbo.Customer AS c1 WITH (NOLOCK)
 			ON	c1.custid = cf.CustID
+	LEFT JOIN crmSetting s WITH(NOLOCK) ON (c.SiteID = s.SettingID AND c.CustID IS NOT NULL)
+											OR (c1.site = s.SettingValue AND s.SettingName = 'Site' AND c.custid IS NULL)		
+	LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee											
 	WHERE	cf.FeedbackID = @FeedbackID 
 		AND	cf.IsRelated = 1;
 		
@@ -153,9 +165,4 @@ BEGIN
 		LEFT JOIN crmSetting c
 			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END;
-
-
 GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelByID TO bodbAdminNet;
-GO 

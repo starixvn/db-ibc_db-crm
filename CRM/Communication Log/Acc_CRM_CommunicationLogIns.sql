@@ -41,6 +41,7 @@ AS
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
 		- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 	Param's Explanation:
 */
 BEGIN
@@ -71,7 +72,7 @@ BEGIN
 			,	@ErrMsg = 'Exceed limitation. We only support around 2000 related accounts in maximum.'
 		RETURN
 	END
-
+	
 	IF	NOT EXISTS(SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	BEGIN
 		EXECUTE	Acc_CRM_CopyCustomerInformation
@@ -84,7 +85,74 @@ BEGIN
 		IF	@ErrCode <> 0
 			RETURN;
 	END;
-
+	
+	--check terminated licensee site
+	IF EXISTS(SELECT 1 FROM crmCustomer c WITH(NOLOCK) 
+			WHERE custid = @custid
+				AND EXISTS (SELECT 1 
+							FROM crmSettingRelation sr WITH(NOLOCK) 
+								INNER JOIN	crmSetting s WITH(NOLOCK)
+										ON	sr.SettingID = s.SettingID
+										AND	s.SettingName = 'Site'
+							WHERE c.SiteID = s.SettingID
+								AND s.IsActive = 0
+								AND sr.ParentID = 33000--licensee
+						)
+			)
+	BEGIN
+		SELECT @ErrCode = 107,
+			@ErrMsg = 'Cannot create Feedback for Inactive Site. Please recheck information.'
+		
+		RETURN
+	END
+	
+	--remove customer belong to inactive site 
+	DECLARE @tmpCustInvalid TABLE(custid INT, username NVARCHAR(100))
+		
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM crmCustomer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)			
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.SiteID = s.SettingID
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)
+	
+	INSERT INTO @tmpCustInvalid(custid,username)
+	SELECT custid,username 
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
+		WHERE custid IN (SELECT custid FROM @relatedCustomer)		
+			AND custid NOT IN (SELECT custid FROM @tmpCustInvalid)						
+			AND EXISTS (SELECT 1 
+						FROM crmSettingRelation sr WITH(NOLOCK) 
+							INNER JOIN	crmSetting s WITH(NOLOCK)
+									ON	sr.SettingID = s.SettingID
+									AND	s.SettingName = 'Site'
+						WHERE c.site = s.settingValue
+							AND s.IsActive = 0
+							AND sr.ParentID = 33000--licensee
+					)		
+	
+	IF EXISTS(SELECT 1 FROM @tmpCustInvalid)
+	BEGIN
+		SELECT @ErrMsg = ''
+		
+		SELECT @ErrMsg = ',' + @ErrMsg + Username
+		FROM @tmpCustInvalid
+	
+		SELECT @ErrMsg = STUFF(@ErrMsg,1,1,'')
+		
+		SELECT @ErrCode = 103,
+			@ErrMsg = 'Some Usernames belong to Inactive Site: '+ @ErrMsg
+		
+		RETURN	
+	END
+	
 	DECLARE @Remark							NVARCHAR(MAX)
 		,	@MainCategoryID					VARCHAR(MAX)
 		,	@SubCategoryID					VARCHAR(MAX)		
@@ -610,7 +678,4 @@ BEGIN
 			,	@Review =  NULL
 			,	@NewValues = @LogElement;
 END;					
-GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_CommunicationLogIns TO bodbAdminNet;
 GO

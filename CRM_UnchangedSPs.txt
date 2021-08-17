@@ -1,3 +1,4 @@
 CRM\Customer-Feedback\Acc_CRM_CustomerFeedbackIns.sql
 CRM\Customer-Feedback\Acc_CRM_GuestFeedbackIns_Multiple.sql
-
+CRM\Customer-Feedback\Acc_CRM_FeedbackInfoUpd.sql
+CRM\Customer-Feedback\Acc_CRM_GuestFeedbackIns.sql

@@ -14,10 +14,18 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	SELECT t.MessageId, t.MsgTargetId, t.BetTransId
+	DECLARE @Msg TABLE (MessageId INT PRIMARY KEY)
+	INSERT INTO @Msg (MessageId)
+	SELECT m.MessageId
 	FROM dbo.Msg m WITH(NOLOCK)
-		INNER JOIN dbo.MsgTarget t WITH(NOLOCK) ON t.MessageId = m.MessageId
 	WHERE m.MsgContentsType = 102 AND m.PostTime >= GETDATE() - 1
+		AND EXISTS (SELECT 1 FROM dbo.MsgTarget t WITH(NOLOCK) WHERE t.MessageId = m.MessageId)
+
+	WAITFOR DELAY '00:00:02.00'
+
+	SELECT t.MessageId, t.MsgTargetId, t.BetTransId
+	FROM dbo.MsgTarget t WITH(NOLOCK) 
+	WHERE EXISTS (SELECT 1 FROM @Msg m WHERE m.MessageId = t.MessageId)
 
 END
 GO

@@ -39,7 +39,7 @@ BEGIN
 	CREATE INDEX ix_TransId ON #InfoMessage (TransId)
 
 	UPDATE t
-		SET t.CustId = n.custid, t.Username = n.Username, t.Recommend = n.Recommend, t.Srecommend = n.Srecommend, t.IsTest = n.IsTest
+		SET t.CustId = n.custid, t.Username = n.Username, t.Recommend = n.Recommend, t.Mrecommend = n.mrecommend, t.Srecommend = n.Srecommend, t.IsTest = n.IsTest
 	FROM #InfoMessage t
 		CROSS APPLY (
 				SELECT b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
@@ -48,7 +48,7 @@ BEGIN
 		) AS n
 
 	UPDATE t
-		SET t.CustId = n.custid, t.Username = n.Username, t.Recommend = n.Recommend, t.Srecommend = n.Srecommend, t.IsTest = n.IsTest
+		SET t.CustId = n.custid, t.Username = n.Username, t.Recommend = n.Recommend, t.Mrecommend = n.mrecommend, t.Srecommend = n.Srecommend, t.IsTest = n.IsTest
 	FROM #InfoMessage t
 		CROSS APPLY (
 				SELECT b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest

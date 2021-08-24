@@ -432,7 +432,7 @@ BEGIN
 			SELECT 1 
 			FROM #tmpResult g 
 				INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = g.ConversationGroupId
-			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId
+			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId AND t.Username = g.Username
 		) AND t.ChatTypeId = 2 
 
 	CREATE TABLE #Result
@@ -485,18 +485,18 @@ BEGIN
 
 	-- For Group, Personal Which have IsDuplicated = 0
 	;WITH CTE_Batch AS (
-		SELECT t.MessageId, t.TicketEventId, t.TicketId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY t.MessageId, t.TicketEventId, t.ConversationGroupId ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
+		SELECT t.MessageId, t.Username, t.TicketEventId, t.TicketId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY t.MessageId, t.TicketEventId, t.ConversationGroupId ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 0
 	)
 	,CTE_Group AS (
-		SELECT t.MessageId, t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.MessageId, t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
+		SELECT t.MessageId, t.Username, t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.MessageId, t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
 		FROM CTE_Batch t
 	)
 	UPDATE t
 		SET t.Id = g.Id
 	FROM #tmpResult t
-		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.ConversationGroupId = t.ConversationGroupId AND g.TicketEventId = t.TicketEventId AND t.MessageId = g.MessageId
+		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.ConversationGroupId = t.ConversationGroupId AND g.TicketEventId = t.TicketEventId AND t.MessageId = g.MessageId AND t.Username = g.Username
 
 	--Group which have IsDuplicated = 1
 	UPDATE t
@@ -510,7 +510,7 @@ BEGIN
 						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
 						FROM #tmpResult p	
 							INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
-						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId
+						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId AND t.Username = p.Username
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
@@ -525,18 +525,18 @@ BEGIN
 	--For Personal (Groups have IsDuplicated = 1)
 	;WITH CTE_Batch AS
 	(
-		SELECT t.MessageId, t.TicketId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.MessageId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
+		SELECT t.MessageId, t.Username, t.TicketId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.MessageId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 1
 	), CTE_Group AS
 	(
-		SELECT MessageId, TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY MessageId, ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
+		SELECT MessageId, Username, TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY MessageId, ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
 		FROM CTE_Batch
 	)
 	UPDATE t
 		SET t.Id = @MaxGroup + g.Id
 	FROM #tmpResult t
-		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND g.ConversationGroupId = t.ConversationGroupId
+		INNER JOIN CTE_Group g ON g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND g.ConversationGroupId = t.ConversationGroupId AND t.Username = g.Username
 
 	--Get Userame list, Headline list, ticket list
 	;WITH CTE_Group AS

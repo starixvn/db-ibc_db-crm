@@ -241,7 +241,9 @@ BEGIN
 	-- Only import testing accounts with uat environment
 	IF @Environment = 'UAT'
 	BEGIN
-		DELETE i FROM #ImportData i WHERE i.IsTest = 0
+		DECLARE @TmpMessage TABLE (MessageId INT)
+		DELETE i OUTPUT deleted.MessageId INTO @TmpMessage FROM #ImportData i  WHERE i.IsTest = 0 
+		DELETE i FROM #ImportData i WHERE EXISTS (SELECT 1 FROM @TmpMessage m WHERE m.MessageId = i.MessageId AND m.MessageId <> 0)	
 	END
 	--Exclude UUS currency with LIVE environment
 
@@ -313,6 +315,8 @@ BEGIN
 	DELETE t
 	FROM #TargetMessage t 
 	WHERE NOT EXISTS (SELECT 1 FROM #ImportData i WHERE i.TicketId = 0 AND i.MessageId = t.MessageId )
+
+	SELECT @TargetMessage = (SELECT MessageId AS '@MessageId', MsgTargetId AS '@MsgTargetId', Type AS '@Type' FROM #TargetMessage FOR XML PATH('r'), ROOT('root'))
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData) 
 	BEGIN

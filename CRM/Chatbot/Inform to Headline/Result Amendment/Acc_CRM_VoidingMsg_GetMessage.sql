@@ -21,7 +21,7 @@ BEGIN
 	WHERE m.MsgContentsType = 102 AND m.PostTime >= GETDATE() - 1
 		AND EXISTS (SELECT 1 FROM dbo.MsgTarget t WITH(NOLOCK) WHERE t.MessageId = m.MessageId)
 
-	WAITFOR DELAY '00:00:03.00'
+	WAITFOR DELAY '00:00:04.00'
 
 	SELECT t.MessageId, t.MsgTargetId, t.BetTransId
 	FROM dbo.MsgTarget t WITH(NOLOCK) 

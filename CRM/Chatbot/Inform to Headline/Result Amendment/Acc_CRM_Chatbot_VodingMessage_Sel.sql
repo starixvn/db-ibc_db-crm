@@ -22,6 +22,7 @@ BEGIN
 	SELECT DISTINCT TOP(@BatchSizeGetMsg) m.MessageId
 	FROM dbo.crmVoidingMessage m WITH(NOLOCK)
 	WHERE m.IsChatBotProcessed = 0
+	ORDER BY m.MessageId ASC
 
 	CREATE TABLE #TargetMessage (MessageId INT, MsgTargetId INT, BetTransId VARCHAR(MAX))
 	INSERT INTO #TargetMessage (MessageId, MsgTargetId, BetTransId)

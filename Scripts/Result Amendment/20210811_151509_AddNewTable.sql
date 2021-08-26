@@ -7,8 +7,8 @@
 
 CREATE TABLE dbo.crmVoidingMessage
 (
-	MessageId INT,
-	MsgTargetId INT,
+	MessageId INT NOT NULL,
+	MsgTargetId INT NOT NULL,
 	BetTransId VARCHAR(MAX),
 	CreatedDate	DATETIME,
 	IsProcessed	BIT,
@@ -25,3 +25,10 @@ GO
 
 ALTER TABLE dbo.crmVoidingMessage ADD  CONSTRAINT DF_crmVoidingMessage_IsProcessedUAT  DEFAULT ((0)) FOR [IsProcessedUAT]
 GO
+
+ALTER TABLE dbo.crmVoidingMessage ADD CONSTRAINT PK_crmVoidingMessage PRIMARY KEY CLUSTERED (MessageId, MsgTargetId)
+GO
+
+CREATE NONCLUSTERED INDEX IX_ChatBotProcessed ON crmVoidingMessage (IsChatBotProcessed)
+GO
+

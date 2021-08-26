@@ -397,7 +397,7 @@ BEGIN
 	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
 	SELECT m.MessageId, m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
 	FROM #LogRecipient m
-		INNER JOIN #tmpGroup g ON m.TicketId = g.TicketId AND m.DirectAccount = g.DirectAccount
+		INNER JOIN #tmpGroup g ON m.MessageId = g.MessageId AND m.TicketId = g.TicketId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId

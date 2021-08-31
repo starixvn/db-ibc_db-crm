@@ -46,6 +46,7 @@ AS
 			Type = 3: Result Amendment Template - Virtual Sports
 			Type = 4: Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
 			Type = 5: Result Amendment Template - Outright	
+			Type = 6: Voided Settled Tickets
 */
 
 BEGIN

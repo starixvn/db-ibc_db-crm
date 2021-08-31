@@ -650,7 +650,8 @@ BEGIN
 		LEFT JOIN #MessageData m ON r.MessageId = m.MessageId
 		LEFT JOIN #TargetMessage t ON t.MessageId = r.MessageId
 
-		
+	CREATE CLUSTERED INDEX Ix_Result on #Result (ID)	
+
 	-- Import Notification
 	DECLARE @Sender				INT = 10278938 -- StarixIT
 			,@SendDate			DATETIME = GETDATE()

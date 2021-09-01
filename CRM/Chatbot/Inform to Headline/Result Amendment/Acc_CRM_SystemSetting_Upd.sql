@@ -1,5 +1,5 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_SystemSetting_Upd]
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="1"></info>*/
+CREATE PROCEDURE [dbo].[Acc_CRM_SystemSetting_Upd]
 	@ServiceName VARCHAR(100)
 	,@Settings XML
 	,@Environment VARCHAR(50) = ''

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" selectors="bodbAdminNet" viewers="" isFunction="1"></info>*/
-CREATE FUNCTION [dbo].[f_Inform_HeadlineList] (@Currency VARCHAR(1000), @Level VARCHAR(10), @Site VARCHAR(4000), @TypeAccount TINYINT)
+ALTER FUNCTION [dbo].[f_Inform_HeadlineList] (@Currency VARCHAR(1000), @Level VARCHAR(10), @Site VARCHAR(4000), @TypeAccount TINYINT)
 RETURNS @DirectAcc TABLE (
 	[CustID] [INT],
 	[Username] VARCHAR(30),
@@ -57,7 +57,14 @@ BEGIN
 				AND EXISTS(SELECT TOP 1 1 
 							FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
 								INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
-							WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1
+								CROSS APPLY  (	SELECT CASE WHEN CloseInfo > 0 THEN 1 ELSE 0 END AS closed
+													, CASE WHEN SuspendInfo > 0 THEN 1 ELSE 0 END AS reject
+												FROM bodb02.dbo.CustProductStatus  WITH(NOLOCK)
+												WHERE CustID = ci.custid
+											) AS cs	
+							WHERE hl.groupID=g.groupID 
+								AND cs.closed=0 AND cs.reject = 0 AND ci.Enabled = 1
+								--AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1
 								AND ci.currency IN (SELECT currency FROM @tmpCurrency)
 						)
 			
@@ -71,11 +78,17 @@ BEGIN
 				INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid						
 				INNER JOIN bodb02.dbo.Customer agent WITH (NOLOCK) ON agent.custid = ci.recommend	
 				INNER JOIN bodb02.dbo.CustAgent ca WITH(NOLOCK) ON agent.custid=ca.custid AND ca.IsInternal=0
+				CROSS APPLY  (	SELECT CASE WHEN CloseInfo > 0 THEN 1 ELSE 0 END AS closed
+									, CASE WHEN SuspendInfo > 0 THEN 1 ELSE 0 END AS reject
+								FROM bodb02.dbo.CustProductStatus  WITH(NOLOCK)
+								WHERE CustID = ci.custid
+							) AS cs	
 			WHERE 
 				ci.currency IN (SELECT currency FROM @tmpCurrency) 
 				AND ci.roleid=1
 				AND agent.site IN (SELECT Site FROM @tmpSite)
-				AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
+				AND cs.closed=0 AND cs.reject = 0 AND ci.Enabled = 1
+				--AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
 				AND NOT EXISTS (SELECT 1 FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = c.custid AND groupid > 0)
 		END		
 		DELETE FROM @tmpLevel WHERE roleID=1
@@ -93,7 +106,14 @@ BEGIN
 			AND EXISTS(SELECT TOP 1 1 
 						FROM bodb02.dbo.custAccount g WITH(NOLOCK) 
 							INNER JOIN bodb02.dbo.Custinfo ci WITH(NOLOCK) ON g.custid=ci.custid
-						 WHERE hl.groupID=g.groupID AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1
+							CROSS APPLY  (	SELECT CASE WHEN CloseInfo > 0 THEN 1 ELSE 0 END AS closed
+												, CASE WHEN SuspendInfo > 0 THEN 1 ELSE 0 END AS reject
+											FROM bodb02.dbo.CustProductStatus  WITH(NOLOCK)
+											WHERE CustID = ci.custid
+										) AS cs	
+						 WHERE hl.groupID=g.groupID 
+							AND cs.closed=0 AND cs.reject = 0 AND ci.Enabled = 1
+							--AND ci.closed=0 AND ISNULL(ci.reject,0) = 0 AND ci.Enabled = 1
 							AND	ci.currency IN (SELECT currency FROM @tmpCurrency) 
 						)
 			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustSuper cs WITH(NOLOCK) WHERE hl.custid=cs.custid AND cs.IsInternal=1)
@@ -109,10 +129,16 @@ BEGIN
 			INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON c.custid = ci.custid			
 			INNER JOIN bodb02.dbo.Customer co WITH (NOLOCK) ON co.custid = ci.custid				
 			INNER JOIN @tmpLevel t ON ci.roleid=t.roleID		
+			CROSS APPLY  (	SELECT CASE WHEN CloseInfo > 0 THEN 1 ELSE 0 END AS closed
+								, CASE WHEN SuspendInfo > 0 THEN 1 ELSE 0 END AS reject
+							FROM bodb02.dbo.CustProductStatus  WITH(NOLOCK)
+							WHERE CustID = ci.custid
+						) AS cs	
 		WHERE 
 			co.currency IN (SELECT currency FROM @tmpCurrency) 
 			AND co.site IN (SELECT Site FROM @tmpSite)
-			AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
+			AND cs.closed=0 AND cs.reject = 0 AND ci.Enabled = 1
+			--AND ci.closed=0 AND ISNULL(ci.reject,0) = 0	AND ci.Enabled = 1
 			AND NOT EXISTS (SELECT 1 FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = c.custid AND groupid > 0)
 			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustSuper cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)
 			AND NOT EXISTS(SELECT TOP 1 1 FROM bodb02.dbo.CustMaster cs WITH(NOLOCK) WHERE c.custid=cs.custid AND cs.IsInternal=1)

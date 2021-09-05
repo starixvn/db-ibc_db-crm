@@ -43,6 +43,7 @@ BEGIN
 		 ,ConversationGroupName NVARCHAR(1000)
 		 ,ConversationId        VARCHAR(200)
 		 ,ChatTypeId			TINYINT
+		 ,TestingGroupType		TINYINT
 		 ,BotName				NVARCHAR(1000)
 		 ,BotId					INT
 		 ,LanguageId			INT
@@ -59,7 +60,8 @@ BEGIN
 		ConversationGroupId	
 		,ConversationGroupName 		
 		,ConversationId
-		,ChatTypeId			
+		,ChatTypeId
+		,TestingGroupType
 		,BotName	
 		,BotId		
 		,LanguageId		
@@ -72,6 +74,7 @@ BEGIN
 		,cg.ConversationGroupName
 		,cg.ConversationId
 		,cg.ChatTypeId
+		,cg.TestingGroupType
 		,cb.BotName
 		,cb.BotId
 		,cg.LanguageId
@@ -287,7 +290,8 @@ BEGIN
 		t.ConversationGroupId	
 		,t.ConversationGroupName 	
 		,t.ConversationId
-		,t.ChatTypeId			
+		,t.ChatTypeId
+		,t.TestingGroupType
 		,t.BotName	
 		,t.BotId	
 		,t.LanguageId	

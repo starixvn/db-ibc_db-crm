@@ -610,7 +610,7 @@ BEGIN
 		,g.ConversationGroupId
 		,g.ChatTypeId
 		,g.LanguageId
-		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
+		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN g.IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
 		,ISNULL(CONVERT(VARCHAR(2), DAY(ev.EventDate)) + '/' + CONVERT(VARCHAR(2), MONTH(ev.EventDate)), '') AS EventDate
 		,ISNULL(ev.ActualResult,'')
 		,ISNULL(ev.WrongResult,'')

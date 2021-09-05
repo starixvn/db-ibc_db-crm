@@ -3,6 +3,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
 	@BotId					INT
 	,@ConversationGroupName	NVARCHAR(1000) 
 	,@ChatTypeId			TINYINT = NULL
+	,@TestingGroupType		TINYINT = 2
 	,@RecipientTypeId       TINYINT
 	,@HeadlineIds			VARCHAR(MAX) 
 	,@RecipientId			INT
@@ -35,7 +36,7 @@ BEGIN
 
 	DECLARE @_HeadlineIds TABLE (HeadlineID INT)	
 
-	SELECT @ReferenceIds = CAST(@RecipientId AS VARCHAR(1000))
+	SELECT @ReferenceIds = CAST(@RecipientId AS VARCHAR(1000)), @TestingGroupType = ISNULL(@TestingGroupType, 2)
 
 	INSERT INTO @_HeadlineIds (HeadlineID)
 	SELECT f.val
@@ -63,6 +64,7 @@ BEGIN
 			,LanguageId
 			,Remark
 			,IsActive
+			,TestingGroupType
 		)
 		VALUES
 		(
@@ -74,6 +76,7 @@ BEGIN
 			,GETDATE()
 			,@LanguageId
 			,@Remark
+			,@TestingGroupType
 			,1
 		)
 
@@ -176,6 +179,7 @@ BEGIN
 									  @ConversationGroupName AS '@Name',
 									  @LetstalkID AS '@LetstalkID',
 									  @Remark AS '@Remark',
+									  @TestingGroupType AS '@TestingGroupType',
 									  1  AS '@IsActive',
 									  @__ChatTypeXML,
 									  @__RecipientTypeXML,

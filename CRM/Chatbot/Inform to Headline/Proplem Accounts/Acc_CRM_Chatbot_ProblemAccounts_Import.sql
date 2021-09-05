@@ -411,7 +411,7 @@ BEGIN
 		,g.ConversationGroupId
 		,g.ChatTypeId
 		,g.LanguageId
-		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
+		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN g.IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
 		,c.ContentEN
 		,c.ContentSC
 		,c.ContentTH

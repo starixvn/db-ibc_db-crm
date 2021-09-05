@@ -612,7 +612,7 @@ BEGIN
 		,g.LanguageId
 		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' 
 			  WHEN g.IsTest = 1 THEN CASE WHEN cg.TestingGroupType = 0 THEN 'Draft' ELSE 'Planned' END
-			  WHEN g.IsTest = 0 THEN CASE WHEN cg.TestingGroupType = 1 THEN 'Draft' ELSE @Status END
+			  WHEN g.IsTest = 0 THEN CASE WHEN cg.TestingGroupType = 1 THEN 'Draft' ELSE  @Status  END
 	     END AS [Status]
 		,ISNULL(CONVERT(VARCHAR(2), DAY(ev.EventDate)) + '/' + CONVERT(VARCHAR(2), MONTH(ev.EventDate)), '') AS EventDate
 		,ISNULL(ev.ActualResult,'')

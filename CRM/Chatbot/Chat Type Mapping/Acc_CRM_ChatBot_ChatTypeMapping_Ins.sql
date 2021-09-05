@@ -63,8 +63,8 @@ BEGIN
 			,UpdatedDate
 			,LanguageId
 			,Remark
-			,IsActive
 			,TestingGroupType
+			,IsActive
 		)
 		VALUES
 		(

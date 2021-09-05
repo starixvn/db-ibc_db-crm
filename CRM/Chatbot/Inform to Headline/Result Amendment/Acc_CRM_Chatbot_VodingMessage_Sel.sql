@@ -43,7 +43,7 @@ BEGIN
 		SET t.CustId = n.custid, t.Username = n.Username, t.Recommend = n.Recommend, t.Mrecommend = n.mrecommend, t.Srecommend = n.Srecommend, t.IsTest = n.IsTest
 	FROM #InfoMessage t
 		CROSS APPLY (
-				SELECT b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
+				SELECT b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, CASE WHEN b.currency IN (20, 72) THEN 1 ELSE 0 END AS IsTest
 				FROM bodb02.dbo.bettrans b WITH(NOLOCK)
 				WHERE b.transid = t.TransId
 		) AS n
@@ -52,7 +52,7 @@ BEGIN
 		SET t.CustId = n.custid, t.Username = n.Username, t.Recommend = n.Recommend, t.Mrecommend = n.mrecommend, t.Srecommend = n.Srecommend, t.IsTest = n.IsTest
 	FROM #InfoMessage t
 		CROSS APPLY (
-				SELECT b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
+				SELECT b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, CASE WHEN b.currency IN (20, 72) THEN 1 ELSE 0 END AS IsTest
 				FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
 				WHERE b.transid = t.TransId
 		) AS n

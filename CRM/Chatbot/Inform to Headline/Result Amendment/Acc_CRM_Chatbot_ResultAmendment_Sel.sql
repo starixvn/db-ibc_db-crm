@@ -178,7 +178,7 @@ BEGIN
 	FROM #TicketDetail t
 	CROSS APPLY
 	(
-		SELECT TOP(1) c.username, c.recommend, c.mrecommend, c.srecommend, CASE WHEN c.currency = 20 THEN 1 ELSE 0 END AS IsTest
+		SELECT TOP(1) c.username, c.recommend, c.mrecommend, c.srecommend, CASE WHEN c.currency IN (20, 72) THEN 1 ELSE 0 END AS IsTest
 		FROM bodb02.dbo.Customer c WITH(NOLOCK)
 		WHERE c.custid = t.CustId
 	) AS n

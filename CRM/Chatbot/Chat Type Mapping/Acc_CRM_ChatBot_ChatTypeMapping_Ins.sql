@@ -43,6 +43,19 @@ BEGIN
 	FROM  dbo.f_CRM_strSplit(@HeadlineIds, ',') f 
 	WHERE f.val <> ''
 
+	--Check IsTest
+	IF EXISTS (SELECT 1 FROM dbo.crmRecipientType rt WITH(NOLOCK) WHERE rt.RecipientTypeId = @RecipientTypeId AND rt.RecipientTypeName = 'Accounting PIC')
+	BEGIN
+		IF @IsTest IS NULL
+		BEGIN
+			SELECT @ErrCode = 102,  @ErrMsg = 'IsTest is not valid. Please check again!'
+			RETURN
+		END
+	END
+	ELSE
+	BEGIN
+		SET @IsTest = NULL
+	END
 	-- check validation
 	SELECT TOP(1) @Existing_GroupName = ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
 

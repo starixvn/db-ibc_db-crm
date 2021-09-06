@@ -404,10 +404,10 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 
 	---- For Accounting PIC
-	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChatTypeId TINYINT, RecipientTypeId TINYINT)
+	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChatTypeId TINYINT, RecipientTypeId TINYINT, IsTest BIT)
 
-	INSERT INTO @Group (ConversationGroupId, LanguageId, ChatTypeId, RecipientTypeId)
-	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, g.ChatTypeId, r.RecipientTypeId
+	INSERT INTO @Group (ConversationGroupId, LanguageId, ChatTypeId, RecipientTypeId, IsTest)
+	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, g.ChatTypeId, r.RecipientTypeId, g.IsTest
 	FROM dbo.crmConversationGroup g WITH(NOLOCK)
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
@@ -421,10 +421,17 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
 	WHERE c.site <> 'CN88'
 
+	;WITH CTE AS 
+	(
+		SELECT MessageId, TicketEventId, CONVERT(BIT, MIN(CONVERT(TINYINT, IsTest))) AS IsTest
+		FROM #ImportData
+		GROUP BY MessageId, TicketEventId
+	)
 	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
 	SELECT t.MessageId, t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
 	FROM @Group g 
-		CROSS JOIN #ImportData t 
+		INNER JOIN CTE e ON e.IsTest = g.IsTest
+		INNER JOIN #ImportData t ON t.MessageId = e.MessageId AND t.TicketEventId = e.TicketEventId
 		INNER JOIN #DirectAccount cda WITH(NOLOCK) ON cda.CustID IN (t.CustId, t.Recommend, t.Mrecommend, t.Srecommend)
 		LEFT JOIN bodb02.dbo.custAccount ca WITH(NOLOCK) ON ca.custid = cda.CustID
 		LEFT JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.GroupID = ca.groupID
@@ -437,7 +444,7 @@ BEGIN
 			SELECT 1 
 			FROM #tmpResult g 
 				INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = g.ConversationGroupId
-			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId AND t.Username = g.Username
+			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId AND t.Username = g.Username 
 		) AND t.ChatTypeId = 2 
 
 	CREATE TABLE #Result
@@ -515,7 +522,7 @@ BEGIN
 						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
 						FROM #tmpResult p	
 							INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
-						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId AND t.Username = p.Username
+						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId AND t.Username = p.Username 
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
@@ -610,10 +617,7 @@ BEGIN
 		,g.ConversationGroupId
 		,g.ChatTypeId
 		,g.LanguageId
-		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' 
-			  WHEN g.IsTest = 1 THEN CASE WHEN cg.TestingGroupType = 0 THEN 'Draft' ELSE 'Planned' END
-			  WHEN g.IsTest = 0 THEN CASE WHEN cg.TestingGroupType = 1 THEN 'Draft' ELSE  @Status  END
-	     END AS [Status]
+		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN g.IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
 		,ISNULL(CONVERT(VARCHAR(2), DAY(ev.EventDate)) + '/' + CONVERT(VARCHAR(2), MONTH(ev.EventDate)), '') AS EventDate
 		,ISNULL(ev.ActualResult,'')
 		,ISNULL(ev.WrongResult,'')
@@ -641,7 +645,6 @@ BEGIN
 		,g.RecipientTypeId
 		,ev.[Type]
 	FROM CTE_Group g
-		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = g.ConversationGroupId 
 		LEFT JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
 
 	UPDATE r

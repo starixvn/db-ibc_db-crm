@@ -6,15 +6,11 @@
 */
 
 ALTER TABLE crmConversationGroup
-ADD TestingGroupType TINYINT CONSTRAINT DF_crmConversationGroup_TestingGroupType DEFAULT(2) 
+ADD IsTest TINYINT CONSTRAINT DF_crmConversationGroup_IsTest DEFAULT(NULL) 
 GO
 
 UPDATE crmConversationGroup WITH(ROWLOCK)
-SET TestingGroupType = 2
-GO
-
-UPDATE crmConversationGroup WITH(ROWLOCK)
-	SET TestingGroupType = 1
+	SET IsTest = 1
 WHERE ConversationGroupId IN
 (
 	SELECT cgr.ConversationGroupId

@@ -281,7 +281,7 @@ BEGIN
 		IsTest				BIT
 	)
 	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
-	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, IsTest
+	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, m.IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.LogId = g.LogId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -381,7 +381,7 @@ BEGIN
 			   ,r.ConversationGroupId
 			   ,r.ChatTypeId
 			   ,r.LanguageId
-			   ,MIN(CASE WHEN IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
+			   ,MIN(CASE WHEN r.IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
 			   ,MIN(ISNULL(r.RelatedIdLst,'')) AS RelatedIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), LogId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst

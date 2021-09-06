@@ -10,7 +10,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	,@LanguageId			INT	
 	,@Remark				NVARCHAR(2000)
 	,@UserId				INT
-	,@TestingGroupType		TINYINT = 2
+	,@IsTest				BIT = NULL
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 	,@LoginIP				NVARCHAR(20) = ''
@@ -34,8 +34,6 @@ BEGIN
 	DECLARE @Existing_GroupName NVARCHAR(1000) = '',@NumberOfRecipients BIT = 0, @SourceId INT, @NewValues NVARCHAR(MAX), 
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, 
 			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
-
-	SELECT @TestingGroupType = ISNULL(@TestingGroupType, 2)
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
@@ -92,7 +90,7 @@ BEGIN
 		,BotId					INT
 		,RecipientId			INT
 		,HeadlineId				INT
-		,TestingGroupType		TINYINT
+		,IsTest					BIT
 		,Type                   SMALLINT
 	)
 
@@ -142,14 +140,14 @@ BEGIN
 			,Remark = @Remark
 			,UpdatedDate = GETDATE()
 			,LanguageId = @LanguageId
-			,TestingGroupType = @TestingGroupType
+			,IsTest = @IsTest
 		OUTPUT	deleted.ConversationId, 
 				deleted.ConversationGroupName, 
 				deleted.ChatTypeId, 
 				deleted.UpdatedDate, 
 				deleted.LanguageId, 
 				deleted.Remark, 
-				deleted.TestingGroupType, 1
+				deleted.IsTest, 1
 			INTO #Tmp 
 			(
 				ConversationId, 
@@ -158,7 +156,7 @@ BEGIN
 				UpdatedDate, 
 				LanguageId, 
 				Remark, 
-				TestingGroupType,
+				IsTest,
 				Type
 			)
 		WHERE ConversationGroupId = @ConversationGroupId
@@ -209,7 +207,7 @@ BEGIN
 				,g.Remark = t.Remark
 				,g.UpdatedDate = t.UpdatedDate
 				,g.LanguageId = t.LanguageId
-				,g.TestingGroupType = t.TestingGroupType
+				,g.IsTest = t.IsTest
 			FROM dbo.crmConversationGroup g WITH(ROWLOCK)
 				,#Tmp t
 			WHERE t.Type = 1 AND g.ConversationGroupId = @ConversationGroupId
@@ -299,7 +297,7 @@ BEGIN
 									 t.ConversationGroupName AS '@Name',
 									 t.ConversationId AS '@LetstalkID',
 									 t.Remark AS '@Remark',
-									 t.TestingGroupType AS '@TestingGroupType',
+									 t.IsTest AS '@IsTest',
 									 @__BotXML,
 									 @__HeadlineXML,
 									 @__RecipientXML,
@@ -349,7 +347,7 @@ BEGIN
 									 @ConversationGroupName AS '@Name',
 									 @LetstalkID AS '@LetstalkID',
 									 @Remark AS '@Remark',
-									 @TestingGroupType AS '@TestingGroupType',
+									 @IsTest AS '@IsTest',
 									 @__BotXML,
 									 @__HeadlineXML,
 									 @__RecipientXML,

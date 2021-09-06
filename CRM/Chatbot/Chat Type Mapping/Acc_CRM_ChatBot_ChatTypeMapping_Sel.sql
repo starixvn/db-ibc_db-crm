@@ -43,7 +43,7 @@ BEGIN
 		 ,ConversationGroupName NVARCHAR(1000)
 		 ,ConversationId        VARCHAR(200)
 		 ,ChatTypeId			TINYINT
-		 ,TestingGroupType		TINYINT
+		 ,IsTest				BIT
 		 ,BotName				NVARCHAR(1000)
 		 ,BotId					INT
 		 ,LanguageId			INT
@@ -61,7 +61,7 @@ BEGIN
 		,ConversationGroupName 		
 		,ConversationId
 		,ChatTypeId
-		,TestingGroupType
+		,IsTest
 		,BotName	
 		,BotId		
 		,LanguageId		
@@ -74,7 +74,7 @@ BEGIN
 		,cg.ConversationGroupName
 		,cg.ConversationId
 		,cg.ChatTypeId
-		,cg.TestingGroupType
+		,cg.IsTest
 		,cb.BotName
 		,cb.BotId
 		,cg.LanguageId
@@ -291,7 +291,7 @@ BEGIN
 		,t.ConversationGroupName 	
 		,t.ConversationId
 		,t.ChatTypeId
-		,t.TestingGroupType
+		,t.IsTest
 		,t.BotName	
 		,t.BotId	
 		,t.LanguageId	
@@ -299,6 +299,7 @@ BEGIN
 		,t.IsActive	
 		,t.MappingStatusID
 		,t.Remark
+		,t.IsTest
 	FROM #Tmp t
 	ORDER BY t.ChatTypeId DESC, t.ConversationGroupName  
 

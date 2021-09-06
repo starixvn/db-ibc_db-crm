@@ -95,19 +95,15 @@ BEGIN
 	FROM dbo.crmPIC WITH(NOLOCK)
 	WHERE PicID = @PicID
 
-	IF EXISTS (SELECT 1 FROM dbo.crmSetting WITH(NOLOCK) WHERE SettingId = @PicType_Old AND SettingValue = 'Accounting PIC' AND SettingName = 'PicType' AND @PicType_Old <> @PicType)
+	IF EXISTS (
+		SELECT  1
+		FROM crmConversationGroupRecipient cr WITH(NOLOCK)
+			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cr.RecipientId
+		WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC' AND r.SourceId = @PicId
+	) AND @PicType_Old <> @PicType
 	BEGIN
-		IF EXISTS (
-			SELECT  1
-			FROM crmConversationGroupRecipient cr WITH(NOLOCK)
-				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cr.RecipientId
-			WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC' AND r.SourceId = @PicId
-		)
-		BEGIN
-			SELECT @ErrCode = 1009, @ErrMsg = 'Cannot change PIC Type since the Accounting PIC already created Chat Type Mapping'
-			RETURN
-		END
-		 
+		SELECT @ErrCode = 1009, @ErrMsg = 'Cannot change PIC Type since the PIC already created Chat Type Mapping'
+		RETURN
 	END
 
 	--Update recipient type

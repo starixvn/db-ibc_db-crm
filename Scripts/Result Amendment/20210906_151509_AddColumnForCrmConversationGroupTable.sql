@@ -6,7 +6,7 @@
 */
 
 ALTER TABLE crmConversationGroup
-ADD IsTest TINYINT CONSTRAINT DF_crmConversationGroup_IsTest DEFAULT(NULL) 
+ADD IsTest BIT CONSTRAINT DF_crmConversationGroup_IsTest DEFAULT(NULL) 
 GO
 
 UPDATE crmConversationGroup WITH(ROWLOCK)

@@ -24,7 +24,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
-		- 20210906@Malcolm: Add IsTest for crmConversationGroup [RedmineID: #151509]
+		- 20210906@Malcolm: Add TestingGroupType [RedmineID: #151509]
 	Param's Explanation:
 		
 */
@@ -45,15 +45,10 @@ BEGIN
 										ELSE @LanguageId END
 			   ,@Remark				  = CASE WHEN @Remark IS NULL THEN cg.Remark 
 										ELSE @Remark END
-				,@IsTest              = cg.IsTest
+			   ,@RecipientTypeId	  = 0
+			   ,@IsTest				  = cg.IsTest
 		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		WHERE cg.ConversationGroupId = @ConversationGroupId
-
-		SELECT @RecipientTypeId = r.RecipientTypeId 
-		FROM dbo.crmConversationGroup g WITH(NOLOCK)
-			INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
-			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
-		WHERE g.ConversationGroupId = @ConversationGroupId
 
 		SELECT @BotId = CASE WHEN @BotId IS NULL THEN cgb.BotId ELSE @BotId END
 		FROM dbo.crmConversationGroupBot cgb WITH(NOLOCK)
@@ -109,19 +104,7 @@ BEGIN
 	SELECT val
 	FROM dbo.f_CRM_strSplit(@HeadlineIds, ',')
 	WHERE val <> ''
-	--Check IsTest
-	IF EXISTS (SELECT 1 FROM dbo.crmRecipientType rt WITH(NOLOCK) WHERE rt.RecipientTypeId = @RecipientTypeId AND rt.RecipientTypeName = 'Accounting PIC')
-	BEGIN
-		IF @IsTest IS NULL
-		BEGIN
-			SELECT @ErrCode = 102,  @ErrMsg = 'IsTest is not valid. Please check again!'
-			RETURN
-		END
-	END
-	ELSE
-	BEGIN
-		SET @IsTest = NULL
-	END
+
 	-- check validation
 	SELECT TOP(1) @Existing_GroupName = ConversationGroupName 
 	FROM dbo.crmConversationGroup g WITH(NOLOCK) 

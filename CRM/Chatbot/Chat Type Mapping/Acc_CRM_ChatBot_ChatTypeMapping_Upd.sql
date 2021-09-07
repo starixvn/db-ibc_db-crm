@@ -106,7 +106,7 @@ BEGIN
 	WHERE val <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = ConversationGroupName 
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName 
 	FROM dbo.crmConversationGroup g WITH(NOLOCK) 
 	WHERE g.ConversationId = @LetstalkID AND g.ConversationGroupId <> @ConversationGroupId
 

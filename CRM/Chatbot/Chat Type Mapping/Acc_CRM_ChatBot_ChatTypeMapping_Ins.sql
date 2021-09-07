@@ -44,7 +44,7 @@ BEGIN
 	WHERE f.val <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
 
 	IF ISNULL(@Existing_GroupName,'') <> ''
 	BEGIN

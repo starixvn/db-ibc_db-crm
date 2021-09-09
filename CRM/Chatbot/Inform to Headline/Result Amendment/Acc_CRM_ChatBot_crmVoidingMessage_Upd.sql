@@ -4,12 +4,12 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_crmVoidingMessage_Upd]
 AS
 
 /*
-	Created: 20200811@Percy
+	Created: 20210901@Malcolm
 	DB: DBCRM-bodb_CRM
 	Task: CRM - ChatBot - Update data on crmMessageImport
 
 	Revisions:
-		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20210901@Malcolm: Initialize SP [RedmineID: #151509]
 
 	Param's Explanation:
 		@Messages:

@@ -10,6 +10,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	,@LanguageId			INT	
 	,@Remark				NVARCHAR(2000)
 	,@UserId				INT
+	,@IsTest				BIT = NULL
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 	,@LoginIP				NVARCHAR(20) = ''
@@ -23,6 +24,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20210906@Malcolm: Add IsTest for Accounting pic [RedmineID: #151509]
 	Param's Explanation:
 		
 */
@@ -44,6 +46,7 @@ BEGIN
 			   ,@Remark				  = CASE WHEN @Remark IS NULL THEN cg.Remark 
 										ELSE @Remark END
 			   ,@RecipientTypeId	  = 0
+			   ,@IsTest				  = cg.IsTest
 		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		WHERE cg.ConversationGroupId = @ConversationGroupId
 
@@ -88,6 +91,7 @@ BEGIN
 		,BotId					INT
 		,RecipientId			INT
 		,HeadlineId				INT
+		,IsTest					BIT
 		,Type                   SMALLINT
 	)
 
@@ -102,7 +106,7 @@ BEGIN
 	WHERE val <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = ConversationGroupName 
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName 
 	FROM dbo.crmConversationGroup g WITH(NOLOCK) 
 	WHERE g.ConversationId = @LetstalkID AND g.ConversationGroupId <> @ConversationGroupId
 
@@ -137,20 +141,25 @@ BEGIN
 			,Remark = @Remark
 			,UpdatedDate = GETDATE()
 			,LanguageId = @LanguageId
+			,IsTest = @IsTest
 		OUTPUT	deleted.ConversationId, 
 				deleted.ConversationGroupName, 
 				deleted.ChatTypeId, 
 				deleted.UpdatedDate, 
 				deleted.LanguageId, 
-				deleted.Remark, 1
+				deleted.Remark, 
+				deleted.IsTest, 1
 			INTO #Tmp 
-			   (ConversationId, 
+			(
+				ConversationId, 
 				ConversationGroupName, 
 				ChatTypeId, 
 				UpdatedDate, 
 				LanguageId, 
 				Remark, 
-				Type)
+				IsTest,
+				Type
+			)
 		WHERE ConversationGroupId = @ConversationGroupId
 
 		UPDATE dbo.crmConversationGroupBot WITH(ROWLOCK)
@@ -191,7 +200,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_NUMBER()
-		IF EXISTS(SELECT 1 FROM #Tmp WHERE Type = 1)
+		IF EXISTS(SELECT 1 FROM #Tmp t WHERE t.Type = 1)
 			UPDATE g
 			SET g.ConversationGroupName = t.ConversationGroupName
 				,g.ChatTypeId = t.ChatTypeId
@@ -199,18 +208,19 @@ BEGIN
 				,g.Remark = t.Remark
 				,g.UpdatedDate = t.UpdatedDate
 				,g.LanguageId = t.LanguageId
+				,g.IsTest = t.IsTest
 			FROM dbo.crmConversationGroup g WITH(ROWLOCK)
 				,#Tmp t
 			WHERE t.Type = 1 AND g.ConversationGroupId = @ConversationGroupId
 
-		IF EXISTS(SELECT 1 FROM #Tmp WHERE Type = 2)
+		IF EXISTS(SELECT 1 FROM #Tmp t WHERE t.Type = 2)
 			UPDATE b
 				SET b.BotId = t.BotId
 			FROM dbo.crmConversationGroupBot b WITH(ROWLOCK)
 				,#Tmp t
 			WHERE t.Type = 2 AND b.ConversationGroupId = @ConversationGroupId
 
-		IF EXISTS(SELECT 1 FROM #Tmp WHERE Type = 3)
+		IF EXISTS(SELECT 1 FROM #Tmp t WHERE t.Type = 3)
 		BEGIN
 			DELETE dbo.crmConversationGroupRecipient WITH(ROWLOCK, UPDLOCK)
 			WHERE ConversationGroupId = @ConversationGroupId
@@ -222,12 +232,12 @@ BEGIN
 			)
 			SELECT 
 				@ConversationGroupId
-				,RecipientId
-			FROM #Tmp
-			WHERE Type = 3
+				,t.RecipientId
+			FROM #Tmp t
+			WHERE t.Type = 3
 		END
 		
-		IF EXISTS(SELECT 1 FROM #Tmp WHERE Type = 4)
+		IF EXISTS(SELECT 1 FROM #Tmp t WHERE t.Type = 4)
 		BEGIN
 			DELETE dbo.crmConversationGroupHeadline WITH(ROWLOCK,UPDLOCK)
 			WHERE ConversationGroupId = @ConversationGroupId 	
@@ -240,8 +250,8 @@ BEGIN
 			SELECT 
 				@ConversationGroupId
 				,HeadlineId
-			FROM #Tmp
-			WHERE Type = 4
+			FROM #Tmp t
+			WHERE t.Type = 4
 		END
 		RETURN
 	END CATCH
@@ -253,7 +263,7 @@ BEGIN
 				SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
 				FROM #Tmp t
 					INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
-				WHERE Type = 2 
+				WHERE t.Type = 2 
 				FOR XML PATH('Bot'))
 
 	SELECT @__LanguageXML = (
@@ -280,7 +290,7 @@ BEGIN
 						CASE WHEN  t.HeadlineId = 0 THEN 'Not Assigned Group' 
 						ELSE c.username END AS '@Name'
 				FROM #Tmp t
-						LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
+					LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.HeadlineId
 				WHERE t.Type = 4
 				FOR XML PATH('Headline'))
 
@@ -288,6 +298,7 @@ BEGIN
 									 t.ConversationGroupName AS '@Name',
 									 t.ConversationId AS '@LetstalkID',
 									 t.Remark AS '@Remark',
+									 t.IsTest AS '@IsTest',
 									 @__BotXML,
 									 @__HeadlineXML,
 									 @__RecipientXML,
@@ -337,6 +348,7 @@ BEGIN
 									 @ConversationGroupName AS '@Name',
 									 @LetstalkID AS '@LetstalkID',
 									 @Remark AS '@Remark',
+									 @IsTest AS '@IsTest',
 									 @__BotXML,
 									 @__HeadlineXML,
 									 @__RecipientXML,

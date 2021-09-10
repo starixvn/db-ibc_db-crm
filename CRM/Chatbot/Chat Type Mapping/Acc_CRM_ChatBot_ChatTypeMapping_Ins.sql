@@ -3,6 +3,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
 	@BotId					INT
 	,@ConversationGroupName	NVARCHAR(1000) 
 	,@ChatTypeId			TINYINT = NULL
+	,@IsTest			    BIT = NULL
 	,@RecipientTypeId       TINYINT
 	,@HeadlineIds			VARCHAR(MAX) 
 	,@RecipientId			INT
@@ -22,6 +23,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
 	Param's Explanation:
 		
 */
@@ -42,7 +44,7 @@ BEGIN
 	WHERE f.val <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
 
 	IF ISNULL(@Existing_GroupName,'') <> ''
 	BEGIN
@@ -61,6 +63,7 @@ BEGIN
 			,UpdatedDate
 			,LanguageId
 			,Remark
+			,IsTest
 			,IsActive
 		)
 		VALUES
@@ -73,6 +76,7 @@ BEGIN
 			,GETDATE()
 			,@LanguageId
 			,@Remark
+			,@IsTest
 			,1
 		)
 
@@ -109,6 +113,7 @@ BEGIN
 			@ConversationGroupId
 			,f.Val
 		FROM dbo.f_CRM_strSplit(@HeadlineIds,',') f
+		WHERE f.val <> ''
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_NUMBER()
@@ -174,6 +179,7 @@ BEGIN
 									  @ConversationGroupName AS '@Name',
 									  @LetstalkID AS '@LetstalkID',
 									  @Remark AS '@Remark',
+									  @IsTest AS '@IsTest',
 									  1  AS '@IsActive',
 									  @__ChatTypeXML,
 									  @__RecipientTypeXML,

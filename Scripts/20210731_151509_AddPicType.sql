@@ -1,0 +1,2 @@
+ALTER TABLE crmPIC
+ADD Type INT

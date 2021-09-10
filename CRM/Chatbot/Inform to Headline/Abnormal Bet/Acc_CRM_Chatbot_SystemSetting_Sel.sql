@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20201104@Malcolm: Add @@ServiceName to support get setting by Service [RedmineId: #144265]
+		- 20210801@Malcolm: Get SubmitDate, Seq [RedmineId: #151509]
 */
 
 BEGIN
@@ -19,10 +20,13 @@ BEGIN
 
 	SELECT @Environment = ISNULL(@Environment, '')
 
-	SELECT
+	SELECT -- BatchSizeGetMsg
 		CONVERT(INT, [BatchSize])	AS [BatchSize]
+		,CONVERT(INT, [BatchSizeGetMsg]) AS [BatchSizeGetMsg]
 		,CONVERT(BIT, ServiceFlag)	AS ServiceFlag
 		,CASE WHEN @Environment = 'UAT' THEN CONVERT(BIGINT, LastLogIdUAT) ELSE CONVERT(BIGINT, LastLogId) END AS LastLogId
+		,CASE WHEN @Environment = 'UAT' THEN CONVERT(DATETIME2(7), SubmitDateUAT) ELSE CONVERT(DATETIME2(7), SubmitDate) END AS SubmitDate
+		,CASE WHEN @Environment = 'UAT' THEN CONVERT(INT, SeqUAT) ELSE CONVERT(INT, Seq) END AS Seq
 		,CONVERT(BIT, IncludeUUSCurrency) AS IncludeUUSCurrency
 	FROM
 	(
@@ -33,7 +37,7 @@ BEGIN
 	PIVOT
 	(
 		MAX(Value)
-		FOR SettingName IN (BatchSize, ServiceFlag,  LastLogIdUAT, LastLogId, IncludeUUSCurrency)
+		FOR SettingName IN (BatchSize, BatchSizeGetMsg, ServiceFlag,  LastLogIdUAT, LastLogId, SubmitDateUAT, SubmitDate, SeqUAT, Seq, IncludeUUSCurrency)
 	) p
 END
 GO

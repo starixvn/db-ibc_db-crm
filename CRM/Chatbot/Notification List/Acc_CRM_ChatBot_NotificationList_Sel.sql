@@ -23,6 +23,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
+		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 	Param's Explanation:
 		
 */
@@ -49,7 +50,7 @@ BEGIN
 		SELECT @RecipientId = r.RecipientId 
 		FROM dbo.crmPIC p WITH(NOLOCK) 
 			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = p.PicID
-		WHERE Username = @RecipientName
+		WHERE p.Username = @RecipientName
 	END
 	
 

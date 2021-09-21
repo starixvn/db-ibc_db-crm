@@ -18,6 +18,7 @@ AS
 
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
+		- 20210920@Malcolm: only get credit site [RedmineID: #151509]
 	Param's Explanation:
 		. @TicketData
 			<root>
@@ -418,8 +419,9 @@ BEGIN
 	INSERT INTO #DirectAccount (CustId)
 	SELECT cda.CustID
 	FROM bodb02.dbo.CustDirectAccount cda WITH(NOLOCK)
-		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
-	WHERE c.site <> 'CN88'
+		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = cda.CustID
+		INNER JOIN bodb02.dbo.Site s ON s.site = c.site
+	WHERE c.site <> 'CN88' AND s.islicensee = 0 AND s.isActive = 1
 
 	;WITH CTE AS 
 	(

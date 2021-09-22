@@ -19,6 +19,8 @@ AS
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
 		- 20210920@Malcolm: only get credit site [RedmineID: #151509]
+		- 20210922@Malcolm: notify for Settled Ticket to Refund/Running and Missing Actual/Wrong Result [RedmineID: #161524]
+		
 	Param's Explanation:
 		. @TicketData
 			<root>
@@ -48,6 +50,7 @@ AS
 			Type = 4: Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
 			Type = 5: Result Amendment Template - Outright	
 			Type = 6: Voided Settled Tickets
+			Type = 7: Result Amendment Template - No Result
 */
 
 BEGIN

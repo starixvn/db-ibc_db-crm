@@ -169,11 +169,11 @@ BEGIN
 	-- Update template
 	UPDATE t
 		SET t.Type = CASE WHEN	t.EventType IN (2, 9) THEN 5
-						  WHEN  t.ProductId = 1  AND t.MessageId = 0 THEN 1
-						  WHEN  t.ProductId = 27 AND t.MessageId = 0 THEN 2
+						  WHEN  t.ProductId = 1  AND t.MessageId IS NULL THEN 1
+						  WHEN  t.ProductId = 27 AND t.MessageId IS NULL THEN 2
 						  WHEN  t.ProductId = 5  THEN 3
 						  WHEN  t.ProductId = 3  THEN 4
-						  WHEN t.ProductId IN (1, 27) AND t.MessageId <> 0 THEN 7
+						  WHEN t.ProductId IN (1, 27) AND t.MessageId IS NOT NULL THEN 7
 				     END
 	FROM #TicketEvent t
 
@@ -207,7 +207,7 @@ BEGIN
 
 	SELECT t.MessageId
 	FROM #TicketEvent t
-	WHERE t.MessageId <> 0
+	WHERE t.MessageId IS NOT NULL
 	
 	DROP TABLE #TicketDetail
 	DROP TABLE #TicketEvent

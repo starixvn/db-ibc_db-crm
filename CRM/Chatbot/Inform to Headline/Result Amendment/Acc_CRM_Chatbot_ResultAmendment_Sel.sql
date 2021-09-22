@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
+		- 20210922@Malcolm: notify for Settled Ticket to Refund/Running and Missing Actual/Wrong Result [RedmineID: #161524]
 
 	Param's Explanation:
 		Type = 1: Result Amendment Template - Sportsbook	
@@ -20,6 +21,7 @@ AS
 		Type = 3: Result Amendment Template - Virtual Sports
 		Type = 4: Result Amendment Template - Number Game (Number Game, Turbo Number Game, Happy 5, Happy 5 Linked Game)
 		Type = 5: Result Amendment Template - Outright	
+		Type = 7: Result Amendment Template - No Result		
 
 */
 
@@ -167,10 +169,11 @@ BEGIN
 	-- Update template
 	UPDATE t
 		SET t.Type = CASE WHEN	t.EventType IN (2, 9) THEN 5
-						  WHEN  t.ProductId = 1  THEN 1
-						  WHEN  t.ProductId = 27 THEN 2
+						  WHEN  t.ProductId = 1  AND t.MessageId = 0 THEN 1
+						  WHEN  t.ProductId = 27 AND t.MessageId = 0 THEN 2
 						  WHEN  t.ProductId = 5  THEN 3
 						  WHEN  t.ProductId = 3  THEN 4
+						  WHEN t.ProductId IN (1, 27) AND t.MessageId <> 0 THEN 7
 				     END
 	FROM #TicketEvent t
 
@@ -202,9 +205,9 @@ BEGIN
 		,Type
 	FROM #TicketEvent
 
-	SELECT MessageId
-	FROM #TicketEvent
-	WHERE EventType IN (2, 9)
+	SELECT t.MessageId
+	FROM #TicketEvent t
+	WHERE t.MessageId <> 0
 	
 	DROP TABLE #TicketDetail
 	DROP TABLE #TicketEvent

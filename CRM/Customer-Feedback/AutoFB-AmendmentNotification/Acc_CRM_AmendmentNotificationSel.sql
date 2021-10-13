@@ -17,6 +17,7 @@ AS
 
 	Revisions:
 		- 202010303@Winfred: Initial sp [redmine:#147470]
+		- 20210908@Winfred: order by for primary key [redmine:#147470]
 	
 	Parameter's Explanation:
 		- @ConfigUAT = 1: UUS customers
@@ -62,5 +63,5 @@ BEGIN
 		AND 1 = CASE WHEN @IsCredit = 1 AND IsDeposit = 0 THEN 1			
 					WHEN @IsDeposit = 1 AND IsDeposit = 1 THEN 1
 					ELSE 0 END
-	ORDER BY t.TicketId ASC	
+	ORDER BY t.SubmitDate ASC , Seq	
 END	

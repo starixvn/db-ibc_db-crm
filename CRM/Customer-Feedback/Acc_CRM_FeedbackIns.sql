@@ -75,6 +75,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@TOControlLogID				VARCHAR(MAX)	= ''
 				,	@PALogID					VARCHAR(MAX)	= ''
 				,	@AmendmentLogID				INT	= 0
+				,	@VoidingSettledID			INT	= 0
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				,	@IsManualMultiple			BIT				= 0
@@ -113,7 +114,9 @@ AS
 		- 202010303@Winfred: Add AmendmentLogID [redmine:#147470]				
 		- 20210510@Johnson: add @PALogID for auto feedback Problem account [redmine:#153119]
 		- 20210519@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
-		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
+		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
+							
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -135,6 +138,7 @@ AS
 	@TOControlLogID: LogID for TOContrl auto fb service
 	@PALogID: LogID for TOContrl auto fb service
 	@AmendmentLogID LogID from Amendment notification auto fb service, process 1 logid with 1 feedback
+	@VoidingSettledID LogID from Voiding Settled auto fb service, process 1 logid with 1 feedback
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
@@ -312,6 +316,14 @@ BEGIN
 	BEGIN
 		IF EXISTS (SELECT 1 FROM crmAmendmentNotiFeedbackInfo WITH(NOLOCK)
 					WHERE LogID = @AmendmentLogID AND status = 'completed'
+				)
+		RETURN;		
+	END
+	
+	IF @VoidingSettledID > 0
+	BEGIN
+		IF EXISTS (SELECT 1 FROM crmAutoFBVoiding WITH(NOLOCK)
+					WHERE LogVoidingID = @VoidingSettledID AND status = 'completed'
 				)
 		RETURN;		
 	END
@@ -753,6 +765,50 @@ BEGIN
 
 			RETURN;
 		END;
+	END
+	--Voiding settled
+	IF @VoidingSettledID > 0
+	BEGIN
+		UPDATE crmAutoFBVoiding WITH(UPDLOCK,ROWLOCK)
+		SET Status = 'completed',
+			UpdatedTime = GETDATE()
+		WHERE LogVoidingID = @VoidingSettledID
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;
+		
+		UPDATE m WITH(UPDLOCK,ROWLOCK)
+		SET m.IsProcessed = CASE WHEN fb.Environment = 'LIVE'  THEN 1 ELSE m.IsProcessed END,
+			m.IsProcessedUAT = 	CASE WHEN fb.Environment = 'UAT'  THEN 1 ELSE m.IsProcessedUAT END
+		FROM crmVoidingMessage m	
+		INNER JOIN crmAutoFBVoiding fb WITH(NOLOCK) ON m.MessageID = fb.MessageID AND fb.LogVoidingID = @VoidingSettledID
+		CROSS APPLY (
+				SELECT SettingID AS MsgTargetId FROM dbo.strSplit(fb.ListMsgTargetId, ',')
+			) b
+		WHERE m.MsgTargetId = b.MsgTargetId
+			AND ( (fb.Environment = 'LIVE' AND IsProcessed = 0) OR (fb.Environment = 'UAT' AND IsProcessedUAT = 0) )
+
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;	
+		
 	END
 	
 	-- write log

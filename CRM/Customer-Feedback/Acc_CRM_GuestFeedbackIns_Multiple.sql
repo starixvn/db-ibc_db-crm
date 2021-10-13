@@ -35,6 +35,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@TOControlLogID	VARCHAR(MAX)	= ''
 	,@PALogID			VARCHAR(MAX)	= ''
 	,@AmendmentLogID	INT	= 0
+	,@VoidingSettledID	INT	= 0
 	,@RequestIDs		VARCHAR(1000)	= ''
 	,@ListOrigCustIDs 	VARCHAR(MAX)	= ''
 	,@IsManualMultiple  BIT = 0
@@ -68,6 +69,7 @@ AS
 		- 20210517@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 		- 20210426@Winfred: Offer Country & Language checkbox like Communication Tool on Multiple Logs function [redmine:#153458]
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
 		
 	Param's Explanation:
 		@RelatedCustomers: <ROOT><Row CustId='1' RelatedCustId='2' Username='test' /></ROOT>
@@ -76,6 +78,7 @@ AS
 		@TOControlLogID for auto fb TO control service
 		@PALogID for auto fb Problem account service
 		@AmendmentLogID LogID from Amendment notification auto fb service, process 1 logid with 1 feedback
+		@VoidingSettledID LogID from Voiding Settled auto fb service, process 1 logid with 1 feedback
 		@ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN
@@ -523,7 +526,7 @@ BEGIN
 				END;
 			END;
 			
-			IF @AmendmentLogID > 0
+			IF @AmendmentLogID > 0 OR @VoidingSettledID > 0
 			BEGIN
 				EXECUTE	dbo.Acc_CRM_AmendmentNoti_MultiCustIns
 					@RelatedCustomers = @RelatedCustomers
@@ -730,6 +733,7 @@ BEGIN
 				,@TOControlLogID = @TOControlLogID	
 				,@PALogID = @PALogID	
 				,@AmendmentLogID = @AmendmentLogID
+				,@VoidingSettledID = @VoidingSettledID
 				,@RequestIDs = @RequestIDs
 				,@ListOrigCustIDs = @ListOrigCustIDs
 				,@IsManualMultiple = @IsManualMultiple

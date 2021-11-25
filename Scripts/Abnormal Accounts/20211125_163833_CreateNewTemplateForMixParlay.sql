@@ -17,7 +17,7 @@ SELECT @SystemId = s.SystemId FROM dbo.crmSystem s WITH(NOLOCK) WHERE s.SystemNa
 SELECT @NotificationTypeId = NotificationTypeId FROM dbo.crmNotificationType WHERE NotificationTypeName = 'Voiding Abnormal Bet Announcement' AND SystemId = @SystemId
 /* Insert a new notification template */
 INSERT INTO dbo.crmNotificationTemplate (NotificationTemplateName, NotificationTypeId, Title)
-VALUES ('Voiding Abnormal Bet - Mix Parlay Template', @NotificationTypeId, 'Voiding Abnormal Bet - Mix Parlay Templat')
+VALUES ('Voiding Abnormal Bet - Mix Parlay Template', @NotificationTypeId, 'Voiding Abnormal Bet - Mix Parlay Template')
 
 DECLARE @Contents TABLE (NotificationTemplateName NVARCHAR(1000) , LanguageId INT, Value NVARCHAR(MAX))
 
@@ -95,7 +95,7 @@ SELECT
 FROM crmNotificationTemplate WITH(NOLOCK)
 
 SELECT 
-	@NotificationTypeID_AbnormalBets = CASE WHEN  NotificationTypeName = 'Voiding Abnormal Bet Announcement ' THEN NotificationTypeId ELSE @NotificationTypeID_AbnormalBets END
+	@NotificationTypeID_AbnormalBets = CASE WHEN  NotificationTypeName = 'Voiding Abnormal Bet Announcement' THEN NotificationTypeId ELSE @NotificationTypeID_AbnormalBets END
 	,@NotificationTypeID_AbnormalAccounts = CASE WHEN  NotificationTypeName = 'Voiding Abnormal Account Announcement' THEN NotificationTypeId ELSE @NotificationTypeID_AbnormalAccounts END
 	,@NotificationTypeID_Parlay = CASE WHEN  NotificationTypeName = 'Voiding Abnormal Bet Announcement' THEN NotificationTypeId ELSE @NotificationTypeID_Parlay END
 FROM crmNotificationType WITH(NOLOCK)

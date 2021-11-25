@@ -14,6 +14,7 @@ AS
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20210415@Malcolm: Notify Tickets of AB (Real Member) [RedmineId : #153259]
 		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20211125@Malcolm: Notify Tickets of Abnormal Mix Parlay [RedmineId : #163833]
 
 	Param's Explanation:
 		@Messages:
@@ -53,11 +54,14 @@ BEGIN
 
 	-- Get data for abnormal bets, AB
 	BEGIN
-		CREATE TABLE #AbnormalBetsInfo(MessageId INT, TransId BIGINT)
-		INSERT INTO #AbnormalBetsInfo (MessageId, TransId)
-		SELECT vh.MessageId, t.TransId
+		CREATE TABLE #AbnormalBetsInfo(MessageId INT, TransId BIGINT, [Type] TINYINT)
+		INSERT INTO #AbnormalBetsInfo (MessageId, TransId, [Type])
+		SELECT vh.MessageId, t.TransId, CASE WHEN rq.IssueTypeId = 11 AND ISNULL(trd.FilterBy, 0) = 1 THEN 3 ELSE 1 END AS [Type]
 		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
 			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
+			OUTER APPLY (
+				SELECT TOP(1) rd.FilterBy FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK) WHERE rd.RequestId = vh.RequestId
+			) trd(FilterBy)
 			CROSS APPLY (
 				SELECT val AS TransId FROM dbo.strSplit(vh.TransIds, ',')
 			) t
@@ -65,7 +69,7 @@ BEGIN
 			AND vh.StatusId = 2
 
 		INSERT INTO #Result (MessageId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
-		SELECT vh.MessageId, b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, MIN(CONVERT(TINYINT, IsTest)) AS IsTest, 1 AS [Type]
+		SELECT vh.MessageId, b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, MIN(CONVERT(TINYINT, IsTest)) AS IsTest, MAX(vh.[Type]) AS [Type]
 		FROM #AbnormalBetsInfo vh
 			CROSS APPLY (
 				SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest

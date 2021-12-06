@@ -9,6 +9,7 @@ DB: DBTXN/bodb02
 Original:
 	Revisions:
 		- 20211105@Malcolm: Initialize SPs [Redmine: #164235]
+		- 20211206@Malcolm: Exclude Comstatus = 'CO' for CashOut [Redmine: #164235]
 	Param's Explanation:
 	 @Message:
 			<root>
@@ -37,7 +38,7 @@ BEGIN
 		SET m.IsDeleted = 0
 	FROM #Message m
 		INNER JOIN dbo.zzzbettrans b WITH(NOLOCK) ON b.transid = m.TransId 
-	WHERE b.status IN ('LOSE', 'DRAW', 'WON')
+	WHERE b.status IN ('LOSE', 'DRAW', 'WON') AND ISNULL(b.comstatus, '') <> 'CO'
 
 	DELETE #Message WHERE IsDeleted = 1
 

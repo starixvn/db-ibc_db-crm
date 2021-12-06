@@ -16,6 +16,8 @@ AS
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 		- 20201126@Johnson: add param @Environment [redmine:#145274]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20211206@Winfred: Integrate Voiding Abnormal Mix Parlay tickets [RedmineId : #163833]
+		
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
 		@MessageIds = '<ROOT>
@@ -54,14 +56,16 @@ BEGIN
 								Requestby NVARCHAR(MAX),
 								VoidBy NVARCHAR(MAX),
 								MinWinlostdate	DATETIME,
-								MaxWinlostdate	DATETIME)	
+								MaxWinlostdate	DATETIME,
+								FilterBy	TINYINT
+								)	
 		
 	-- Abnormal bet
 	BEGIN	
-		CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT,IssueTypeId TINYINT)
+		CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT,IssueTypeId TINYINT,DecidedBy NVARCHAR(200),Requestby INT)
 			
-		INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId,IssueTypeId)
-		SELECT vh.VoidingHistoryId, vh.RequestId, vh.MessageId, vh.ReasonId, vh.UserId AS VoidById, t.TransId,rq.IssueTypeId
+		INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId,IssueTypeId,DecidedBy,Requestby)
+		SELECT vh.VoidingHistoryId, vh.RequestId, vh.MessageId, vh.ReasonId, vh.UserId AS VoidById, t.TransId,rq.IssueTypeId, rq.DecidedBy ,rq.UserId AS Requestby
 		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
 			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
 			CROSS APPLY (
@@ -69,8 +73,8 @@ BEGIN
 			) t
 		WHERE EXISTS (SELECT 1 FROM @tmpMessage m WHERE vh.MessageId = m.MessageId AND vh.RequestID = m.RequestID)
 			AND vh.StatusId = 2 --tickets void successfully
-		
-		INSERT INTO @tblEventInfo (MessageId, KickOffTime, LeagueName, HomeName, AwayName,SportName,EventDate,IssueTypeId)
+	--	Abnormal bet Single ticket 
+		INSERT INTO @tblEventInfo (MessageId, KickOffTime, LeagueName, HomeName, AwayName,SportName,EventDate,IssueTypeId,FilterBy)
 		SELECT DISTINCT vh.MessageId, 
 			LTRIM(RTRIM(REPLACE(REPLACE(RIGHT(CONVERT(VARCHAR(20), DATEADD(HOUR, 12, m.GlobalShowTime), 100), 7), 'AM', ' AM'), 'PM', ' PM'))) AS KickOffTime, 
 			l.LeagueName, 
@@ -78,7 +82,8 @@ BEGIN
 			a.TeamName AS AwayName,
 			s.sportName, 
 			m.eventdate,
-			vh.IssueTypeId
+			vh.IssueTypeId,
+			rd.FilterBy
 		FROM #VoidingHistory vh
 			INNER JOIN dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK) ON rd.RequestId = vh.RequestId
 			CROSS APPLY (
@@ -94,6 +99,51 @@ BEGIN
 			INNER JOIN Sports s WITH(NOLOCK) ON l.sporttype = s.SportType
 			INNER JOIN dbo.Team h WITH (NOLOCK) ON rd.HomeId = h.TeamId
 			INNER JOIN dbo.Team a WITH (NOLOCK) ON rd.AwayId = a.TeamId	
+		WHERE rd.FilterBy IS NULL
+		--	Abnormal bet Parlay ticket
+		
+		INSERT INTO @tblEventInfo (MessageId, IssueTypeId, RequestIDList, DecidedBy, Requestby, VoidBy,FilterBy)
+		SELECT vh.MessageId, 
+			vh.IssueTypeId,
+			c.RequestIDList,
+			d.DecidedBy,
+			e.Requestby,
+			f.VoidById,
+			rd.FilterBy
+		FROM #VoidingHistory vh
+			INNER JOIN dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK) ON rd.RequestId = vh.RequestId
+			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.RequestId as VARCHAR(10))  as [text()]
+					FROM #VoidingHistory a  
+					WHERE vh.MessageId = a.MessageId
+					FOR XML PATH('')
+					),1,1,'')
+			)c (RequestIDList)
+			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.DecidedBy as VARCHAR(10))  as [text()]
+					FROM #VoidingHistory a  
+					WHERE vh.MessageId = a.MessageId
+					FOR XML PATH('')
+					),1,1,'')
+			)d (DecidedBy)
+			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(c.username as VARCHAR(10))  as [text()]
+					FROM #VoidingHistory a  
+						INNER JOIN customer c WITH(NOLOCK) ON a.Requestby = c.custid
+					WHERE vh.MessageId = a.MessageId
+					FOR XML PATH('')
+					),1,1,'')
+			)e (Requestby)
+			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(c.username as VARCHAR(10))  as [text()]
+					FROM #VoidingHistory a  
+						INNER JOIN customer c WITH(NOLOCK) ON a.VoidById = c.custid
+					WHERE vh.MessageId = a.MessageId
+					FOR XML PATH('')
+					),1,1,'')
+			)f (VoidById)
+		WHERE rd.FilterBy = 1		
+		GROUP BY vh.MessageId,	vh.IssueTypeId,	c.RequestIDList,d.DecidedBy,e.Requestby,f.VoidById,rd.FilterBy
 					
 		--tickets info	
 		DECLARE @tblTrans TABLE (MessageId INT, 

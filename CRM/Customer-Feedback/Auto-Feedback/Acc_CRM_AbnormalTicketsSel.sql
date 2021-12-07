@@ -175,7 +175,27 @@ BEGIN
 			) b		
 		WHERE 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
 				WHEN b.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
-				ELSE 0 END				
+				ELSE 0 END	
+		
+		INSERT INTO @tblTrans (MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
+		SELECT vh.MessageId, 
+			vh.RequestID,
+			vh.transid,
+			custid, 
+			username, 
+			srecommend,
+			b.recommend, 
+			b.bettype		
+		FROM #VoidingHistory vh
+			CROSS APPLY (
+				SELECT TOP 1 transid, custid, username,srecommend, recommend, b.bettype, b.currency
+				FROM dbo.bettrans14 b WITH (NOLOCK)
+				WHERE b.transid = vh.TransId
+			) b		
+		WHERE vh.transid  NOT IN (SELECT transid FROM @tblTrans) AND
+		1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
+				WHEN b.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
+				ELSE 0 END						
 		
 		--exclude cn88 tickets
 		DELETE t

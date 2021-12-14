@@ -23,6 +23,7 @@ BEGIN
 							GroupName VARCHAR(50),
 							HeadlineID INT,
 							HeadlineName VARCHAR(50),
+							site	varchar(10),
 							IsVip BIT)
 		
 	CREATE TABLE #GroupHeadline
@@ -77,7 +78,7 @@ BEGIN
 	WHERE t.HeadlineID IS NULL
 		
 	UPDATE t
-	SET HeadlineName = c.username	
+	SET HeadlineName = c.username , t.site = c.site	
 	FROM @tblCust t
 		INNER JOIN customer c WITH(NOLOCK) ON t.HeadlineID = c.custid
 			
@@ -93,7 +94,7 @@ BEGIN
 		
 		--Change hl to ET789, ET889
 		;WITH tmpGroup AS (
-			SELECT c.custid, c.username, g.GroupName				
+			SELECT c.custid, c.username, c.site, g.GroupName				
 			FROM customer c WITH(NOLOCK)
 			INNER JOIN (SELECT 'ET789' username, 'ACCYEN668' GroupName
 					UNION ALL SELECT 'ET789', 'ACCYEN789'
@@ -102,16 +103,18 @@ BEGIN
 		)
 		UPDATE t
 		SET t.HeadlineId = gr.custid,
-			t.HeadlineName = gr.username
+			t.HeadlineName = gr.username,
+			t.site = gr.site
 		FROM @tblCust t
 			INNER JOIN tmpGroup gr ON gr.GroupName = t.GroupName
 		
 		--change hl for other customers under ETUS to XT
 		UPDATE t
 		SET t.HeadlineID = c.custid,
-			t.HeadlineName = c.username
+			t.HeadlineName = c.username,
+			t.site = c.site
 		FROM @tblCust t
-			CROSS APPLY (SELECT custid, username FROM customer WITH(NOLOCK) WHERE username = 'XT') c
+			CROSS APPLY (SELECT custid, username , site FROM customer WITH(NOLOCK) WHERE username = 'XT') c
 		WHERE HeadlineName = 'ETUS'
 	END
 	
@@ -121,9 +124,10 @@ BEGIN
 		--hl is super
 		UPDATE t
 		SET t.headlineID = c.custid,
-			t.HeadlineName = c.username
+			t.HeadlineName = c.username,
+			t.site = c.site
 		FROM @tblCust t
-			CROSS APPLY (SELECT custid,username FROM customer c WITH(NOLOCK) WHERE c.custid = t.srecommend)c
+			CROSS APPLY (SELECT custid,username , site FROM customer c WITH(NOLOCK) WHERE c.custid = t.srecommend)c
 		WHERE headlineID IS NULL
 			AND NOT EXISTS(SELECT 1 
 						FROM Acc_CustDirect c WITH(NOLOCK)
@@ -141,9 +145,10 @@ BEGIN
 		--hl is direct master
 		UPDATE t
 		SET t.headlineID = c.custid,
-			t.HeadlineName = c.username
+			t.HeadlineName = c.username,
+			t.site = c.site
 		FROM @tblCust t
-			CROSS APPLY (SELECT custid,username FROM customer c WITH(NOLOCK) WHERE c.custid = t.mrecommend)c
+			CROSS APPLY (SELECT custid,username, site FROM customer c WITH(NOLOCK) WHERE c.custid = t.mrecommend)c
 		WHERE headlineID IS NULL
 			AND NOT EXISTS(SELECT 1 
 						FROM Acc_CustDirect c WITH(NOLOCK)
@@ -157,9 +162,10 @@ BEGIN
 		--hl is direct agent
 		UPDATE t
 		SET t.headlineID = c.custid,
-			t.HeadlineName = c.username
+			t.HeadlineName = c.username,
+			t.site = c.site
 		FROM @tblCust t
-			CROSS APPLY (SELECT custid,username FROM customer c WITH(NOLOCK) WHERE c.custid = t.recommend)c
+			CROSS APPLY (SELECT custid,username, site FROM customer c WITH(NOLOCK) WHERE c.custid = t.recommend)c
 		WHERE headlineID IS NULL
 			AND NOT EXISTS(SELECT 1 
 						FROM Acc_CustDirect c WITH(NOLOCK)
@@ -169,9 +175,10 @@ BEGIN
 		--hl is direct member
 		UPDATE t
 		SET t.headlineID = c.custid,
-			t.HeadlineName = c.username
+			t.HeadlineName = c.username,
+			t.site = c.site
 		FROM @tblCust t
-			CROSS APPLY (SELECT custid,username FROM customer c WITH(NOLOCK) WHERE c.custid = t.custid)c
+			CROSS APPLY (SELECT custid,username, site FROM customer c WITH(NOLOCK) WHERE c.custid = t.custid)c
 		WHERE headlineID IS NULL
 			AND NOT EXISTS(SELECT 1 
 						FROM Acc_CustDirect c WITH(NOLOCK)
@@ -187,6 +194,7 @@ BEGIN
 	SELECT custid,		
 		HeadlineID,
 		HeadlineName,
+		site,
 		IsVip
 	FROM @tblCust 
 	

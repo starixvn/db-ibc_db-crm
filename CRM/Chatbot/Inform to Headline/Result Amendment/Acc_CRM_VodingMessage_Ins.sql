@@ -9,6 +9,8 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20210811@Malcolm: Initialize SPs [Redmine: #151509]
+		- 20211208@Malcolm: Exculude UUS currency for Service on PRO [Redmine: #164235]
+		- 20211209@Malcolm: Include UUS currency for Service on PRO [Redmine: #164235]
 	Param's Explanation:
 	 @Message
 			<root>

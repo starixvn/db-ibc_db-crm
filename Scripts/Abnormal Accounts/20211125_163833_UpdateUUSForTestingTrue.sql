@@ -9,7 +9,7 @@ USE bodb_CRM
 GO
 
 UPDATE s
-	SET s.Value = 0
+	SET s.Value = 1
 FROM SystemSetting s WITH(ROWLOCK)
 WHERE s.ServiceName IN  ('ChatBot - AbnormalBets')  AND s.SettingName = 'IncludeUUSCurrency' 
 

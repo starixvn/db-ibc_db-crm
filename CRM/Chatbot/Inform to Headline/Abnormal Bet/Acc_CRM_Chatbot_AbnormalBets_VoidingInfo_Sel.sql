@@ -14,6 +14,7 @@ AS
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20210415@Malcolm: Notify Tickets of AB (Real Member) [RedmineId : #153259]
 		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20211125@Malcolm: Notify Tickets of Abnormal Mix Parlay [RedmineId : #163833]
 
 	Param's Explanation:
 		@Messages:
@@ -22,6 +23,8 @@ AS
 				<r MessageID="1" RequestID="2" UsernameList="xxx,u1" CustIdList=""/>
 				<r MessageID="3" RequestID="2" UsernameList="xxx,u1" CustIdList=""/>
 			</root>
+			+ UsernameList: SMA list enter to void tickets
+			+ CustIdList: The list of voided members is under SMA
 */
 
 BEGIN
@@ -53,26 +56,46 @@ BEGIN
 
 	-- Get data for abnormal bets, AB
 	BEGIN
-		CREATE TABLE #AbnormalBetsInfo(MessageId INT, TransId BIGINT)
-		INSERT INTO #AbnormalBetsInfo (MessageId, TransId)
-		SELECT vh.MessageId, t.TransId
+		CREATE TABLE #AbnormalBetsInfo(MessageId INT, TransId BIGINT, Username VARCHAR(30), CustId INT, Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, [Type] TINYINT)
+		INSERT INTO #AbnormalBetsInfo (MessageId, TransId, [Type])
+		SELECT vh.MessageId, t.TransId, CASE WHEN rq.IssueTypeId = 11 AND ISNULL(f.FilterBy, 0) = 1 THEN 3 ELSE 1 END AS [Type]
 		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
 			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
+			OUTER APPLY (
+				SELECT TOP(1) rd.FilterBy 
+				FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK) 
+				WHERE rd.RequestId = vh.RequestId
+			) f(FilterBy)
 			CROSS APPLY (
-				SELECT val AS TransId FROM dbo.strSplit(vh.TransIds, ',')
+				SELECT val AS TransId 
+				FROM dbo.strSplit(vh.TransIds, ',')
 			) t
 		WHERE EXISTS (SELECT 1 FROM #Messages m WHERE vh.MessageId = m.MessageId AND vh.RequestId = m.RequestId)
 			AND vh.StatusId = 2
 
-		INSERT INTO #Result (MessageId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
-		SELECT vh.MessageId, b.CustId, b.Username, b.Recommend, b.Mrecommend, b.Srecommend, MIN(CONVERT(TINYINT, IsTest)) AS IsTest, 1 AS [Type]
-		FROM #AbnormalBetsInfo vh
+		UPDATE a
+			SET a.CustId = b.CustId, a.Username = b.Username, a.Srecommend = b.Srecommend, a.Mrecommend = b.Mrecommend, a.Recommend = b.Recommend, a.IsTest = b.IsTest
+		FROM #AbnormalBetsInfo a
 			CROSS APPLY (
 				SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest
 				FROM dbo.bettrans b WITH (NOLOCK)
-				WHERE b.transid = vh.TransId
+				WHERE b.transid = a.TransId
 			) b
-		GROUP BY MessageId,	b.CustId, Username, Srecommend, Mrecommend, Recommend
+
+		UPDATE a
+			SET a.CustId = b.CustId, a.Username = b.Username, a.Srecommend = b.Srecommend, a.Mrecommend = b.Mrecommend, a.Recommend = b.Recommend, a.IsTest = b.IsTest
+		FROM #AbnormalBetsInfo a
+			CROSS APPLY (
+				SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest
+				FROM dbo.bettrans14 b WITH (NOLOCK)
+				WHERE b.transid = a.TransId
+			) b
+		WHERE a.CustId IS NULL
+
+		INSERT INTO #Result (MessageId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
+		SELECT a.MessageId, a.CustId, a.Username, a.Recommend, a.Mrecommend, a.Srecommend, MIN(CONVERT(TINYINT, a.IsTest)) AS IsTest, MAX(a.[Type]) AS [Type]
+		FROM #AbnormalBetsInfo a
+		GROUP BY a.MessageId, a.CustId, a.Username, a.Srecommend, a.Mrecommend, a.Recommend
 
 	END
 

@@ -17,6 +17,7 @@ AS
 		- 20201116@Malcolm: Change the MessageID column to the ReferenceId column [RedmineID: #144265]
 		- 20210728@Malcolm: Get notification template for abnormal bets [RedmineID: #157303]
 		- 20210729@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20211125@Malcolm: Add Comment [RedmineId : #163833]
 
 	Param's Explanation:
 		- @XmlData
@@ -26,6 +27,7 @@ AS
 			</root>
 				+ Type = 1 : get member of tickets belong to abnormal bets
 				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MIN(IsTest) of member have tickets voided
+				+ Type = 3 : get member of tickets belong to abnormal bets (mix parlay)
 		- @Messages:
 			<root>
 				<r MessageID="1" RequestID="1"/>

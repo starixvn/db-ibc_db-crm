@@ -10,7 +10,7 @@ AS
 
 	Revisions:
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
-	
+		- 20211124@Winfred: fix site column for Voiding Settled Tickets [RedmineId : #164235]
 	Parameter's Explanation:
 		
 */
@@ -129,8 +129,10 @@ BEGIN
 			,fb.ListMsgTargetId
 			,fb.Listbettype
 			,fb.CreatedDate
+			,c.site
 	FROM [dbo].[crmAutoFBVoiding] fb WITH(NOLOCK) 
 	INNER JOIN @Message m ON FB.LogVoidingID =  m.LogVoidingID
+	INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
 	LEFT JOIN crmCustomer hl WITH(NOLOCK) ON fb.HeadlineID = hl.custid
 	
 	SELECT 

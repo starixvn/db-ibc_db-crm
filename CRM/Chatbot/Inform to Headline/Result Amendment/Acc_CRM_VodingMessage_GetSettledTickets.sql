@@ -40,6 +40,19 @@ BEGIN
 		INNER JOIN dbo.zzzbettrans b WITH(NOLOCK) ON b.transid = m.TransId 
 	WHERE b.status IN ('LOSE', 'DRAW', 'WON') AND ISNULL(b.comstatus, '') <> 'CO'
 
+	;WITH CTE AS
+	(
+		SELECT m.TransId, MAX(MessageId) AS MaxMessageId
+		FROM #Message m
+		WHERE m.IsDeleted = 0
+		GROUP BY m.TransId
+		HAVING COUNT(1) > 1
+	)
+	UPDATE m	
+		SET m.IsDeleted = 1
+	FROM #Message m
+		INNER JOIN CTE e ON e.TransId = m.TransId AND m.MessageId < e.MaxMessageId
+
 	DELETE #Message WHERE IsDeleted = 1
 
 	CREATE CLUSTERED INDEX ix_Message ON #Message (MessageId, MsgTargetId)

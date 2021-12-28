@@ -33,6 +33,7 @@ BEGIN
 		t.c.value('@MessageId', 'INT') AS MessageId
 		,t.c.value('@MsgTargetId', 'INT') AS MsgTargetId
 		,n.TransId
+		,n.TransId
 	FROM @Message.nodes('root/r') t(c)
 	CROSS APPLY (
 		SELECT f.val AS TransId

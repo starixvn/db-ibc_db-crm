@@ -78,6 +78,8 @@ BEGIN
 			OR (@Environment <> 'UAT' AND @IncludeUUSCurrency = 0 AND e.IsTest = 1)
 	END
 
+	CREATE INDEX ix_TmpMessage ON #TmpMessage (MessageId, MsgTargetId)
+
 	;WITH CTE AS
 	(
 		SELECT MessageId, MsgTargetId

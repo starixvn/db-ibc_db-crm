@@ -7,7 +7,7 @@
 */
 --Result amenment
 UPDATE s
-	SET s.Value = '1'
+	SET s.Value = '0'
 FROM SystemSetting s WITH(ROWLOCK)
 WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName ='IsSyncSettingsForUAT'
 

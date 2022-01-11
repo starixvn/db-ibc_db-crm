@@ -11,6 +11,7 @@ Original:
 	Revisions:
 		- 20211105@Malcolm: Initialize SPs [Redmine: #164235]
 		- 20220110@Malcolm: Include @Environment parameter [Redmine: #164235]
+		- 20210111@Malcolm: If same TransId get the largest messageid [Redmine: #164235]
 	Param's Explanation:
 	 @Message:
 			<root>
@@ -32,7 +33,6 @@ BEGIN
 	SELECT 
 		t.c.value('@MessageId', 'INT') AS MessageId
 		,t.c.value('@MsgTargetId', 'INT') AS MsgTargetId
-		,n.TransId
 		,n.TransId
 	FROM @Message.nodes('root/r') t(c)
 	CROSS APPLY (
@@ -77,6 +77,18 @@ BEGIN
 		WHERE @Environment = 'UAT' AND e.IsTest = 0
 			OR (@Environment <> 'UAT' AND @IncludeUUSCurrency = 0 AND e.IsTest = 1)
 	END
+
+	--If same TransId get the largest messageid
+	;WITH CTE AS
+	(
+		SELECT m.TransId, MAX(MessageId) AS MaxMessageId
+		FROM #TmpMessage m
+		GROUP BY m.TransId
+		HAVING COUNT(1) > 1
+	)
+	DELETE m
+	FROM #TmpMessage m
+		INNER JOIN CTE e ON e.TransId = m.TransId AND m.MessageId < e.MaxMessageId
 
 	;WITH CTE AS
 	(

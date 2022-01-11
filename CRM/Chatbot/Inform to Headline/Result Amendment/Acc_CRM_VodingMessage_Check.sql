@@ -28,6 +28,13 @@ BEGIN
 	
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency'
 
+	-- IF @IncludeUUSCurrency = 1, Stop UAT Job
+	IF @IncludeUUSCurrency = 1 AND @Environment = 'UAT'
+	BEGIN
+		SELECT TOP(0) 0 AS MessageId, 0 AS MsgTargetId, 0 AS BetTransId
+		RETURN
+	END
+
 	INSERT INTO #TmpMessage (MessageId, MsgTargetId, TransId)
 	SELECT 
 		t.c.value('@MessageId', 'INT') AS MessageId
@@ -40,7 +47,10 @@ BEGIN
 	) AS n
 	OPTION (OPTIMIZE FOR (@Message = NULL))
 
+	CREATE INDEX ix_TmpMessage ON #TmpMessage (MessageId, MsgTargetId)
+
 	-- Get data based on environment variable
+	IF @IncludeUUSCurrency = 0
 	BEGIN
 		UPDATE m
 			SET m.IsTest = n.IsTest
@@ -60,8 +70,6 @@ BEGIN
 			WHERE b.transid = m.TransId
 		) as n(IsTest)
 		WHERE m.IsTest IS NULL
-
-		CREATE INDEX ix_TmpMessage ON #TmpMessage (MessageId, MsgTargetId)
 
 		;WITH CTE AS
 		(

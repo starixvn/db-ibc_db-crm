@@ -20,6 +20,7 @@ AS
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
 		- 20210920@Malcolm: only get credit site [RedmineID: #151509]
 		- 20210922@Malcolm: Add comment : Type = 7 [RedmineID: #161524]
+		- 20220110@Malcolm: Stop UAT Job when @IncludeUUSCurrency = 1 [Redmine: #164235]
 		
 	Param's Explanation:
 		. @TicketData
@@ -65,6 +66,12 @@ BEGIN
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
 		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
+
+	-- IF @IncludeUUSCurrency = 1, Stop UAT Job
+	IF @IncludeUUSCurrency = 1 AND @Environment = 'UAT'
+	BEGIN
+		RETURN
+	END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)

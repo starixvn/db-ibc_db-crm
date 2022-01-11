@@ -28,13 +28,6 @@ BEGIN
 	
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency'
 
-	-- IF @IncludeUUSCurrency = 1, Stop UAT Job
-	IF @IncludeUUSCurrency = 1 AND @Environment = 'UAT'
-	BEGIN
-		SELECT TOP(0) 0 AS MessageId, 0 AS MsgTargetId, 0 AS BetTransId
-		RETURN
-	END
-
 	INSERT INTO #TmpMessage (MessageId, MsgTargetId, TransId)
 	SELECT 
 		t.c.value('@MessageId', 'INT') AS MessageId

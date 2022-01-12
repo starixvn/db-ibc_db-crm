@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20201104@Malcolm: Initialize SP [RedmineID: #146735]
 		- 20210726@Malcolm: Change data type of logId [RedmineID: #157303]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 
 	Param's Explanation:
 		. @XmlData
@@ -57,7 +58,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - TOControl - Job is running.'
 			RETURN
 		END	
 	END
@@ -207,7 +208,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - TOControl - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

@@ -18,7 +18,7 @@ AS
 		- 20210728@Malcolm: Get notification template for abnormal bets [RedmineID: #157303]
 		- 20210729@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20211125@Malcolm: Add Comment [RedmineId : #163833]
-		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 
 	Param's Explanation:
 		- @XmlData
@@ -65,7 +65,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - AbnormalBets - Job is running.'
 			RETURN
 		END	
 	END
@@ -155,7 +155,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - AbnormalBets - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -186,7 +186,7 @@ BEGIN
 		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
+		SELECT @ErrCode = 102, @ErrMsg = 'ChatBot - AbnormalBets - Notification Template Content(s) are not include Required Param(s)'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

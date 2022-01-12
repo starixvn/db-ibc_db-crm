@@ -15,7 +15,7 @@ AS
 		- 20201104@Malcolm: Initialize SP [RedmineID: #144841]
 		- 20210303@Malcolm: Change format of winloss [RedmineID: #144841]
 		- 20210726@Malcolm: Change data type of logId [RedmineID: #157303]
-		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 
 	Param's Explanation:
 		. @XmlData
@@ -58,7 +58,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - CWL - Job is running.'
 			RETURN
 		END	
 	END
@@ -152,7 +152,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - CWL - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -187,7 +187,7 @@ BEGIN
 		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
+		SELECT @ErrCode = 102, @ErrMsg = 'ChatBot - CWL - Notification Template Content(s) are not include Required Param(s)'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

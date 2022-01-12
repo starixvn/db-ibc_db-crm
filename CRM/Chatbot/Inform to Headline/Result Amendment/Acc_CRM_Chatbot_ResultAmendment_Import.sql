@@ -21,7 +21,7 @@ AS
 		- 20210920@Malcolm: only get credit site [RedmineID: #151509]
 		- 20210922@Malcolm: Add comment : Type = 7 [RedmineID: #161524]
 		- 20220110@Malcolm: Stop UAT Job when @IncludeUUSCurrency = 1 [Redmine: #164235]
-		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		
 	Param's Explanation:
 		. @TicketData
@@ -97,7 +97,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - ResultAmendment - Job is running.'
 			RETURN
 		END	
 	END
@@ -311,7 +311,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - ResultAmendment - Invalid SystemSetting!'
 		
 		SELECT @Settings = NULL, @Settings = (SELECT @SettingNameOfJobStatus AS 'SettingName', 'Completed' AS 'Value' FOR XML PATH('r'), ROOT('root') ,TYPE,ELEMENTS XSINIL)
 		EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment

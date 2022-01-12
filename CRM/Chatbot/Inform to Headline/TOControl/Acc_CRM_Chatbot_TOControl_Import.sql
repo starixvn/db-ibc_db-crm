@@ -47,7 +47,7 @@ BEGIN
 	BEGIN
 		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - TOControl'
 
-		IF DATEDIFF(MINUTE, @LastRuntime, GETDATE()) >= 5
+		IF DATEDIFF(SECOND, @LastRuntime, GETDATE()) >= 5 * 60
 		BEGIN
 			UPDATE dbo.SystemSetting WITH (ROWLOCK)
 			SET Value = 'Completed'

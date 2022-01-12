@@ -59,7 +59,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML, @LastRuntime DATETIME ,@SettingNameOfLastRuntime VARCHAR(50) = ''
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML, @LastRuntime DATETIME 
+			,@SettingNameOfLastRuntime VARCHAR(50) = ''
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency' 
 
@@ -67,6 +68,7 @@ BEGIN
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
 		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
+		   ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- IF @IncludeUUSCurrency = 1, Stop UAT Job
 	IF @IncludeUUSCurrency = 1 AND @Environment = 'UAT'
@@ -85,7 +87,7 @@ BEGIN
 	BEGIN
 		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - ResultAmendment'
 
-		IF DATEDIFF(MINUTE, @LastRuntime, GETDATE()) >= 5
+		IF DATEDIFF(SECOND, @LastRuntime, GETDATE()) >= 5 * 60
 		BEGIN
 			UPDATE dbo.SystemSetting WITH (ROWLOCK)
 			SET Value = 'Completed'

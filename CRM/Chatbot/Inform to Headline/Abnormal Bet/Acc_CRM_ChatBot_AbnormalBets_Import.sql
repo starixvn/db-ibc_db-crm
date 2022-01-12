@@ -18,6 +18,7 @@ AS
 		- 20210728@Malcolm: Get notification template for abnormal bets [RedmineID: #157303]
 		- 20210729@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20211125@Malcolm: Add Comment [RedmineId : #163833]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
 
 	Param's Explanation:
 		- @XmlData
@@ -38,9 +39,10 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SettingNameOfJobStatus VARCHAR(50) = ''
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME 
 
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
+		 ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -51,9 +53,29 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
-		RETURN
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - AbnormalBets'
+
+		IF DATEDIFF(MINUTE, @LastRuntime, GETDATE()) >= 5
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - AbnormalBets'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			RETURN
+		END	
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - AbnormalBets'
+		AND SettingName = @SettingNameOfLastRuntime
+
 	-- Get messageId and requestId
 	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT)
 	INSERT INTO #MessageRequest (MessageID, RequestID)

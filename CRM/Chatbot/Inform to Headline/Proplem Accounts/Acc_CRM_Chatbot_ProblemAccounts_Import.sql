@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20210428@Malcolm: Initialize SP [RedmineID: #153119]
 		- 20210813@Malcolm: fix wrongly marking status as duplicated [RedmineID: #151509]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -25,6 +26,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT, @IsSyncSettingsForUAT BIT = 0
+			,@SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME 
 
 	DECLARE @MaxGroup 		 INT = 0,
 			@MaxBatchOfGroup INT = 250
@@ -36,6 +38,7 @@ BEGIN
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOflastLogId = CASE WHEN @Environment = 'UAT' THEN 'LastLogIdUAT' ELSE 'LastLogID' END
+		   ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -46,9 +49,28 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
-		RETURN
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - ProblemAccounts'
+
+		IF DATEDIFF(MINUTE, @LastRuntime, GETDATE()) >= 5
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			RETURN
+		END	
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - ProblemAccounts'
+		AND SettingName = @SettingNameOfLastRuntime
 
 	-- Get Imported Data
 	CREATE TABLE #ImportData 

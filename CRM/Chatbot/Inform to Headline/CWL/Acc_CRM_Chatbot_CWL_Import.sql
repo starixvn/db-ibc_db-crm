@@ -15,6 +15,7 @@ AS
 		- 20201104@Malcolm: Initialize SP [RedmineID: #144841]
 		- 20210303@Malcolm: Change format of winloss [RedmineID: #144841]
 		- 20210726@Malcolm: Change data type of logId [RedmineID: #157303]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
 
 	Param's Explanation:
 		. @XmlData
@@ -26,13 +27,15 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT
+	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT, @LastRuntime DATETIME 
+			,@SettingNameOfLastRuntime VARCHAR(50) = ''
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOflastLogId = CASE WHEN @Environment = 'UAT' THEN 'LastLogIdUAT' ELSE 'LastLogID' END
+		   ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -43,9 +46,28 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
-		RETURN
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - CWL'
+
+		IF DATEDIFF(MINUTE, @LastRuntime, GETDATE()) >= 5
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - CWL'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			RETURN
+		END	
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - CWL'
+		AND SettingName = @SettingNameOfLastRuntime
 
 	-- Get Imported Data
 	CREATE TABLE #ImportData

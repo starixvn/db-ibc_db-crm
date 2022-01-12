@@ -21,6 +21,7 @@ AS
 		- 20210920@Malcolm: only get credit site [RedmineID: #151509]
 		- 20210922@Malcolm: Add comment : Type = 7 [RedmineID: #161524]
 		- 20220110@Malcolm: Stop UAT Job when @IncludeUUSCurrency = 1 [Redmine: #164235]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #164235]
 		
 	Param's Explanation:
 		. @TicketData
@@ -58,7 +59,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML, @LastRuntime DATETIME ,@SettingNameOfLastRuntime VARCHAR(50) = ''
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency' 
 
@@ -82,9 +83,28 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
-		RETURN
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - ResultAmendment'
+
+		IF DATEDIFF(MINUTE, @LastRuntime, GETDATE()) >= 5
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - ResultAmendment'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+			RETURN
+		END	
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
+		AND SettingName = @SettingNameOfLastRuntime
 
 	CREATE TABLE #EventData
 	(

@@ -55,12 +55,18 @@ BEGIN
 			WHERE ServiceName = 'ChatBot - TOControl'
 				AND SettingName = @SettingNameOfJobStatus
 				AND Value = 'running'
+
+			--Update LastRuntime
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+			WHERE ServiceName = 'ChatBot - TOControl'
+				AND SettingName = @SettingNameOfLastRuntime
 		END
 		ELSE 
 		BEGIN
 			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - TOControl - Job is running.'
-			RETURN
 		END	
+		RETURN
 	END
 
 	--Update LastRuntime

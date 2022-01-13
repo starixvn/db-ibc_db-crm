@@ -30,6 +30,8 @@ BEGIN
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT, @LastRuntime DATETIME 
 			,@SettingNameOfLastRuntime VARCHAR(50) = ''
 
+	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
+
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - CWL' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
@@ -64,7 +66,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - CWL - Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+ 'ChatBot - CWL - Job is running.'
 		END	
 		RETURN
 	END
@@ -158,7 +160,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - CWL - Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+ 'ChatBot - CWL - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -193,7 +195,7 @@ BEGIN
 		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'ChatBot - CWL - Notification Template Content(s) are not include Required Param(s)'
+		SELECT @ErrCode = 102, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+ 'ChatBot - CWL - Notification Template Content(s) are not include Required Param(s)'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

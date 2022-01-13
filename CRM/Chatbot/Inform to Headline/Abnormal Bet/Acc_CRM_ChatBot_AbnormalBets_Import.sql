@@ -40,6 +40,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME 
+	
+	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		 ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
@@ -71,7 +73,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - AbnormalBets - Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - AbnormalBets - Job is running.'
 		END	
 		RETURN
 	END
@@ -161,7 +163,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - AbnormalBets - Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - AbnormalBets - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -192,7 +194,7 @@ BEGIN
 		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'ChatBot - AbnormalBets - Notification Template Content(s) are not include Required Param(s)'
+		SELECT @ErrCode = 102, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - AbnormalBets - Notification Template Content(s) are not include Required Param(s)'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

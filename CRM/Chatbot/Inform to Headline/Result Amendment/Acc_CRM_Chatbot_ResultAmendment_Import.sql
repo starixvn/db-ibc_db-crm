@@ -61,6 +61,8 @@ BEGIN
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
 			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML, @LastRuntime DATETIME 
 			,@SettingNameOfLastRuntime VARCHAR(50) = ''
+	
+	DECLARE @ServerNameDB NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency' 
 
@@ -103,7 +105,7 @@ BEGIN
 		END
 		ELSE 
 		BEGIN
-			SELECT @ErrCode = 100, @ErrMsg = 'ChatBot - ResultAmendment - Job is running.'
+			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerNameDB + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+ 'ChatBot - ResultAmendment - Job is running.'
 		END	
 		RETURN
 	END
@@ -317,7 +319,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'ChatBot - ResultAmendment - Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'Server Name : ' + @ServerNameDB + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - ResultAmendment - Invalid SystemSetting!'
 		
 		SELECT @Settings = NULL, @Settings = (SELECT @SettingNameOfJobStatus AS 'SettingName', 'Completed' AS 'Value' FOR XML PATH('r'), ROOT('root') ,TYPE,ELEMENTS XSINIL)
 		EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment

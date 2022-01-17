@@ -116,7 +116,7 @@ AS
 		- 20210519@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
-							
+		- 20220114@Johnson: fix performance for checking duplicate fb [redmine:#167537]					
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -331,14 +331,19 @@ BEGIN
 	--check duplicate fb from Multiple Logs
 	IF @IsManualMultiple = 1
 	BEGIN
-		IF EXISTS (SELECT TOP (1) 1
+		SELECT fs.FeedbackID, fs.SettingID, fs.SubSettingID
+		INTO #tmpDupFB
 		FROM crmFeedback fb WITH(NOLOCK) 
 			INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
-			INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
+			--INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
 		WHERE fb.CreateDate >= DATEADD(MINUTE, -1, GETDATE())
 			AND fb.CustID=@CustID
 			AND fb.CreatorID = @UserID
 			AND fb.Description = @Description
+			
+		IF EXISTS (SELECT TOP (1) 1
+		FROM #tmpDupFB fs
+			INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
 		)
 		BEGIN
 			SELECT	@ErrCode = 110

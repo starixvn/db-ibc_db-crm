@@ -18,6 +18,7 @@ AS
 		- 20210728@Malcolm: Get notification template for abnormal bets [RedmineID: #157303]
 		- 20210729@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20211125@Malcolm: Add Comment [RedmineId : #163833]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 
 	Param's Explanation:
 		- @XmlData
@@ -38,9 +39,12 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SettingNameOfJobStatus VARCHAR(50) = ''
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME 
+	
+	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
+		 ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -51,9 +55,35 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - AbnormalBets'
+
+		IF DATEDIFF(SECOND, @LastRuntime, GETDATE()) >= 5 * 60
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - AbnormalBets'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+
+			--Update LastRuntime
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+			WHERE ServiceName = 'ChatBot - AbnormalBets'
+				AND SettingName = @SettingNameOfLastRuntime
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - AbnormalBets - Job is running.'
+		END	
 		RETURN
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - AbnormalBets'
+		AND SettingName = @SettingNameOfLastRuntime
+
 	-- Get messageId and requestId
 	CREATE TABLE #MessageRequest (MessageID INT, RequestID INT)
 	INSERT INTO #MessageRequest (MessageID, RequestID)
@@ -133,7 +163,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - AbnormalBets - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -164,7 +194,7 @@ BEGIN
 		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
+		SELECT @ErrCode = 102, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - AbnormalBets - Notification Template Content(s) are not include Required Param(s)'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

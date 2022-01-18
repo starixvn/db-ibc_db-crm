@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20210428@Malcolm: Initialize SP [RedmineID: #153119]
 		- 20210813@Malcolm: fix wrongly marking status as duplicated [RedmineID: #151509]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -25,6 +26,9 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT, @IsSyncSettingsForUAT BIT = 0
+			,@SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME 
+
+	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
 	DECLARE @MaxGroup 		 INT = 0,
 			@MaxBatchOfGroup INT = 250
@@ -36,6 +40,7 @@ BEGIN
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOflastLogId = CASE WHEN @Environment = 'UAT' THEN 'LastLogIdUAT' ELSE 'LastLogID' END
+		   ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -46,9 +51,34 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - ProblemAccounts'
+
+		IF DATEDIFF(SECOND, @LastRuntime, GETDATE()) >= 5 * 60
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+
+			--Update LastRuntime
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+			WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				AND SettingName = @SettingNameOfLastRuntime
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+'ChatBot - ProblemAccounts - Job is running.'
+		END	
 		RETURN
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - ProblemAccounts'
+		AND SettingName = @SettingNameOfLastRuntime
 
 	-- Get Imported Data
 	CREATE TABLE #ImportData 
@@ -128,7 +158,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+'ChatBot - ProblemAccounts - Invalid SystemSetting!'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'
@@ -159,7 +189,7 @@ BEGIN
 		WHERE nt.Content NOT LIKE N'%' + s.TemplateRequiredParam + N'%'
 	)
 	BEGIN
-		SELECT @ErrCode = 102, @ErrMsg = 'Notification Template Content(s) are not include Required Param(s)'
+		SELECT @ErrCode = 102, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+'ChatBot - ProblemAccounts - Notification Template Content(s) are not include Required Param(s)'
 		
 		UPDATE dbo.SystemSetting WITH (ROWLOCK)
 		SET Value = 'Completed'

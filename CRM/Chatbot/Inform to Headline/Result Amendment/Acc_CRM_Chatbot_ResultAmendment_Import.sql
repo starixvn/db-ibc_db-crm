@@ -21,6 +21,7 @@ AS
 		- 20210920@Malcolm: only get credit site [RedmineID: #151509]
 		- 20210922@Malcolm: Add comment : Type = 7 [RedmineID: #161524]
 		- 20220110@Malcolm: Stop UAT Job when @IncludeUUSCurrency = 1 [Redmine: #164235]
+		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		
 	Param's Explanation:
 		. @TicketData
@@ -58,7 +59,10 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML, @LastRuntime DATETIME 
+			,@SettingNameOfLastRuntime VARCHAR(50) = ''
+	
+	DECLARE @ServerNameDB NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ResultAmendment' AND SettingName = 'IncludeUUSCurrency' 
 
@@ -66,6 +70,7 @@ BEGIN
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
 		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
+		   ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 
 	-- IF @IncludeUUSCurrency = 1, Stop UAT Job
 	IF @IncludeUUSCurrency = 1 AND @Environment = 'UAT'
@@ -82,9 +87,34 @@ BEGIN
 	
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 100, @ErrMsg = 'Job is running.'
+		SELECT @LastRuntime = CONVERT(DATETIME, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'ChatBot - ResultAmendment'
+
+		IF DATEDIFF(SECOND, @LastRuntime, GETDATE()) >= 5 * 60
+		BEGIN
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = 'Completed'
+			WHERE ServiceName = 'ChatBot - ResultAmendment'
+				AND SettingName = @SettingNameOfJobStatus
+				AND Value = 'running'
+
+			--Update LastRuntime
+			UPDATE dbo.SystemSetting WITH (ROWLOCK)
+			SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+			WHERE ServiceName = 'ChatBot - ResultAmendment'
+				AND SettingName = @SettingNameOfLastRuntime
+		END
+		ELSE 
+		BEGIN
+			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerNameDB + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+ 'ChatBot - ResultAmendment - Job is running.'
+		END	
 		RETURN
 	END
+
+	--Update LastRuntime
+	UPDATE dbo.SystemSetting WITH (ROWLOCK)
+	SET Value = CONVERT(VARCHAR(20), GETDATE(), 120)
+	WHERE ServiceName = 'ChatBot - ResultAmendment'
+		AND SettingName = @SettingNameOfLastRuntime
 
 	CREATE TABLE #EventData
 	(
@@ -289,7 +319,7 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Invalid SystemSetting!'
+		SELECT @ErrCode = 101, @ErrMsg = 'Server Name : ' + @ServerNameDB + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : ' + 'ChatBot - ResultAmendment - Invalid SystemSetting!'
 		
 		SELECT @Settings = NULL, @Settings = (SELECT @SettingNameOfJobStatus AS 'SettingName', 'Completed' AS 'Value' FOR XML PATH('r'), ROOT('root') ,TYPE,ELEMENTS XSINIL)
 		EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment

@@ -12,8 +12,8 @@ AS
 	Original:
 
 	Revisions:
-	- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
-	
+		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
+		- 20220207@Elodie: Enhance SP [RedmineId: #168524]
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get Voiding Settled Tickets
 		@MessageIds = '<ROOT>
@@ -156,11 +156,12 @@ BEGIN
 		t.EventDate, t.Bettype,t.EventType,t.ProductID,t.ListMsgTargetId	
 	FROM #tblEventInfo t
 		
+	SELECT DISTINCT MessageId, MsgTargetId INTO #tmpMsg FROM @tblMessageNoFB
 	SELECT DISTINCT f.MessageId, c.MsgTargetId
-	FROM @tblMessageNoFB f
+	FROM #tmpMsg f
 	OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(ms.MsgTargetId as VARCHAR(15))  as [text()]
-					FROM @tblMessageNoFB ms  
+					FROM #tmpMsg ms  
 					WHERE f.MessageId = ms.MessageId 
 					FOR XML PATH('')
 					),1,1,'')

@@ -12,8 +12,8 @@ AS
 	Original:
 
 	Revisions:
-	- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
-	
+		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
+		- 20220207@Elodie: Enhance SP [RedmineId: #168524]
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get Voiding Settled Tickets
 		@MessageIds = '<ROOT>
@@ -45,6 +45,9 @@ BEGIN
 				)
 	--Messageid non create fb
 	DECLARE @tblMessageNoFB TABLE (MessageId INT, MsgTargetId INT, TransId BIGINT, IsCreatedFB BIT DEFAULT(0))
+	CREATE TABLE #tmpMsg (MessageId INT, MsgTargetId INT)
+	CREATE CLUSTERED INDEX CIX_MessageId ON #tmpMsg (MessageId)
+
 	--event info
 	CREATE TABLE #tblEventInfo (MessageId INT, 
 								TransId BIGINT,
@@ -156,16 +159,20 @@ BEGIN
 		t.EventDate, t.Bettype,t.EventType,t.ProductID,t.ListMsgTargetId	
 	FROM #tblEventInfo t
 		
+	INSERT INTO #tmpMsg (MessageId, MsgTargetId)
+	SELECT DISTINCT MessageId, MsgTargetId 
+	FROM @tblMessageNoFB
+
 	SELECT DISTINCT f.MessageId, c.MsgTargetId
-	FROM @tblMessageNoFB f
+	FROM #tmpMsg f
 	OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(ms.MsgTargetId as VARCHAR(15))  as [text()]
-					FROM @tblMessageNoFB ms  
+					FROM #tmpMsg ms  
 					WHERE f.MessageId = ms.MessageId 
 					FOR XML PATH('')
 					),1,1,'')
 			)c (MsgTargetId)
-	
+
 	DROP TABLE #tblEventInfo
 		
 END	

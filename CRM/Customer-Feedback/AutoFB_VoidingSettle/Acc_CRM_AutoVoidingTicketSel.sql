@@ -45,6 +45,9 @@ BEGIN
 				)
 	--Messageid non create fb
 	DECLARE @tblMessageNoFB TABLE (MessageId INT, MsgTargetId INT, TransId BIGINT, IsCreatedFB BIT DEFAULT(0))
+	CREATE TABLE #tmpMsg (MessageId INT, MsgTargetId INT)
+	CREATE CLUSTERED INDEX CIX_MessageId ON #tmpMsg (MessageId)
+
 	--event info
 	CREATE TABLE #tblEventInfo (MessageId INT, 
 								TransId BIGINT,
@@ -156,7 +159,10 @@ BEGIN
 		t.EventDate, t.Bettype,t.EventType,t.ProductID,t.ListMsgTargetId	
 	FROM #tblEventInfo t
 		
-	SELECT DISTINCT MessageId, MsgTargetId INTO #tmpMsg FROM @tblMessageNoFB
+	INSERT INTO #tmpMsg (MessageId, MsgTargetId)
+	SELECT DISTINCT MessageId, MsgTargetId 
+	FROM @tblMessageNoFB
+
 	SELECT DISTINCT f.MessageId, c.MsgTargetId
 	FROM #tmpMsg f
 	OUTER APPLY(
@@ -166,7 +172,7 @@ BEGIN
 					FOR XML PATH('')
 					),1,1,'')
 			)c (MsgTargetId)
-	
+
 	DROP TABLE #tblEventInfo
 		
 END	

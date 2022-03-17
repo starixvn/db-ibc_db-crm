@@ -13,13 +13,13 @@ AS
 	
 	Revisions:
 		- 20200421@Johnson: initial sp [redmine:#130949]
-	
+		- 20220317@Johnson: extend datatype [redmine: #170077]
 	Parameter's Explanations:
 */	
 BEGIN
 	SET NOCOUNT ON;
 	
-	DECLARE @tmpSettingSource TABLE(SettingSource VARCHAR(50))
+	DECLARE @tmpSettingSource TABLE(SettingSource VARCHAR(500))
 	DECLARE @SettingSource_Old VARCHAR(MAX) = ''
 	
 	SELECT @SettingSource = NULLIF(@SettingSource,'')

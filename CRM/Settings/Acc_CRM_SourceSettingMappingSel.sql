@@ -11,13 +11,14 @@ AS
 	Revisions:
 		- 20200421@Johnson: initial sp [redmine:#130949]
 		- 20201021@Johnson: get all products/sports/bettypes to support mapping for winlimit fb  [redmine:#142194]
+		- 20220317@Johnson: extend datatype [redmine: #170077]
 	Parameter's Explanations:
 */	
 BEGIN
 	SET NOCOUNT ON;
 	
 	DECLARE @tmpSetting TABLE (SettingName VARCHAR(50))
-	DECLARE @result TABLE (SettingName VARCHAR(50), Source VARCHAR(50))
+	DECLARE @result TABLE (SettingName VARCHAR(50), Source VARCHAR(500))
 	
 	INSERT INTO @tmpSetting (SettingName)
 	SELECT val

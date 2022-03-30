@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Sel]
-		@LastLogId  BIGINT
-		,@BatchSize INT = 1000
+	@LastLogId  BIGINT
+	,@BatchSize INT = 1000
 AS
 
 /*
@@ -11,50 +11,22 @@ AS
 
 	Revisions:
 		- 20210426@Malcolm: Initialize SP [RedmineId: #153119]
+		- 20220330@Malcolm: Get CustomerClass from CategoryConfig table [RedmineId: #170666]
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @MaxLogId BIGINT, @RowNumber INT
+	DECLARE @MaxLogId BIGINT
 
 	SELECT @MaxLogId = MAX(LogID) FROM dbo.CustCategoryHistory WITH(NOLOCK)
 
 	WAITFOR DELAY '00:00:00.200'
 
-	DECLARE @Tmp TABLE (LogId BIGINT, CustId INT, CategoryId SMALLINT, CustomerClass TINYINT)
-
-	WHILE 1 = 1
-	BEGIN
-		INSERT INTO @Tmp (LogId, CustId, CategoryId, CustomerClass)
-		SELECT h.LogID, h.custid, h.CategoryID, h.CustomerClass
-		FROM dbo.CustCategoryHistory h WITH(NOLOCK)
-		WHERE h.LogID > @LastLogId AND h.LogID <= @MaxLogId
-		ORDER BY h.LogID ASC
-
-		IF @@ROWCOUNT = 0
-			BREAK
-
-		SELECT @LastLogId = MAX(LogId) FROM @Tmp
-
-		DELETE @Tmp WHERE CustomerClass NOT BETWEEN 8 AND 12
-
-		DELETE t
-		FROM @Tmp t
-			INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = t.CustId
-		WHERE c.roleid <> 1 OR c.site <> '789y'
-
-		SELECT @RowNumber = COUNT(1) FROM @Tmp
-
-		IF @RowNumber >= @BatchSize
-		BEGIN	
-			BREAK
-		END
-	END
-
-	SELECT TOP (@BatchSize) t.LogId, c.username, t.CustId,c.recommend, c.mrecommend, c.srecommend, t.CategoryId, CASE WHEN c.currency = 20 THEN 1 ELSE 0 END AS IsTest
-	FROM @Tmp t
-		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = t.CustId
-	ORDER BY LogId ASC
-	
+	SELECT TOP(@BatchSize)  h.LogId, c.username, h.CustId, c.recommend, c.mrecommend, c.srecommend, h.CategoryId, CASE WHEN c.currency = 20 THEN 1 ELSE 0 END AS IsTest
+	FROM dbo.CustCategoryHistory h WITH(NOLOCK)
+		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = h.custid 
+	WHERE c.roleid = 1 AND c.site = '789y' AND h.LogID > @LastLogId AND h.LogID <= @MaxLogId	
+		AND EXISTS (SELECT 1 FROM dbo.CategoryConfig cg WITH(NOLOCK) WHERE cg.CustomerClass = h.CustomerClass)
+	ORDER BY h.LogID ASC
 END

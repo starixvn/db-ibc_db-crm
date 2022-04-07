@@ -9,6 +9,7 @@ AS
 	Task: CRM - ChatBot - Get Username list of tickets belong to abnormal account type
 	Revisions:
 		- 20210628@Malcolm: Initialize SP [RedmineID: #157303]
+		- 20220324@Malcolm: replace function f_SplitString with function STRING_SPLIT [RedmineID: #168783]
 
 	Param's Explanation:
 		@Messages:
@@ -33,8 +34,8 @@ BEGIN
 	FROM @Messages.nodes('root/r') AS t(c)
 	CROSS APPLY
 	(
-		SELECT f.val AS Username
-		FROM f_SplitString(t.c.value('@UsernameList', 'NVARCHAR(MAX)'),',') f
+		SELECT f.value AS Username
+		FROM STRING_SPLIT(t.c.value('@UsernameList', 'NVARCHAR(MAX)'),',') f
 	) AS u(Username)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 

@@ -10,6 +10,7 @@ Original:
 	Revisions:
 		- 20211105@Malcolm: Initialize SPs [Redmine: #164235]
 		- 20211206@Malcolm: Exclude Comstatus = 'CO' for CashOut [Redmine: #164235]
+		- 20220324@Malcolm: replace function f_SplitString with function STRING_SPLIT [RedmineID: #168783]
 	Param's Explanation:
 	 @Message:
 			<root>
@@ -29,8 +30,8 @@ BEGIN
 		,n.TransId
 	FROM @Message.nodes('root/r') t(c)
 	CROSS APPLY (
-		SELECT f.val AS TransId
-		FROM dbo.f_SplitString(t.c.value('@BetTransId','VARCHAR(MAX)'), ',') AS f
+		SELECT f.value AS TransId
+		FROM STRING_SPLIT(t.c.value('@BetTransId','VARCHAR(MAX)'), ',') AS f
 	) AS n
 	OPTION (OPTIMIZE FOR (@Message = NULL), MAXRECURSION 0)
 

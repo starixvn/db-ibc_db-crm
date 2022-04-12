@@ -1,19 +1,17 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROC Acc_CRM_CustomerRemarkNew_Sel
+ALTER PROC Acc_CRM_CustomerRemarkNewSel
 	@CustID		INT,
 	@UserRole   TINYINT
 AS
 
 /*
-Created: Dom
-Date: 20140212
-Task : Get data for main tab
+Created: Winfred
+Date: 20220315
+Task : Special remarks renovation get log
 DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-	- 20201120@Johnson: check incase SiteID = NULL  [redmine:#145439]
 	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
 Param's Explanation:	
 */

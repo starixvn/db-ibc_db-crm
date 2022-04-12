@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER  PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNew_Del] 
+ALTER  PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewDel] 
 	 @RemarkID INT
 	,@UserID INT 
 	,@IP VARCHAR(15)

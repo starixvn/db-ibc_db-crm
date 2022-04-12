@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNew_Ins] 
+CREATE PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewIns] 
 	 @CustID INT 
 	,@Remark NVARCHAR(MAX) 
 	,@RemarkTitle INT 

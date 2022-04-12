@@ -13,7 +13,7 @@ AS
 	
 	Revisions:
 		- 20210526@Johnson: initial sp [redmine:#154840]
-	
+		- 20220412@Johnson: add licensee is suspended to inactive site [redmine:#171359]
 	Parameter's Explanations:
 		@Licensees = '<ROOT>
 					<r Name="108bet" status="4" />
@@ -43,7 +43,7 @@ BEGIN
 		FROM @Licensees.nodes('/ROOT/r') t(c)
 	)	
 	INSERT INTO @tmpLicensee(LicenseeName,StatusID,IsActive)
-	SELECT LicenseeName, statusid, CASE WHEN statusid <> 4 THEN 1 ELSE 0 END
+	SELECT LicenseeName, statusid, CASE WHEN statusid NOT IN (4,6) THEN 1 ELSE 0 END
 	FROM t
 			
 	--mapping IBO,KeanOcean to Kzing,LIVV88 in crm

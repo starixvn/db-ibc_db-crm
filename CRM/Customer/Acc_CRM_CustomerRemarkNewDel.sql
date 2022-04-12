@@ -62,7 +62,7 @@ BEGIN
 	-- write log
 	DECLARE @LogElement_old XML
 	SELECT @LogElement_old = 				
-					'<Acc_CRM_CustomerRemarkNew_Del>' + --SP Name
+					'<R>' + --SP Name
 						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID_old),'')			+ '</CustID>' +
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'')		+ '</RemarkTitle>' +
@@ -73,7 +73,7 @@ BEGIN
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester_old),'')		+ '</Requester>' +
 						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID_old),'')	+ '</UpdaterID>' +
 						'<IP>'		+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
-					'</Acc_CRM_CustomerRemarkNew_Del>' 
+					'</R>' 
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
 					@CustID = @UserID, 

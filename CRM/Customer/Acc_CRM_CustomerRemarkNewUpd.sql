@@ -118,7 +118,7 @@ BEGIN
 	-- write log
 	DECLARE @LogElement_old XML
 	SELECT @LogElement_old = 				
-					'<Acc_CRM_CustomerRemarkNew_Upd>' + --SP Name
+					'<R>' + --SP Name
 						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID_old),'')			+ '</CustID>' +
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'')		+ '</RemarkTitle>' +
@@ -132,10 +132,10 @@ BEGIN
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')		+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@LastUpdate),'')		+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')		+ '</CreatedDate>' +
-					'</Acc_CRM_CustomerRemarkNew_Upd>' 
+					'</R>' 
 	DECLARE @LogElement XML
 	SELECT @LogElement = 				
-					'<Acc_CRM_CustomerRemarkNew_Upd>' + --SP Name
+					'<R>' + --SP Name
 						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle),'')		+ '</RemarkTitle>' +
@@ -149,7 +149,7 @@ BEGIN
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')	+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')	+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')	+ '</CreatedDate>' +
-					'</Acc_CRM_CustomerRemarkNew_Upd>' 
+					'</R>' 
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
 					@CustID = @CustID, 

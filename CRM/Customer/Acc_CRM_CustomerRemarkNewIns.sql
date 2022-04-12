@@ -107,7 +107,7 @@ BEGIN
 	DECLARE @LogElement XML
 
 	SELECT @LogElement = 				
-					'<Acc_CRM_CustomerRemarkNew_Ins>' + --SP Name
+					'<R>' + --SP Name
 						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle),'')		+ '</RemarkTitle>' +
@@ -121,7 +121,7 @@ BEGIN
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')		+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</CreatedDate>' +
-					'</Acc_CRM_CustomerRemarkNew_Ins>' 
+					'</R>' 
 				
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]

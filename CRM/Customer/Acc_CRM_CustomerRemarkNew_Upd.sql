@@ -49,6 +49,10 @@ BEGIN
 			,@AcknowledgerID_old    INT    
 			,@Requester_old    NVARCHAR(500)    
 			,@UpdaterID_old    INT 
+			,@CreatorID_old INT 
+			,@LastUpdate DATETIME 
+			,@CreatedDate DATETIME
+			,@NewUpdate DATETIME  
 	
 	SELECT
 	@CustID_old          		=   CustID                   	
@@ -60,9 +64,14 @@ BEGIN
 	,@ApproverID_old           	=   ApproverID                 
 	,@AcknowledgerID_old       	=   AcknowledgerID             
 	,@Requester_old           	=   Requester                   
-	,@UpdaterID_old           	=   UpdaterID   
+	,@UpdaterID_old           	=   UpdaterID
+	,@CreatedDate				=	CreatedDate
+	,@CreatorID_old				=	CreatorID 
+	,@LastUpdate				=	LastUpdate   
 	FROM  crmCustomerRemarkNew WITH(NOLOCK)
 	WHERE RemarkID = @RemarkID
+	
+	SET @NewUpdate = GETDATE()
 		
 	UPDATE crmCustomerRemarkNew WITH(UPDLOCK,ROWLOCK)
 	SET CustID               =   @CustID  ,         
@@ -75,7 +84,7 @@ BEGIN
 		AcknowledgerID       =   @AcknowledgerID  , 
 		Requester            =   @Requester       , 
 		UpdaterID            =   @UpdaterID      ,  
-		LastUpdate           =   GETDATE()     ,  
+		LastUpdate           =   @NewUpdate     ,  
 		CreatedDate          =   CASE WHEN CreatorID IS NULL THEN GETDATE() ELSE CreatedDate END  , 
 		CreatorID            =   CASE WHEN CreatorID IS NULL THEN @UpdaterID ELSE CreatorID END         
 	WHERE RemarkID = @RemarkID
@@ -88,6 +97,24 @@ BEGIN
 		RETURN
 	END
 	
+	IF EXISTS(SELECT TOP 1 1 FROM crmCustomerRemarkNew WITH(NOLOCK) WHERE ISNULL(CreatorID,0) <> 0 )
+	BEGIN
+		DECLARE @LogHistory VARCHAR(MAX)
+		SELECT @LogHistory = '<Root>' +
+			'<Remark>'			+ CASE WHEN @Remark_old <> @Remark THEN ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'') ELSE '' END + '</Remark>' +
+			'<RemarkTitle>'		+ CASE WHEN @RemarkTitle_old <> @RemarkTitle THEN ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'') ELSE '' END + '</RemarkTitle>' +
+			'<RelatedPICs>'		+ CASE WHEN @RelatedPICs_old <> @RelatedPICs THEN ISNULL(@RelatedPICs_old,'') ELSE '' END		+ '</RelatedPICs>' +
+			'<Ext>'				+ CASE WHEN @Ext_old <> @Ext THEN ISNULL(CONVERT(VARCHAR(10),@Ext_old),'') ELSE '' END			+ '</Ext>' +
+			'<HandlerID>'		+ CASE WHEN @HandlerID_old <> @HandlerID THEN ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'') ELSE '' END + '</HandlerID>' +
+			'<ApproverID>'		+ CASE WHEN @ApproverID_old <> @ApproverID THEN ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'') ELSE '' END + '</ApproverID>' +
+			'<AcknowledgerID>'	+ CASE WHEN @AcknowledgerID_old <> @AcknowledgerID THEN ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')  ELSE '' END + '</AcknowledgerID>' +
+			'<Requester>'		+ CASE WHEN @Requester_old <> @Requester THEN ISNULL(CONVERT(VARCHAR(10),@Requester_old),'') ELSE '' END 	+ '</Requester>' +
+			'<UpdaterID>'		+ CASE WHEN @UpdaterID_old <> @UpdaterID THEN ISNULL(CONVERT(VARCHAR(10),@UpdaterID_old),'')  ELSE '' END + '</UpdaterID>' +
+		'</Root>' 
+		INSERT INTO crmCustomerRemarkHistory(RemarkID,CustID,Logdata,UpdaterID,LastUpdate)
+		VALUES(@RemarkID,@CustID,@LogHistory,@UpdaterID,@NewUpdate)
+	END
+	
 	-- write log
 	DECLARE @LogElement_old XML
 	SELECT @LogElement_old = 				
@@ -96,11 +123,15 @@ BEGIN
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'')		+ '</RemarkTitle>' +
 						'<RelatedPICs>'	+ ISNULL(@RelatedPICs_old,'')							+ '</RelatedPICs>' +
+						'<Ext>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext_old),'')				+ '</Ext>' +
 						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'')	+ '</HandlerID>' +
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester_old),'')		+ '</Requester>' +
 						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID_old),'')	+ '</UpdaterID>' +
+						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')		+ '</CreatorID>' +
+						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@LastUpdate),'')		+ '</LastUpdate>' +
+						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')		+ '</CreatedDate>' +
 					'</Acc_CRM_CustomerRemarkNew_Upd>' 
 	DECLARE @LogElement XML
 	SELECT @LogElement = 				
@@ -109,11 +140,15 @@ BEGIN
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle),'')		+ '</RemarkTitle>' +
 						'<RelatedPICs>'	+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
+						'<Ext>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</Ext>' +
 						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')	+ '</HandlerID>' +
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester),'')		+ '</Requester>' +
 						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID),'')	+ '</UpdaterID>' +
+						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')	+ '</CreatorID>' +
+						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')	+ '</LastUpdate>' +
+						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')	+ '</CreatedDate>' +
 					'</Acc_CRM_CustomerRemarkNew_Upd>' 
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]

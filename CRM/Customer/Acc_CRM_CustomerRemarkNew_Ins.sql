@@ -29,6 +29,9 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @NewUpdate DATETIME
+	SET @NewUpdate = GETDATE()
 		
 	IF ISNULL(@Remark, '') = '' OR	ISNULL(@RemarkTitle, 0) = 0 
 	BEGIN
@@ -88,9 +91,9 @@ BEGIN
 		,@AcknowledgerID
 		,@Requester
 		,@UpdaterID
-		,GETDATE()
+		,@NewUpdate
 		,@CreatorID
-		,GETDATE()
+		,@NewUpdate
 	)
 	
 	IF @@ERROR <> 0
@@ -109,12 +112,15 @@ BEGIN
 						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
 						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle),'')		+ '</RemarkTitle>' +
 						'<RelatedPICs>'	+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
-						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')	+ '</HandlerID>' +
+						'<Ext>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</Ext>' +
+						'<HandlerID>'	+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')		+ '</HandlerID>' +
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester),'')		+ '</Requester>' +
-						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID),'')	+ '</UpdaterID>' +
+						'<UpdaterID>'	+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID),'')		+ '</UpdaterID>' +
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')		+ '</CreatorID>' +
+						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
+						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</CreatedDate>' +
 					'</Acc_CRM_CustomerRemarkNew_Ins>' 
 				
 

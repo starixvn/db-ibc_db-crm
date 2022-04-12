@@ -49,6 +49,8 @@ BEGIN
 	DELETE crmCustomerRemarkNew WITH(UPDLOCK,ROWLOCK)      
 	WHERE RemarkID = @RemarkID
 	
+	DELETE crmCustomerRemarkHistory WITH(UPDLOCK,ROWLOCK)      
+	WHERE RemarkID = @RemarkID
 	
 	IF @@ERROR <> 0
 	BEGIN

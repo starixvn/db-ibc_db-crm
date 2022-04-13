@@ -40,9 +40,9 @@ BEGIN
 		RETURN;
 	END;
 	
-	IF EXISTS (SELECT TOP 1 1 FROM dbo.strSplit(@RelatedPICs,',') 
-					WHERE NOT EXISTS (SELECT 1 FROM crmPIC WITH(NOLOCK) 
-					WHERE PicID = SettingID) )
+	IF EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(@RelatedPICs,',') 
+					WHERE  value <> '' AND NOT EXISTS (SELECT 1 FROM crmPIC WITH(NOLOCK) 
+					WHERE PicID = value) )
 	BEGIN
 		SELECT	@ErrCode = 101
 			,	@ErrMsg = 'PIC does not exist in IBC system.';

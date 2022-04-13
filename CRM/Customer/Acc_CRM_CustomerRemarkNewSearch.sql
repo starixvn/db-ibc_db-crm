@@ -103,9 +103,9 @@ BEGIN
 		LEFT JOIN crmCustomer app WITH(NOLOCK) ON a.ApproverID = app.CustID
 		LEFT JOIN crmCustomer ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
 		LEFT JOIN crmCustomer upd WITH(NOLOCK) ON a.UpdaterID = upd.CustID
-	WHERE  (@Username = '' OR b.UserName IN (select Data from dbo.SplitString(@Username,',')))
+	WHERE  (@Username = '' OR b.UserName IN (SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE  value <> ''))
 	AND a.Remark LIKE '%' + @Remark + '%' 
-	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (select SettingID from dbo.strSplit(@RemarkTitle,',')))
+	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 	AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
 	AND a.RelatedPICs LIKE @RelatedPICs + '%'
 	AND a.RelatedPICs LIKE @RelatedPICs + '%'
@@ -131,8 +131,9 @@ BEGIN
 	FROM #Result a
 		OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(b.Username as nvarchar(200))  as [text()]
-					FROM dbo.strSplit(RelatedPICs,',') a
-					INNER JOIN  crmPIC b  WITH(NOLOCK)  ON a.SettingID = b.PicID
+					FROM STRING_SPLIT(RelatedPICs,',') a
+					INNER JOIN  crmPIC b  WITH(NOLOCK)  ON a.value = b.PicID
+					WHERE  value <> ''
 					FOR XML PATH('')
 					),1,1,'')
 			)c (UserNameRelatedPICs)

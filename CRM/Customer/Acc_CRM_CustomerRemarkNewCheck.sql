@@ -34,7 +34,7 @@ BEGIN
 					)	
 	
 	INSERT INTO #CustList(UserName)
-	SELECT Data FROM dbo.SplitString(@Username,',')
+	SELECT value FROM STRING_SPLIT(@Username,',')  WHERE value <> ''
 	
 	UPDATE a
 	SET a.CustID = b.CustID, IsExists = 1 , a.SiteID = b.SiteID

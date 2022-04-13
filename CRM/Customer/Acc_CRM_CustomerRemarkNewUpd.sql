@@ -10,7 +10,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewUpd]
 	,@ApproverID INT 
 	,@AcknowledgerID INT 
 	,@Requester NVARCHAR(500) 
-	,@UpdaterID INT 
+	,@ModifierID INT 
 	,@IP VARCHAR(15)
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(200) = ''	OUTPUT
@@ -48,7 +48,7 @@ BEGIN
 			,@ApproverID_old    INT    
 			,@AcknowledgerID_old    INT    
 			,@Requester_old    NVARCHAR(500)    
-			,@UpdaterID_old    INT 
+			,@ModifierID_old    INT 
 			,@CreatorID_old INT 
 			,@LastUpdate DATETIME 
 			,@CreatedDate DATETIME
@@ -64,7 +64,7 @@ BEGIN
 	,@ApproverID_old           	=   ApproverID                 
 	,@AcknowledgerID_old       	=   AcknowledgerID             
 	,@Requester_old           	=   Requester                   
-	,@UpdaterID_old           	=   UpdaterID
+	,@ModifierID_old           	=   ModifierID
 	,@CreatedDate				=	CreatedDate
 	,@CreatorID_old				=	CreatorID 
 	,@LastUpdate				=	LastUpdate   
@@ -83,7 +83,7 @@ BEGIN
 		ApproverID           =   @ApproverID     ,  
 		AcknowledgerID       =   @AcknowledgerID  , 
 		Requester            =   @Requester       , 
-		UpdaterID            =   @UpdaterID      ,  
+		ModifierID            =  @ModifierID      ,  
 		LastUpdate           =   @NewUpdate     ,  
 		CreatedDate          =   CASE WHEN CreatorID IS NULL THEN GETDATE() ELSE CreatedDate END  , 
 		CreatorID            =   CASE WHEN CreatorID IS NULL THEN @UpdaterID ELSE CreatorID END         
@@ -109,7 +109,7 @@ BEGIN
 		   CASE WHEN @ApproverID_old <> @ApproverID THEN '<ApproverID>'  +  ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'') + '</ApproverID>'  ELSE '' END +  
 		   CASE WHEN @AcknowledgerID_old <> @AcknowledgerID THEN '<AcknowledgerID>' +  ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')  + '</AcknowledgerID>'  ELSE '' END +  
 		   CASE WHEN @Requester_old <> @Requester THEN '<Requester>'  +  ISNULL(CONVERT(VARCHAR(10),@Requester_old),'') + '</Requester>'  ELSE '' END +  
-		   CASE WHEN @UpdaterID_old <> @UpdaterID THEN '<UpdaterID>'  +  ISNULL(CONVERT(VARCHAR(10),@UpdaterID_old),'') + '</UpdaterID>'  ELSE '' END  +  
+		   CASE WHEN @ModifierID_old <> @ModifierID THEN '<ModifierID>'  +  ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'') + '</ModifierID>'  ELSE '' END  +  
 		'</Root>' 
 		INSERT INTO crmCustomerRemarkHistory(RemarkID,CustID,Logdata,UpdaterID,LastUpdate)
 		VALUES(@RemarkID,@CustID,@LogHistory,@UpdaterID,@NewUpdate)
@@ -128,7 +128,7 @@ BEGIN
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester_old),'')		+ '</Requester>' +
-						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID_old),'')	+ '</UpdaterID>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')	+ '</ModifierID>' +
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')		+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@LastUpdate),'')		+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')		+ '</CreatedDate>' +
@@ -145,7 +145,7 @@ BEGIN
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester),'')		+ '</Requester>' +
-						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID),'')	+ '</UpdaterID>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')	+ '</ModifierID>' +
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')	+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')	+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')	+ '</CreatedDate>' +

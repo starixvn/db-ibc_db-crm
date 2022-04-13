@@ -44,10 +44,10 @@ BEGIN
 	
 	CREATE TABLE #Result (RowNumber	INT IDENTITY (1,1),
 						RemarkID INT,HeadlineID INT ,HeadlineName NVARCHAR(50), 
-						CustID INT , Remark NVARCHAR(MAX),
+						CustID INT , Remark NVARCHAR(MAX),IsGroupHeadLine BIT, 
 						RemarkTitle INT , RelatedPICs  VARCHAR(100), UserNameRelatedPICs  NVARCHAR(MAX),
 						Ext	INT, HandlerID INT , ApproverID INT , AcknowledgerID INT ,
-						Requester NVARCHAR(500), UpdaterID INT , LastUpdate DATETIME ,
+						Requester NVARCHAR(500), ModifierID INT , LastUpdate DATETIME ,
 						CreatedDate DATETIME ,CreatorID INT, UserName NVARCHAR(50), Creator NVARCHAR(50),
 						Handler NVARCHAR(50), Acknowledger NVARCHAR(50), Approver NVARCHAR(50), 
 						RemarkName NVARCHAR(100), ExtStation NVARCHAR(100), Updater NVARCHAR(50)
@@ -81,7 +81,7 @@ BEGIN
 							ELSE @Todate END
 			
 	INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
-		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, UpdaterID, Requester, ApproverID
+		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
 		, AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater )
 	SELECT 
 		a.RemarkID, a.CreatedDate, a.CreatorID, a.CustID, b.UserName , a.RemarkTitle, a.Ext,
@@ -91,7 +91,7 @@ BEGIN
 		CASE WHEN @Lang='zh-TW' THEN ISNULL(d.SettingValueCT,d.SettingValue)  
 			 WHEN @Lang='zh-CN' THEN ISNULL(d.SettingValueCS,d.SettingValue)  
 			 ELSE d.SettingValue END AS ExtStation,	 
-		a.Remark, a.RelatedPICs,	a.HandlerID, a.UpdaterID, a.Requester, a.ApproverID,a.AcknowledgerID,
+		a.Remark, a.RelatedPICs,	a.HandlerID, a.ModifierID, a.Requester, a.ApproverID,a.AcknowledgerID,
 		a.LastUpdate , e.UserName AS Creator, her.UserName AS Handler, app.UserName AS Approver,
 		ack.UserName AS Acknowledger, upd.UserName AS Updater
 	FROM crmCustomerRemarkNew a WITH(NOLOCK) 
@@ -102,7 +102,7 @@ BEGIN
 		LEFT JOIN crmCustomer her WITH(NOLOCK) ON a.HandlerID = her.CustID
 		LEFT JOIN crmCustomer app WITH(NOLOCK) ON a.ApproverID = app.CustID
 		LEFT JOIN crmCustomer ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
-		LEFT JOIN crmCustomer upd WITH(NOLOCK) ON a.UpdaterID = upd.CustID
+		LEFT JOIN crmCustomer upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
 	WHERE  (@Username = '' OR b.UserName IN (SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE  value <> ''))
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
@@ -138,13 +138,17 @@ BEGIN
 					),1,1,'')
 			)c (UserNameRelatedPICs)
 	
+	UPDATE a
+	SET a.IsGroupHeadLine = 1
+	FROM #Result a
+		INNER JOIN bodb02.dbo.CustAccount c WITH(NOLOCK) ON a.custid = c.custid AND c.IsGroupHeadLine = 1
 	
 	SELECT @TotalRows = COUNT(1) FROM #Result
 	
 	SELECT 
-		RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext ,
-		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, UpdaterID, Requester, ApproverID, 
-		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater
+		RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext , IsGroupHeadLine,
+		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID, 
+		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater , HeadlineID , HeadlineName
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
 	ORDER BY UserName

@@ -9,7 +9,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewIns]
 	,@ApproverID INT 
 	,@AcknowledgerID INT 
 	,@Requester NVARCHAR(500) 
-	,@UpdaterID INT 
+	,@ModifierID INT 
 	,@CreatorID INT 
 	,@IP VARCHAR(15)
 	,@ErrCode INT = 0 OUTPUT
@@ -74,7 +74,7 @@ BEGIN
 		,ApproverID
 		,AcknowledgerID
 		,Requester
-		,UpdaterID
+		,ModifierID
 		,LastUpdate
 		,CreatorID
 		,CreatedDate
@@ -90,7 +90,7 @@ BEGIN
 		,@ApproverID
 		,@AcknowledgerID
 		,@Requester
-		,@UpdaterID
+		,@ModifierID
 		,@NewUpdate
 		,@CreatorID
 		,@NewUpdate
@@ -117,7 +117,7 @@ BEGIN
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester),'')		+ '</Requester>' +
-						'<UpdaterID>'	+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID),'')		+ '</UpdaterID>' +
+						'<ModifierID>'	+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')		+ '</ModifierID>' +
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')		+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</CreatedDate>' +

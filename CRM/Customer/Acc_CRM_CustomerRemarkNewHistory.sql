@@ -22,14 +22,14 @@ Param's Explanation:
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @RowStart INT,@RowEnd INT ,@Logdata VARCHAR(MAX) = '' ,@UpdaterID INT, @LastUpdate DATETIME, @Version INT, @iDoc INT
+	DECLARE @RowStart INT,@RowEnd INT ,@Logdata VARCHAR(MAX) = '' ,@ModifierID INT, @LastUpdate DATETIME, @Version INT, @iDoc INT
 	SELECT @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
 	CREATE TABLE #TempHistory (VersionID INT IDENTITY (1,1), RemarkID INT, CustID INT, 
-								Logdata NVARCHAR(MAX), UpdaterID INT, LastUpdate DATETIME, isfinished BIT DEFAULT(0) )
+								Logdata NVARCHAR(MAX), ModifierID INT, LastUpdate DATETIME, isfinished BIT DEFAULT(0) )
 	
-	INSERT INTO #TempHistory(RemarkID,CustID,Logdata,UpdaterID,LastUpdate)
-	SELECT RemarkID,CustID,Logdata,UpdaterID,LastUpdate 
+	INSERT INTO #TempHistory(RemarkID,CustID,Logdata,ModifierID,LastUpdate)
+	SELECT RemarkID,CustID,Logdata,ModifierID,LastUpdate 
 	FROM crmCustomerRemarkHistory a WITH(NOLOCK)
 	WHERE a.RemarkID = @RemarkID AND a.CustID = @CustID
 	ORDER BY LastUpdate
@@ -37,15 +37,15 @@ BEGIN
 	SELECT @Version = MAX(VersionID) + 1 FROM #TempHistory
 	CREATE TABLE #Result (RowNumber	INT IDENTITY (1,1), VersionID	INT, RemarkID INT, HeadlineID INT, HeadlineName NVARCHAR(50), 
 						CustID INT, Remark NVARCHAR(MAX),	RemarkTitle INT, RelatedPICs  VARCHAR(100), UserNameRelatedPICs  NVARCHAR(MAX),
-						Ext	INT, HandlerID INT, ApproverID INT, AcknowledgerID INT,	Requester NVARCHAR(500), UpdaterID INT, LastUpdate DATETIME,
+						Ext	INT, HandlerID INT, ApproverID INT, AcknowledgerID INT,	Requester NVARCHAR(500), ModifierID INT, LastUpdate DATETIME,
 						CreatedDate DATETIME ,CreatorID INT, UserName NVARCHAR(50), Creator NVARCHAR(50),
 						Handler NVARCHAR(50), Acknowledger NVARCHAR(50), Approver NVARCHAR(50), 
 						RemarkName NVARCHAR(100), ExtStation NVARCHAR(100), Updater NVARCHAR(50)
 						)
 
-	INSERT INTO	#Result	(RemarkID, CreatedDate, VersionID, CustID, LastUpdate,  Remark, RemarkTitle, RelatedPICs, Ext, HandlerID, ApproverID, AcknowledgerID, Requester, UpdaterID, CreatorID)
+	INSERT INTO	#Result	(RemarkID, CreatedDate, VersionID, CustID, LastUpdate,  Remark, RemarkTitle, RelatedPICs, Ext, HandlerID, ApproverID, AcknowledgerID, Requester, ModifierID, CreatorID)
 	SELECT	RemarkID, CreatedDate, @Version AS VersionID, @CustID AS CustID,LastUpdate , a.Remark, a.RemarkTitle, a.RelatedPICs, a.Ext, a.HandlerID, a.ApproverID, 
-			a.AcknowledgerID, a.Requester, a.UpdaterID , a.CreatorID
+			a.AcknowledgerID, a.Requester, a.ModifierID , a.CreatorID
 	FROM crmCustomerRemarkNew a WITH(NOLOCK) 
 	WHERE a.CustID = @CustID AND a.RemarkID = @RemarkID
 
@@ -55,7 +55,7 @@ BEGIN
 		UPDATE TOP (1) #TempHistory 		 
 		SET IsFinished = 1,
 			@Logdata = Logdata,
-			@UpdaterID = UpdaterID,
+			@ModifierID = ModifierID,
 			@LastUpdate = LastUpdate
 		WHERE IsFinished = 0 AND VersionID = @Version
 		
@@ -63,9 +63,9 @@ BEGIN
 		-- Read XML
 		EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Logdata
 
-		INSERT INTO	#Result	(VersionID, CustID, LastUpdate,RemarkID,  Remark, RemarkTitle, RelatedPICs, Ext, HandlerID, ApproverID, AcknowledgerID, Requester, UpdaterID)
+		INSERT INTO	#Result	(VersionID, CustID, LastUpdate,RemarkID,  Remark, RemarkTitle, RelatedPICs, Ext, HandlerID, ApproverID, AcknowledgerID, Requester, ModifierID)
 		SELECT	@Version AS VersionID, @CustID AS CustID,@LastUpdate AS LastUpdate, @RemarkID AS RemarkID, ox.Remark, ox.RemarkTitle, ox.RelatedPICs, ox.Ext, ox.HandlerID, ox.ApproverID, 
-				ox.AcknowledgerID, ox.Requester, ox.UpdaterID
+				ox.AcknowledgerID, ox.Requester, ox.ModifierID
 		FROM	OPENXML(@iDoc, '/Root', 2)
 				WITH (
 					Remark NVARCHAR(MAX),
@@ -76,7 +76,7 @@ BEGIN
 					ApproverID INT,
 					AcknowledgerID INT,
 					Requester NVARCHAR(500),
-					UpdaterID INT
+					ModifierID INT
 				) AS ox
 		EXECUTE sys.sp_xml_removedocument @iDoc
 		
@@ -90,7 +90,7 @@ BEGIN
 			,a.ApproverID = CASE WHEN ISNULL(a.ApproverID,0) <> 0 THEN a.ApproverID ELSE b.ApproverID END
 			,a.AcknowledgerID = CASE WHEN ISNULL(a.AcknowledgerID,0) <> 0 THEN a.AcknowledgerID ELSE b.AcknowledgerID END
 			,a.Requester = CASE WHEN ISNULL(a.Requester,'') <> '' THEN a.Requester ELSE b.Requester END
-			,a.UpdaterID = CASE WHEN ISNULL(a.UpdaterID,0) <> 0 THEN a.UpdaterID ELSE b.UpdaterID END
+			,a.ModifierID = CASE WHEN ISNULL(a.ModifierID,0) <> 0 THEN a.ModifierID ELSE b.ModifierID END
 			,a.CreatedDate = b.CreatedDate
 			,a.CreatorID = b.CreatorID
 			,a.RemarkID =  b.RemarkID
@@ -146,13 +146,13 @@ BEGIN
 		LEFT JOIN crmCustomer her WITH(NOLOCK) ON a.HandlerID = her.CustID
 		LEFT JOIN crmCustomer app WITH(NOLOCK) ON a.ApproverID = app.CustID
 		LEFT JOIN crmCustomer ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
-		LEFT JOIN crmCustomer upd WITH(NOLOCK) ON a.UpdaterID = upd.CustID
+		LEFT JOIN crmCustomer upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
 
 	SELECT @TotalRows = COUNT(1) FROM #Result
 	
 	SELECT 
 		VersionID, RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext ,
-		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, UpdaterID, Requester, ApproverID, 
+		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID, 
 		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd

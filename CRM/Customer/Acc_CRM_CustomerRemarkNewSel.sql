@@ -19,7 +19,7 @@ BEGIN
 	SET NOCOUNT ON
 	SELECT TOP 5 a.Remark ,a.RemarkID ,a.CustID ,a.Remark ,a.RemarkTitle ,a.RelatedPICs ,
 				a.HandlerID ,a.Ext ,a.Requester ,a.ApproverID ,a.AcknowledgerID ,
-				a.UpdaterID ,a.LastUpdate, a.CreatorID, a.CreatedDate, b.UserName,
+				a.ModifierID ,a.LastUpdate, a.CreatorID, a.CreatedDate, b.UserName,
 				c.SettingValue AS RemarkName,e.UserName AS Creator
     FROM crmCustomerRemarkNew a WITH(NOLOCK) 
 		INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID

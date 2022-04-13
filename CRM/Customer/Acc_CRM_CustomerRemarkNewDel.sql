@@ -30,7 +30,7 @@ BEGIN
 			,@ApproverID_old    INT    
 			,@AcknowledgerID_old    INT    
 			,@Requester_old    NVARCHAR(500)    
-			,@UpdaterID_old    INT  
+			,@ModifierID_old    INT  
 	
 	SELECT
 	@CustID_old          		=   CustID                   	
@@ -42,7 +42,7 @@ BEGIN
 	,@ApproverID_old           	=   ApproverID                 
 	,@AcknowledgerID_old       	=   AcknowledgerID             
 	,@Requester_old           	=   Requester                   
-	,@UpdaterID_old           	=   UpdaterID   
+	,@ModifierID_old           	=   ModifierID   
 	FROM  crmCustomerRemarkNew WITH(NOLOCK)
 	WHERE RemarkID = @RemarkID
 		
@@ -71,7 +71,7 @@ BEGIN
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester_old),'')		+ '</Requester>' +
-						'<UpdaterID>'		+ ISNULL(CONVERT(VARCHAR(10),@UpdaterID_old),'')	+ '</UpdaterID>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')	+ '</ModifierID>' +
 						'<IP>'		+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
 					'</R>' 
 

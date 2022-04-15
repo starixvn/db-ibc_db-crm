@@ -40,7 +40,7 @@ BEGIN
 		RETURN;
 	END;
 	
-	IF @RelatedPICs<> '' AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(@RelatedPICs,',') 
+	IF IsNull(@RelatedPICs,'')  <> '' AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(@RelatedPICs,',') 
 					WHERE  value <> '' AND NOT EXISTS (SELECT 1 FROM crmPIC WITH(NOLOCK) 
 					WHERE PicID = value) )
 	BEGIN

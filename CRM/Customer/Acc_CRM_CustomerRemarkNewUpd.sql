@@ -86,7 +86,7 @@ BEGIN
 		ModifierID            =  @ModifierID      ,  
 		LastUpdate           =   @NewUpdate     ,  
 		CreatedDate          =   CASE WHEN CreatorID IS NULL THEN GETDATE() ELSE CreatedDate END  , 
-		CreatorID            =   CASE WHEN CreatorID IS NULL THEN @UpdaterID ELSE CreatorID END         
+		CreatorID            =   CASE WHEN CreatorID IS NULL THEN @ModifierID ELSE CreatorID END         
 	WHERE RemarkID = @RemarkID
 	
 	
@@ -111,8 +111,8 @@ BEGIN
 		   CASE WHEN @Requester_old <> @Requester THEN '<Requester>'  +  ISNULL(CONVERT(VARCHAR(10),@Requester_old),'') + '</Requester>'  ELSE '' END +  
 		   CASE WHEN @ModifierID_old <> @ModifierID THEN '<ModifierID>'  +  ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'') + '</ModifierID>'  ELSE '' END  +  
 		'</Root>' 
-		INSERT INTO crmCustomerRemarkHistory(RemarkID,CustID,Logdata,UpdaterID,LastUpdate)
-		VALUES(@RemarkID,@CustID,@LogHistory,@UpdaterID,@NewUpdate)
+		INSERT INTO crmCustomerRemarkHistory(RemarkID,CustID,Logdata,ModifierID,LastUpdate)
+		VALUES(@RemarkID,@CustID,@LogHistory,@ModifierID,@NewUpdate)
 	END
 	
 	-- write log
@@ -145,7 +145,7 @@ BEGIN
 						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
 						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
 						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester),'')		+ '</Requester>' +
-						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')	+ '</ModifierID>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')	+ '</ModifierID>' +
 						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')	+ '</CreatorID>' +
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')	+ '</LastUpdate>' +
 						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')	+ '</CreatedDate>' +
@@ -153,7 +153,7 @@ BEGIN
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
 					@CustID = @CustID, 
-					@UserID = @UpdaterID, 
+					@UserID = @ModifierID, 
 					@ActionID = 602, 
 					@IP = @IP, 
 					@OldValues = @LogElement_old,

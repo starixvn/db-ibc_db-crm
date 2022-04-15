@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewIns] 
-	 @CustID INT 
+	 @Username	NVARCHAR(50) 
 	,@Remark NVARCHAR(MAX) 
 	,@RemarkTitle INT 
 	,@RelatedPICs  VARCHAR(1000) 
@@ -30,7 +30,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @NewUpdate DATETIME
+	DECLARE @NewUpdate DATETIME, @CustID INT = 0
 	SET @NewUpdate = GETDATE()
 		
 	IF ISNULL(@Remark, '') = '' OR	ISNULL(@RemarkTitle, 0) = 0 
@@ -49,23 +49,11 @@ BEGIN
 		RETURN;
 	END;
 	
-	-- Sync Data From main 
-	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
-	BEGIN
-		EXEC Acc_CRM_CopyCustomerInformation
-			@CustID		= @CustID,
-			@UserID		= @CreatorID,
-			@IP			= @IP,
-			@ErrCode	= @ErrCode OUTPUT,
-			@ErrMsg		= @ErrMsg OUTPUT
+	SELECT @CustID = CustID FROM crmCustomer WITH(NOLOCK) WHERE UserName = @Username
 
-			IF @ErrCode <> 0
-				RETURN
-	END
-	
 	INSERT INTO crmCustomerRemarkNew
 	(
-		 CustID
+			CustID
 		,Remark
 		,RemarkTitle
 		,RelatedPICs
@@ -95,7 +83,8 @@ BEGIN
 		,@CreatorID
 		,@NewUpdate
 	)
-	
+
+
 	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = 103

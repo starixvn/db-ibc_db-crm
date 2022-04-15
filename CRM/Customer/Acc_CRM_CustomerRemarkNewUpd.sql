@@ -1,17 +1,17 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewUpd] 
-	 @RemarkID INT
-	,@CustID INT 
-	,@Remark NVARCHAR(MAX) 
-	,@RemarkTitle INT 
-	,@RelatedPICs  VARCHAR(1000) 
-	,@Ext	INT 
-	,@HandlerID INT 
-	,@ApproverID INT 
-	,@AcknowledgerID INT 
-	,@Requester NVARCHAR(500) 
-	,@ModifierID INT 
-	,@IP VARCHAR(15)
+	 @RemarkID INT= Null
+	,@CustID INT = Null
+	,@Remark NVARCHAR(MAX) = Null
+	,@RemarkTitle INT = Null
+	,@RelatedPICs  VARCHAR(1000) = Null
+	,@Ext	INT = Null
+	,@HandlerID INT = Null
+	,@ApproverID INT = Null
+	,@AcknowledgerID INT = Null
+	,@Requester NVARCHAR(500) = Null
+	,@ModifierID INT = Null
+	,@IP VARCHAR(15)= Null
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(200) = ''	OUTPUT
 AS

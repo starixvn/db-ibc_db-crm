@@ -23,7 +23,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @RowStart INT,@RowEnd INT ,@Logdata VARCHAR(MAX) = '' ,@ModifierID INT, @LastUpdate DATETIME, @Version INT, @iDoc INT
-	SELECT @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
+	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
 	CREATE TABLE #TempHistory (VersionID INT IDENTITY (1,1), RemarkID INT, CustID INT, 
 								Logdata NVARCHAR(MAX), ModifierID INT, LastUpdate DATETIME, isfinished BIT DEFAULT(0) )

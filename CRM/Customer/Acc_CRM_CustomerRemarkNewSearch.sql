@@ -99,10 +99,10 @@ BEGIN
 		LEFT JOIN crmSetting c WITH(NOLOCK) ON a.RemarkTitle = c.SettingID AND c.SettingName = 'RemarkTitles'
 		LEFT JOIN crmSetting d WITH(NOLOCK) ON a.Ext = d.SettingID AND d.SettingName = 'Station'
 		LEFT JOIN crmCustomer e WITH(NOLOCK) ON a.CreatorID = e.CustID
-		LEFT JOIN crmCustomer her WITH(NOLOCK) ON a.HandlerID = her.CustID
-		LEFT JOIN crmCustomer app WITH(NOLOCK) ON a.ApproverID = app.CustID
-		LEFT JOIN crmCustomer ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
-		LEFT JOIN crmCustomer upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
+		LEFT JOIN DBACC.bodb02.dbo.Custinfo her WITH(NOLOCK) ON a.HandlerID = her.CustID
+		LEFT JOIN DBACC.bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
+		LEFT JOIN DBACC.bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
+		LEFT JOIN DBACC.bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
 	WHERE  (@Username = '' OR b.UserName IN (SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE  value <> ''))
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))

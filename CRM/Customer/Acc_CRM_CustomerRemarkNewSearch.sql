@@ -40,7 +40,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @RowStart INT,@RowEnd INT ,@AffectedList VARCHAR(MAX) = ''
-	SELECT @RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
+	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
 	CREATE TABLE #Result (RowNumber	INT IDENTITY (1,1),
 						RemarkID INT,HeadlineID INT ,HeadlineName NVARCHAR(50), 

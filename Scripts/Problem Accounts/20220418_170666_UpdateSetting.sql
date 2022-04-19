@@ -6,5 +6,5 @@
 	Task: Update data [RedmineId : #170666]
 */
 UPDATE Systemsetting WITH(ROWLOCK)
-	SET Value = '0'
+	SET Value = '1'
 WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName IN ('IncludeUUSCurrency', 'IsSyncSettingsForUAT')

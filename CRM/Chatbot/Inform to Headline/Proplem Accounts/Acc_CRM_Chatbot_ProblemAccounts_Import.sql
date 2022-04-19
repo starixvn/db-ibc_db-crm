@@ -15,6 +15,7 @@ AS
 		- 20210428@Malcolm: Initialize SP [RedmineID: #153119]
 		- 20210813@Malcolm: fix wrongly marking status as duplicated [RedmineID: #151509]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
+		- 20220330@Malcolm: remove space [RedmineId: #170666]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -426,11 +427,11 @@ BEGIN
 	),CTE_Content AS 
 	(	
 		SELECT	i.Id
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentEN
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentSC
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentTH
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameYN FOR XML PATH('')), 1, 1, '') AS ContentYN
-			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + '/' +  e.CategoryNameSC + ' : ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentENSC
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + ': ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentEN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameSC  + ': ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentSC
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameTH  + ': ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentTH
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameYN  + ': ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameYN FOR XML PATH('')), 1, 1, '') AS ContentYN
+			   ,STUFF ((SELECT CHAR(10) + ' - ' + e.CategoryNameEN  + '/' +  e.CategoryNameSC + ': ' + UsernameLst FROM CTE_Category e WHERE e.Id = i.Id ORDER BY e.CategoryNameEN FOR XML PATH('')), 1, 1, '') AS ContentENSC
 			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)

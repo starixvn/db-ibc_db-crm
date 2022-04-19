@@ -15,6 +15,7 @@ AS
 
 	Revisions:
 		- 20210507@Johnson: Initial sp [redmine:#153119]
+		- 20220330@Johnson: Integrate new Customer Class for PA Probation [redmine:#170666]
 		
 */
 BEGIN
@@ -27,7 +28,9 @@ BEGIN
 	FROM CustCategoryHistory c WITH(NOLOCK)
 		INNER JOIN customer ci WITH(NOLOCK) ON c.custid = ci.custid
 	WHERE LogID > @LastLogID
-		AND CustomerClass BETWEEN 8 AND 12
+		AND CustomerClass IN (SELECT DISTINCT CustomerClass 
+							FROM CategoryConfig WITH(NOLOCK)
+							WHERE CustomerClass IS NOT NULL)
 		AND ci.site = '789y'
 		AND ci.roleid = 1		
 		AND 1= CASE WHEN ci.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1

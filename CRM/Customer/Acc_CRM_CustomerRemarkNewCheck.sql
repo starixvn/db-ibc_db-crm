@@ -24,48 +24,47 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
-	
-	CREATE TABLE #CustList (
+	DECLARE @tmpCustomer TABLE(UserName VARCHAR(50))
+	DECLARE @Customer TABLE (
 					CustID			INT,
 					UserName		VARCHAR(50),
-					SiteID			INT,
-					IsCredit		INT,					
-					IsExists		VARCHAR(50)
+					IsLicensee		BIT, 
+					IsSiteActive	BIT
 					)	
 	
-	INSERT INTO #CustList(UserName)
+	INSERT INTO @tmpCustomer(UserName)
 	SELECT value FROM STRING_SPLIT(@Username,',')  WHERE value <> ''
 	
-	UPDATE a
-	SET a.CustID = b.CustID, IsExists = 1 , a.SiteID = b.SiteID
-	FROM #CustList a
-		INNER JOIN crmCustomer b WITH(NOLOCK) ON a.UserName = b.UserName
-	WHERE @IsGuest = 1 OR (	@IsGuest = 0 AND b.CustID > 0)
-	
-	UPDATE a
-	SET a.IsCredit = CASE WHEN sr.SettingID IS NOT NULL THEN 0 ELSE 1 END
-	FROM #CustList a
-		LEFT JOIN crmSetting s WITH(NOLOCK) ON a.siteID = s.SettingID 
+	INSERT INTO @Customer(CustID, UserName, IsLicensee, isSiteActive)
+	SELECT c.custid, c.username, 
+		CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsLicensee,
+		s.isActive
+	FROM bodb02.dbo.Customer c WITH (NOLOCK)		
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue AND s.SettingName = 'Site'
 		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
 														AND sr.ParentID = 33000--licensee
-	WHERE ((@UserRole=1 AND a.SiteID=33002) OR (@UserRole=2 AND ISNULL(a.SiteID,0)<>33002))														
+	WHERE c.username IN ( SELECT username FROM @tmpCustomer)
+		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 	
-	IF EXISTS (SELECT 1 FROM #CustList WITH(NOLOCK) WHERE CustID IS NULL)
-	BEGIN
-		
-		SELECT @ErrCode = 101
-		SELECT @ErrMsg = 'Customer does not exist in IBC system.'
-		RETURN										
-													
-	END
-	
-	IF EXISTS (SELECT 1 FROM #CustList WITH(NOLOCK) WHERE IsCredit <> 1)
-	BEGIN
-		SELECT @ErrCode = 102
-		SELECT @ErrMsg = 'Some Usernames not belong to credit Site.'
-		RETURN										
-													
-	END
-	DROP TABLE #CustList
+	INSERT INTO @Customer(CustID, UserName, IsLicensee, IsSiteActive)
+	SELECT c.custid, c.username, 
+		CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsLicensee,
+		s.IsActive 
+	FROM crmCustomer c WITH (NOLOCK) 
+		INNER JOIN @tmpCustomer tc on c.username = tc.UserName
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.siteID = s.SettingID 
+		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33000--licensee
+	WHERE c.CustID < 0	AND @IsGuest = 0
+		AND ((@UserRole=1 AND c.SiteID = 33002) OR (@UserRole=2 AND c.SiteID <> 33002))
+
+	INSERT INTO @Customer(CustID, UserName)
+	SELECT 0, tc.username 
+	FROM @tmpCustomer tc 
+	WHERE tc.UserName NOT IN (SELECT UserName FROM @Customer)
+
+	SELECT CustID, UserName as val, ISNULL(IsLicensee,0) IsLicensee, ISNULL(IsSiteActive,0) as IsSiteActive
+	FROM @Customer
+	ORDER BY UserName 
 				
 END	

@@ -3,8 +3,6 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewCheck]
 	@Username		NVARCHAR(50) = NULL
 	,@IsGuest		BIT = 0
 	,@UserRole  TINYINT  
-	,@ErrCode INT = 0 OUTPUT
-	,@ErrMsg NVARCHAR(200) = ''	OUTPUT
 AS
 /*
 	Created: 20220325@Winfred

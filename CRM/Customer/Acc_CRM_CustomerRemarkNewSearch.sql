@@ -8,7 +8,6 @@ ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
 	@IsGuest		BIT = 0,
 	@RelatedPICs	NVARCHAR(MAX)	= '',
 	@ShowHeadline	BIT = 0,
-	@DatePreset		INT = 0,
 	@Lang			VARCHAR(10)='en-US'  ,
 	@PageSize		INT	=	50,
 	@PageIndex		INT	=	0,
@@ -26,14 +25,6 @@ Revisions:
 	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
 Param's Explanation:	
 	@RemarkTitle 0 : All, <> 0 : RemarkTitle
-	@@DatePreset 0 : Today
-				 1 : Yesterday
-				 2 : This Week
-				 3 : Last Week
-				 4 : This Month
-				 5 : Last Month
-				 6 : This Year
-				 7 : Specific Dates
 	@IsHistory   0 : Search Remark , 1 : List History				 
 */
 BEGIN
@@ -58,28 +49,7 @@ BEGIN
 					HeadlineID		INT,					
 					HeadlineName	VARCHAR(50)
 					)
-	
-	SELECT @Fromdate	=  CASE @DatePreset 
-							WHEN 0 THEN CAST(GETDATE() AS DATE)
-							WHEN 1 THEN CAST(DATEADD(d,-1, GETDATE()) AS DATE)
-							WHEN 2 THEN CAST(DATEADD(d, -((DATEPART(dw,  GETDATE()) + @@DATEFIRST + 5 ) % 7), CAST(GETDATE() AS DATE)) AS DATE) 
-							WHEN 3 THEN CAST(DATEADD(d, - 7 -((DATEPART(dw,  GETDATE()) + @@DATEFIRST + 5 ) % 7), CAST(GETDATE() AS DATE)) AS DATE) 
-							WHEN 4 THEN CAST(DATEADD(dd,-(DAY(GETDATE())-1),GETDATE()) AS DATE)
-							WHEN 5 THEN CAST(DATEADD(dd,1-(DAY(DATEADD(mm,-1,DATEADD(dd,-(DAY(GETDATE())-1),GETDATE())))),DATEADD(mm,-1,DATEADD(dd,-(DAY(GETDATE())-1),GETDATE()))) AS DATE)
-							WHEN 6 THEN CAST(DATEADD(yy, DATEDIFF(yy, 0, GETDATE()), 0) AS DATE)
-							WHEN 7 THEN CAST(@Fromdate AS DATE)
-							ELSE @Fromdate END,
-		   @Todate		=  CASE @DatePreset 
-							WHEN 0 THEN DATEADD(SS,-1,CAST(DATEADD(d,1,CAST(GETDATE() AS DATE)) AS DATETIME)) 
-							WHEN 1 THEN DATEADD(SS,-1, CAST(CAST(GETDATE() AS DATE)  AS DATETIME)) 
-							WHEN 2 THEN DATEADD(SS,-1,CAST(DATEADD(d, 7 -((DATEPART(dw,  GETDATE()) + @@DATEFIRST + 5 ) % 7), CAST(GETDATE() AS DATE)) AS DATETIME))
-							WHEN 3 THEN DATEADD(SS,-1,CAST(DATEADD(d, -((DATEPART(dw,  GETDATE()) + @@DATEFIRST + 5 ) % 7), CAST(GETDATE() AS DATE)) AS DATETIME))
-							WHEN 4 THEN DATEADD(SS,-1,CAST(DATEADD(dd,-(DAY(DATEADD(mm,1,GETDATE()))),DATEADD(mm,1,GETDATE())) AS DATETIME))
-							WHEN 5 THEN DATEADD(SS,-1,CAST(DATEADD(dd,-(DAY(GETDATE())-1),CAST(GETDATE() AS DATE)) AS DATETIME)) 
-							WHEN 6 THEN DATEADD(SS,-1,DATEADD(yy, DATEDIFF(yy, 0, GETDATE()) + 1, 0))
-							WHEN 7 THEN DATEADD(SS,-1,CAST(CAST(DATEADD(dd,1,@Todate) AS DATE) AS DATETIME))
-							ELSE @Todate END
-			
+		
 	INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
 		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
 		, AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater )

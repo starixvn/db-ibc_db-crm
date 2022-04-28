@@ -49,8 +49,20 @@ BEGIN
 		RETURN;
 	END;
 	
-	SELECT @CustID = CustID FROM crmCustomer WITH(NOLOCK) WHERE UserName = @Username
+	-- Sync Data From main 
+	IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
+	BEGIN
+		EXEC Acc_CRM_CopyCustomerInformation
+			@CustID		= @CustID,
+			@UserID		= @CreatorID,
+			@IP			= @IP,
+			@ErrCode	= @ErrCode OUTPUT,
+			@ErrMsg		= @ErrMsg OUTPUT
 
+			IF @ErrCode <> 0
+				RETURN
+	END
+	
 	INSERT INTO crmCustomerRemarkNew
 	(
 			CustID

@@ -33,6 +33,7 @@ BEGIN
 	DECLARE @RowStart INT,@RowEnd INT ,@AffectedList VARCHAR(MAX) = ''
 	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
+	CREATE TABLE #Pic(PicID	INT,Username	NVARCHAR(200))
 	CREATE TABLE #Result (RowNumber	INT IDENTITY (1,1),
 						RemarkID INT,HeadlineID INT ,HeadlineName NVARCHAR(50), 
 						CustID INT , Remark NVARCHAR(MAX),IsGroupHeadLine BIT, 
@@ -49,7 +50,13 @@ BEGIN
 					HeadlineID		INT,					
 					HeadlineName	VARCHAR(50)
 					)
-		
+	
+	INSERT INTO #Pic(PicID, Username) 
+	SELECT PicID, Username
+	FROM crmPIC p  WITH(NOLOCK)
+	OUTER APPLY ( SELECT VALUE FROM STRING_SPLIT(@RelatedPICs,',')) tmp
+	WHERE  p.Username like '%' + tmp.value +'%'
+
 	INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
 		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
 		, AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater )
@@ -77,8 +84,9 @@ BEGIN
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 	AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
-	AND a.RelatedPICs LIKE @RelatedPICs + '%'
-	AND a.RelatedPICs LIKE @RelatedPICs + '%'
+	AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' 
+					AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(a.RelatedPICs,',') 
+					WHERE VALUE IN (SELECT PicID FROM #Pic))))
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 	
 	IF @ShowHeadline = 1

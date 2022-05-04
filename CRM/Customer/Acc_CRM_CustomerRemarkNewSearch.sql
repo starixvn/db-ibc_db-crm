@@ -72,7 +72,7 @@ BEGIN
 		a.LastUpdate , e.UserName AS Creator, her.UserName AS Handler, app.UserName AS Approver,
 		ack.UserName AS Acknowledger, upd.UserName AS Updater
 	FROM crmCustomerRemarkNew a WITH(NOLOCK) 
-		INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID = b.CustID
+		LEFT JOIN crmCustomer b WITH(NOLOCK) ON a.CustID = b.CustID
 		LEFT JOIN crmSetting c WITH(NOLOCK) ON a.RemarkTitle = c.SettingID AND c.SettingName = 'RemarkTitles'
 		LEFT JOIN crmSetting d WITH(NOLOCK) ON a.Ext = d.SettingID AND d.SettingName = 'Station'
 		LEFT JOIN DBACC.bodb02.dbo.Custinfo e WITH(NOLOCK) ON a.CreatorID = e.CustID
@@ -86,8 +86,9 @@ BEGIN
 	AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
 	AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' 
 					AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(a.RelatedPICs,',') 
-					WHERE VALUE IN (SELECT PicID FROM #Pic))))
+					WHERE VALUE IN (SELECT PicID FROM #Pic) AND value <> '' ))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
+	AND a.RemarkTitle IS NOT NULL
 	
 	IF @ShowHeadline = 1
 	BEGIN
@@ -126,10 +127,10 @@ BEGIN
 	SELECT 
 		RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext , IsGroupHeadLine,
 		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID, 
-		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater , HeadlineID , HeadlineName
+		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater , HeadlineID , HeadlineName,UserNameRelatedPICs
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
-	ORDER BY UserName
+	ORDER BY UserName, RemarkID
 	
 	DROP TABLE #Result							
 	DROP TABLE #CustHeadline

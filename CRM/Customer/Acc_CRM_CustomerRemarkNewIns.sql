@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_CustomerRemarkNewIns] 
-	 @Username	NVARCHAR(50) = Null
+	 @CustID	INT = Null
 	,@Remark NVARCHAR(MAX) = Null
 	,@RemarkTitle INT = Null
 	,@RelatedPICs  VARCHAR(1000)  = Null
@@ -30,7 +30,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @NewUpdate DATETIME, @CustID INT = 0
+	DECLARE @NewUpdate DATETIME
 	SET @NewUpdate = GETDATE()
 		
 	IF ISNULL(@Remark, '') = '' OR	ISNULL(@RemarkTitle, 0) = 0 

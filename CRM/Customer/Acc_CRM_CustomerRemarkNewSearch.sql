@@ -54,9 +54,9 @@ BEGIN
 	INSERT INTO #Pic(PicID, Username) 
 	SELECT PicID, Username
 	FROM crmPIC p  WITH(NOLOCK)
-	OUTER APPLY ( SELECT VALUE FROM STRING_SPLIT(@RelatedPICs,',')) tmp
+	OUTER APPLY ( SELECT VALUE FROM STRING_SPLIT(@RelatedPICs,',') WHERE VALUE <> '' ) tmp
 	WHERE  p.Username like '%' + tmp.value +'%'
-
+	
 	INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
 		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
 		, AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater )
@@ -84,9 +84,10 @@ BEGIN
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 	AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
-	AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' 
-					AND EXISTS (SELECT TOP 1 1 FROM STRING_SPLIT(a.RelatedPICs,',') 
-					WHERE VALUE IN (SELECT PicID FROM #Pic) AND value <> '' ))) 
+	AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' AND EXISTS (SELECT TOP 1 1 
+								FROM STRING_SPLIT(a.RelatedPICs,',') s
+								INNER JOIN #Pic p ON S.value = p.PicID
+								WHERE  S.VALUE <> ''))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 	AND a.RemarkTitle IS NOT NULL
 	

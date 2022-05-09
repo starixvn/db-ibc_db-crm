@@ -91,19 +91,53 @@ BEGIN
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 	AND a.RemarkTitle IS NOT NULL
 	
-	IF @ShowHeadline = 1
-	BEGIN
-		SELECT @AffectedList =  STUFF((SELECT DISTINCT ',' + cast(custid AS VARCHAR(10))
+	SELECT @AffectedList =  STUFF((SELECT DISTINCT ',' + cast(custid AS VARCHAR(10))
 								FROM #Result
 								FOR XML PATH('')), 1, 1, '')
 	
-		INSERT INTO #CustHeadline(CustID,HeadlineID,HeadlineName)
-		EXEC bodb02.dbo.Acc_CRM_GroupHeadlineSel @custids = @AffectedList
+	INSERT INTO #CustHeadline(CustID,HeadlineID,HeadlineName)
+	EXEC bodb02.dbo.Acc_CRM_GroupHeadlineSel @custids = @AffectedList
 
-		UPDATE a
-		SET a.HeadlineID = c.HeadlineID,a.HeadlineName = c.HeadlineName 
-		FROM #Result a
-			INNER JOIN #CustHeadline c WITH(NOLOCK) ON a.custid = c.custid
+	UPDATE a
+	SET a.HeadlineID = c.HeadlineID,a.HeadlineName = c.HeadlineName 
+	FROM #Result a
+		INNER JOIN #CustHeadline c WITH(NOLOCK) ON a.custid = c.custid
+
+	IF @ShowHeadline = 1
+	BEGIN
+		INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
+		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
+		, AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater,HeadlineID,HeadlineName )
+		SELECT 
+			a.RemarkID, a.CreatedDate, a.CreatorID, a.CustID, b.UserName , a.RemarkTitle, a.Ext,
+			CASE WHEN @Lang='zh-TW' THEN ISNULL(c.SettingValueCT,c.SettingValue)  
+				 WHEN @Lang='zh-CN' THEN ISNULL(c.SettingValueCS,c.SettingValue)  
+				 ELSE c.SettingValue END AS RemarkName,
+			CASE WHEN @Lang='zh-TW' THEN ISNULL(d.SettingValueCT,d.SettingValue)  
+				 WHEN @Lang='zh-CN' THEN ISNULL(d.SettingValueCS,d.SettingValue)  
+				 ELSE d.SettingValue END AS ExtStation,	 
+			a.Remark, a.RelatedPICs,	a.HandlerID, a.ModifierID, a.Requester, a.ApproverID,a.AcknowledgerID,
+			a.LastUpdate , e.UserName AS Creator, her.UserName AS Handler, app.UserName AS Approver,
+			ack.UserName AS Acknowledger, upd.UserName AS Updater , a.CustID AS HeadlineID, b.UserName AS HeadlineName
+		FROM crmCustomerRemarkNew a WITH(NOLOCK) 
+			LEFT JOIN crmCustomer b WITH(NOLOCK) ON a.CustID = b.CustID
+			LEFT JOIN crmSetting c WITH(NOLOCK) ON a.RemarkTitle = c.SettingID AND c.SettingName = 'RemarkTitles'
+			LEFT JOIN crmSetting d WITH(NOLOCK) ON a.Ext = d.SettingID AND d.SettingName = 'Station'
+			LEFT JOIN DBACC.bodb02.dbo.Custinfo e WITH(NOLOCK) ON a.CreatorID = e.CustID
+			LEFT JOIN DBACC.bodb02.dbo.Custinfo her WITH(NOLOCK) ON a.HandlerID = her.CustID
+			LEFT JOIN DBACC.bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
+			LEFT JOIN DBACC.bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
+			LEFT JOIN DBACC.bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
+		WHERE  a.Remark LIKE '%' + @Remark + '%' 
+		AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
+		AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
+		AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' AND EXISTS (SELECT TOP 1 1 
+									FROM STRING_SPLIT(a.RelatedPICs,',') s
+									INNER JOIN #Pic p ON S.value = p.PicID
+									WHERE  S.VALUE <> ''))) 
+		AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
+		AND a.RemarkTitle IS NOT NULL
+		AND a.CustID IN (SELECT HeadlineID FROM #CustHeadline)
 	END
 	
 	UPDATE a

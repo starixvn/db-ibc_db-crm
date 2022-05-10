@@ -145,7 +145,7 @@ BEGIN
 	SET a.UserNameRelatedPICs = c.UserNameRelatedPICs 
 	FROM #Result a
 		OUTER APPLY(
-				SELECT STUFF(( SELECT DISTINCT ','+ cast(b.Username as nvarchar(200))  as [text()]
+				SELECT STUFF(( SELECT DISTINCT ', '+ cast(b.Username as nvarchar(200))  as [text()]
 					FROM STRING_SPLIT(RelatedPICs,',') a
 					INNER JOIN  crmPIC b  WITH(NOLOCK)  ON a.value = b.PicID
 					WHERE  value <> ''

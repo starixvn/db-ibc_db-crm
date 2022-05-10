@@ -166,7 +166,7 @@ BEGIN
 		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater , HeadlineID , HeadlineName,UserNameRelatedPICs
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
-	ORDER BY CreatedDate, UserName, RemarkID
+	ORDER BY CreatedDate, UserName, RemarkID DESC
 	
 	DROP TABLE #Result							
 	DROP TABLE #CustHeadline

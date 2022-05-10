@@ -33,7 +33,7 @@ BEGIN
 	DECLARE @RowStart INT,@RowEnd INT ,@AffectedList VARCHAR(MAX) = ''
 	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
-	CREATE TABLE #Pic(PicID	INT,Username	NVARCHAR(200))
+	CREATE TABLE #Pic(PicID	INT PRIMARY KEY CLUSTERED,Username	NVARCHAR(200))
 	CREATE TABLE #Result (RowNumber	INT IDENTITY (1,1),
 						RemarkID INT,HeadlineID INT ,HeadlineName NVARCHAR(50), 
 						CustID INT , Remark NVARCHAR(MAX),IsGroupHeadLine BIT, 

@@ -138,6 +138,7 @@ BEGIN
 		AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 		AND a.RemarkTitle IS NOT NULL
 		AND a.CustID IN (SELECT HeadlineID FROM #CustHeadline)
+		AND a.RemarkID NOT IN (SELECT RemarkID FROM #Result)
 	END
 	
 	UPDATE a

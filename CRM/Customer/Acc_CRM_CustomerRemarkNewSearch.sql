@@ -34,7 +34,7 @@ BEGIN
 	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
 	CREATE TABLE #Pic(PicID	INT PRIMARY KEY CLUSTERED,Username	NVARCHAR(200))
-	CREATE TABLE #Result (RowNumber	INT IDENTITY (1,1),
+	CREATE TABLE #Result (RowNumber	INT,
 						RemarkID INT,HeadlineID INT ,HeadlineName NVARCHAR(50), 
 						CustID INT , Remark NVARCHAR(MAX),IsGroupHeadLine BIT, 
 						RemarkTitle INT , RelatedPICs  VARCHAR(100), UserNameRelatedPICs  NVARCHAR(MAX),
@@ -158,6 +158,18 @@ BEGIN
 	FROM #Result a
 		INNER JOIN bodb02.dbo.CustAccount c WITH(NOLOCK) ON a.custid = c.custid AND c.IsGroupHeadLine = 1
 	
+	UPDATE a
+	SET a.RowNumber = KQ.row_num
+	FROM #Result a
+	OUTER APPLY (
+				SELECT 
+					   ROW_NUMBER() OVER (
+						ORDER BY CreatedDate DESC, RemarkID DESC
+					   ) row_num,
+					   RemarkID
+					FROM #Result
+			) KQ
+	WHERE a.RemarkID = KQ.RemarkID
 	SELECT @TotalRows = COUNT(1) FROM #Result
 	
 	SELECT 
@@ -166,7 +178,7 @@ BEGIN
 		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater , HeadlineID , HeadlineName,UserNameRelatedPICs
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
-	ORDER BY CreatedDate DESC, UserName, RemarkID DESC
+	ORDER BY CreatedDate DESC, RemarkID DESC
 	
 	DROP TABLE #Result							
 	DROP TABLE #CustHeadline

@@ -64,33 +64,47 @@ BEGIN
 		EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Logdata
 
 		INSERT INTO	#Result	(VersionID, CustID, LastUpdate,RemarkID,  Remark, RemarkTitle, RelatedPICs, Ext, HandlerID, ApproverID, AcknowledgerID, Requester, ModifierID)
-		SELECT	@Version AS VersionID, @CustID AS CustID,@LastUpdate AS LastUpdate, @RemarkID AS RemarkID, ox.Remark, ox.RemarkTitle, ox.RelatedPICs, ox.Ext, ox.HandlerID, ox.ApproverID, 
-				ox.AcknowledgerID, ox.Requester, ox.ModifierID
+		SELECT	@Version AS VersionID, @CustID AS CustID,@LastUpdate AS LastUpdate, @RemarkID AS RemarkID, 
+				CASE WHEN ox.Remark = 'NULL' THEN NULL ELSE ISNULL(ox.Remark,'') END AS Remark, 
+				CASE WHEN ox.RemarkTitle = 'NULL' THEN -1 ELSE CAST(ox.RemarkTitle AS INT) END AS RemarkTitle, 
+				CASE WHEN ox.RelatedPICs = 'NULL' THEN NULL ELSE ISNULL(ox.RelatedPICs,'') END AS RelatedPICs, 
+				CASE WHEN ox.Ext = 'NULL' THEN -1 ELSE CAST(ox.Ext AS INT) END AS Ext, 
+				CASE WHEN ox.HandlerID = 'NULL' THEN -1 ELSE CAST(ox.HandlerID AS INT) END AS HandlerID, 
+				CASE WHEN ox.ApproverID = 'NULL' THEN -1 ELSE CAST(ox.ApproverID AS INT) END AS ApproverID, 
+				CASE WHEN ox.AcknowledgerID = 'NULL' THEN -1 ELSE CAST(ox.AcknowledgerID AS INT) END AS AcknowledgerID, 
+				CASE WHEN ox.Requester = 'NULL' THEN NULL ELSE ISNULL(ox.Requester,'') END AS Requester, 
+				CASE WHEN ox.ModifierID = 'NULL' THEN -1 ELSE CAST(ox.ModifierID AS INT) END AS ModifierID
 		FROM	OPENXML(@iDoc, '/Root', 2)
 				WITH (
 					Remark NVARCHAR(MAX),
-					RemarkTitle INT,
+					RemarkTitle VARCHAR(20),
 					RelatedPICs  VARCHAR(1000),
-					Ext	INT,
-					HandlerID INT,
-					ApproverID INT,
-					AcknowledgerID INT,
+					Ext	VARCHAR(20),
+					HandlerID VARCHAR(20),
+					ApproverID VARCHAR(20),
+					AcknowledgerID VARCHAR(20),
 					Requester NVARCHAR(500),
-					ModifierID INT
+					ModifierID VARCHAR(20)
 				) AS ox
 		EXECUTE sys.sp_xml_removedocument @iDoc
 		
 		UPDATE a
 		SET a.CustID = b.CustID
-			,a.Remark = CASE WHEN ISNULL(a.Remark,'') <> '' THEN a.Remark ELSE b.Remark END
-			,a.RemarkTitle = CASE WHEN ISNULL(a.RemarkTitle,0) <> 0 THEN a.RemarkTitle ELSE b.RemarkTitle END
-			,a.RelatedPICs = CASE WHEN ISNULL(a.RelatedPICs,'') <> '' THEN a.RelatedPICs ELSE b.RelatedPICs END
-			,a.Ext = CASE WHEN ISNULL(a.Ext,0) <> 0 THEN a.Ext ELSE b.Ext END
-			,a.HandlerID = CASE WHEN ISNULL(a.HandlerID,0) <> 0 THEN a.HandlerID ELSE b.HandlerID END
-			,a.ApproverID = CASE WHEN ISNULL(a.ApproverID,0) <> 0 THEN a.ApproverID ELSE b.ApproverID END
-			,a.AcknowledgerID = CASE WHEN ISNULL(a.AcknowledgerID,0) <> 0 THEN a.AcknowledgerID ELSE b.AcknowledgerID END
-			,a.Requester = CASE WHEN ISNULL(a.Requester,'') <> '' THEN a.Requester ELSE b.Requester END
-			,a.ModifierID = CASE WHEN ISNULL(a.ModifierID,0) <> 0 THEN a.ModifierID ELSE b.ModifierID END
+			,a.Remark = CASE WHEN a.Remark IS NULL THEN NULL ELSE (CASE WHEN a.Remark <> '' THEN a.Remark ELSE b.Remark END)END
+			,a.Requester = CASE WHEN a.Requester IS NULL THEN NULL ELSE (CASE WHEN a.Requester <> '' THEN a.Requester ELSE b.Requester END)END
+			,a.RemarkTitle =  CASE WHEN a.RemarkTitle <> 0 THEN 
+									 (CASE WHEN a.RemarkTitle = -1 THEN NULL ELSE a.RemarkTitle END) ELSE b.RemarkTitle END
+			,a.RelatedPICs = CASE WHEN a.RelatedPICs IS NULL THEN NULL ELSE (CASE WHEN a.RelatedPICs <> '' THEN a.RelatedPICs ELSE b.RelatedPICs END)END
+			,a.Ext = CASE WHEN a.Ext <> 0 THEN 
+									 (CASE WHEN a.Ext = -1 THEN NULL ELSE a.Ext END) ELSE b.Ext END
+			,a.HandlerID = CASE WHEN a.HandlerID <> 0 THEN  
+									 (CASE WHEN a.HandlerID = -1 THEN NULL ELSE a.HandlerID END) ELSE b.HandlerID END
+			,a.ApproverID = CASE WHEN a.ApproverID <> 0 THEN  
+									 (CASE WHEN a.ApproverID = -1 THEN NULL ELSE a.ApproverID END) ELSE b.ApproverID END
+			,a.AcknowledgerID = CASE WHEN a.AcknowledgerID <> 0 THEN   
+									 (CASE WHEN a.AcknowledgerID = -1 THEN NULL ELSE a.AcknowledgerID END) ELSE b.AcknowledgerID END
+			,a.ModifierID = CASE WHEN a.ModifierID <> 0 THEN    
+									 (CASE WHEN a.ModifierID = -1 THEN NULL ELSE a.ModifierID END) ELSE b.ModifierID END
 			,a.CreatedDate = b.CreatedDate
 			,a.CreatorID = b.CreatorID
 			,a.RemarkID =  b.RemarkID
@@ -98,7 +112,7 @@ BEGIN
 			INNER JOIN #Result b ON a.CustID = b.CustID AND a.RemarkID = b.RemarkID AND b.VersionID = a.VersionID + 1
 		WHERE a.VersionID = @Version
 	END
-
+	
 	UPDATE a
 	SET a.UserNameRelatedPICs = c.UserNameRelatedPICs 
 	FROM #Result a
@@ -151,7 +165,7 @@ BEGIN
 	SELECT @TotalRows = COUNT(1) FROM #Result
 	
 	SELECT 
-		VersionID, RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext ,
+		ISNULL(VersionID,1) AS VersionID, RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext ,
 		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID, 
 		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater
 	FROM #Result

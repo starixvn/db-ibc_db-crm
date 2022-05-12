@@ -101,15 +101,24 @@ BEGIN
 	BEGIN
 		DECLARE @LogHistory VARCHAR(MAX)
 		SELECT @LogHistory = '<Root>' +
-		   CASE WHEN @Remark_old <> @Remark THEN  '<Remark>'   + ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'') + '</Remark>'  ELSE '' END  +  
-		   CASE WHEN @RemarkTitle_old <> @RemarkTitle THEN '<RemarkTitle>'  +  ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'') + '</RemarkTitle>' ELSE '' END  +  
-		   CASE WHEN @RelatedPICs_old <> @RelatedPICs THEN '<RelatedPICs>'  +  ISNULL(@RelatedPICs_old,'')  + '</RelatedPICs>'  ELSE '' END +  
-		   CASE WHEN @Ext_old <> @Ext THEN '<Ext>'    +ISNULL(CONVERT(VARCHAR(10),@Ext_old),'')   + '</Ext>'  ELSE '' END +  
-		   CASE WHEN @HandlerID_old <> @HandlerID THEN '<HandlerID>'  + ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'') + '</HandlerID>' ELSE '' END + 
-		   CASE WHEN @ApproverID_old <> @ApproverID THEN '<ApproverID>'  +  ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'') + '</ApproverID>'  ELSE '' END +  
-		   CASE WHEN @AcknowledgerID_old <> @AcknowledgerID THEN '<AcknowledgerID>' +  ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')  + '</AcknowledgerID>'  ELSE '' END +  
-		   CASE WHEN @Requester_old <> @Requester THEN '<Requester>'  +  ISNULL(CONVERT(VARCHAR(10),@Requester_old),'') + '</Requester>'  ELSE '' END +  
-		   CASE WHEN @ModifierID_old <> @ModifierID THEN '<ModifierID>'  +  ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'') + '</ModifierID>'  ELSE '' END  +  
+		CASE WHEN @Remark_old IS NULL AND @Remark IS NOT NULL THEN '<Remark>NULL</Remark>' ELSE 
+				(CASE WHEN @Remark_old <> @Remark THEN  '<Remark>'+[dbo].[f_EncodeXMLValue](@Remark_old)+'</Remark>' ELSE '' END) END +  
+		CASE WHEN @RemarkTitle_old IS NULL AND @RemarkTitle IS NOT NULL THEN '<RemarkTitle>NULL</RemarkTitle>' ELSE 
+				(CASE WHEN  @RemarkTitle_old <> @RemarkTitle THEN '<RemarkTitle>'+CONVERT(VARCHAR(10),@RemarkTitle_old)+'</RemarkTitle>' ELSE '' END) END   +  
+		CASE WHEN @RelatedPICs_old IS NULL AND @RelatedPICs IS NOT NULL THEN '<RelatedPICs>NULL</RelatedPICs>' ELSE 
+				(CASE WHEN @RelatedPICs_old <> @RelatedPICs THEN '<RelatedPICs>'+@RelatedPICs_old+'</RelatedPICs>' ELSE '' END) END +  
+		CASE WHEN @Ext_old IS NULL AND @Ext IS NOT NULL THEN '<Ext>NULL</Ext>' ELSE 
+				(CASE WHEN @Ext_old <> @Ext THEN '<Ext>' +CONVERT(VARCHAR(10),@Ext_old) + '</Ext>'  ELSE '' END) END +  
+		CASE WHEN @HandlerID_old IS NULL AND @HandlerID IS NOT NULL THEN '<HandlerID>NULL</HandlerID>' ELSE 
+				(CASE WHEN @HandlerID_old <> @HandlerID THEN '<HandlerID>'  + CONVERT(VARCHAR(10),@HandlerID_old)+ '</HandlerID>' ELSE '' END) END + 
+		CASE WHEN @ApproverID_old IS NULL AND @ApproverID IS NOT NULL THEN '<ApproverID>NULL</ApproverID>' ELSE 
+					(CASE WHEN @ApproverID_old <> @ApproverID THEN '<ApproverID>'  +  CONVERT(VARCHAR(10),@ApproverID_old) + '</ApproverID>'  ELSE '' END) END +  
+		CASE WHEN @AcknowledgerID_old IS NULL AND @AcknowledgerID IS NOT NULL THEN '<AcknowledgerID>NULL</AcknowledgerID>' ELSE 
+				(CASE WHEN @AcknowledgerID_old <> @AcknowledgerID THEN '<AcknowledgerID>' +  CONVERT(VARCHAR(10),@AcknowledgerID_old)  + '</AcknowledgerID>'  ELSE '' END) END +  
+		CASE WHEN @Requester_old IS NULL AND @Requester IS NOT NULL THEN '<Requester>NULL</Requester>' ELSE 
+				(CASE WHEN @Requester_old <> @Requester THEN '<Requester>' + CONVERT(VARCHAR(10),@Requester_old) + '</Requester>'  ELSE '' END) END +  
+		CASE WHEN @ModifierID_old IS NULL AND @ModifierID IS NOT NULL THEN '<ModifierID>NULL</ModifierID>' ELSE 
+				(CASE WHEN @ModifierID_old <> @ModifierID THEN '<ModifierID>'  +  CONVERT(VARCHAR(10),@ModifierID_old) + '</ModifierID>'  ELSE '' END) END  +  
 		'</Root>' 
 		INSERT INTO crmCustomerRemarkHistory(RemarkID,CustID,Logdata,ModifierID,LastUpdate)
 		VALUES(@RemarkID,@CustID,@LogHistory,@ModifierID,@NewUpdate)

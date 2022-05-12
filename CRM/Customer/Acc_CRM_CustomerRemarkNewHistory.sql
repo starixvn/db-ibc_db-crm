@@ -167,7 +167,7 @@ BEGIN
 	SELECT 
 		ISNULL(VersionID,1) AS VersionID, RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext ,
 		RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID, 
-		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater
+		AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater,UserNameRelatedPICs
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
 	ORDER BY RowNumber,UserName

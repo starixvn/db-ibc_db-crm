@@ -174,7 +174,7 @@ BEGIN
 						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')		+ '</ModifierID>' +
 						'<Modifier>'		+ ISNULL(@Updater,'')								+ '</Modifier>' +
 						'<CreatorID>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(10),@ModifierID),'') ELSE ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'') END + '</CreatorID>' +
-						'<Creator>'			+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(@Updater,'') ELSE ISNULL(@Creator,'') END + '</CreatorID>'+ 
+						'<Creator>'			+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(@Updater,'') ELSE ISNULL(@Creator,'') END + '</Creator>'+ 
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
 						'<CreatedDate>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(10),@NewUpdate),'') ELSE ISNULL(CONVERT(VARCHAR(10),@CreatedDate_old),'') END + '</CreatedDate>' +
 						'<IP>'				+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +

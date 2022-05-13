@@ -108,12 +108,34 @@ BEGIN
 						'<IP>'				+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
 					'</R>' 
 
+	DECLARE @LogElement XML
+	SELECT @LogElement = '<R>' + '<CustID></CustID>' +
+								'<Remark></Remark>' +
+								'<RemarkName></RemarkName>' +
+								'<RelatedPICs></RelatedPICs>' +
+								'<ExtID></ExtID>' +
+								'<Ext></Ext>' +
+								'<HandlerID></HandlerID>' +
+								'<Handler></Handler>' +
+								'<ApproverID></ApproverID>' +
+								'<Approver></Approver>' +
+								'<AcknowledgerID></AcknowledgerID>' +
+								'<Acknowledger>	</Acknowledger>' +
+								'<Requester></Requester>' +
+								'<ModifierID></ModifierID>' +
+								'<Modifier></Modifier>' +
+								'<CreatorID></CreatorID>' +
+								'<Creator></Creator>' +
+								'<LastUpdate></LastUpdate>' +
+								'<CreatedDate></CreatedDate>' +
+								'<IP></IP>'  + '</R>'
+
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
 					@CustID = @CustID_old, 
 					@UserID = @UserID, 
 					@ActionID = 603, 
 					@IP = @IP, 
 					@OldValues = @LogElement_old,
-					@NewValues = ''
+					@NewValues = @LogElement
 							
 END	

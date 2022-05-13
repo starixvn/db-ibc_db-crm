@@ -39,24 +39,14 @@ BEGIN
 		RETURN;
 	END;
 	
-	DECLARE @CustID_old   INT    
-			,@Remark_old    NVARCHAR(MAX)    
-			,@RemarkTitle_old    INT    
-			,@RelatedPICs_old        NVARCHAR(MAX)    
-			,@Ext_old	INT    
-			,@HandlerID_old   INT    
-			,@ApproverID_old    INT    
-			,@AcknowledgerID_old    INT    
-			,@Requester_old    NVARCHAR(500)    
-			,@ModifierID_old    INT 
-			,@CreatorID_old INT 
-			,@LastUpdate DATETIME 
-			,@CreatedDate DATETIME
-			,@NewUpdate DATETIME  
+	DECLARE @Remark_old NVARCHAR(MAX) ,@RemarkTitle_old INT ,@RelatedPICs_old NVARCHAR(MAX) ,@Ext_old	INT ,@HandlerID_old INT    
+			,@ApproverID_old INT ,@AcknowledgerID_old INT ,@Requester_old NVARCHAR(500) ,@ModifierID_old INT ,@CreatorID_old INT 
+			,@CreatedDate DATETIME ,@NewUpdate DATETIME ,@CreatedDate_old DATETIME ,@LastUpdate_old	 DATETIME ,@UserName NVARCHAR(50) ,@Creator NVARCHAR(50)
+			,@Handler NVARCHAR(50) ,@Acknowledger NVARCHAR(50) ,@Approver NVARCHAR(50) ,@RemarkName NVARCHAR(100) ,@ExtStation NVARCHAR(100)
+			,@Updater NVARCHAR(50) ,@Handler_old NVARCHAR(50) ,@Acknowledger_old NVARCHAR(50) ,@Approver_old NVARCHAR(50) ,@RemarkName_old NVARCHAR(100) ,@ExtStation_old NVARCHAR(100) ,@Updater_old NVARCHAR(50)
 	
-	SELECT
-	@CustID_old          		=   CustID                   	
-	,@Remark_old           		=   Remark                    	
+	SELECT              	
+	@Remark_old           		=   Remark                    	
 	,@RemarkTitle_old          	=   RemarkTitle                
 	,@RelatedPICs_old           =   RelatedPICs                 
 	,@Ext_old					=   Ext			
@@ -65,9 +55,9 @@ BEGIN
 	,@AcknowledgerID_old       	=   AcknowledgerID             
 	,@Requester_old           	=   Requester                   
 	,@ModifierID_old           	=   ModifierID
-	,@CreatedDate				=	CreatedDate
+	,@CreatedDate_old			=	CreatedDate
 	,@CreatorID_old				=	CreatorID 
-	,@LastUpdate				=	LastUpdate   
+	,@LastUpdate_old			=	LastUpdate   
 	FROM  crmCustomerRemarkNew WITH(NOLOCK)
 	WHERE RemarkID = @RemarkID
 	
@@ -85,7 +75,7 @@ BEGIN
 		Requester            =   @Requester       , 
 		ModifierID            =  @ModifierID      ,  
 		LastUpdate           =   @NewUpdate     ,  
-		CreatedDate          =   CASE WHEN CreatorID IS NULL THEN GETDATE() ELSE CreatedDate END  , 
+		CreatedDate          =   CASE WHEN CreatorID IS NULL THEN @NewUpdate ELSE CreatedDate END  , 
 		CreatorID            =   CASE WHEN CreatorID IS NULL THEN @ModifierID ELSE CreatorID END         
 	WHERE RemarkID = @RemarkID
 	
@@ -124,40 +114,70 @@ BEGIN
 		VALUES(@RemarkID,@CustID,@LogHistory,@ModifierID,@NewUpdate)
 	END
 	
+	SELECT @UserName = UserName FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID
+	SELECT @Creator = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @CreatorID_old
+	SELECT @RemarkName_old = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @RemarkTitle_old AND SettingName = 'RemarkTitles'
+	SELECT @Handler_old = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @HandlerID_old
+	SELECT @Acknowledger_old = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @AcknowledgerID_old
+	SELECT @Approver_old = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ApproverID_old
+	SELECT @Updater_old = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ModifierID_old
+	SELECT @ExtStation_old = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @Ext_old AND SettingName = 'Station'
+
+	SELECT @RemarkName = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @RemarkTitle AND SettingName = 'RemarkTitles'
+	SELECT @Handler = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @HandlerID
+	SELECT @Acknowledger = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @AcknowledgerID
+	SELECT @Approver = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ApproverID
+	SELECT @Updater = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ModifierID
+	SELECT @ExtStation = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @Ext AND SettingName = 'Station'
+
 	-- write log
 	DECLARE @LogElement_old XML
 	SELECT @LogElement_old = 				
 					'<R>' + --SP Name
-						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID_old),'')			+ '</CustID>' +
-						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
-						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'')		+ '</RemarkTitle>' +
-						'<RelatedPICs>'	+ ISNULL(@RelatedPICs_old,'')							+ '</RelatedPICs>' +
-						'<Ext>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext_old),'')				+ '</Ext>' +
-						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'')	+ '</HandlerID>' +
-						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
-						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
-						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester_old),'')		+ '</Requester>' +
-						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')	+ '</ModifierID>' +
-						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')		+ '</CreatorID>' +
-						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@LastUpdate),'')		+ '</LastUpdate>' +
-						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')		+ '</CreatedDate>' +
+						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')				+ '</CustID>' +
+						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
+						'<RemarkName>'		+ ISNULL(CONVERT(VARCHAR(10),@RemarkName_old),'')		+ '</RemarkName>' +
+						'<RelatedPICs>'		+ ISNULL(@RelatedPICs_old,'')							+ '</RelatedPICs>' +
+						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext_old),'')				+ '</ExtID>' +
+						'<Ext>'				+ ISNULL(@ExtStation_old,'')							+ '</Ext>' +
+						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'')		+ '</HandlerID>' +
+						'<Handler>'			+ ISNULL(@Handler_old,'')								+ '</Handler>' +
+						'<ApproverID>'		+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
+						'<Approver>'		+ ISNULL(@Approver_old,'')								+ '</Approver>' +
+						'<AcknowledgerID>'	+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
+						'<Acknowledger>'	+ ISNULL(@Acknowledger_old,'')							+ '</Acknowledger>' +
+						'<Requester>'		+ ISNULL(@Requester_old,'')								+ '</Requester>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')		+ '</ModifierID>' +
+						'<Modifier>'		+ ISNULL(@Updater_old,'')								+ '</Modifier>' +
+						'<CreatorID>'		+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')		+ '</CreatorID>' +
+						'<Creator>'			+ ISNULL(@Creator,'')								+ '</Creator>' +
+						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@LastUpdate_old),'')		+ '</LastUpdate>' +
+						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate_old),'')		+ '</CreatedDate>' +
+						'<IP>'				+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
 					'</R>' 
 	DECLARE @LogElement XML
 	SELECT @LogElement = 				
 					'<R>' + --SP Name
-						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
-						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
-						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle),'')		+ '</RemarkTitle>' +
-						'<RelatedPICs>'	+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
-						'<Ext>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</Ext>' +
-						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')	+ '</HandlerID>' +
-						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
-						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
-						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester),'')		+ '</Requester>' +
-						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')	+ '</ModifierID>' +
-						'<CreatorID>'	+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')	+ '</CreatorID>' +
-						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')	+ '</LastUpdate>' +
-						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate),'')	+ '</CreatedDate>' +
+						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
+						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
+						'<RemarkName>'		+ ISNULL(CONVERT(VARCHAR(10),@RemarkName),'')		+ '</RemarkName>' +
+						'<RelatedPICs>'		+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
+						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</ExtID>' +
+						'<Ext>'				+ ISNULL(@ExtStation,'')							+ '</Ext>' +
+						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')		+ '</HandlerID>' +
+						'<Handler>'			+ ISNULL(@Handler,'')								+ '</Handler>' +
+						'<ApproverID>'		+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
+						'<Approver>'		+ ISNULL(@Approver,'')								+ '</Approver>' +
+						'<AcknowledgerID>'	+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
+						'<Acknowledger>'	+ ISNULL(@Acknowledger,'')							+ '</Acknowledger>' +
+						'<Requester>'		+ ISNULL(@Requester,'')								+ '</Requester>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')		+ '</ModifierID>' +
+						'<Modifier>'		+ ISNULL(@Updater,'')								+ '</Modifier>' +
+						'<CreatorID>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(10),@ModifierID),'') ELSE ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'') END + '</CreatorID>' +
+						'<Creator>'			+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(@Updater,'') ELSE ISNULL(@Creator,'') END + '</CreatorID>'+ '</Creator>' +
+						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
+						'<CreatedDate>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(10),@NewUpdate),'') ELSE ISNULL(CONVERT(VARCHAR(10),@CreatedDate_old),'') END + '</CreatedDate>' +
+						'<IP>'				+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
 					'</R>' 
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]

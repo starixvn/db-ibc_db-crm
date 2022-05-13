@@ -30,7 +30,18 @@ BEGIN
 			,@ApproverID_old    INT    
 			,@AcknowledgerID_old    INT    
 			,@Requester_old    NVARCHAR(500)    
-			,@ModifierID_old    INT  
+			,@ModifierID_old    INT
+			,@CreatorID_old  INT 
+			,@CreatedDate_old	 DATETIME
+			,@LastUpdate_old	 DATETIME
+			,@UserName NVARCHAR(50)
+			,@Creator NVARCHAR(50)
+			,@Handler NVARCHAR(50)
+			,@Acknowledger NVARCHAR(50)
+			,@Approver NVARCHAR(50)
+			,@RemarkName NVARCHAR(100)
+			,@ExtStation NVARCHAR(100)
+			,@Updater NVARCHAR(50)
 	
 	SELECT
 	@CustID_old          		=   CustID                   	
@@ -42,7 +53,10 @@ BEGIN
 	,@ApproverID_old           	=   ApproverID                 
 	,@AcknowledgerID_old       	=   AcknowledgerID             
 	,@Requester_old           	=   Requester                   
-	,@ModifierID_old           	=   ModifierID   
+	,@ModifierID_old           	=   ModifierID                   
+	,@CreatorID_old           	=   CreatorID  
+	,@CreatedDate_old			=	CreatedDate
+	,@LastUpdate_old			=	LastUpdate
 	FROM  crmCustomerRemarkNew WITH(NOLOCK)
 	WHERE RemarkID = @RemarkID
 		
@@ -58,25 +72,44 @@ BEGIN
 		SELECT @ErrMsg = 'Delete remark unsuccessfuly.'
 		RETURN
 	END
+
+	SELECT @UserName = UserName FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID_old
+	SELECT @RemarkName = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @RemarkTitle_old AND SettingName = 'RemarkTitles'
+	SELECT @Creator = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @CreatorID_old
+	SELECT @Handler = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @HandlerID_old
+	SELECT @Acknowledger = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @AcknowledgerID_old
+	SELECT @Approver = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ApproverID_old
+	SELECT @Updater = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ModifierID_old
+	SELECT @ExtStation = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @Ext_old AND SettingName = 'Station'
 	
 	-- write log
 	DECLARE @LogElement_old XML
 	SELECT @LogElement_old = 				
 					'<R>' + --SP Name
-						'<CustID>'		+ ISNULL(CONVERT(VARCHAR(10),@CustID_old),'')			+ '</CustID>' +
-						'<Remark>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
-						'<RemarkTitle>'	+ ISNULL(CONVERT(VARCHAR(10),@RemarkTitle_old),'')		+ '</RemarkTitle>' +
-						'<RelatedPICs>'	+ ISNULL(@RelatedPICs_old,'')							+ '</RelatedPICs>' +
-						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'')	+ '</HandlerID>' +
-						'<ApproverID>'	+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
-						'<AcknowledgerID>'+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
-						'<Requester>'	+ ISNULL(CONVERT(VARCHAR(10),@Requester_old),'')		+ '</Requester>' +
-						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')	+ '</ModifierID>' +
-						'<IP>'		+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
+						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID_old),'')			+ '</CustID>' +
+						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
+						'<RemarkName>'		+ ISNULL(CONVERT(VARCHAR(10),@RemarkName),'')			+ '</RemarkName>' +
+						'<RelatedPICs>'		+ ISNULL(@RelatedPICs_old,'')							+ '</RelatedPICs>' +
+						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext_old),'')				+ '</ExtID>' +
+						'<Ext>'				+ ISNULL(@ExtStation,'')								+ '</Ext>' +
+						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID_old),'')		+ '</HandlerID>' +
+						'<Handler>'			+ ISNULL(@Handler,'')									+ '</Handler>' +
+						'<ApproverID>'		+ ISNULL(CONVERT(VARCHAR(10),@ApproverID_old),'')		+ '</ApproverID>' +
+						'<Approver>'		+ ISNULL(@Approver,'')									+ '</Approver>' +
+						'<AcknowledgerID>'	+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID_old),'')	+ '</AcknowledgerID>' +
+						'<Acknowledger>'	+ ISNULL(@Acknowledger,'')								+ '</Acknowledger>' +
+						'<Requester>'		+ ISNULL(@Requester_old,'')								+ '</Requester>' +
+						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID_old),'')		+ '</ModifierID>' +
+						'<Modifier>'		+ ISNULL(@Updater,'')									+ '</Modifier>' +
+						'<CreatorID>'		+ ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'')		+ '</CreatorID>' +
+						'<Creator>'			+ ISNULL(@Creator,'')								+ '</Creator>' +
+						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@LastUpdate_old),'')		+ '</LastUpdate>' +
+						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@CreatedDate_old),'')		+ '</CreatedDate>' +
+						'<IP>'				+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
 					'</R>' 
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]
-					@CustID = @UserID, 
+					@CustID = @CustID_old, 
 					@UserID = @UserID, 
 					@ActionID = 603, 
 					@IP = @IP, 

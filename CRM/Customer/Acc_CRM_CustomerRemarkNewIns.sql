@@ -121,7 +121,7 @@ BEGIN
 					'<R>' + --SP Name
 						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
 						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
-						'<RemarkName>'		+ ISNULL(CONVERT(VARCHAR(10),@RemarkName),'')		+ '</RemarkName>' +
+						'<RemarkName>'		+ ISNULL(CONVERT(NVARCHAR(100),@RemarkName),'')		+ '</RemarkName>' +
 						'<RelatedPICs>'		+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
 						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</ExtID>' +
 						'<Ext>'				+ ISNULL(@ExtStation,'')							+ '</Ext>' +

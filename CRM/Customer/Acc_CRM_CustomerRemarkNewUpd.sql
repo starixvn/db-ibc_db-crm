@@ -136,7 +136,7 @@ BEGIN
 					'<R>' + --SP Name
 						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')				+ '</CustID>' +
 						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark_old),'')		+ '</Remark>' +
-						'<RemarkName>'		+ ISNULL(CONVERT(VARCHAR(10),@RemarkName_old),'')		+ '</RemarkName>' +
+						'<RemarkName>'		+ ISNULL(CONVERT(NVARCHAR(100),@RemarkName_old),'')		+ '</RemarkName>' +
 						'<RelatedPICs>'		+ ISNULL(@RelatedPICs_old,'')							+ '</RelatedPICs>' +
 						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext_old),'')				+ '</ExtID>' +
 						'<Ext>'				+ ISNULL(@ExtStation_old,'')							+ '</Ext>' +
@@ -160,7 +160,7 @@ BEGIN
 					'<R>' + --SP Name
 						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
 						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
-						'<RemarkName>'		+ ISNULL(CONVERT(VARCHAR(10),@RemarkName),'')		+ '</RemarkName>' +
+						'<RemarkName>'		+ ISNULL(CONVERT(NVARCHAR(100),@RemarkName),'')		+ '</RemarkName>' +
 						'<RelatedPICs>'		+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
 						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</ExtID>' +
 						'<Ext>'				+ ISNULL(@ExtStation,'')							+ '</Ext>' +
@@ -173,10 +173,10 @@ BEGIN
 						'<Requester>'		+ ISNULL(@Requester,'')								+ '</Requester>' +
 						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')		+ '</ModifierID>' +
 						'<Modifier>'		+ ISNULL(@Updater,'')								+ '</Modifier>' +
-						'<CreatorID>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(10),@ModifierID),'') ELSE ISNULL(CONVERT(VARCHAR(10),@CreatorID_old),'') END + '</CreatorID>' +
+						'<CreatorID>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(20),@ModifierID),'') ELSE ISNULL(CONVERT(VARCHAR(20),@CreatorID_old),'') END + '</CreatorID>' +
 						'<Creator>'			+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(@Updater,'') ELSE ISNULL(@Creator,'') END + '</Creator>'+ 
 						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
-						'<CreatedDate>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(10),@NewUpdate),'') ELSE ISNULL(CONVERT(VARCHAR(10),@CreatedDate_old),'') END + '</CreatedDate>' +
+						'<CreatedDate>'		+ CASE WHEN @CreatorID_old IS NULL THEN ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'') ELSE ISNULL(CONVERT(VARCHAR(20),@CreatedDate_old),'') END + '</CreatedDate>' +
 						'<IP>'				+ ISNULL(CONVERT(VARCHAR(15),@IP),'')					+ '</IP>' +
 					'</R>' 
 

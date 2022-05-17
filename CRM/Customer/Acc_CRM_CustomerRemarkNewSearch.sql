@@ -82,14 +82,14 @@ BEGIN
 		LEFT JOIN DBACC.bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
 	WHERE  (@Username = '' OR b.UserName IN (SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE  value <> ''))
 	AND a.Remark LIKE '%' + @Remark + '%' 
-	AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
+	AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 	AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
 	AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' AND EXISTS (SELECT TOP 1 1 
 								FROM STRING_SPLIT(a.RelatedPICs,',') s
 								INNER JOIN #Pic p ON S.value = p.PicID
 								WHERE  S.VALUE <> ''))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
-	AND a.RemarkTitle IS NOT NULL
+
 	
 	SELECT @AffectedList =  STUFF((SELECT DISTINCT ',' + cast(custid AS VARCHAR(10))
 								FROM #Result
@@ -129,14 +129,13 @@ BEGIN
 			LEFT JOIN DBACC.bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
 			LEFT JOIN DBACC.bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
 		WHERE  a.Remark LIKE '%' + @Remark + '%' 
-		AND (@RemarkTitle = '0' OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
+		AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 		AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
 		AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' AND EXISTS (SELECT TOP 1 1 
 									FROM STRING_SPLIT(a.RelatedPICs,',') s
 									INNER JOIN #Pic p ON S.value = p.PicID
 									WHERE  S.VALUE <> ''))) 
 		AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
-		AND a.RemarkTitle IS NOT NULL
 		AND a.CustID IN (SELECT HeadlineID FROM #CustHeadline)
 		AND a.RemarkID NOT IN (SELECT RemarkID FROM #Result)
 	END
@@ -157,7 +156,7 @@ BEGIN
 	SET a.IsGroupHeadLine = 1
 	FROM #Result a
 		INNER JOIN bodb02.dbo.CustAccount c WITH(NOLOCK) ON a.custid = c.custid AND c.IsGroupHeadLine = 1
-	
+
 	UPDATE a
 	SET a.RowNumber = KQ.row_num
 	FROM #Result a

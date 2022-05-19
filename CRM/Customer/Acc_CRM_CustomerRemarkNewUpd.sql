@@ -75,7 +75,6 @@ BEGIN
 		Requester            =   @Requester       , 
 		ModifierID            =  @ModifierID      ,  
 		LastUpdate           =   @NewUpdate     ,  
-		CreatedDate          =   CASE WHEN CreatorID IS NULL THEN @NewUpdate ELSE CreatedDate END  , 
 		CreatorID            =   CASE WHEN CreatorID IS NULL THEN @ModifierID ELSE CreatorID END         
 	WHERE RemarkID = @RemarkID
 	
@@ -87,7 +86,7 @@ BEGIN
 		RETURN
 	END
 	
-	IF EXISTS(SELECT TOP 1 1 FROM crmCustomerRemarkNew WITH(NOLOCK) WHERE ISNULL(CreatorID,0) <> 0 )
+	IF EXISTS(SELECT TOP 1 1 FROM crmCustomerRemarkNew WITH(NOLOCK) WHERE ISNULL(CreatorID,0) <> 0 AND RemarkID = @RemarkID )
 	BEGIN
 		DECLARE @LogHistory VARCHAR(MAX)
 		SELECT @LogHistory = '<Root>' +

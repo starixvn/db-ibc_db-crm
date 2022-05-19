@@ -33,21 +33,21 @@ BEGIN
 	SELECT value FROM STRING_SPLIT(@Username,',')  WHERE value <> ''
 	
 	INSERT INTO @Customer(CustID, UserName, IsCredit)
-	SELECT c.custid, c.username, CASE WHEN sr.SettingID IS NOT NULL THEN 0 ELSE 1 END as IsCredit
+	SELECT c.custid, c.username, CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsCredit
 	FROM bodb02.dbo.Customer c WITH (NOLOCK)		
 		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue AND s.SettingName = 'Site'
 		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
-														AND sr.ParentID = 33000--licensee
+														AND sr.ParentID = 33001--Credit
 	WHERE c.username IN ( SELECT username FROM @tmpCustomer)
 		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 	
 	INSERT INTO @Customer(CustID, UserName, IsCredit)
-	SELECT c.custid, c.username, CASE WHEN sr.SettingID IS NOT NULL THEN 0 ELSE 1 END as IsCredit
+	SELECT c.custid, c.username, CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsCredit
 	FROM crmCustomer c WITH (NOLOCK) 
 		INNER JOIN @tmpCustomer tc on c.username = tc.UserName
 		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.siteID = s.SettingID 
 		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
-														AND sr.ParentID = 33000--licensee
+														AND sr.ParentID = 33001--Credit
 	WHERE c.CustID < 0	AND @IsGuest = 1
 		AND ((@UserRole=1 AND c.SiteID = 33002) OR (@UserRole=2 AND c.SiteID <> 33002))
 

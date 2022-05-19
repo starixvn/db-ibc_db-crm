@@ -38,7 +38,7 @@ BEGIN
 		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.site = s.settingValue AND s.SettingName = 'Site'
 		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
 														AND sr.ParentID = 33001--Credit
-	WHERE c.username IN ( SELECT username FROM @tmpCustomer)
+	WHERE c.username IN ( SELECT username FROM @tmpCustomer) AND @IsGuest = 0
 		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
 	
 	INSERT INTO @Customer(CustID, UserName, IsCredit)

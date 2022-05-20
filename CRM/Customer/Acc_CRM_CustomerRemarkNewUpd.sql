@@ -86,7 +86,7 @@ BEGIN
 		RETURN
 	END
 	
-	IF EXISTS(SELECT TOP 1 1 FROM crmCustomerRemarkNew WITH(NOLOCK) WHERE ISNULL(CreatorID,0) <> 0 AND RemarkID = @RemarkID )
+	IF EXISTS(SELECT TOP 1 1 FROM crmCustomerRemarkNew WITH(NOLOCK) WHERE CreatorID IS NOT NULL AND RemarkID = @RemarkID )
 	BEGIN
 		DECLARE @LogHistory VARCHAR(MAX)
 		SELECT @LogHistory = '<Root>' +

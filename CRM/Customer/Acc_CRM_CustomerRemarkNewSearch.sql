@@ -83,7 +83,7 @@ BEGIN
 	WHERE  (@Username = '' OR b.UserName IN (SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE  value <> ''))
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
-	AND (@IsGuest = 0 OR (@IsGuest = 1 AND a.CustID < 0))
+	AND ((@IsGuest = 0 AND a.CustID > 0)OR (@IsGuest = 1 AND a.CustID < 0))
 	AND (@RelatedPICs = '' OR (ISNUlL(a.RelatedPICs,'') <> '' AND EXISTS (SELECT TOP 1 1 
 								FROM STRING_SPLIT(a.RelatedPICs,',') s
 								INNER JOIN #Pic p ON S.value = p.PicID

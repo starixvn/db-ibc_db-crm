@@ -40,6 +40,15 @@ BEGIN
 														AND sr.ParentID = 33001--Credit
 	WHERE c.username IN ( SELECT username FROM @tmpCustomer) AND @IsGuest = 0
 		AND ((@UserRole=1 AND c.site = 'CN88') OR (@UserRole=2 AND ISNULL(c.site,'') <> 'CN88'))
+
+	INSERT INTO @Customer(CustID, UserName, IsCredit)
+	SELECT c.custid, c.username, CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsCredit
+	FROM crmCustomer c WITH (NOLOCK)		
+		LEFT JOIN crmSetting s WITH(NOLOCK) ON c.SiteID = s.SettingID AND s.SettingName = 'Site'
+		LEFT JOIN crmSettingRelation sr WITH(NOLOCK) ON s.SettingID = sr.SettingID
+														AND sr.ParentID = 33001--Credit
+	WHERE c.username IN ( SELECT username FROM @tmpCustomer) AND @IsGuest = 0
+	AND c.custid NOT IN (SELECT CustID FROM @Customer)
 	
 	INSERT INTO @Customer(CustID, UserName, IsCredit)
 	SELECT c.custid, c.username, CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END as IsCredit

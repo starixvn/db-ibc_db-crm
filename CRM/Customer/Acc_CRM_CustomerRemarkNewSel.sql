@@ -24,7 +24,7 @@ BEGIN
     FROM crmCustomerRemarkNew a WITH(NOLOCK) 
 		INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID=b.CustID
 		LEFT JOIN crmSetting c WITH(NOLOCK) ON a.RemarkTitle= c.SettingID AND c.SettingName = 'RemarkTitles'
-		LEFT JOIN DBACC.bodb02.dbo.Custinfo e WITH(NOLOCK) ON a.CreatorID= e.CustID
+		LEFT JOIN bodb02.dbo.Custinfo e WITH(NOLOCK) ON a.CreatorID= e.CustID
 		LEFT JOIN bodb02.dbo.CustAccount d WITH(NOLOCK) ON a.custid = d.custid AND d.IsGroupHeadLine = 1
 	WHERE a.CustID = @CustID 
 		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND ISNULL(b.SiteID,0) <>33002))

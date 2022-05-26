@@ -156,11 +156,11 @@ BEGIN
 		INNER JOIN crmCustomer b WITH(NOLOCK) ON a.CustID = b.CustID
 		LEFT JOIN crmSetting c WITH(NOLOCK) ON a.RemarkTitle = c.SettingID AND c.SettingName = 'RemarkTitles'
 		LEFT JOIN crmSetting d WITH(NOLOCK) ON a.Ext = d.SettingID AND d.SettingName = 'Station'
-		LEFT JOIN DBACC.bodb02.dbo.Custinfo e WITH(NOLOCK) ON a.CreatorID = e.CustID
-		LEFT JOIN DBACC.bodb02.dbo.Custinfo her WITH(NOLOCK) ON a.HandlerID = her.CustID
-		LEFT JOIN DBACC.bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
-		LEFT JOIN DBACC.bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
-		LEFT JOIN DBACC.bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
+		LEFT JOIN bodb02.dbo.Custinfo e WITH(NOLOCK) ON a.CreatorID = e.CustID
+		LEFT JOIN bodb02.dbo.Custinfo her WITH(NOLOCK) ON a.HandlerID = her.CustID
+		LEFT JOIN bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
+		LEFT JOIN bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
+		LEFT JOIN bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
 
 	SELECT @TotalRows = COUNT(1) FROM #Result
 	

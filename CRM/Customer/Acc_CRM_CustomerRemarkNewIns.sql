@@ -107,11 +107,11 @@ BEGIN
 	
 	SELECT @UserName = UserName FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID
 	SELECT @RemarkName = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @RemarkTitle AND SettingName = 'RemarkTitles'
-	SELECT @Creator = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @CreatorID
-	SELECT @Handler = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @HandlerID
-	SELECT @Acknowledger = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @AcknowledgerID
-	SELECT @Approver = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ApproverID
-	SELECT @Updater = UserName FROM DBACC.bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ModifierID
+	SELECT @Creator = UserName FROM bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @CreatorID
+	SELECT @Handler = UserName FROM bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @HandlerID
+	SELECT @Acknowledger = UserName FROM bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @AcknowledgerID
+	SELECT @Approver = UserName FROM bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ApproverID
+	SELECT @Updater = UserName FROM bodb02.dbo.Custinfo WITH(NOLOCK) WHERE CustID = @ModifierID
 	SELECT @ExtStation = SettingValue FROM crmSetting WITH(NOLOCK) WHERE SettingID = @Ext AND SettingName = 'Station'
 
 	-- write log

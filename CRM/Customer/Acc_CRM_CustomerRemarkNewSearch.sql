@@ -4,7 +4,7 @@ ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
 	@Fromdate		DATETIME = NULL,  
 	@Todate			DATETIME = NULL, 
 	@Remark			NVARCHAR(MAX)	= '',
-	@RemarkTitle	VARCHAR(50)= '',
+	@RemarkTitle	VARCHAR(500)= '',
 	@IsGuest		BIT = 0,
 	@RelatedPICs	NVARCHAR(MAX)	= '',
 	@ShowHeadline	BIT = 0,
@@ -23,6 +23,7 @@ Original:
 
 Revisions:	
 	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
+	- 20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
 Param's Explanation:	
 	@RemarkTitle 0 : All, <> 0 : RemarkTitle
 	@IsHistory   0 : Search Remark , 1 : List History				 

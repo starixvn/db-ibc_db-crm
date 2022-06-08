@@ -4,7 +4,7 @@ ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
 	@Fromdate		DATETIME = NULL,  
 	@Todate			DATETIME = NULL, 
 	@Remark			NVARCHAR(MAX)	= '',
-	@RemarkTitle	VARCHAR(50)= '',
+	@RemarkTitle	VARCHAR(MAX)= '',
 	@IsGuest		BIT = 0,
 	@RelatedPICs	NVARCHAR(MAX)	= '',
 	@ShowHeadline	BIT = 0,
@@ -23,8 +23,9 @@ Original:
 
 Revisions:	
 	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
+	- 20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
 Param's Explanation:	
-	@RemarkTitle 0 : All, <> 0 : RemarkTitle
+	@RemarkTitle : All ID RemarkTitle
 	@IsHistory   0 : Search Remark , 1 : List History				 
 */
 BEGIN
@@ -44,6 +45,10 @@ BEGIN
 						Handler NVARCHAR(50), Acknowledger NVARCHAR(50), Approver NVARCHAR(50), 
 						RemarkName NVARCHAR(100), ExtStation NVARCHAR(100), Updater NVARCHAR(50)
 						)
+	CREATE TABLE #Customer (
+					CustID			INT,					
+					UserName		NVARCHAR(50)
+					)
 
 	CREATE TABLE #CustHeadline (
 					CustID			INT,
@@ -56,6 +61,12 @@ BEGIN
 	FROM crmPIC p  WITH(NOLOCK)
 	OUTER APPLY ( SELECT VALUE FROM STRING_SPLIT(@RelatedPICs,',') WHERE VALUE <> '' ) tmp
 	WHERE  p.Username like '%' + tmp.value +'%'
+
+	INSERT INTO #Customer(CustID, Username) 
+	SELECT p.CustID, Username
+	FROM crmCustomer p  WITH(NOLOCK)
+	OUTER APPLY ( SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE VALUE <> '' ) tmp
+	WHERE  p.Username = tmp.value 
 	
 	INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
 		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
@@ -80,7 +91,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
 		LEFT JOIN bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
 		LEFT JOIN bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
-	WHERE  (@Username = '' OR b.UserName IN (SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE  value <> ''))
+	WHERE  (@Username = '' OR b.CustID IN (SELECT CustID FROM #Customer))
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 	AND ((@IsGuest = 0 AND a.CustID > 0)OR (@IsGuest = 1 AND a.CustID < 0))
@@ -92,7 +103,7 @@ BEGIN
 
 	
 	SELECT @AffectedList =  STUFF((SELECT DISTINCT ',' + cast(custid AS VARCHAR(10))
-								FROM #Result
+								FROM #Customer
 								FOR XML PATH('')), 1, 1, '')
 	
 	INSERT INTO #CustHeadline(CustID,HeadlineID,HeadlineName)
@@ -181,5 +192,6 @@ BEGIN
 	
 	DROP TABLE #Result							
 	DROP TABLE #CustHeadline
+	DROP TABLE #Customer
 END
 GO 

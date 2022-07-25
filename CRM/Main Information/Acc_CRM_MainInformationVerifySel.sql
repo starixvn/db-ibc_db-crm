@@ -14,7 +14,8 @@ Original:
 Revisions:	
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
-	- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
+	- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]	
+	- 20220725@Winfred: Modify SPs Get balance [redmine:#175806]					
 Param's Explanation:	
 */
 
@@ -25,7 +26,7 @@ DECLARE @CashBalance MONEY,
 		@IsCredit BIT
 
 SELECT @CashBalance = SUM(winlost - actual_stake + playercomm)
-FROM DBTXN.BODB02.dbo.Bettrans WITH(NOLOCK)
+FROM BODB02.dbo.Bettrans WITH(NOLOCK)
 WHERE CustID = @CustID
 
 CREATE TABLE #Super(CustID INT PRIMARY KEY)

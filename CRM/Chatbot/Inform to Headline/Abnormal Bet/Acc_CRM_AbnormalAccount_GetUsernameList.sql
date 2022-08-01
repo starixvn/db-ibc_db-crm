@@ -1,6 +1,7 @@
 /*<info serverAlias="DBTXN-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_AbnormalAccount_GetUsernameList]
-	@Messages XML
+	@Messages 		XML
+	,@SiteDBGroupID INT
 AS
 
 /*
@@ -23,7 +24,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #MessageLst (MessageId INT, RequestID INT, VoidingHistoryId INT, Username VARCHAR(30), CustId INT, IsValid BIT DEFAULT(0))
+	CREATE TABLE #Site (SiteId INT, SiteName NVARCHAR(50) PRIMARY KEY)
+	CREATE TABLE #MessageLst (MessageId INT, RequestID INT, VoidingHistoryId INT, Username VARCHAR(30), CustId INT, IsValid BIT DEFAULT(0), SiteName NVARCHAR(50))
 
 	INSERT INTO #MessageLst (MessageId, RequestID, VoidingHistoryId, Username)
 	SELECT
@@ -42,14 +44,27 @@ BEGIN
 	CREATE CLUSTERED INDEX Ix_VoidingHistory ON #MessageLst (VoidingHistoryId, MessageId)
 
 	UPDATE m
-		SET m.CustId = l.custid
+		SET m.CustId = l.custid, m.SiteName = l.site
 	FROM #MessageLst m
 	CROSS APPLY
 	(
-		SELECT TOP 1 c.custid
+		SELECT TOP 1 c.custid, c.site
 		FROM CustDB.dbo.Customer c WITH(NOLOCK)
 		WHERE c.username = m.Username
 	) l
+
+	IF @SiteDBGroupID = 0
+	BEGIN
+		INSERT INTO #Site (SiteId, SiteName)
+		SELECT s.siteid, s.site
+		FROM CustDB.dbo.Site s WITH(NOLOCK)
+			INNER JOIN CustDB.dbo.SiteDBConfig sg WITH(NOLOCK) ON sg.SiteDBGroupID = s.SiteDBGroupID
+		WHERE sg.SiteDBGroupID <> @SiteDBGroupID
+
+		DELETE m
+		FROM #MessageLst m
+		WHERE EXISTS(SELECT 1 FROM #Site s WHERE s.SiteName = m.SiteName)
+	END
 
 	CREATE TABLE #Result (VoidingHistoryId INT, CustId INT, MessageId INT, RequestId INT)
 	CREATE CLUSTERED INDEX Ix_Result ON #Result (VoidingHistoryId)
@@ -88,5 +103,6 @@ BEGIN
 
 	DROP TABLE #MessageLst
 	DROP TABLE #Result
+	DROP TABLE #Site
 END
 GO

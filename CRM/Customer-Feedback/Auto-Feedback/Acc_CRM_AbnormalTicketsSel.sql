@@ -42,7 +42,6 @@ BEGIN
 		t.c.value('@UsernameList[1]', 'NVARCHAR(MAX)') AS UsernameList,
 		t.c.value('@CustIdList[1]', 'VARCHAR(MAX)') AS CustIdList
 	FROM @xml.nodes('/ROOT/r') t(c)	
-
 	--event info
 	DECLARE @tblEventInfo TABLE (MessageId INT, 
 								KickOffTime VARCHAR(8), 
@@ -60,6 +59,18 @@ BEGIN
 								MaxWinlostdate	DATETIME,
 								FilterBy	TINYINT
 								)	
+	--tickets info	
+	DECLARE @tblTrans TABLE (MessageId INT, 
+								RequestID INT,
+								TransID BIGINT,
+								custid INT, 
+								username VARCHAR(50),
+								srecommend INT, 
+								recommend INT,
+								bettype SMALLINT,
+								RelatedUserName VARCHAR(50),
+								RelatedCustID INT
+								)
 		
 	-- Abnormal bet
 	BEGIN	
@@ -148,64 +159,7 @@ BEGIN
 			)f (VoidById)
 		WHERE rd.FilterBy = 1		
 		GROUP BY vh.MessageId,	vh.IssueTypeId,	c.RequestIDList,d.DecidedBy,e.Requestby,f.VoidById,rd.FilterBy
-					
-		--tickets info	
-		DECLARE @tblTrans TABLE (MessageId INT, 
-								RequestID INT,
-								TransID BIGINT,
-								custid INT, 
-								username VARCHAR(50),
-								srecommend INT, 
-								recommend INT,
-								bettype SMALLINT,
-								RelatedUserName VARCHAR(50),
-								RelatedCustID INT
-								)
-		
-		INSERT INTO @tblTrans (MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
-		SELECT vh.MessageId, 
-			vh.RequestID,
-			vh.transid,
-			custid, 
-			username, 
-			srecommend,
-			b.recommend, 
-			b.bettype		
-		FROM #VoidingHistory vh
-			CROSS APPLY (
-				SELECT TOP 1 transid, custid, username,srecommend, recommend, b.bettype, b.currency
-				FROM dbo.bettrans b WITH (NOLOCK)
-				WHERE SiteDBGroupID = 0 AND b.transid = vh.TransId
-			) b		
-		WHERE 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
-				WHEN b.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
-				ELSE 0 END	
-		
-		INSERT INTO @tblTrans (MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
-		SELECT vh.MessageId, 
-			vh.RequestID,
-			vh.transid,
-			custid, 
-			username, 
-			srecommend,
-			b.recommend, 
-			b.bettype		
-		FROM #VoidingHistory vh
-			CROSS APPLY (
-				SELECT TOP 1 transid, custid, username,srecommend, recommend, b.bettype, b.currency
-				FROM dbo.bettrans14 b WITH (NOLOCK)
-				WHERE SiteDBGroupID = 0 AND b.transid = vh.TransId
-			) b		
-		WHERE vh.transid  NOT IN (SELECT transid FROM @tblTrans) AND
-		1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
-				WHEN b.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
-				ELSE 0 END						
-		
-		--exclude cn88 tickets
-		DELETE t
-		FROM @tblTrans t
-			INNER JOIN customer c WITH(NOLOCK) ON t.custid = c.custid
-		WHERE c.site = 'CN88'
+				
 	END
 	
 	-- Abnormal Acount

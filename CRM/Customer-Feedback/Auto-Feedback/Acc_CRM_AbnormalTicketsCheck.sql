@@ -1,4 +1,4 @@
-/*<info serverAlias="DBSIG-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBTXN-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsCheck]
 	@TranIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,
@@ -8,8 +8,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsCheck]
 AS
 /*
 	Created: 20220308@Winfred
-	Task : Get abnormal tickets for batch messages siteDB
-	DB: DBSIG\bodb02
+	Task : Get abnormal tickets for batch messages siteDB and Central DB
+	DB: DBTXN\bodb02
 	Original:
 
 	Revisions:

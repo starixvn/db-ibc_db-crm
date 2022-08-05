@@ -17,6 +17,7 @@ AS
 		- 20201126@Johnson: add param @Environment [redmine:#145274]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20211206@Winfred: Integrate Voiding Abnormal Mix Parlay tickets [RedmineId : #163833]
+		- 20220803@Winfred: CRM - Scale out DBTRANS [RedmineId : #175877]
 		
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
@@ -33,7 +34,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))	
-	DECLARE @xml XML = CAST(@MessageIds AS XML)	
+	DECLARE @xml XML = CAST(@MessageIds AS XML)	, @TranIDs VARCHAR(MAX)
 	
 	INSERT INTO @tmpMessage (MessageId,RequestID, UsernameList, CustIdList)
 	SELECT t.c.value('@MsgID[1]','int') MsgID,
@@ -63,16 +64,19 @@ BEGIN
 	-- Abnormal bet
 	BEGIN	
 		CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT,IssueTypeId TINYINT,DecidedBy NVARCHAR(200),Requestby INT)
-			
+				
 		INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId,IssueTypeId,DecidedBy,Requestby)
 		SELECT vh.VoidingHistoryId, vh.RequestId, vh.MessageId, vh.ReasonId, vh.UserId AS VoidById, t.TransId,rq.IssueTypeId, rq.DecidedBy ,rq.UserId AS Requestby
 		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
 			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
 			CROSS APPLY (
-				SELECT val AS TransId FROM dbo.strSplit(vh.TransIds, ',')
+				SELECT value AS TransId FROM string_split(vh.TransIds, ',') WHERE value <> ''
 			) t
 		WHERE EXISTS (SELECT 1 FROM @tmpMessage m WHERE vh.MessageId = m.MessageId AND vh.RequestID = m.RequestID)
 			AND vh.StatusId = 2 --tickets void successfully
+		
+		CREATE CLUSTERED INDEX IX_VoidingHistory_MID ON #VoidingHistory(MessageId,RequestId,TransId)
+
 	--	Abnormal bet Single ticket 
 		INSERT INTO @tblEventInfo (MessageId, KickOffTime, LeagueName, HomeName, AwayName,SportName,EventDate,IssueTypeId,FilterBy)
 		SELECT DISTINCT vh.MessageId, 
@@ -171,7 +175,7 @@ BEGIN
 			CROSS APPLY (
 				SELECT TOP 1 transid, custid, username,srecommend, recommend, b.bettype, b.currency
 				FROM dbo.bettrans b WITH (NOLOCK)
-				WHERE b.transid = vh.TransId
+				WHERE SiteDBGroupID = 0 AND b.transid = vh.TransId
 			) b		
 		WHERE 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
 				WHEN b.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
@@ -190,7 +194,7 @@ BEGIN
 			CROSS APPLY (
 				SELECT TOP 1 transid, custid, username,srecommend, recommend, b.bettype, b.currency
 				FROM dbo.bettrans14 b WITH (NOLOCK)
-				WHERE b.transid = vh.TransId
+				WHERE SiteDBGroupID = 0 AND b.transid = vh.TransId
 			) b		
 		WHERE vh.transid  NOT IN (SELECT transid FROM @tblTrans) AND
 		1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
@@ -202,7 +206,6 @@ BEGIN
 		FROM @tblTrans t
 			INNER JOIN customer c WITH(NOLOCK) ON t.custid = c.custid
 		WHERE c.site = 'CN88'
-	
 	END
 	
 	-- Abnormal Acount
@@ -215,13 +218,13 @@ BEGIN
 		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
 			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId = 13 -- Abnormal Account
 			INNER JOIN @tmpMessage m ON m.MessageId = vh.MessageId AND m.RequestId = vh.RequestId
-			CROSS APPLY (SELECT val AS CustId FROM dbo.strSplit(m.CustIdList, ',')) c
+			CROSS APPLY (SELECT value AS CustId FROM string_split(m.CustIdList, ',') WHERE value <> '') c
 		WHERE vh.StatusId = 2 --tickets void successfully
 
 		INSERT INTO #RelatedAccounts ( RequestId, MessageId, RelatedUserName)
 		SELECT vh.RequestId, vh.MessageId, c.Username
 		FROM @tmpMessage vh 
-			CROSS APPLY (SELECT val AS Username FROM dbo.strSplit(vh.UsernameList, ',')) c
+			CROSS APPLY (SELECT value AS Username FROM string_split(vh.UsernameList, ',') WHERE value <> '') c
 		
 		UPDATE m
 		SET m.RelatedCustID = l.custid
@@ -324,7 +327,24 @@ BEGIN
 		LEFT JOIN bettype b WITH(NOLOCK) ON t.bettype = b.typeid
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
 	ORDER BY MessageId,RequestID,isDeposit,custid
+
+	SET @TranIDs = (  SELECT DISTINCT
+					  	MessageId AS '@MsgID', 
+					  	RequestID AS '@ReqID',
+					  	transids AS '@TransID'
+					  FROM #VoidingHistory vh 
+					  OUTER APPLY(
+							SELECT STUFF(( SELECT DISTINCT ','+ cast(a.transid as VARCHAR(20))  as [text()]
+								FROM #VoidingHistory a  
+								WHERE vh.MessageId = a.MessageId AND vh.RequestID = a.RequestId
+								FOR XML PATH('')
+								),1,1,'')
+						)c (transids)
+					  ORDER BY MessageId,RequestID
+					  FOR XML PATH ('r'), ROOT ('ROOT'))
 	
+	SELECT @TranIDs AS CheckTrans
+
 	DROP TABLE #VoidingHistory
 END	
 

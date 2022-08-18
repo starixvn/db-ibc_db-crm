@@ -12,6 +12,7 @@ AS
 
 	Revisions:
 		- 20210510@Johnson: Initial sp [redmine:#142194]
+		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" catid="51" />
@@ -63,6 +64,12 @@ BEGIN
 	FROM @tmpCust t		
 	WHERE NOT EXISTS (SELECT 1 FROM crmProblemAccountFeedbackInfo fb WITH(NOLOCK) WHERE t.LogID =fb.LogID)
 	
+	UPDATE fb 
+	SET status = 'ignore',UpdatedTime = GETDATE()
+	FROM crmProblemAccountFeedbackInfo fb  WITH(UPDLOCK,ROWLOCK)
+		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5 AND c.CustID IS NOT NULL AND c.Ignored = 1
+
 	SELECT LogID
 		,fb.CustID		
 		,ci.username		

@@ -15,6 +15,7 @@ AS
 		- 20210108@Johnson: get ProductName En only [redmine:#145274]
 		- 20210120@Johnson: get sports to map sub-product [redmine:#148977]
 		- 20210507@Johnson: dont get sports for VS,VS2,NG mapping NA for them [redmine:#154722]
+		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" product="21" group="Allbet Casino" level="Orange" limitsetting="20000" winamount="25000" winamountRM="25000" time="2020-10-10 10:15:12" bettype="2401,2403" />
@@ -93,6 +94,12 @@ BEGIN
 	FROM @tmpCust t		
 	WHERE NOT EXISTS (SELECT 1 FROM crmWinLimitFeedbackInfo fb WITH(NOLOCK) WHERE t.LogID =fb.LogID)
 	
+	UPDATE fb 
+	SET status = 'ignore',UpdatedTime = GETDATE()
+	FROM crmWinLimitFeedbackInfo fb  WITH(UPDLOCK,ROWLOCK)
+		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.CustID IS NOT NULL AND c.Ignored = 1
+
 	SELECT LogID
 		,fb.CustID
 		,ci.currency

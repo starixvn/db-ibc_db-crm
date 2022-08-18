@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20200518@Johnson: Initial sp [redmine:#134220]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 	Param's Explanation:		
 		- @xml = <ROOT>
 						<r msgid="100" reqid="1" custid="1" hl="100" related="1" event="A -vs- B" IssueTypeId = "13" />
@@ -45,6 +46,11 @@ BEGIN
 													AND t.headlineID = c.HeadlineID
 	WHERE c.custid IS NULL 
 	
+	UPDATE fb 
+	SET status = 'ignore',UpdatedTime = GETDATE()
+	FROM crmAutoFeedbackInfo fb  WITH(UPDLOCK,ROWLOCK)
+		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.CustID IS NOT NULL AND c.Ignored = 1
 	
 	--get all msg & custid with status = 'initial'
 	SELECT c.MessageID, c.RequestID, c.custid 

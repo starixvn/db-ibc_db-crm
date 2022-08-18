@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20211124@Winfred: fix site column for Voiding Settled Tickets [RedmineId : #164235]
+		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 	Parameter's Explanation:
 		
 */
@@ -36,6 +37,12 @@ BEGIN
 							)
 	DECLARE @Message  TABLE (LogVoidingID INT )
 	
+	UPDATE fb 
+	SET status = 'ignore',UpdatedTime = GETDATE()
+	FROM crmAutoFBVoiding fb  WITH(UPDLOCK,ROWLOCK)
+		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.CustID IS NOT NULL AND c.Ignored = 1
+
 	INSERT INTO @Message (LogVoidingID)
 	SELECT TOP (@BatchSize) 
 		LogVoidingID

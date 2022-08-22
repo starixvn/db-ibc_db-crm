@@ -132,8 +132,7 @@ SET NOCOUNT ON;
 					,	l.list AS relatedCustomer
 					,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
 	FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
-	INNER JOIN	crmFeedback fb WITH (NOLOCK)
-			ON	fb.FeedbackID = fbc.FeedbackID
+	CROSS APPLY	(SELECT TOP 1 * FROM crmFeedback WITH (NOLOCK) WHERE FeedbackID = fbc.FeedbackID) AS fb
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	ctm.CustID = fb.CustID
 	INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)

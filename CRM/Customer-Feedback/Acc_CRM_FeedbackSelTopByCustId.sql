@@ -1,5 +1,5 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTopByCustId (
+ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTopByCustId(
 					@CustID		INT
 				,	@top		INT		= 10
 				,	@UserRole   TINYINT
@@ -20,11 +20,83 @@ AS
 		- 20180323@Winnie:	CRM - display wrong review information. - [Redmine: #92586]
 		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 2020816@Winfred:  CRM - enhance code to avoid timeout issue RedmineID: #112637
 	Param's Explanation:
 	exec Acc_CRM_FeedbackSelTopByCustId @CustID=19984856,@top=10
 */
 BEGIN		
-SET NOCOUNT ON;		
+SET NOCOUNT ON;	
+	DECLARE @i INT = 65000
+	CREATE TABLE #tempFeedback (FeedbackID	INT, 
+								CustID	INT, 
+								Username NVARCHAR(50),
+								TitleID INT,
+								FirstName NVARCHAR(50),
+								LastName NVARCHAR(50),
+								Phone NVARCHAR(100),
+								MobilePhone NVARCHAR(100),
+								Fax  NVARCHAR(50),
+								Email  NVARCHAR(254),
+								Skype NVARCHAR(100),
+								MSN NVARCHAR(100),
+								LanguageID INT,
+								CountryID INT,
+								CreatorID INT,
+								CreatorName NVARCHAR(50),
+								CreateDate DATETIME,
+								FeedbackDate DATETIME,
+								ResolutionDate DATETIME,
+								SolveDate DATETIME,
+								SiteID INT,
+								RoleID INT,
+								ResponseID INT,
+								StatusID INT,
+								Description XML,
+								Solution NVARCHAR(MAX),
+								IsReviewed BIT,
+								Review NVARCHAR(MAX),
+								ReviewerID INT,
+								ReviewerName NVARCHAR(50),
+								IsRelated	BIT,
+								Subject NVARCHAR(MAX),
+								relatedCustomer NVARCHAR(MAX),
+								ProvinceID	INT)
+	INSERT INTO #tempFeedback 
+				(	FeedbackID , 
+					CustID	, 
+					Username ,
+					TitleID ,
+					FirstName ,
+					LastName ,
+					Phone ,
+					MobilePhone ,
+					Fax ,
+					Email  ,
+					Skype ,
+					MSN ,
+					LanguageID ,
+					CountryID ,
+					CreatorID ,
+					CreatorName ,
+					CreateDate ,
+					FeedbackDate ,
+					ResolutionDate ,
+					SolveDate ,
+					SiteID ,
+					RoleID ,
+					ResponseID ,
+					StatusID ,
+					Description ,
+					Solution ,
+					IsReviewed ,
+					Review ,
+					ReviewerID ,
+					ReviewerName ,
+					IsRelated	,
+					Subject ,
+					relatedCustomer ,
+					ProvinceID
+					)	
 	SELECT TOP (@top)	fb.FeedbackID
 					,	fb.CustID
 					,	ctm.UserName
@@ -59,10 +131,8 @@ SET NOCOUNT ON;
 					,	fb.Subject
 					,	l.list AS relatedCustomer
 					,	CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END AS ProvinceID
-	INTO #temp
 	FROM		crmFeedbackCustomer fbc WITH (NOLOCK)
-	INNER JOIN	crmFeedback fb WITH (NOLOCK)
-			ON	fb.FeedbackID = fbc.FeedbackID
+	CROSS APPLY	(SELECT TOP 1 * FROM crmFeedback WITH (NOLOCK) WHERE FeedbackID = fbc.FeedbackID) AS fb
 	INNER JOIN	crmCustomer ctm WITH (NOLOCK)
 			ON	ctm.CustID = fb.CustID
 	INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)
@@ -101,8 +171,8 @@ SET NOCOUNT ON;
 		,	t.RoleID						
 		,	t.ResponseID
 		,	t.StatusID					
-		,	nr.value(N'@Remark',N'nvarchar(max)') AS Description
-		,	nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
+		,	tmp.Remark AS Description
+		,	tmp.AutoField AS AutoField
 		,	t.Solution
 		,	t.IsReviewed
 		,	t.Review
@@ -112,8 +182,12 @@ SET NOCOUNT ON;
 		,	t.Subject
 		,	t.relatedCustomer
 		,	t.ProvinceID
-	FROM #temp t
-	OUTER APPLY t.Description.nodes(N'//row') AS A(nr)
+	FROM #tempFeedback t
+	OUTER APPLY (SELECT TOP (@i) nr.value(N'@Remark',N'nvarchar(max)') AS Remark,
+						nr.value(N'@AutoField',N'nvarchar(max)') AS AutoField
+				FROM t.Description.nodes(N'//row') AS A(nr)) tmp
+	OPTION (OPTIMIZE FOR (@i = 1));
+	
 
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
 	CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
@@ -121,7 +195,7 @@ SET NOCOUNT ON;
 			WHEN p.SettingID		IS NOT NULL THEN 'Product' 
 			WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
 			END AS SettingType
-	FROM #temp fp
+	FROM #tempFeedback fp
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
 			ON fs.FeedbackID=fp.FeedbackID	
 		LEFT JOIN crmMainCategory m 
@@ -133,7 +207,4 @@ SET NOCOUNT ON;
 		LEFT JOIN crmSetting c
 			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 END
-GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelTopByCustId TO bodbAdminNet;
 GO

@@ -24,6 +24,7 @@ Original:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
 		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
+		- 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
 	Param's Explanation:
 		
 */
@@ -31,7 +32,7 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @RowStart INT, @RowEnd INT
+	DECLARE @RowStart INT, @RowEnd INT, @MaxRetry INT = 5, @Id INT = 0, @Msg NVARCHAR(MAX) = ''
 
 	SELECT @PageIndex = @PageIndex - 1, @RowStart = @PageIndex * @PageSize + 1, @RowEnd = @RowStart + @PageSize - 1
 
@@ -76,47 +77,115 @@ BEGIN
 		,RelatedNotificationIds NVARCHAR(1000)
 		,RowNum					INT
 	)
+	
+	WHILE @Id < @MaxRetry
+	BEGIN
+		BEGIN TRY
+			SET @Msg = ''
+			
+			TRUNCATE TABLE #Tmp
+			
+			IF @FromDate IS NOT NULL
+			BEGIN
+				INSERT INTO #Tmp
+				(
+					NotificationId			
+					,ReferenceId	
+					,DataSource
+					,NotificationTypeId		
+					,NotificationTypeName	
+					,Sender					
+					,SendDate				
+					,Title					
+					,Content				
+					,Status	
+					,ResolvedRemark
+					,ResolvedBy
+					,RelatedNotificationIds
+				)
+				SELECT 
+					n.NotificationId,
+					n.ReferenceId,
+					n.DataSource,
+					n.NotificationTypeId,
+					nt.NotificationTypeName,
+					n.Sender,
+					n.SendDate,
+					n.Title,
+					n.Content,
+					n.Status,
+					n.ResolvedRemark,
+					n.ResolvedBy,
+					n.RelatedNotificationIds
+				FROM dbo.crmNotification n WITH(NOLOCK)
+					INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
+				WHERE n.SendDate >= @FromDate
+					AND n.SendDate <= @ToDate 
+					AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
+					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
+					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
+			END
+			ELSE
+			BEGIN
+				INSERT INTO #Tmp
+				(
+					NotificationId			
+					,ReferenceId	
+					,DataSource
+					,NotificationTypeId		
+					,NotificationTypeName	
+					,Sender					
+					,SendDate				
+					,Title					
+					,Content				
+					,Status	
+					,ResolvedRemark
+					,ResolvedBy
+					,RelatedNotificationIds
+				)
+				SELECT 
+					n.NotificationId,
+					n.ReferenceId,
+					n.DataSource,
+					n.NotificationTypeId,
+					nt.NotificationTypeName,
+					n.Sender,
+					n.SendDate,
+					n.Title,
+					n.Content,
+					n.Status,
+					n.ResolvedRemark,
+					n.ResolvedBy,
+					n.RelatedNotificationIds
+				FROM dbo.crmNotification n WITH(NOLOCK)
+					INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
+				WHERE (n.ReferenceId = @MessageId AND n.DataSource = 'MessageId' OR @MessageId IS NULL)
+					AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
+					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
+					AND (n.NotificationId >= @NotificationIdLower OR @NotificationIdLower IS NULL)
+					AND (n.NotificationId <= @NotificationIdUpper OR @NotificationIdUpper IS NULL)
+					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
+			END	
+		END TRY
+		BEGIN CATCH
+			IF @@ERROR = 2627
+			BEGIN
+				SET @Id = @Id + 1
+			END
+			ELSE 
+				SET @Id = @MaxRetry
+			SET @Msg = ERROR_MESSAGE()
+		END CATCH
+		
+		IF @Msg = ''
+			BREAK
+	END
 
-	INSERT INTO #Tmp
-	(
-		NotificationId			
-		,ReferenceId	
-		,DataSource
-		,NotificationTypeId		
-		,NotificationTypeName	
-		,Sender					
-		,SendDate				
-		,Title					
-		,Content				
-		,Status	
-		,ResolvedRemark
-		,ResolvedBy
-		,RelatedNotificationIds
-	)
-	SELECT 
-		n.NotificationId,
-		n.ReferenceId,
-		n.DataSource,
-		n.NotificationTypeId,
-		nt.NotificationTypeName,
-		n.Sender,
-		n.SendDate,
-		n.Title,
-		n.Content,
-		n.Status,
-		n.ResolvedRemark,
-		n.ResolvedBy,
-		n.RelatedNotificationIds
-	FROM dbo.crmNotification n WITH(NOLOCK)
-		INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
-	WHERE (n.ReferenceId = @MessageId AND n.DataSource = 'MessageId' OR @MessageId IS NULL)
-		AND (n.SendDate >= @FromDate OR @FromDate IS NULL)
-		AND (n.SendDate <= @ToDate OR @ToDate IS NULL)
-		AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%' OR @Status = '')
-		AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
-		AND (n.NotificationId >= @NotificationIdLower OR @NotificationIdLower IS NULL)
-		AND (n.NotificationId <= @NotificationIdUpper OR @NotificationIdUpper IS NULL)
-		AND (n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds) OR @NotificationTypeIds = '')
+	IF @Msg <> ''
+	BEGIN
+		RAISERROR(@Msg, 16, 1)
+		RETURN
+	END
 
 	IF @Headline <> ''
 	BEGIN

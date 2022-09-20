@@ -17,6 +17,7 @@ Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20220912@Malcolm: Change data type of NotificationTypeId [Redmine: #175877]
 	Param's Explanation:
 		
 */
@@ -24,7 +25,7 @@ Original:
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @NotificationTypeId TINYINT = 0, @NewValues NVARCHAR(MAX), @RecipientTypeXML XML, @ChatTypeXML XML, @SystemXML XML 
+	DECLARE @NotificationTypeId SMALLINT = 0, @NewValues NVARCHAR(MAX), @RecipientTypeXML XML, @ChatTypeXML XML, @SystemXML XML 
 
 	-- Check permission
 

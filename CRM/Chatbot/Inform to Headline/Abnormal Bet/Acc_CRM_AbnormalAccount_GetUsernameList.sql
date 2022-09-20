@@ -1,6 +1,7 @@
 /*<info serverAlias="DBTXN-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_AbnormalAccount_GetUsernameList]
-	@Messages XML
+	@Messages 		XML
+	,@SiteDBGroupID SMALLINT
 AS
 
 /*
@@ -10,7 +11,8 @@ AS
 	Revisions:
 		- 20210628@Malcolm: Initialize SP [RedmineID: #157303]
 		- 20220324@Malcolm: replace function f_SplitString with function STRING_SPLIT [RedmineID: #168783]
-
+		- 20220802@Malcolm: Scale out DBTRANS [RedmineID: #175877]
+		
 	Param's Explanation:
 		@Messages:
 			<root>
@@ -23,7 +25,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #MessageLst (MessageId INT, RequestID INT, VoidingHistoryId INT, Username VARCHAR(30), CustId INT, IsValid BIT DEFAULT(0))
+	CREATE TABLE #MessageLst (MessageId INT, RequestID INT, VoidingHistoryId INT, Username VARCHAR(30), CustId INT, IsValid BIT DEFAULT(0), SiteName NVARCHAR(50))
 
 	INSERT INTO #MessageLst (MessageId, RequestID, VoidingHistoryId, Username)
 	SELECT
@@ -42,14 +44,21 @@ BEGIN
 	CREATE CLUSTERED INDEX Ix_VoidingHistory ON #MessageLst (VoidingHistoryId, MessageId)
 
 	UPDATE m
-		SET m.CustId = l.custid
+		SET m.CustId = l.custid, m.SiteName = l.site
 	FROM #MessageLst m
 	CROSS APPLY
 	(
-		SELECT TOP 1 c.custid
+		SELECT TOP 1 c.custid, c.site
 		FROM CustDB.dbo.Customer c WITH(NOLOCK)
 		WHERE c.username = m.Username
 	) l
+	
+	DELETE m
+	FROM #MessageLst m
+	WHERE EXISTS(
+		SELECT 1 FROM CustDB.dbo.Site s WITH(NOLOCK) 
+		WHERE s.site = m.SiteName AND s.SiteDBGroupID <> @SiteDBGroupID
+	)
 
 	CREATE TABLE #Result (VoidingHistoryId INT, CustId INT, MessageId INT, RequestId INT)
 	CREATE CLUSTERED INDEX Ix_Result ON #Result (VoidingHistoryId)
@@ -57,7 +66,7 @@ BEGIN
 	INSERT INTO #Result (VoidingHistoryId, CustId, MessageId, RequestId)
 	SELECT DISTINCT m.VoidingHistoryId, b.CustId, m.MessageId, m.RequestID
 	FROM dbo.zzzbettrans b WITH(NOLOCK)
-		INNER JOIN #MessageLst m ON m.VoidingHistoryId = b.VoidingHistoryId
+		INNER JOIN #MessageLst m ON m.VoidingHistoryId = b.VoidingHistoryId AND b.SiteDBGroupID = @SiteDBGroupID
 
 	UPDATE m
 		SET m.IsValid = 1

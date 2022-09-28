@@ -40,8 +40,8 @@ BEGIN
 	UPDATE fb 
 	SET status = 'ignore',UpdatedTime = GETDATE()
 	FROM crmAutoFBVoiding fb  WITH(UPDLOCK,ROWLOCK)
-		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
-	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.CustID IS NOT NULL AND c.Ignored = 1
+		INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.Ignored = 1
 
 	INSERT INTO @Message (LogVoidingID)
 	SELECT TOP (@BatchSize) 

@@ -9,7 +9,7 @@ AS
 /*
 	Created: 20220308@Winfred
 	Task : Get abnormal tickets for batch messages siteDB and Central DB
-	DB: DBTXN\bodb02
+	DB: DBTXN\bodb02 (ReadOnly)
 	Original:
 
 	Revisions:

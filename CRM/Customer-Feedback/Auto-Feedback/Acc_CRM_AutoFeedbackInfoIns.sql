@@ -23,6 +23,7 @@ BEGIN
 	SET NOCOUNT ON
 		
 	DECLARE @tmpCust TABLE (MessageID INT, RequestID INT, event VARCHAR(500), custid INT, headlineID INT, relatedCustid INT,IssueTypeId TINYINT)
+	DECLARE @tmpIgnoreCust TABLE (MessageID INT, RequestID INT)
 		
 	INSERT INTO @tmpCust(MessageID,RequestID,custid,HeadlineID,relatedCustid,event,IssueTypeId)
 	SELECT t.c.value('@msgid[1]','int') msgid,
@@ -48,10 +49,18 @@ BEGIN
 	
 	UPDATE fb 
 	SET status = 'ignore',UpdatedTime = GETDATE()
+	OUTPUT DELETED.MessageID,DELETED.RequestID INTO @tmpIgnoreCust(MessageID,RequestID)
 	FROM crmAutoFeedbackInfo fb  WITH(UPDLOCK,ROWLOCK)
 		INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
 	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.Ignored = 1
 	
+	UPDATE mi 
+	SET mi.IsProcessed = 1,
+		mi.IsProcessedUAT = 1
+	FROM crmMessageImport mi  WITH(UPDLOCK,ROWLOCK)
+	INNER JOIN @tmpIgnoreCust t ON mi.MessageID = t.MessageID AND mi.RequestID = t.RequestID
+	WHERE IsProcessed = 0 OR IsProcessedUAT = 0
+
 	--get all msg & custid with status = 'initial'
 	SELECT c.MessageID, c.RequestID, c.custid 
 	FROM crmAutoFeedbackInfo c WITH(NOLOCK)

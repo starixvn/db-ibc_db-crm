@@ -106,6 +106,7 @@ Revisions:
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
+	- 20221013@Winfred: Fix SP when create account duplicate in CRM RedmineID: #179044
 Param's Explanation:
 	
 */
@@ -218,9 +219,7 @@ BEGIN
 					Ignored,
 					ProvinceID
 				)
-			VALUES
-				( 
-					@CustID, 
+			SELECT @CustID, 
 					@UserName, 
 					@TitleID, 
 					@FirstName, 
@@ -297,7 +296,7 @@ BEGIN
 					@IntroducedBy,
 					@Ignored,
 					@ProvinceID
-				)
+			WHERE NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 	
 	IF @@ERROR <> 0
 	BEGIN
@@ -332,6 +331,7 @@ BEGIN
 		,PhoneNumber2 = ISNULL(@Phone2CountryCode,'') + ISNULL(@Phone2AreaCode,'') + ISNULL(@Phone2,'')
 		,PhoneNumber3 = ISNULL(@Phone3CountryCode,'') + ISNULL(@Phone3AreaCode,'') + ISNULL(@Phone3,'')
 		,MobilePhone = ISNULL(@MobilePhoneCountryCode,'') + ISNULL(@MobilePhoneAreaCode,'') + ISNULL(@MobilePhone,'')
+	WHERE NOT EXISTS (SELECT 1 FROM crmCustomerSearch WITH(NOLOCK) WHERE CustID = @CustID)
 
 	IF @@ERROR <> 0
 	BEGIN

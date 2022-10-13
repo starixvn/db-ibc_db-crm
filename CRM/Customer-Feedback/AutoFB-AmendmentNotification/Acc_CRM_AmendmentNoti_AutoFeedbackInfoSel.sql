@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 202010303@Winfred: Initial sp [redmine:#147470]
+		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 	
 	Parameter's Explanation:
 
@@ -41,7 +42,12 @@ BEGIN
 							eventdate DATETIME,
 							race_time DATETIME
 							)
-	
+	UPDATE fb 
+	SET status = 'ignore',UpdatedTime = GETDATE()
+	FROM crmAmendmentNotiFeedbackInfo fb  WITH(UPDLOCK,ROWLOCK)
+		INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.Ignored = 1
+
 	INSERT INTO #Result (LogID,TicketEventId, HeadlineID,HeadlineName,ProductID,affectedId,affectedName,MatchId,MatchCode,EventType,MessageId,ActualResult,WrongResult,Listbettype,currency,site)
 	SELECT TOP (@BatchSize) 
 		an.LogID

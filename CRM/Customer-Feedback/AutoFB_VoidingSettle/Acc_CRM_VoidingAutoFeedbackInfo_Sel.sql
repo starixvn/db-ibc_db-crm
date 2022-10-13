@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20211124@Winfred: fix site column for Voiding Settled Tickets [RedmineId : #164235]
+		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 	Parameter's Explanation:
 		
 */
@@ -35,7 +36,25 @@ BEGIN
 							SportName_Sort NVARCHAR(150)
 							)
 	DECLARE @Message  TABLE (LogVoidingID INT )
+	DECLARE @tmpIgnoreCust TABLE (MessageID INT, ListMsgTargetId VARCHAR(MAX))
 	
+	UPDATE fb 
+	SET status = 'ignore',UpdatedTime = GETDATE()
+	OUTPUT DELETED.MessageID,DELETED.ListMsgTargetId INTO @tmpIgnoreCust(MessageID,ListMsgTargetId)
+	FROM crmAutoFBVoiding fb  WITH(UPDLOCK,ROWLOCK)
+		INNER JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	WHERE status IN ('initial','fail') AND retryCount < 5  AND c.Ignored = 1
+		
+	UPDATE mi 
+	SET mi.IsProcessed = 1,
+		mi.IsProcessedUAT = 1
+	FROM crmVoidingMessage mi  WITH(UPDLOCK,ROWLOCK)
+	INNER JOIN @tmpIgnoreCust t ON mi.MessageID = t.MessageID 
+	CROSS APPLY (
+				SELECT value AS MsgTargetId FROM STRING_SPLIT(t.ListMsgTargetId, ',') WHERE value <> ''
+			) c
+	WHERE mi.MsgTargetId = c.MsgTargetId AND (IsProcessed = 0 OR IsProcessedUAT = 0)
+
 	INSERT INTO @Message (LogVoidingID)
 	SELECT TOP (@BatchSize) 
 		LogVoidingID

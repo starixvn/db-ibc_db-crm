@@ -15,6 +15,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 	,@LoginIP				NVARCHAR(20) = ''
 	,@IsAuto				BIT = 0
+	,@IsOnlyRemark          BIT = 0
 AS
 /*
 Created: 20200810@Malcolm
@@ -33,7 +34,42 @@ BEGIN
 
 	DECLARE @Existing_GroupName NVARCHAR(1000) = '',@NumberOfRecipients BIT = 0, @SourceId INT, @NewValues NVARCHAR(MAX), 
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, 
-			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
+			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000), @OldRemark NVARCHAR(2000)
+
+	CREATE TABLE  #Recipients  (ID INT PRIMARY KEY CLUSTERED)
+	CREATE TABLE  #Headlines  (ID INT PRIMARY KEY CLUSTERED)
+
+	CREATE TABLE #Tmp
+	(
+		ConversationGroupId		SMALLINT
+		,ConversationId			VARCHAR(200)
+		,ConversationGroupName	NVARCHAR(1000)
+		,ChatTypeId				TINYINT
+		,Creator				INT
+		,CreatedDate			DATETIME
+		,UpdatedDate			DATETIME
+		,LanguageId				INT
+		,Remark					NVARCHAR(2000)
+		,IsActive				BIT
+		,BotId					INT
+		,RecipientId			INT
+		,HeadlineId				INT
+		,IsTest					BIT
+		,Type                   SMALLINT
+	)
+
+	IF ISNULL(@IsOnlyRemark, 0) = 1
+	BEGIN
+		SELECT @OldRemark = Remark
+		FROM dbo.crmConversationGroup WITH(NOLOCK)
+		WHERE ConversationGroupId = @ConversationGroupId
+
+		UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
+			SET Remark = @Remark
+		WHERE ConversationGroupId = @ConversationGroupId
+
+		GOTO _Remark
+	END
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
@@ -73,27 +109,6 @@ BEGIN
 		END
 
 	END
-	CREATE TABLE  #Recipients  (ID INT PRIMARY KEY CLUSTERED)
-	CREATE TABLE  #Headlines  (ID INT PRIMARY KEY CLUSTERED)
-
-	CREATE TABLE #Tmp
-	(
-		ConversationGroupId		SMALLINT
-		,ConversationId			VARCHAR(200)
-		,ConversationGroupName	NVARCHAR(1000)
-		,ChatTypeId				TINYINT
-		,Creator				INT
-		,CreatedDate			DATETIME
-		,UpdatedDate			DATETIME
-		,LanguageId				INT
-		,Remark					NVARCHAR(2000)
-		,IsActive				BIT
-		,BotId					INT
-		,RecipientId			INT
-		,HeadlineId				INT
-		,IsTest					BIT
-		,Type                   SMALLINT
-	)
 
 	INSERT INTO #Recipients(ID) 
 	SELECT val
@@ -357,6 +372,16 @@ BEGIN
 							WHERE t.Type = 1
 							FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd'))
 						AS NVARCHAR(MAX))  
+	-- Log for remark
+	_Remark:
+	IF ISNULL(@IsOnlyRemark, 0) = 1
+	BEGIN
+		SELECT 
+			@NewValues = CONVERT(NVARCHAR(MAX),(SELECT @Remark AS '@Remark' FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd')))
+			,@OldValues = CONVERT(NVARCHAR(MAX),(SELECT @OldRemark AS '@Remark' FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd')))
+			,@ReferenceIds = '',@CustIds = ''
+
+	END
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,

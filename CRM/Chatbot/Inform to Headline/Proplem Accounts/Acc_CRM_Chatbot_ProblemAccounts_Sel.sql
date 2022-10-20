@@ -12,6 +12,7 @@ AS
 	Revisions:
 		- 20210426@Malcolm: Initialize SP [RedmineId: #153119]
 		- 20220330@Malcolm: Get CustomerClass from CategoryConfig table [RedmineId: #170666]
+		- 20221020@Malcolm: Hide problem accounts (group betting) [redmine: #179370]
 */
 
 BEGIN
@@ -27,6 +28,6 @@ BEGIN
 	FROM dbo.CustCategoryHistory h WITH(NOLOCK)
 		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = h.custid 
 	WHERE c.roleid = 1 AND c.site = '789y' AND h.LogID > @LastLogId AND h.LogID <= @MaxLogId	
-		AND EXISTS (SELECT 1 FROM dbo.CategoryConfig cg WITH(NOLOCK) WHERE cg.CustomerClass = h.CustomerClass)
+		AND EXISTS (SELECT 1 FROM dbo.CategoryConfig cg WITH(NOLOCK) WHERE cg.CustomerClass = h.CustomerClass AND HiddenSite IN (0, 2))
 	ORDER BY h.LogID ASC
 END

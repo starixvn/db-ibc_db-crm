@@ -296,7 +296,7 @@ BEGIN
 					@IntroducedBy,
 					@Ignored,
 					@ProvinceID
-			WHERE NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
+			WHERE NOT EXISTS (SELECT TOP 1 1 FROM crmCustomer WITH(ROWLOCK,UPDLOCK) WHERE CustID = @CustID)
 	
 	IF @@ERROR <> 0
 	BEGIN

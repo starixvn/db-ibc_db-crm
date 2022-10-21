@@ -305,14 +305,6 @@ BEGIN
 		RETURN
 	END
 
-	IF @@ERROR <> 0
-	BEGIN
-		DELETE crmCustomer WHERE CustID = @CustID
-		SELECT @ErrCode = 102
-		SELECT @ErrMsg = 'create new customer unsuccessfuly.'
-		RETURN
-	END
-
 	DELETE crmCustomerLanguage WITH(ROWLOCK,UPDLOCK) WHERE CustID = @CustID
 	INSERT INTO crmCustomerLanguage( CustID,LanguageID)
 	SELECT @CustID, Val from dbo.f_split(@LanguageID,',')

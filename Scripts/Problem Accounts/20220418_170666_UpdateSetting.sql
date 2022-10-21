@@ -1,9 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" ></info>*/
 
 /*
-	Created: 20220418@Malcolm
+	Created: 20221021@Malcolm
 	DB: DBCRM-bodb_CRM
-	Task: Update data [RedmineId : #170666]
+	Task: Update data [RedmineId : #153119]
 */
 UPDATE Systemsetting WITH(ROWLOCK)
 	SET Value = '1'

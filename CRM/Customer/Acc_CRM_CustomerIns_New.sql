@@ -331,7 +331,7 @@ BEGIN
 		,PhoneNumber2 = ISNULL(@Phone2CountryCode,'') + ISNULL(@Phone2AreaCode,'') + ISNULL(@Phone2,'')
 		,PhoneNumber3 = ISNULL(@Phone3CountryCode,'') + ISNULL(@Phone3AreaCode,'') + ISNULL(@Phone3,'')
 		,MobilePhone = ISNULL(@MobilePhoneCountryCode,'') + ISNULL(@MobilePhoneAreaCode,'') + ISNULL(@MobilePhone,'')
-	WHERE NOT EXISTS (SELECT 1 FROM crmCustomerSearch WITH(NOLOCK) WHERE CustID = @CustID)
+	WHERE NOT EXISTS (SELECT TOP 1 1 FROM crmCustomerSearch WITH(ROWLOCK,UPDLOCK) WHERE CustID = @CustID)
 
 	IF @@ERROR <> 0
 	BEGIN

@@ -14,14 +14,15 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Sel]
 	,@TotalRows				INT = 0 OUTPUT
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Get chat type mapping
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20210801@Malcolm: get info for accouting pic [Redmine: #151509]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Get chat type mapping
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20210801@Malcolm: get info for accouting pic [Redmine: #151509]
+			- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
+		Param's Explanation:
 		
 */
 BEGIN
@@ -90,6 +91,7 @@ BEGIN
 		AND (@ConversationGroupName = '' OR CHARINDEX(@ConversationGroupName, cg.ConversationGroupName, 1) > 0)			
 		AND (cg.LanguageId = @LanguageId OR @LanguageId IS NULL)
 		AND (cgb.BotId = @BotId OR @BotId IS NULL)
+		AND cg.isdeleted = 0
 
 	-- Get Group of Accounting PIC
 	CREATE TABLE #AccGroup (ConversationGroupId SMALLINT)
@@ -99,7 +101,7 @@ BEGIN
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 		INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
-	WHERE rt.RecipientTypeName = 'Accounting PIC'
+	WHERE rt.RecipientTypeName = 'Accounting PIC' AND g.IsDeleted = 0
 
 	UPDATE t
 		SET t.[Type] = 1
@@ -299,7 +301,6 @@ BEGIN
 		,t.IsActive	
 		,t.MappingStatusID
 		,t.Remark
-		,t.IsTest
 	FROM #Tmp t
 	ORDER BY t.ChatTypeId DESC, t.ConversationGroupName  
 

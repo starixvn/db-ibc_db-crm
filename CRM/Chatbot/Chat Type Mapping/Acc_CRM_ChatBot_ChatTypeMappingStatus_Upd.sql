@@ -8,13 +8,14 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd]
 	,@LoginIP				NVARCHAR(20) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Update Status of group chat mapping
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Update Status of group chat mapping
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20221028@Malcolm: Change logs [RedmineId : #179240]
+		Param's Explanation:
 		
 */
 BEGIN
@@ -55,20 +56,12 @@ BEGIN
 				WHERE cgr.ConversationGroupId = @ConversationGroupId
 				FOR XML PATH('')),1,1,'')
 
-
-	SELECT @OldValues = CAST((SELECT @__IsActive AS '@IsActive', 
-									 @ConversationGroupId AS '@ConversationGroupId', 
-									 @__ConversationGroupName AS '@ConversationGroupName' 
-							 FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
-
-	SELECT @NewValues = CAST((SELECT @IsActive AS '@IsActive', 
-									 @ConversationGroupId AS '@ConversationGroupId', 
-									 @__ConversationGroupName AS '@ConversationGroupName'  
-							  FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @OldValues = CAST((SELECT @__IsActive AS '@Active' FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @NewValues = CAST((SELECT @IsActive AS '@Active' FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @ConversationGroupId,
 			@ActionID = 1009,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

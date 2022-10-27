@@ -17,23 +17,30 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	,@IsAuto				BIT = 0
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Update personal/group chat mapping
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
-		- 20210906@Malcolm: Add IsTest for Accounting pic [RedmineID: #151509]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Update personal/group chat mapping
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+			- 20210906@Malcolm: Add IsTest for Accounting pic [RedmineID: #151509]
+			- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
+		Param's Explanation:
 		
 */
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Existing_GroupName NVARCHAR(1000) = '',@NumberOfRecipients BIT = 0, @SourceId INT, @NewValues NVARCHAR(MAX), 
-			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, 
+			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML,
 			@__LanguageXML XML, @__BotXML XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
+
+	IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
+	BEGIN
+		SELECT @ErrMsg = 0, @ErrMsg = ''
+		RETURN
+	END
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
@@ -108,7 +115,7 @@ BEGIN
 	-- check validation
 	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName 
 	FROM dbo.crmConversationGroup g WITH(NOLOCK) 
-	WHERE g.ConversationId = @LetstalkID AND g.ConversationGroupId <> @ConversationGroupId
+	WHERE g.ConversationId = @LetstalkID AND g.ConversationGroupId <> @ConversationGroupId AND g.IsDeleted = 0
 
 	IF ISNULL(@Existing_GroupName,'') <> '' AND ISNULL(@IsAuto,0) = 0
 	BEGIN
@@ -274,16 +281,21 @@ BEGIN
 				FOR XML PATH('Language'))
 
 	SELECT @__RecipientXML = (
-				SELECT t.RecipientId AS '@Id', 
-	    				 p.Username AS '@Name', 
-	    				 r.RecipientTypeId AS '@RecipientTypeId', 
-	    				 rt.RecipientTypeName AS '@RecipientTypeName'
+				SELECT t.RecipientId AS '@Id', p.Username AS '@Name'
+				FROM #Tmp t
+					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
+ 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+				WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+				FOR XML PATH('Recipient'))
+
+	SELECT @__RecipientTypeXML = (
+				SELECT  DISTINCT r.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
 				FROM #Tmp t
 					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
 					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
  					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
 				WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-				FOR XML PATH('Recipient'))
+				FOR XML PATH('RecipientType'))
 
 	SELECT @__HeadlineXML =	(
 				SELECT  t.HeadlineId AS '@Id', 
@@ -294,20 +306,21 @@ BEGIN
 				WHERE t.Type = 4
 				FOR XML PATH('Headline'))
 
-	SELECT @OldValues =	CAST((SELECT @ConversationGroupId AS '@Id',
-									 t.ConversationGroupName AS '@Name',
+	SELECT @OldValues =	CAST((SELECT t.ConversationGroupName AS '@Name',
 									 t.ConversationId AS '@LetstalkID',
 									 t.Remark AS '@Remark',
 									 t.IsTest AS '@IsTest',
 									 @__BotXML,
 									 @__HeadlineXML,
 									 @__RecipientXML,
+									 @__RecipientTypeXML,
 									 @__LanguageXML
 							FROM #Tmp t
 							WHERE t.Type = 1
 							FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd'))
 						AS NVARCHAR(MAX))
 	-- New values 
+	SELECT @__BotXML = NULL, @__RecipientXML = NULL, @__RecipientTypeXML = NULL, @__LanguageXML = NULL, @__HeadlineXML = NULL
 
 	SELECT @__BotXML = (
 				SELECT cb.BotId AS '@Id', cb.BotName AS '@Name'
@@ -316,17 +329,22 @@ BEGIN
 				FOR XML PATH('Bot'))
 
 	SELECT @__RecipientXML = (
-				SELECT  f.val					AS '@Id', 
-						p.Username				AS '@Name', 
-						r.RecipientTypeId		AS '@RecipientTypeId', 
-						rt.RecipientTypeName	AS '@RecipientTypeName'
+				SELECT  f.val AS '@Id', p.Username AS '@Name'
 				FROM dbo.f_CRM_strSplit(@RecipientIds, ',') f
 					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId  = f.val
-					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = r.RecipientTypeId
 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
 				WHERE r.DataSource = 'bodb_CRM.dbo.crmPIC'
 					AND f.val <> ''
 				FOR XML PATH('Recipient'))
+
+	SELECT @__RecipientTypeXML = (
+				SELECT DISTINCT r.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
+				FROM #Tmp t
+					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
+					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
+ 					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
+				WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+				FOR XML PATH('RecipientType'))
 
 	SELECT @__LanguageXML = (
 				SELECT  @LanguageId		AS '@Id', 
@@ -344,14 +362,14 @@ BEGIN
 				WHERE f.val <> ''
 				FOR XML PATH('Headline'))
 
-	SELECT @NewValues =	CAST((SELECT @ConversationGroupId AS '@Id',
-									 @ConversationGroupName AS '@Name',
+	SELECT @NewValues =	CAST((SELECT @ConversationGroupName AS '@ConversationGroupName',
 									 @LetstalkID AS '@LetstalkID',
 									 @Remark AS '@Remark',
 									 @IsTest AS '@IsTest',
 									 @__BotXML,
 									 @__HeadlineXML,
 									 @__RecipientXML,
+									 @__RecipientTypeXML,
 									 @__LanguageXML
 							FROM #Tmp t
 							WHERE t.Type = 1
@@ -360,7 +378,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @ConversationGroupId,
 			@ActionID = 1008,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

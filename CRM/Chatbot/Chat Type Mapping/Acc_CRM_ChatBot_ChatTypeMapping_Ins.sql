@@ -16,15 +16,16 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
 	,@LoginIP				NVARCHAR(20) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Insert Peronsal Chat Mapping
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
-		- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Insert Peronsal Chat Mapping
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+			- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
+			- 20221028@Malcolm: Exclude groups is deleted [RedmineId : #179240]
+		Param's Explanation:
 		
 */
 BEGIN
@@ -44,7 +45,7 @@ BEGIN
 	WHERE f.val <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID AND g.IsDeleted = 0
 
 	IF ISNULL(@Existing_GroupName,'') <> ''
 	BEGIN
@@ -65,6 +66,7 @@ BEGIN
 			,Remark
 			,IsTest
 			,IsActive
+			,IsDeleted
 		)
 		VALUES
 		(
@@ -78,6 +80,7 @@ BEGIN
 			,@Remark
 			,@IsTest
 			,1
+			,0
 		)
 
 		SELECT @ConversationGroupId = SCOPE_IDENTITY()
@@ -180,7 +183,8 @@ BEGIN
 									  @LetstalkID AS '@LetstalkID',
 									  @Remark AS '@Remark',
 									  @IsTest AS '@IsTest',
-									  1  AS '@IsActive',
+									  1  AS '@Active',
+									  0  AS '@Deleted',
 									  @__ChatTypeXML,
 									  @__RecipientTypeXML,
 									  @__HeadlineXML,
@@ -192,7 +196,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @ConversationGroupId,
 			@ActionID = 1007,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

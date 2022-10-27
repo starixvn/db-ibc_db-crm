@@ -14,6 +14,7 @@ AS
 	Original:
 		Revisions:
 			- 20221019@Malcolm: Initialize SPs [Redmine: #179240]
+			- 20221028@Malcolm: Change logs [RedmineId : #179240]
 		Param's Explanation:
 		
 */
@@ -40,27 +41,12 @@ BEGIN
 	-- Write Logs
 	SELECT @CustIds = STRING_AGG (CONVERT(VARCHAR(50), g.HeadlineId), ',') FROM dbo.crmConversationGroupHeadline g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId
 	SELECT @ReferenceIds = STRING_AGG (CONVERT(VARCHAR(50), g.RecipientId), ',') FROM dbo.crmConversationGroupRecipient g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId
-	SELECT @OldValues = CONVERT(NVARCHAR(MAX),
-						(
-							SELECT 
-								@OldRemark AS '@Remark'
-							    ,@ConversationGroupId AS '@ConversationGroupId'
-								,@ConversationGroupName AS '@ConversationGroupName' 
-							FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')
-						))
-
-	SELECT @NewValues = CONVERT(NVARCHAR(MAX), 
-						(
-							SELECT 
-								@Remark AS '@Remark'
-								,@ConversationGroupId AS '@ConversationGroupId'
-								,@ConversationGroupName AS '@ConversationGroupName'  
-							  FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')
-						))
+	SELECT @OldValues = CONVERT(NVARCHAR(MAX),(SELECT @OldRemark AS '@Remark'FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')))
+	SELECT @NewValues = CONVERT(NVARCHAR(MAX), (SELECT @Remark AS '@Remark'FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = NULL,
+			@CustID = @ConversationGroupId,
 			@ActionID = 1010,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

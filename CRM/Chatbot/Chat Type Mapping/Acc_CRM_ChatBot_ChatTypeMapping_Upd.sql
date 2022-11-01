@@ -289,7 +289,7 @@ BEGIN
 				FOR XML PATH('Recipient'))
 
 	SELECT @__RecipientTypeXML = (
-				SELECT  DISTINCT r.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
+				SELECT DISTINCT r.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
 				FROM #Tmp t
 					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
 					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
@@ -306,15 +306,16 @@ BEGIN
 				WHERE t.Type = 4
 				FOR XML PATH('Headline'))
 
-	SELECT @OldValues =	CAST((SELECT t.ConversationGroupName AS '@Name',
-									 t.ConversationId AS '@LetstalkID',
-									 t.Remark AS '@Remark',
-									 t.IsTest AS '@IsTest',
-									 @__BotXML,
-									 @__HeadlineXML,
-									 @__RecipientXML,
-									 @__RecipientTypeXML,
-									 @__LanguageXML
+	SELECT @OldValues =	CAST((SELECT @ConversationGroupId AS '@Id'
+									 ,t.ConversationGroupName AS '@Name'
+									 ,t.ConversationId AS '@LetstalkID'
+									 ,t.Remark AS '@Remark'
+									 ,t.IsTest AS '@IsTest'
+									 ,@__BotXML
+									 ,@__HeadlineXML
+									 ,@__RecipientXML
+									 ,@__RecipientTypeXML
+									 ,@__LanguageXML
 							FROM #Tmp t
 							WHERE t.Type = 1
 							FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd'))
@@ -362,7 +363,8 @@ BEGIN
 				WHERE f.val <> ''
 				FOR XML PATH('Headline'))
 
-	SELECT @NewValues =	CAST((SELECT @ConversationGroupName AS '@ConversationGroupName',
+	SELECT @NewValues =	CAST((SELECT @ConversationGroupId AS '@Id',
+									 @ConversationGroupName AS '@Name',
 									 @LetstalkID AS '@LetstalkID',
 									 @Remark AS '@Remark',
 									 @IsTest AS '@IsTest',
@@ -378,7 +380,7 @@ BEGIN
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @ConversationGroupId,
+			@CustID = NULL,
 			@ActionID = 1008,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

@@ -41,12 +41,27 @@ BEGIN
 	-- Write Logs
 	SELECT @CustIds = STRING_AGG (CONVERT(VARCHAR(50), g.HeadlineId), ',') FROM dbo.crmConversationGroupHeadline g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId
 	SELECT @ReferenceIds = STRING_AGG (CONVERT(VARCHAR(50), g.RecipientId), ',') FROM dbo.crmConversationGroupRecipient g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId
-	SELECT @OldValues = CONVERT(NVARCHAR(MAX),(SELECT @OldRemark AS '@Remark'FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')))
-	SELECT @NewValues = CONVERT(NVARCHAR(MAX), (SELECT @Remark AS '@Remark'FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')))
+	SELECT @OldValues = CONVERT(NVARCHAR(MAX),
+						(
+							SELECT 
+								@ConversationGroupId AS '@Id'
+								,@ConversationGroupName AS '@Name' 
+								,@OldRemark AS '@Remark'
+							FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')
+						))
+
+	SELECT @NewValues = CONVERT(NVARCHAR(MAX), 
+						(
+							SELECT 
+								@ConversationGroupId AS '@Id'
+								,@ConversationGroupName AS '@Name' 
+								,@Remark AS '@Remark'
+							  FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')
+						))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @ConversationGroupId,
+			@CustID = NULL,
 			@ActionID = 1010,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

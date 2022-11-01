@@ -63,15 +63,20 @@ BEGIN
 				FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
 				WHERE cgr.ConversationGroupId = @ConversationGroupId
 				FOR XML PATH('')),1,1,'')
+	
+	SELECT @OldValues = CAST((SELECT @ConversationGroupId AS '@Id', 
+									 @__ConversationGroupName AS '@Name',
+									 @__IsDeleted AS '@Deleted'
+							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ConversationGroup_Del')) AS NVARCHAR(MAX))
 
-
-	SELECT @OldValues = CAST((SELECT @__IsDeleted AS '@Deleted' FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
-
-	SELECT @NewValues = CAST((SELECT @IsDeleted AS '@Deleted'   FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @NewValues = CAST((SELECT @ConversationGroupId AS '@Id', 
+									 @__ConversationGroupName AS '@Name',
+									 @IsDeleted AS '@Deleted'
+							  FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ConversationGroup_Del')) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @ConversationGroupId,
+			@CustID = NULL,
 			@ActionID = 1011,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

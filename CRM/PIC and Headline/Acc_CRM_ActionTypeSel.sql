@@ -10,6 +10,7 @@ Original:
 	Revisions:
 		- 20200724@Malcolm: Get action type [Redmine: #137144]
 		- 20201021@Malcolm: exclude ActiontypeId = 4 [Redmine: #130544]
+		- 20221102@Malcolm: Get action type for headline [Redmine: #179240]
 	Param's Explanation:
 		
 		
@@ -19,6 +20,6 @@ BEGIN
 
 	SELECT ActionTypeID, ActionTypeName
 	FROM dbo.crmLogActionType WITH(NOLOCK)	
-	WHERE ActionTypeID NOT IN (1, 4)
+	WHERE ActionTypeID IN (2, 3)
 
 END

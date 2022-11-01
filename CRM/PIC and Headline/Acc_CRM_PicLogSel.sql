@@ -5,8 +5,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicLogSel]
 	@EditBy			VARCHAR(30)  = '', 
 	@FromDate		DATETIME,
 	@ToDate			DATETIME,
-	@PageSize		INT = 0,
-	@PageIndex		INT = 0,
+	@PageSize		INT = 100,
+	@PageIndex		INT = 1,
 	@TotalRows		INT = 0 OUTPUT
 	  
 AS
@@ -25,70 +25,129 @@ AS
 BEGIN 
 	SET NOCOUNT ON
 
-	DECLARE @Tmp TABLE 
-	(
-		LogID		 BIGINT,
-		LogDate		 DATETIME, 
-		EditBy		 VARCHAR(30), 
-		[Name]	     NVARCHAR(1000), 
-		[Type]		 INT,
-		ActionId	 INT, 
-		NewValues	 XML,
-		OldValues	 XML,
-		ActionTypeID INT,
-		RowNum		 INT
-	)
-
-	DECLARE @RowStart INT, @RowEnd INT
-
-	SELECT @PicName = ISNULL(@PicName, ''), @EditBy = ISNULL(@EditBy,''), @LetstalkName = ISNULL(@LetstalkName, '')
-
-	SELECT @PageIndex = @PageIndex - 1, @RowStart = @PageIndex * @PageSize + 1,@RowEnd = @RowStart + @PageSize - 1
-
-	SELECT @FromDate = DATEADD(HOUR,-12,@FromDate), @ToDate = DATEADD(HOUR,-12,@ToDate)
-
-	INSERT INTO @Tmp (LogID, LogDate, EditBy, [Name], [Type], ActionId, NewValues, OldValues, ActionTypeID)
-	SELECT 
-		r.LogID, 
-		DATEADD(HOUR,12,r.LogDate) AS LogDate, 
-		c.username AS EditBy, 
-		ISNULL(p.Username, g.ConversationGroupName) AS [Name], 
-		ISNULL(p.[PicType], g.ChatTypeId) AS [Type],
-		r.ActionID,
-		r.NewValues,
-		r.OldValues,
-	    l.ActionTypeID 
-	FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
-		INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
-		LEFT JOIN dbo.crmPIC p WITH(NOLOCK) ON r.CustID = p.PicID AND l.ActionTypeID = 1 
-		LEFT JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = r.CustID AND l.ActionTypeID = 5
-		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
-	WHERE l.ActionTypeID IN (1, 5) AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate 
-		AND (@PicName = '' OR p.Username = @PicName) 
-		AND (@EditBy = '' OR c.username = @EditBy)
-		AND (@LetstalkName = '' OR CHARINDEX(@LetstalkName, g.ConversationGroupName) >= 1)
-
-	IF @PageIndex >= 0 AND @PageSize > 0
+	IF @PicName <> '' OR @LetstalkName <> ''
 	BEGIN
-		DELETE t FROM @Tmp t WHERE t.RowNum < @RowStart OR t.RowNum > @RowEnd
+		IF NOT EXISTS (SELECT 1 FROM dbo.crmPIC p WITH(NOLOCK) WHERE p.Username = @PicName OR @PicName = '')
+		   OR NOT EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupName = @LetstalkName OR @LetstalkName = '')
+		   OR (@PicName <> '' AND @LetstalkName <> '')
+		BEGIN
+			SELECT @TotalRows = 0
+			GOTO Result
+		END
 	END
 
+	DECLARE @Tmp TABLE 
+	(
+		LogID			BIGINT
+		,LogDate		DATETIME
+		,EditBy			VARCHAR(30)
+		,[Name]			NVARCHAR(1000)
+		,[PicType]		INT
+		,ActionId		INT
+		,NewValues		XML
+		,OldValues		XML
+		,ActionTypeID	INT
+		,RowNum			INT
+	)
+	DECLARE @ConversationGroupId INT = 0, @ChatTypeId TINYINT = 0, @NumberOfGroup INT = 0
+
+	SELECT @PicName = ISNULL(@PicName, ''), @EditBy = ISNULL(@EditBy,''), @LetstalkName = ISNULL(@LetstalkName, '')
+		,@FromDate = DATEADD(HOUR,-12,@FromDate), @ToDate = DATEADD(HOUR,-12,@ToDate)
+	
+	SELECT @NumberOfGroup = COUNT(1) FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupName = @LetstalkName
+
+	IF @NumberOfGroup = 1
+	BEGIN
+		SELECT @ConversationGroupId = ConversationGroupId, @ChatTypeId = ChatTypeId 
+		FROM dbo.crmConversationGroup WITH(NOLOCK) 
+		WHERE ConversationGroupName = @LetstalkName
+	END
+	IF @NumberOfGroup <= 1 OR @LetstalkName = ''
+	BEGIN
+		SELECT @TotalRows = COUNT(1)
+		FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
+			INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
+			LEFT JOIN dbo.crmPIC p WITH(NOLOCK) ON r.CustID = p.PicID AND l.ActionTypeID = 1 
+			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
+		WHERE l.ActionTypeID IN (CASE WHEN @LetstalkName <> '' THEN 0 ELSE 1 END, CASE WHEN @PicName <> '' THEN 0 ELSE 5 END) 
+			AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate AND (@EditBy = '' OR c.username = @EditBy)
+			AND (@PicName = '' OR p.Username = @PicName)
+			AND (@LetstalkName = '' OR (CONVERT(XML, NewValues)).exist('(//ConversationGroup[1]/@Id[number()=sql:variable("@ConversationGroupId")])') = 1 AND @ConversationGroupId <> 0)
+
+		INSERT INTO @Tmp (LogID, LogDate, EditBy, [Name], [PicType], ActionId, NewValues, OldValues, ActionTypeID)
+		SELECT 
+			r.LogID
+			,DATEADD(HOUR,12,r.LogDate) AS LogDate
+			,c.username AS EditBy
+			,ISNULL(p.Username, '') AS [PicName]
+			,p.[PicType] AS [PicType]
+			,r.ActionID
+			,r.NewValues
+			,r.OldValues
+			,l.ActionTypeID 
+		FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
+			INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
+			LEFT JOIN dbo.crmPIC p WITH(NOLOCK) ON r.CustID = p.PicID AND l.ActionTypeID = 1 
+			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
+		WHERE l.ActionTypeID IN (CASE WHEN @LetstalkName <> '' THEN 0 ELSE 1 END, CASE WHEN @PicName <> '' THEN 0 ELSE 5 END) 
+			AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate AND (@EditBy = '' OR c.username = @EditBy)
+			AND (@PicName = '' OR p.Username = @PicName)
+			AND (@LetstalkName = '' OR (CONVERT(XML, NewValues)).exist('(//ConversationGroup[1]/@Id[number()=sql:variable("@ConversationGroupId")])') = 1 AND @ConversationGroupId <> 0)
+		ORDER BY r.LogID DESC
+		OFFSET (@PageIndex - 1) * @PageSize ROWS
+		FETCH NEXT @PageSize ROWS ONLY
+	END
+	ELSE
+	BEGIN
+		DECLARE @Sql NVARCHAR(MAX) = '', @ExpressGroupIds NVARCHAR(MAX) = ''
+
+		SELECT @ExpressGroupIds = '*[ConversationGroup/@Id = 1]'
+
+		SELECT @ExpressGroupIds = STRING_AGG('ConversationGroup/@Id = ' + CONVERT(VARCHAR(50), g.ConversationGroupId), ' or ')
+		FROM dbo.crmConversationGroup g WITH(NOLOCK)
+		WHERE g.ConversationGroupName = @LetstalkName
+
+		SELECT @ExpressGroupIds = '*[' + @ExpressGroupIds + ']'
+		
+		SELECT @Sql = '
+		SELECT 
+			r.LogID
+			,DATEADD(HOUR,12,r.LogDate) AS LogDate
+			,c.username AS EditBy
+			,NULL AS [PicName]
+			,NULL AS [PicType]
+			,r.ActionID
+			,r.NewValues
+			,r.OldValues
+			,l.ActionTypeID 
+		FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
+			INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
+			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
+		WHERE l.ActionTypeID = 5 AND r.LogDate >= ''' + CONVERT(VARCHAR(20), @FromDate, 120) + ''' AND r.LogDate <= '''+ CONVERT(VARCHAR(20), @ToDate, 120) 
+			+''' AND (''' + @EditBy + '''= '''' OR c.username = ''' + @EditBy + ''')'
+			+' AND (CONVERT(XML, NewValues)).exist('''+ @ExpressGroupIds +''') = 1'
+
+		INSERT INTO @Tmp (LogID, LogDate, EditBy, [Name], [PicType], ActionId, NewValues, OldValues, ActionTypeID)
+		EXEC (@Sql)
+
+		SELECT @TotalRows = COUNT(1) FROM @Tmp
+	END
+	
+	Result:
 	SELECT     
-		t.LogID, 
-		t.LogDate, 
-		t.EditBy,
-		t.[Name], 
-		CASE WHEN t.ActionTypeID = 1 THEN s.SettingValue 
-		     WHEN t.[Type] = 1 THEN 'Group'
-			 WHEN t.[Type] = 2 THEN 'Personal'
-		ELSE NULL END AS [TypeName],
-		a.ActionNameEN AS [Action], 
-		t.ActionId,
-		t.NewValues, 
-		t.OldValues
+		t.LogID
+		,t.LogDate 
+		,t.EditBy
+		,t.[Name] 
+		,CASE WHEN t.ActionTypeID = 1 THEN s.SettingValue 
+		 ELSE NULL END AS [PicTypeName]
+		,a.ActionNameEN AS [Action]
+		,t.ActionId
+		,t.NewValues 
+		,t.OldValues
 	FROM @Tmp t
 		INNER JOIN dbo.crmLogAction a WITH(NOLOCK) ON t.ActionID = a.ActionID
-		LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.[Type] AND t.ActionTypeID = 1
-	ORDER BY t.LogDate DESC, t.LogID DESC
+		LEFT JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = t.[PicType] AND t.ActionTypeID = 1
+	ORDER BY t.LogID DESC
 
 END

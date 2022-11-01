@@ -178,25 +178,25 @@ BEGIN
 				  WHERE r.RecipientId = @RecipientId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				  FOR XML PATH('Recipient'))
 
-	SELECT @NewValues = CAST((SELECT  @ConversationGroupId AS '@Id',
-									  @ConversationGroupName AS '@Name',
-									  @LetstalkID AS '@LetstalkID',
-									  @Remark AS '@Remark',
-									  @IsTest AS '@IsTest',
-									  1  AS '@Active',
-									  0  AS '@Deleted',
-									  @__ChatTypeXML,
-									  @__RecipientTypeXML,
-									  @__HeadlineXML,
-									  @__RecipientXML,
-									  @__LanguageXML,
-									  @__BotXML
+	SELECT @NewValues = CAST((SELECT  @ConversationGroupId AS '@Id'
+									  ,@ConversationGroupName AS '@Name'
+									  ,@LetstalkID AS '@LetstalkID'
+									  ,@Remark AS '@Remark'
+									  ,@IsTest AS '@IsTest'
+									  ,1  AS '@Active'
+									  ,0  AS '@Deleted'
+									  ,@__ChatTypeXML
+									  ,@__RecipientTypeXML
+									  ,@__HeadlineXML
+									  ,@__RecipientXML
+									  ,@__LanguageXML
+									  ,@__BotXML
 							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
 						) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,
-			@CustID = @ConversationGroupId,
+			@CustID = NULL,
 			@ActionID = 1007,
 			@IP = @LoginIP,
 			@NewValues = @NewValues,

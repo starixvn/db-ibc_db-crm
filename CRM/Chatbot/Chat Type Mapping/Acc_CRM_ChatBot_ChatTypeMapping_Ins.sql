@@ -32,7 +32,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @ConversationGroupId INT = 0, @Existing_GroupName NVARCHAR(1000) = '',@NewValues NVARCHAR(MAX),
-			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML,
+			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML, @__ConversationGroup XML,
 			@ReferenceIds VARCHAR(1000), @__BotXML XML
 
 	DECLARE @_HeadlineIds TABLE (HeadlineID INT)	
@@ -178,20 +178,24 @@ BEGIN
 				  WHERE r.RecipientId = @RecipientId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				  FOR XML PATH('Recipient'))
 
-	SELECT @NewValues = CAST((SELECT  @ConversationGroupId AS '@Id'
-									  ,@ConversationGroupName AS '@Name'
-									  ,@LetstalkID AS '@LetstalkID'
-									  ,@Remark AS '@Remark'
-									  ,@IsTest AS '@IsTest'
-									  ,1  AS '@Active'
-									  ,0  AS '@Deleted'
+	SELECT @__ConversationGroup = (
+				  SELECT @ConversationGroupId AS '@Id'
+						,@ConversationGroupName AS '@Name'
+						,@LetstalkID AS '@LetstalkID'
+						,@Remark AS '@Remark'
+						,@IsTest AS '@IsTest'
+						,1  AS '@Active'
+						,0  AS '@Deleted'
+				 FOR XML PATH('ConversationGroup'))
+
+	SELECT @NewValues = CAST((SELECT  @__ConversationGroup
 									  ,@__ChatTypeXML
 									  ,@__RecipientTypeXML
 									  ,@__HeadlineXML
 									  ,@__RecipientXML
 									  ,@__LanguageXML
 									  ,@__BotXML
-							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
+							 FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
 						) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP

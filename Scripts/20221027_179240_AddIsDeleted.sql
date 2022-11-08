@@ -70,27 +70,23 @@ OUTER APPLY (
 	FOR XML PATH('Headline'), TYPE
 ) AS _NHeadline (Headline)
 OUTER APPLY (
-	SELECT t.c.value('@Id', 'INT')	AS Id
-		,t.c.value('@Name', 'VARCHAR(200)') AS [Name]
-		,t.c.value('@LetstalkID', 'VARCHAR(200)') AS LetstalkID
-		,t.c.value('@Remark', 'VARCHAR(200)') AS Remark
-		,t.c.value('@IsTest', 'VARCHAR(200)') AS IsTest
+	SELECT t.c.value('@Id', 'INT')	AS '@Id'
+		,t.c.value('@Name', 'VARCHAR(200)') AS '@Name'
+		,t.c.value('@LetstalkID', 'VARCHAR(200)') AS '@LetstalkID'
+		,t.c.value('@Remark', 'VARCHAR(200)') AS '@Remark'
+		,t.c.value('@IsTest', 'VARCHAR(200)') AS 'IsTest'
 	FROM r1.XmlNewValues.nodes('//ConversationGroup') t(c)
-) AS _NConversationGroup (Id, Name, LetstalkID, Remark, IsTest)
+	FOR XML PATH('ConversationGroup')
+) AS _NConversationGroup(ConversationGroup)
 OUTER APPLY (
 	SELECT 
-		_NConversationGroup.Id AS '@Id'
-		,_NConversationGroup.Name AS '@Name'
-		,_NConversationGroup.LetstalkID AS '@LetstalkID'
-		,_NConversationGroup.Remark AS '@Remark'
-		,_NConversationGroup.IsTest AS '@IsTest'
+		CONVERT(XML, _NConversationGroup.ConversationGroup)
 		,CONVERT(XML,_NBot.Bot)
 		,CONVERT(XML,_NHeadline.Headline)
 		,CONVERT(XML,_NRecipient.Recipient)
 		,CONVERT(XML,_NRecipientType.RecipientType)
 		,CONVERT(XML, _NLanguage.Language)
-	FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd')
-
+	FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMapping_Upd')
 ) AS Nr(P)
 
 --Old XML
@@ -125,26 +121,22 @@ OUTER APPLY (
 	FOR XML PATH('Headline'), TYPE
 ) AS _OHeadline (Headline)
 OUTER APPLY (
-	SELECT t.c.value('@Id', 'INT')	AS Id
-		,t.c.value('@Name', 'VARCHAR(200)') AS [Name]
-		,t.c.value('@LetstalkID', 'VARCHAR(200)') AS LetstalkID
-		,t.c.value('@Remark', 'VARCHAR(200)') AS Remark
-		,t.c.value('@IsTest', 'VARCHAR(200)') AS IsTest
+	SELECT t.c.value('@Id', 'INT')	AS '@Id'
+		,t.c.value('@Name', 'VARCHAR(200)') AS '@Name'
+		,t.c.value('@LetstalkID', 'VARCHAR(200)') AS '@LetstalkID'
+		,t.c.value('@Remark', 'VARCHAR(200)') AS '@Remark'
+		,t.c.value('@IsTest', 'VARCHAR(200)') AS '@IsTest'
 	FROM r2.XmlOldValues.nodes('//ConversationGroup') t(c)
-) AS _OConversationGroup (Id, Name, LetstalkID, Remark, IsTest)
+	FOR XML PATH('ConversationGroup')
+) AS _OConversationGroup (ConversationGroup)
 OUTER APPLY (
 	SELECT 
-		_OConversationGroup.Id AS '@Id'
-		,_OConversationGroup.Name AS '@Name'
-		,_OConversationGroup.LetstalkID AS '@LetstalkID'
-		,_OConversationGroup.Remark AS '@Remark'
-		,_OConversationGroup.IsTest AS '@IsTest'
+		CONVERT(XML, _OConversationGroup.ConversationGroup)
 		,CONVERT(XML,_OBot.Bot)
 		,CONVERT(XML,_OHeadline.Headline)
 		,CONVERT(XML,_ORecipient.Recipient)
 		,CONVERT(XML,_ORecipientType.RecipientType)
 		,CONVERT(XML, _OLanguage.Language)
-	FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Upd')
-
+	FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMapping_Upd')
 ) AS OLr(P)
 WHERE ActionID = 1008

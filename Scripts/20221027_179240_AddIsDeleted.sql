@@ -30,6 +30,42 @@ UPDATE crmUserLog_RunSP WITH(ROWLOCK)
 	SET NewValues = REPLACE(NewValues, 'IsActive', 'Active'), OldValues = REPLACE(OldValues, 'IsActive', 'Active')
 WHERE ActionID = 1007
 
+--Update status
+UPDATE r
+	SET r.NewValues = n.Value, r.OldValues = o.Value
+FROM crmUserLog_RunSP r WITH(NOLOCK)
+OUTER APPLY (
+	SELECT CONVERT(XML, r.NewValues).value('(*/@Active)[1]', 'BIT') AS '@Active'
+		,CONVERT(XML, r.NewValues).value('(*/@Id)[1]', 'INT') AS '@Id'
+		,CONVERT(XML, r.NewValues).value('(*/@Name)[1]', 'NVARCHAR(300)') AS '@Name'
+	FOR XML PATH ('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')
+) AS n (Value)
+OUTER APPLY (
+	SELECT CONVERT(XML, r.OldValues).value('(*/@Active)[1]', 'BIT') AS '@Active'
+		,CONVERT(XML, r.OldValues).value('(*/@Id)[1]', 'INT') AS '@Id'
+		,CONVERT(XML, r.OldValues).value('(*/@Name)[1]', 'NVARCHAR(300)') AS '@Name'
+	FOR XML PATH ('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')
+) AS o (Value)
+WHERE ActionID = 1009 
+
+-- Update remark
+UPDATE r
+	SET r.NewValues = n.Value, r.OldValues = o.Value
+FROM crmUserLog_RunSP r WITH(NOLOCK)
+OUTER APPLY (
+	SELECT CONVERT(XML, r.NewValues).value('(*/@Active)[1]', 'BIT') AS '@Remark'
+		,CONVERT(XML, r.NewValues).value('(*/@Id)[1]', 'INT') AS '@Id'
+		,CONVERT(XML, r.NewValues).value('(*/@Name)[1]', 'NVARCHAR(300)') AS '@Name'
+	FOR XML PATH ('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')
+) AS n (Value)
+OUTER APPLY (
+	SELECT CONVERT(XML, r.OldValues).value('(*/@Active)[1]', 'BIT') AS '@Remark'
+		,CONVERT(XML, r.OldValues).value('(*/@Id)[1]', 'INT') AS '@Id'
+		,CONVERT(XML, r.OldValues).value('(*/@Name)[1]', 'NVARCHAR(300)') AS '@Name'
+	FOR XML PATH ('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd')
+) AS o (Value)
+WHERE ActionID = 1010 
+
 UPDATE r
 	SET r.NewValues = CONVERT(VARCHAR(MAX), nr.p) , r.OldValues = CONVERT(VARCHAR(MAX), OLr.P)
 FROM crmUserLog_RunSP r WITH(ROWLOCK)

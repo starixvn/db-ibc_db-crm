@@ -25,6 +25,12 @@ BEGIN
 
 	SELECT @OldRemark = Remark, @ConversationGroupName = ConversationGroupName FROM dbo.crmConversationGroup cg WITH(NOLOCK) WHERE cg.ConversationGroupId = @ConversationGroupId
 
+	IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
+	BEGIN
+		SELECT @ErrCode = 101, @ErrMsg = 'The group has been deleted and cannot be updated.'
+		RETURN
+	END
+
 	IF ISNULL(@Remark, '') = ISNULL(@OldRemark, '')
 		RETURN
 

@@ -49,7 +49,7 @@ BEGIN
 		,ActionTypeID	INT
 		,RowNum			INT
 	)
-	DECLARE @ConversationGroupId INT = 0, @ChatTypeId TINYINT = 0, @NumberOfGroup INT = 0
+	DECLARE @ConversationGroupId INT = 0, @NumberOfGroup INT = 0
 
 	SELECT @PicName = ISNULL(@PicName, ''), @EditBy = ISNULL(@EditBy,''), @LetstalkName = ISNULL(@LetstalkName, '')
 		,@FromDate = DATEADD(HOUR,-12,@FromDate), @ToDate = DATEADD(HOUR,-12,@ToDate)
@@ -58,7 +58,7 @@ BEGIN
 
 	IF @NumberOfGroup = 1
 	BEGIN
-		SELECT @ConversationGroupId = ConversationGroupId, @ChatTypeId = ChatTypeId 
+		SELECT @ConversationGroupId = ConversationGroupId
 		FROM dbo.crmConversationGroup WITH(NOLOCK) 
 		WHERE ConversationGroupName = @LetstalkName
 	END

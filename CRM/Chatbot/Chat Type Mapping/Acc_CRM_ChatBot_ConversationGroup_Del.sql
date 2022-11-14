@@ -37,7 +37,7 @@ BEGIN
 
 	IF @__IsActive = 1 AND @IsDeleted = 1
 	BEGIN
-		SELECT @ErrCode = 101, @ErrMsg = 'Group is active so can''t delete.'
+		SELECT @ErrCode = 101, @ErrMsg = 'Group is active so cannot delete.'
 		RETURN
 	END
 

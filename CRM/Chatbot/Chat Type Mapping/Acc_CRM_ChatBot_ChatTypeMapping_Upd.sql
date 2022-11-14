@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
+alter PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	@ConversationGroupId	INT
 	,@BotId					INT
 	,@ConversationGroupName	NVARCHAR(1000) 
@@ -36,14 +36,14 @@ BEGIN
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML,
 			@__LanguageXML XML, @__BotXML XML, @__ConversationGroup XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
 
-	IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
-	BEGIN
-		SELECT @ErrMsg = 0, @ErrMsg = ''
-		RETURN
-	END
-
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
+		IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
+		BEGIN
+			SELECT @ErrCode = 0, @ErrMsg = ''
+			RETURN
+		END
+
 		SELECT @ConversationGroupName = CASE WHEN @ConversationGroupName IS NULL THEN cg.ConversationGroupName 
 										ELSE @ConversationGroupName END
 			   ,@LetstalkID			  = CASE WHEN @LetstalkID IS NULL THEN cg.ConversationId 
@@ -80,6 +80,15 @@ BEGIN
 		END
 
 	END
+	ELSE 
+	BEGIN
+		IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
+		BEGIN
+			SELECT @ErrCode = 101, @ErrMsg = 'The group has been deleted and cannot be updated.'
+			RETURN
+		END
+	END
+
 	CREATE TABLE  #Recipients  (ID INT PRIMARY KEY CLUSTERED)
 	CREATE TABLE  #Headlines  (ID INT PRIMARY KEY CLUSTERED)
 

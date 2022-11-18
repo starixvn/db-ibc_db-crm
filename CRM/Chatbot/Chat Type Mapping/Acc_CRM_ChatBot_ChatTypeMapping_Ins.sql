@@ -16,22 +16,23 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
 	,@LoginIP				NVARCHAR(20) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Insert Peronsal Chat Mapping
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
-		- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Insert Peronsal Chat Mapping
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+			- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
+			- 20221028@Malcolm: Exclude groups is deleted [RedmineId : #179240]
+		Param's Explanation:
 		
 */
 BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @ConversationGroupId INT = 0, @Existing_GroupName NVARCHAR(1000) = '',@NewValues NVARCHAR(MAX),
-			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML,
+			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML, @__ConversationGroup XML,
 			@ReferenceIds VARCHAR(1000), @__BotXML XML
 
 	DECLARE @_HeadlineIds TABLE (HeadlineID INT)	
@@ -44,7 +45,7 @@ BEGIN
 	WHERE f.val <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID AND g.IsDeleted = 0
 
 	IF ISNULL(@Existing_GroupName,'') <> ''
 	BEGIN
@@ -65,6 +66,7 @@ BEGIN
 			,Remark
 			,IsTest
 			,IsActive
+			,IsDeleted
 		)
 		VALUES
 		(
@@ -78,6 +80,7 @@ BEGIN
 			,@Remark
 			,@IsTest
 			,1
+			,0
 		)
 
 		SELECT @ConversationGroupId = SCOPE_IDENTITY()
@@ -175,19 +178,24 @@ BEGIN
 				  WHERE r.RecipientId = @RecipientId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				  FOR XML PATH('Recipient'))
 
-	SELECT @NewValues = CAST((SELECT  @ConversationGroupId AS '@Id',
-									  @ConversationGroupName AS '@Name',
-									  @LetstalkID AS '@LetstalkID',
-									  @Remark AS '@Remark',
-									  @IsTest AS '@IsTest',
-									  1  AS '@IsActive',
-									  @__ChatTypeXML,
-									  @__RecipientTypeXML,
-									  @__HeadlineXML,
-									  @__RecipientXML,
-									  @__LanguageXML,
-									  @__BotXML
-							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
+	SELECT @__ConversationGroup = (
+				  SELECT @ConversationGroupId AS '@Id'
+						,@ConversationGroupName AS '@Name'
+						,@LetstalkID AS '@LetstalkID'
+						,@Remark AS '@Remark'
+						,@IsTest AS '@IsTest'
+						,1  AS '@Active'
+						,0  AS '@Deleted'
+				 FOR XML PATH('ConversationGroup'))
+
+	SELECT @NewValues = CAST((SELECT  @__ConversationGroup
+									  ,@__ChatTypeXML
+									  ,@__RecipientTypeXML
+									  ,@__HeadlineXML
+									  ,@__RecipientXML
+									  ,@__LanguageXML
+									  ,@__BotXML
+							 FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
 						) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP

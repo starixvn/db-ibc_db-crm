@@ -14,6 +14,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20221028@Malcolm: Change logs [RedmineId : #179240]
 	Param's Explanation:
 		
 */
@@ -26,6 +27,12 @@ BEGIN
 			@__IsActive					BIT,
 			@ReferenceIds				VARCHAR(1000),
 			@__ConversationGroupName	NVARCHAR(1000)
+
+	IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
+	BEGIN
+		SELECT @ErrCode = 101, @ErrMsg = 'The group has been deleted and cannot be updated.'
+		RETURN
+	END
 
 	SELECT @__IsActive = IsActive
 		   ,@__ConversationGroupName= ConversationGroupName 
@@ -56,15 +63,15 @@ BEGIN
 				FOR XML PATH('')),1,1,'')
 
 
-	SELECT @OldValues = CAST((SELECT @__IsActive AS '@IsActive', 
-									 @ConversationGroupId AS '@ConversationGroupId', 
-									 @__ConversationGroupName AS '@ConversationGroupName' 
-							 FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @OldValues = CAST((SELECT @ConversationGroupId AS '@Id', 
+									 @__ConversationGroupName AS '@Name',
+									 @__IsActive AS '@Active'
+							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
 
-	SELECT @NewValues = CAST((SELECT @IsActive AS '@IsActive', 
-									 @ConversationGroupId AS '@ConversationGroupId', 
-									 @__ConversationGroupName AS '@ConversationGroupName'  
-							  FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @NewValues = CAST((SELECT @ConversationGroupId AS '@Id', 
+									 @__ConversationGroupName AS '@Name',
+									 @IsActive AS '@Active'
+							  FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,

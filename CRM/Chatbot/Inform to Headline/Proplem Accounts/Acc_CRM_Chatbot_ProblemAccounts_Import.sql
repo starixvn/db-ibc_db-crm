@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Import]
+ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Import]
 	@XmlData				XML
 	,@Environment			VARCHAR(50) = ''
 	,@ErrCode				INT = 0 OUTPUT
@@ -16,6 +16,7 @@ AS
 		- 20210813@Malcolm: fix wrongly marking status as duplicated [RedmineID: #151509]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20220330@Malcolm: remove space [RedmineId: #170666]
+		- 20221109@Malcolm: Add log [RedmineId: #180493]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -27,16 +28,44 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @lastLogId BIGINT, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOflastLogId VARCHAR(50) = '', @IncludeUUSCurrency BIT, @IsSyncSettingsForUAT BIT = 0
-			,@SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME 
+			,@SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME, @StartRun DATETIME, @Duration INT, @TrackingNewValues NVARCHAR(MAX), @TrackingOldValues NVARCHAR(MAX)
+			, @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID), @ActionId INT = 1, @MoreInfo NVARCHAR(MAX)
 
-	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
+	SELECT @StartRun = GETDATE()
+	
+	BEGIN -- Monitor
+		SELECT @TrackingOldValues = CONVERT(NVARCHAR(MAX), 
+		(
+			SELECT 
+				SettingName AS '@SettingName'
+				,Value AS '@Value'
+			FROM SystemSetting WITH(NOLOCK)
+			WHERE ServiceName = 'ChatBot - ProblemAccounts'
+			FOR XML PATH ('Setting'), ROOT('r')
+		))
+
+		SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+		(
+			SELECT @XmlData
+					,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+					,@Environment AS Environment
+					,@ErrCode AS ErrCode
+					,@ErrMsg AS ErrMsg
+			FOR XML PATH('MoreInfo'), ROOT('r')
+		))
+
+		INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+		VALUES (NULL, @SPName, NULL, @ActionId, NULL, NULL, @MoreInfo,  @TrackingOldValues)
+	END
+
+	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME()
 
 	DECLARE @MaxGroup 		 INT = 0,
 			@MaxBatchOfGroup INT = 250
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IncludeUUSCurrency'
 
-	SELECT @IsSyncSettingsForUAT = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IsSyncSettingsForUAT' AND @Environment <> 'UAT'
+	SELECT @IsSyncSettingsForUAT = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IsSyncSettingsForUAT' AND @Environment <> 'UAT'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -72,6 +101,34 @@ BEGIN
 		BEGIN
 			SELECT @ErrCode = 100, @ErrMsg = 'Server Name : ' + @ServerName + ' - Database Name : ' + @DBName + ' - SP Name : '+ @SPName + ' - Error Message : '+'ChatBot - ProblemAccounts - Job is running.'
 		END	
+
+		BEGIN -- Monitor
+			SELECT @TrackingNewValues = CONVERT(NVARCHAR(MAX), 
+			(
+				SELECT 
+					SettingName AS '@SettingName'
+					,Value AS '@Value'
+				FROM SystemSetting WITH(NOLOCK)
+				WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				FOR XML PATH ('Setting'), ROOT('r')
+			))
+
+			SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+			(
+				SELECT @XmlData
+						,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+						,@Environment AS Environment
+						,@ErrCode AS ErrCode
+						,@ErrMsg AS ErrMsg
+				FOR XML PATH('MoreInfo'), ROOT('r')
+			))
+
+			SET @Duration = DATEDIFF (MILLISECOND, @startRun, GETDATE())
+
+			INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+			VALUES (NULL, @SPName, NULL, @ActionId, @TrackingNewValues, @Duration, @MoreInfo,  NULL)
+		END
+
 		RETURN
 	END
 
@@ -123,6 +180,32 @@ BEGIN
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
+		BEGIN -- Monitor
+			SELECT @TrackingNewValues = CONVERT(NVARCHAR(MAX), 
+			(
+				SELECT 
+					SettingName AS '@SettingName'
+					,Value AS '@Value'
+				FROM SystemSetting WITH(NOLOCK)
+				WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				FOR XML PATH ('Setting'), ROOT('r')
+			))
+
+			SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+			(
+				SELECT @XmlData
+						,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+						,@Environment AS Environment
+						,@ErrCode AS ErrCode
+						,@ErrMsg AS ErrMsg
+				FOR XML PATH('MoreInfo'), ROOT('r')
+			))
+		
+			SET @Duration = DATEDIFF (MILLISECOND, @startRun, GETDATE())
+
+			INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+			VALUES (NULL, @SPName, NULL, @ActionId, @TrackingNewValues, @Duration, @MoreInfo,  NULL)
+		END
 		RETURN
 	END
 
@@ -167,6 +250,32 @@ BEGIN
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
+		BEGIN -- Monitor
+			SELECT @TrackingNewValues = CONVERT(NVARCHAR(MAX), 
+			(
+				SELECT 
+					SettingName AS '@SettingName'
+					,Value AS '@Value'
+				FROM SystemSetting WITH(NOLOCK)
+				WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				FOR XML PATH ('Setting'), ROOT('r')
+			))
+
+			SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+			(
+				SELECT @XmlData
+						,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+						,@Environment AS Environment
+						,@ErrCode AS ErrCode
+						,@ErrMsg AS ErrMsg
+				FOR XML PATH('MoreInfo'), ROOT('r')
+			))
+
+			SET @Duration = DATEDIFF (MILLISECOND, @startRun, GETDATE())
+
+			INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+			VALUES (NULL, @SPName, NULL, @ActionId, @TrackingNewValues, @Duration, @MoreInfo,  NULL)
+		END
 		RETURN
 	END
 
@@ -197,6 +306,33 @@ BEGIN
 		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
+
+		BEGIN -- Monitor
+			SELECT @TrackingNewValues = CONVERT(NVARCHAR(MAX), 
+			(
+				SELECT 
+					SettingName AS '@SettingName'
+					,Value AS '@Value'
+				FROM SystemSetting WITH(NOLOCK)
+				WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				FOR XML PATH ('Setting'), ROOT('r')
+			))
+
+			SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+			(
+				SELECT @XmlData
+						,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+						,@Environment AS Environment
+						,@ErrCode AS ErrCode
+						,@ErrMsg AS ErrMsg
+				FOR XML PATH('MoreInfo'), ROOT('r')
+			))
+
+			SET @Duration = DATEDIFF (MILLISECOND, @startRun, GETDATE())
+
+			INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+			VALUES (NULL, @SPName, NULL, @ActionId, @TrackingNewValues, @Duration, @MoreInfo,  NULL)
+		END
 
 		RETURN
 	END
@@ -230,6 +366,33 @@ BEGIN
 		WHERE ServiceName = 'ChatBot - ProblemAccounts'
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
+
+		BEGIN -- Monitor
+			SELECT @TrackingNewValues = CONVERT(NVARCHAR(MAX), 
+			(
+				SELECT 
+					SettingName AS '@SettingName'
+					,Value AS '@Value'
+				FROM SystemSetting WITH(NOLOCK)
+				WHERE ServiceName = 'ChatBot - ProblemAccounts'
+				FOR XML PATH ('Setting'), ROOT('r')
+			))
+
+			SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+			(
+				SELECT @XmlData
+						,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+						,@Environment AS Environment
+						,@ErrCode AS ErrCode
+						,@ErrMsg AS ErrMsg
+				FOR XML PATH('MoreInfo'), ROOT('r')
+			))
+
+			SET @Duration = DATEDIFF (MILLISECOND, @startRun, GETDATE())
+
+			INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+			VALUES (NULL, @SPName, NULL, @ActionId, @TrackingNewValues, @Duration, @MoreInfo,  NULL)
+		END
 
 		RETURN
 	END
@@ -537,6 +700,33 @@ BEGIN
 	WHERE ServiceName = 'ChatBot - ProblemAccounts'
 		AND SettingName = @SettingNameOfJobStatus
 		AND Value = 'running'
+
+	BEGIN -- Monitor
+		SELECT @TrackingNewValues = CONVERT(NVARCHAR(MAX), 
+		(
+			SELECT 
+				SettingName AS '@SettingName'
+				,Value AS '@Value'
+			FROM SystemSetting WITH(NOLOCK)
+			WHERE ServiceName = 'ChatBot - ProblemAccounts'
+			FOR XML PATH ('Setting'), ROOT('r')
+		))
+
+		SELECT @MoreInfo = CONVERT(NVARCHAR(MAX),
+		(
+			SELECT @XmlData
+					,CONVERT(VARCHAR(50), @StartRun, 120) AS StartRun
+					,@Environment AS Environment
+					,@ErrCode AS ErrCode
+					,@ErrMsg AS ErrMsg
+			FOR XML PATH('MoreInfo'), ROOT('r')
+		))
+
+		SET @Duration = DATEDIFF (MILLISECOND, @startRun, GETDATE())
+
+		INSERT INTO dbo.crmChatBot_UserLog_RunSP (UserId, SPName, CustId, ActionId, TrackingNewValues, Duration, Doing, TrackingOldValues)
+		VALUES (NULL, @SPName, NULL, @ActionId, @TrackingNewValues, @Duration, @MoreInfo,  NULL)
+	END
 
 	DROP TABLE #ImportData
 	DROP TABLE #LogRecipient

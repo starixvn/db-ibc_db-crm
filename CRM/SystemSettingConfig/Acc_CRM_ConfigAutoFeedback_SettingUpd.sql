@@ -77,32 +77,33 @@ BEGIN
 		INNER JOIN #SettingName b ON S.ID  = b.ID
 	
 	-- write log  
-	 DECLARE @LogElement XML , @LogElementOld XML , @UpdateConfigOld NVARCHAR(MAX)
+	 DECLARE @LogElement XML , @LogElementOld XML , @UpdateConfigOld NVARCHAR(MAX), @UpdateConfigNew NVARCHAR(MAX)
 	
 	SELECT @UpdateConfigOld =	CAST((SELECT ID AS '@ID',
 									 SettingName AS '@SETTING',
 									 VALUE AS '@VALUE',
 									 SERVICENAME AS '@SERVICENAME'
 							FROM #SettingNameOld t
-							FOR XML PATH('R'), ROOT('ROOT'))
+							FOR XML PATH('UpdateConfig'))--, ROOT('UpdateConfig')
 						AS NVARCHAR(MAX))
+	
+	SELECT @UpdateConfigNew = REPLACE(REPLACE(REPLACE(REPLACE(@UpdateConfig, '<ROOT>', ''),'</ROOT>',''),'<R','<UpdateConfig'),'</R','</UpdateConfig')
 
 	SELECT @LogElementOld =       
 		 '<Acc_CRM_ConfigAutoFeedback_SettingUpd>' + --SP Name  
-		  '<UpdateConfig>' + ISNULL(@UpdateConfigOld,'')	+ '</UpdateConfig>' +  
+		  + ISNULL(@UpdateConfigOld,'')	+ 
 		  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
 		  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
 		 '</Acc_CRM_ConfigAutoFeedback_SettingUpd>'
 
 	 SELECT @LogElement =       
 		 '<Acc_CRM_ConfigAutoFeedback_SettingUpd>' + --SP Name  
-		  '<UpdateConfig>' + ISNULL(@UpdateConfig,'')	+ '</UpdateConfig>' +  
+		  + ISNULL(@UpdateConfigNew,'')	+
 		  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
 		  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
 		 '</Acc_CRM_ConfigAutoFeedback_SettingUpd>'  
       
-  
-	 EXEC [dbo].[WriteLog_UserLog_crmLogSetting]  
+  	 EXEC [dbo].[WriteLog_UserLog_crmLogSetting]  
 		 @SettingID = 0,   
 		 @ParentID = 0,   
 		 @UserID = @UserID,   

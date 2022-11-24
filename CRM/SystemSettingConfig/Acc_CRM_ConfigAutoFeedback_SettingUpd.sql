@@ -1,6 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ConfigAutoFeedback_SettingUpd] 
+ALTER PROCEDURE [dbo].[Acc_CRM_ConfigAutoFeedback_SettingUpd] 
 	  @UpdateConfig NVARCHAR(MAX)
+	, @UserID				INT
+	, @IP					VARCHAR(15)
 	, @ErrCode		INT				= 0		OUTPUT	
 	, @ErrMsg		NVARCHAR(200)	= ''	OUTPUT
 AS
@@ -30,19 +32,20 @@ BEGIN
 	DECLARE @xml XML, @iDoc INT,  @Threshold INT, @NumProduct INT = 0
 	SELECT	@ErrCode = 0, @ErrMsg = ''
 	CREATE TABLE #SettingName(ID INT,SettingName VARCHAR(50),Value VARCHAR(MAX),ServiceName VARCHAR(100))
+	CREATE TABLE #SettingNameOld(ID INT,SettingName VARCHAR(50),Value VARCHAR(MAX),ServiceName VARCHAR(100))
 
 	BEGIN TRY
 		--Parse XML
 		EXECUTE	sp_xml_preparedocument @iDoc OUTPUT, @UpdateConfig
 
 		INSERT INTO #SettingName (ID, SettingName, Value, ServiceName)
-		SELECT	ox.ID, ox.SettingName, ox.Value, ox.ServiceName
+		SELECT	ox.ID, ox.SETTING AS SettingName, ox.VALUE AS Value, ox.SERVICENAME AS ServiceName 
 		FROM OPENXML (@iDoc, '/ROOT/R', 1) 
 		WITH (
 			ID		INT
-		,	SettingName	VARCHAR(50)
-		,	Value		VARCHAR(MAX)
-		,	ServiceName	VARCHAR(100)
+			, SETTING VARCHAR(50)  
+			, VALUE  VARCHAR(MAX)  
+			, SERVICENAME VARCHAR(100)  
 		) AS ox;
 
 		EXECUTE sp_xml_removedocument @iDoc;
@@ -61,6 +64,11 @@ BEGIN
 		RETURN
 	END
 
+	INSERT INTO #SettingNameOld(ID, SettingName, Value, ServiceName)
+	SELECT s.ID, s.SettingName, b.Value, s.ServiceName 
+	FROM #SettingName s
+	INNER JOIN SystemSetting b ON S.ID  = b.ID
+
 	UPDATE S
 	SET S.ServiceName = b.ServiceName
 		, S.SettingName = b.SettingName
@@ -68,5 +76,40 @@ BEGIN
 	FROM SystemSetting S WITH(UPDLOCK,ROWLOCK)
 		INNER JOIN #SettingName b ON S.ID  = b.ID
 	
-	DROP TABLE #SettingName
+	-- write log  
+	 DECLARE @LogElement XML , @LogElementOld XML , @UpdateConfigOld NVARCHAR(MAX)
+	
+	SELECT @UpdateConfigOld =	CAST((SELECT ID AS '@ID',
+									 SettingName AS '@SETTING',
+									 VALUE AS '@VALUE',
+									 SERVICENAME AS '@SERVICENAME'
+							FROM #SettingNameOld t
+							FOR XML PATH('R'), ROOT('ROOT'))
+						AS NVARCHAR(MAX))
+
+	SELECT @LogElementOld =       
+		 '<Acc_CRM_ConfigAutoFeedback_SettingUpd>' + --SP Name  
+		  '<UpdateConfig>' + ISNULL(@UpdateConfigOld,'')	+ '</UpdateConfig>' +  
+		  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
+		  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
+		 '</Acc_CRM_ConfigAutoFeedback_SettingUpd>'
+
+	 SELECT @LogElement =       
+		 '<Acc_CRM_ConfigAutoFeedback_SettingUpd>' + --SP Name  
+		  '<UpdateConfig>' + ISNULL(@UpdateConfig,'')	+ '</UpdateConfig>' +  
+		  '<UserID>' + ISNULL(CONVERT(VARCHAR(10),@UserID),'')	+ '</UserID>' +  
+		  '<IP>' + ISNULL(@IP,'')								+ '</IP>' +  	
+		 '</Acc_CRM_ConfigAutoFeedback_SettingUpd>'  
+      
+  
+	 EXEC [dbo].[WriteLog_UserLog_crmLogSetting]  
+		 @SettingID = 0,   
+		 @ParentID = 0,   
+		 @UserID = @UserID,   
+		 @ActionID = 311,   
+		 @IP = @IP,   
+		 @NewValues = @LogElement ,
+		 @OldValues = @LogElementOld
+
+	DROP TABLE #SettingName, #SettingNameOld
 END

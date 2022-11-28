@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_Service_SystemSettingSel] 
-	@ServiceName varchar(100) = 'ArchivedAccountFB'
+	@ServiceName varchar(100)
 AS
 /*
 	Created: Winfred
@@ -12,7 +12,7 @@ AS
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]
 	
 	Parameter's Explanation:
-
+		@ServiceName : 'ArchivedAccountFB'
 */
 BEGIN
 	SET NOCOUNT ON

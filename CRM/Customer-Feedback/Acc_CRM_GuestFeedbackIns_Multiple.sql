@@ -36,7 +36,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@PALogID			VARCHAR(MAX)	= ''
 	,@AmendmentLogID	INT	= 0
 	,@VoidingSettledID	INT	= 0
-	,@ArchivedAccountID	INT	= 0
+	,@LogFeedbackId		INT	= 0
+	,@ServiceID			TINYINT	= 0
 	,@RequestIDs		VARCHAR(1000)	= ''
 	,@ListOrigCustIDs 	VARCHAR(MAX)	= ''
 	,@IsManualMultiple  BIT = 0
@@ -80,9 +81,10 @@ AS
 		@TOControlLogID for auto fb TO control service
 		@PALogID for auto fb Problem account service
 		@AmendmentLogID LogID from Amendment notification auto fb service, process 1 logid with 1 feedback
-		@ArchivedAccountID LogID from FB to Headline for Archiving Dormant Accounts
+		@LogFeedbackId LogID from FB to Headline for Archiving Dormant Accounts
 		@VoidingSettledID LogID from Voiding Settled auto fb service, process 1 logid with 1 feedback
 		@ListOrigCustIDs: list custid have void tickets from auto fb service	
+		@@ServiceID = 1 : Service Archiving Dormant Accounts
 */
 BEGIN
 	SET NOCOUNT ON
@@ -529,7 +531,7 @@ BEGIN
 				END;
 			END;
 			
-			IF @AmendmentLogID > 0 OR @VoidingSettledID > 0 OR @ArchivedAccountID > 0
+			IF @AmendmentLogID > 0 OR @VoidingSettledID > 0 OR (@LogFeedbackId > 0 AND @ServiceID = 1)
 			BEGIN
 				EXECUTE	dbo.Acc_CRM_AmendmentNoti_MultiCustIns
 					@RelatedCustomers = @RelatedCustomers
@@ -736,7 +738,8 @@ BEGIN
 				,@TOControlLogID = @TOControlLogID	
 				,@PALogID = @PALogID	
 				,@AmendmentLogID = @AmendmentLogID
-				,@ArchivedAccountID = @ArchivedAccountID
+				,@LogFeedbackId = @LogFeedbackId
+				,@ServiceID = @ServiceID
 				,@VoidingSettledID = @VoidingSettledID
 				,@RequestIDs = @RequestIDs
 				,@ListOrigCustIDs = @ListOrigCustIDs

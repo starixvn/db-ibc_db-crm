@@ -38,11 +38,10 @@ BEGIN
 					)  cnt
 	WHERE t.TotalDownline <> cnt.RealTotalDownline
 
-	SELECT t.CustID, @ArchiveDate AS ArchivedDate --, hlu.username AS HeadlineGroup
+	SELECT t.CustID, @ArchiveDate AS ArchivedDate
 	FROM #ArchivedDirectCust t
 		INNER JOIN custAccount ca WITH(NOLOCK) ON t.CustID = ca.custid
 		INNER JOIN custAccount hl WITH(NOLOCK) ON ca.groupID = hl.groupID AND hl.IsGroupHeadLine = 1
-		INNER JOIN custinfo hlu WITH(NOLOCK) ON hlu.custid = hl.custid
 
 	DROP TABLE #ArchivedDirectCust
 END	

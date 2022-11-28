@@ -4,7 +4,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ArchivedAccount_AutoFBInfoIns]
 	,@BatchSizeAccount	INT 
 	,@MaxLogFBId		INT
 	,@Environment		VARCHAR(20) = 'LIVE'	
-	,@ServiceID			INT = 'LIVE'	
+	,@ServiceID			INT = 1	
 	,@ErrCode			INT = 0	 OUTPUT
 	,@ErrMsg NVARCHAR(200) = ''	OUTPUT
 AS

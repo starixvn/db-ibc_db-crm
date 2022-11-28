@@ -75,7 +75,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@TOControlLogID				VARCHAR(MAX)	= ''
 				,	@PALogID					VARCHAR(MAX)	= ''
 				,	@AmendmentLogID				INT	= 0
-				,	@ArchivedAccountID			INT = 0
+				,	@LogFeedbackId				INT	= 0
+				,	@ServiceID					TINYINT	= 0
 				,	@VoidingSettledID			INT	= 0
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
@@ -143,6 +144,7 @@ AS
 	@VoidingSettledID LogID from Voiding Settled auto fb service, process 1 logid with 1 feedback
 	@ArchivedAccountID LogID from FB to Headline for Archiving Dormant Accounts
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
+	@ServiceID = 1 : Service Archiving Dormant Accounts
 */
 BEGIN	
 	SET NOCOUNT ON;
@@ -331,10 +333,10 @@ BEGIN
 		RETURN;		
 	END
 	
-	IF @ArchivedAccountID > 0
+	IF @LogFeedbackId > 0
 	BEGIN
 		IF EXISTS (SELECT 1 FROM crmServiceFeedbackInfo WITH(NOLOCK)
-					WHERE LogFeedbackId = @ArchivedAccountID AND status = 'completed'
+					WHERE LogFeedbackId = @LogFeedbackId AND status = 'completed'  AND ServiceID = @ServiceID
 				)
 		RETURN;		
 	END
@@ -826,12 +828,12 @@ BEGIN
 		
 	END
 	--Archiving Dormant Accounts
-	IF @ArchivedAccountID > 0
+	IF @LogFeedbackId > 0
 	BEGIN
 		UPDATE crmServiceFeedbackInfo WITH(UPDLOCK,ROWLOCK)
 		SET Status = 'completed',
 			UpdateDate = GETDATE()
-		WHERE LogFeedbackId = @ArchivedAccountID
+		WHERE LogFeedbackId = @LogFeedbackId AND ServiceID = @ServiceID
 		
 		IF	@@ERROR <> 0
 		BEGIN

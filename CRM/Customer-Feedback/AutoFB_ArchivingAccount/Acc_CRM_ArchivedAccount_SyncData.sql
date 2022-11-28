@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_ArchivedAccount_SyncData] 
 	@ArchivedList VARCHAR(MAX) 
-	,@ArchivedDate DATE = '2022-11-09'
+	,@ArchivedDate DATE
 AS
 /*
 	Created: Winfred
@@ -14,6 +14,7 @@ AS
 	
 	Parameter's Explanation:
 		- @ArchivedList = '85435629,85435630,85435631,85435632,85435633,85435634,85435635,85435636,85435637,85435638,85435639'
+		- ,@ArchivedDate = '2022-11-09'
 */
 BEGIN
 	SET NOCOUNT ON

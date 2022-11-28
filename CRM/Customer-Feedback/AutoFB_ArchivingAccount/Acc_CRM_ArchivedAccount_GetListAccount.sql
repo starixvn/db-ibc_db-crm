@@ -18,15 +18,36 @@ BEGIN
 	SELECT @ArchiveDate  = (SELECT MAX(ArchivedDate) FROM Cust_ArchiveAccount WITH(NOLOCK))
 
 	CREATE TABLE #ArchivedDirectCust(CustID INT PRIMARY KEY,  TotalDownline INT)
-	INSERT INTO  #ArchivedDirectCust(CustID, TotalDownline)
-	SELECT c.CustID , ar.TotalDownline
+	CREATE TABLE #CustDirectAccount(CustID INT PRIMARY KEY)
+	CREATE TABLE #CustDirectAccount_batch(CustID INT PRIMARY KEY)
+	DECLARE @BatchNum INT = 5000
+
+	INSERT INTO #CustDirectAccount(CustID)
+	SELECT c.CustID
 	FROM CustDirectAccount c WITH(NOLOCK)
-		INNER JOIN dbo.Cust_ArchiveAccount ar WITH (NOLOCK) 
-			ON ar.CustID = c.custid
-		INNER JOIN CustProductStatus cs WITH(NOLOCK) 
-			ON cs.CustID = c.custid
-			AND cs.CloseInfo > 0
-	WHERE ar.StageID = 1 AND ar.ClosedDate = @ArchiveDate
+
+	WHILE 1= 1
+	BEGIN
+		DELETE TOP(@BatchNum) t
+		OUTPUT deleted.CustID INTO #CustDirectAccount_batch
+		FROM #CustDirectAccount t
+
+		IF @@ROWCOUNT = 0
+			BREAK
+
+		INSERT INTO  #ArchivedDirectCust(CustID, TotalDownline)
+		SELECT c.CustID , ar.TotalDownline
+		FROM #CustDirectAccount_batch c WITH(NOLOCK)
+			INNER JOIN CustProductStatus cs WITH(NOLOCK) 
+				ON cs.CustID = c.custid
+				AND cs.CloseInfo > 0
+			INNER JOIN dbo.Cust_ArchiveAccount ar WITH (NOLOCK) 
+				ON ar.CustID = c.custid
+		WHERE ar.StageID = 1 AND ar.ClosedDate = @ArchiveDate
+
+		TRUNCATE TABLE #CustDirectAccount_batch
+
+	END
 
 	--Delete all account who reopened --> create new downline -> closed again
 	DELETE t

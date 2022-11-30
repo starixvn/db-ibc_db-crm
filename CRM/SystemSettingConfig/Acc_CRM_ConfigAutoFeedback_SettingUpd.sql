@@ -57,7 +57,7 @@ BEGIN
 	END CATCH;
 
 	IF EXISTS (SELECT TOP 1 1 FROM #SettingName a
-				WHERE NOT EXISTS (SELECT 1 FROM SystemSetting WITH(NOLOCK) WHERE ID = a.ID))
+				WHERE NOT EXISTS (SELECT TOP 1 1 FROM SystemSetting WITH(NOLOCK) WHERE ID = a.ID))
 	BEGIN
 		SET @ErrCode = 101
 		SET @ErrMsg = N'Not exists ID.'
@@ -67,12 +67,10 @@ BEGIN
 	INSERT INTO #SettingNameOld(ID, SettingName, Value, ServiceName)
 	SELECT s.ID, s.SettingName, b.Value, s.ServiceName 
 	FROM #SettingName s
-	INNER JOIN SystemSetting b ON S.ID  = b.ID
+	INNER JOIN SystemSetting b WITH(NOLOCK) ON S.ID  = b.ID
 
 	UPDATE S
-	SET S.ServiceName = b.ServiceName
-		, S.SettingName = b.SettingName
-		, S.Value = b.Value
+	SET S.Value = b.Value
 	FROM SystemSetting S WITH(UPDLOCK,ROWLOCK)
 		INNER JOIN #SettingName b ON S.ID  = b.ID
 	

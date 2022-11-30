@@ -43,7 +43,7 @@ BEGIN
 				AND cs.CloseInfo > 0
 			INNER JOIN dbo.Cust_ArchiveAccount ar WITH (NOLOCK) 
 				ON ar.CustID = c.custid
-		WHERE ar.StageID = 1 AND ar.ArchivedDate = @ArchiveDate
+		WHERE ar.StageID = 1 AND ar.ClosedDate >= @ArchiveDate
 
 		TRUNCATE TABLE #CustDirectAccount_batch
 

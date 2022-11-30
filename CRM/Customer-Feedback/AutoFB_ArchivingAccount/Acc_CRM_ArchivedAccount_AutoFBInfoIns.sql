@@ -57,47 +57,53 @@ BEGIN
 		EXEC bodb02.dbo.Acc_CRM_GroupHeadlineSel @custids = @AffectedList
 
 		UPDATE a
+		SET a.HeadlineID = c.CustID,a.HeadlineName = c.Username 
+		FROM #CustHeadline a
+			INNER JOIN @tmpCust c ON a.custid = c.custid
+		WHERE a.HeadlineID IS NULL
+
+		UPDATE a
 		SET a.HeadlineID = c.HeadlineID,a.HeadlineName = c.HeadlineName 
 		FROM @tmpCust a
 			INNER JOIN #CustHeadline c WITH(NOLOCK) ON a.custid = c.custid
 		
 		BEGIN TRY
 			INSERT INTO #Result (HeadlineID,HeadlineName,AffectedId,AffectedName,LogIDList,ArchivedDate)
-		SELECT 
-			DISTINCT
-			a.HeadlineID,
-			a.HeadlineName,
-			d.AffectedId,
-			e.AffectedName,
-			c.LogIDList,
-			b.ArchivedDate
-		FROM #CustHeadline a
-			INNER JOIN @tmpCust b on a.CustID = b.CustID
-			OUTER APPLY(
-				SELECT STUFF(( SELECT DISTINCT ','+ cast(ps.LogID AS VARCHAR(10))  as [text()]
-					FROM @tmpCust ps  
-					WHERE ps.HeadlineID = a.HeadlineID
-					FOR XML PATH('')
-					),1,1,'')
-			)c (LogIDList)
-			OUTER APPLY(
-				SELECT STUFF(( SELECT  ','+ cast(ps.CustID AS VARCHAR(15))  as [text()]
-					FROM @tmpCust ps
-					WHERE ps.HeadlineID = a.HeadlineID  
-					GROUP BY ps.CustID
-					ORDER by MAX(ps.CustID)
-					FOR XML PATH('')
-					),1,1,'')
-			)d (AffectedId)
-			OUTER APPLY(
-				SELECT STUFF(( SELECT ','+ cast(ps.Username AS NVARCHAR(50))  as [text()]
-					FROM @tmpCust ps  
-					WHERE ps.HeadlineID = a.HeadlineID 
-					GROUP BY ps.Username
-					ORDER by MAX(ps.CustID)
-					FOR XML PATH('')
-					),1,1,'')
-			)e (AffectedName)
+			SELECT 
+				DISTINCT
+				a.HeadlineID,
+				a.HeadlineName,
+				d.AffectedId,
+				e.AffectedName,
+				c.LogIDList,
+				b.ArchivedDate
+			FROM #CustHeadline a
+				INNER JOIN @tmpCust b on a.CustID = b.CustID
+				OUTER APPLY(
+					SELECT STUFF(( SELECT DISTINCT ','+ cast(ps.LogID AS VARCHAR(10))  as [text()]
+						FROM @tmpCust ps  
+						WHERE ps.HeadlineID = a.HeadlineID
+						FOR XML PATH('')
+						),1,1,'')
+				)c (LogIDList)
+				OUTER APPLY(
+					SELECT STUFF(( SELECT  ','+ cast(ps.CustID AS VARCHAR(15))  as [text()]
+						FROM @tmpCust ps
+						WHERE ps.HeadlineID = a.HeadlineID  
+						GROUP BY ps.CustID
+						ORDER by MAX(ps.CustID)
+						FOR XML PATH('')
+						),1,1,'')
+				)d (AffectedId)
+				OUTER APPLY(
+					SELECT STUFF(( SELECT ','+ cast(ps.Username AS NVARCHAR(50))  as [text()]
+						FROM @tmpCust ps  
+						WHERE ps.HeadlineID = a.HeadlineID 
+						GROUP BY ps.Username
+						ORDER by MAX(ps.CustID)
+						FOR XML PATH('')
+						),1,1,'')
+				)e (AffectedName)
 
 			WHILE (1 = 1)
 			BEGIN

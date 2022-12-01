@@ -175,6 +175,8 @@ BEGIN
 			SET [Status] = 'initial'
 			WHERE [Status] = '' AND LogFeedbackId IN (SELECT DISTINCT LogFeedbackId FROM @tmpCust)
 		END
+
+		DROP TABLE #CustHeadline, #Result	
 	END
 
 	UPDATE fb 
@@ -201,6 +203,6 @@ BEGIN
 	WHERE a.LogFeedbackId > @MaxLogFBId AND status IN ('initial','fail') AND retryCount < 5
 	AND a.ServiceID = @ServiceID AND Environment = @Environment
 
-	DROP TABLE #CustHeadline, #Result	
+	
 	
 END	

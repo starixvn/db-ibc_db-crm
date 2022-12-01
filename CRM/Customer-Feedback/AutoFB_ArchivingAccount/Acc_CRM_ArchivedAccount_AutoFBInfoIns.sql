@@ -141,8 +141,7 @@ BEGIN
 				FROM @tmpCust a
 				WHERE a.LogID IN (SELECT DISTINCT value FROM STRING_SPLIT(@LogIDList, ',') 
 								  WHERE value <> '')
-					 AND a.HeadlineID = @HeadlineID AND a.HeadlineName = @HeadlineName 
-				     AND a.ArchivedDate = @ArchivedDate
+					 AND a.HeadlineID = @HeadlineID AND a.ArchivedDate = @ArchivedDate
 			END
 		END TRY  
 		BEGIN CATCH  

@@ -21,6 +21,7 @@ Original:
 		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
 		- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
 		- 20210801@Malcolm: Get settings of Result Amendment [RedmineID: #151509]
+		- 20221121@Malcolm: Get settings of Archiving Dormant Accounts [RedmineID: #158258]
 	Param's Explanation:
 	- @Contents:
 		<Contents>
@@ -37,9 +38,11 @@ BEGIN
 
 	DECLARE @iDoc INT, @NewValues NVARCHAR(MAX), @OldValues NVARCHAR(MAX), 
 			@_Contents XML, @Old_Title NVARCHAR(2000), @Old_NotificationTemplateName NVARCHAR(1000), 
-			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML, @ServiceNames NVARCHAR(MAX) = 'ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL,ChatBot - ProblemAccounts,ChatBot - ResultAmendment'
+			@Old_NotificationTypeId  SMALLINT, @NotificationTypeXML XML, @ServiceNames NVARCHAR(MAX) = ''
 
 	-- Get setting for ChatBot - AbnormalBets,ChatBot - TOControl,ChatBot - CWL
+	SELECT @ServiceNames = s.Value FROM dbo.SystemSetting s WITH(NOLOCK) WHERE s.ServiceName = 'ChatBot - Settings' AND s.SettingName = 'Services'
+
 	INSERT INTO @RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
 	SELECT d.NotificationTemplateID, d.Value, d.LanguageId, d.Frequency
 	FROM dbo.f_CRM_strSplit(@ServiceNames, ',') f

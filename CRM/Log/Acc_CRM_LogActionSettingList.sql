@@ -15,6 +15,7 @@ AS
 	Revisions:
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20191018@Winnie:  CRM - Support Default Communication Tool RedmineID: #122078
+		- 20221028@Winfred: Update system setting config for all service [redmine:#158258]
 	Param's Explanation:
 */
 BEGIN
@@ -49,7 +50,7 @@ BEGIN
 		FROM crmLogSetting lc WITH (NOLOCK) 
 			INNER JOIN crmLogAction la WITH(NOLOCK) ON la.ActionID = lc.ActionID
 			INNER JOIN bodb02.dbo.Customer ci WITH (NOLOCK) ON ci.custid = lc.UserID		
-		WHERE lc.actionid IN(306,307,308)
+		WHERE lc.actionid IN(306,307,308,311)
 			AND (ISNULL(@username,'')='' OR ci.username = @username) 
 			AND (ISNULL(@actionid,0)=0  OR lc.ActionID = @ActionID)
 			AND lc.LogDate BETWEEN @FromDate and @Todate		

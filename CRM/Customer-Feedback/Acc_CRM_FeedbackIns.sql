@@ -75,6 +75,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@TOControlLogID				VARCHAR(MAX)	= ''
 				,	@PALogID					VARCHAR(MAX)	= ''
 				,	@AmendmentLogID				INT	= 0
+				,	@LogFeedbackId				INT	= 0
+				,	@ServiceID					TINYINT	= 0
 				,	@VoidingSettledID			INT	= 0
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
@@ -116,7 +118,8 @@ AS
 		- 20210519@Johnson: Add param @IsManualMultiple to check duplicate fb [redmine:#155102]
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
-		- 20220114@Johnson: fix performance for checking duplicate fb [redmine:#167537]					
+		- 20220114@Johnson: fix performance for checking duplicate fb [redmine:#167537]		
+		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]			
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -139,7 +142,9 @@ AS
 	@PALogID: LogID for TOContrl auto fb service
 	@AmendmentLogID LogID from Amendment notification auto fb service, process 1 logid with 1 feedback
 	@VoidingSettledID LogID from Voiding Settled auto fb service, process 1 logid with 1 feedback
+	@ArchivedAccountID LogID from FB to Headline for Archiving Dormant Accounts
 	@ListOrigCustIDs: list custid have void tickets from auto fb service	
+	@ServiceID = 1 : Service Archiving Dormant Accounts
 */
 BEGIN	
 	SET NOCOUNT ON;
@@ -328,6 +333,13 @@ BEGIN
 		RETURN;		
 	END
 	
+	IF @LogFeedbackId > 0
+	BEGIN
+		IF EXISTS (SELECT 1 FROM crmServiceFeedbackInfo WITH(NOLOCK)
+					WHERE LogFeedbackId = @LogFeedbackId AND status = 'completed'  AND ServiceID = @ServiceID
+				)
+		RETURN;		
+	END
 	--check duplicate fb from Multiple Logs
 	IF @IsManualMultiple = 1
 	BEGIN
@@ -815,7 +827,26 @@ BEGIN
 		END;	
 		
 	END
-	
+	--Archiving Dormant Accounts
+	IF @LogFeedbackId > 0
+	BEGIN
+		UPDATE crmServiceFeedbackInfo WITH(UPDLOCK,ROWLOCK)
+		SET Status = 'completed',
+			UpdateDate = GETDATE()
+		WHERE LogFeedbackId = @LogFeedbackId AND ServiceID = @ServiceID
+		
+		IF	@@ERROR <> 0
+		BEGIN
+			-- rollback
+			DELETE FROM crmFeedback WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackCustomer WHERE FeedbackID = @FeedbackID;
+			DELETE FROM crmFeedbackSetting WHERE FeedbackID = @FeedbackID;
+			SELECT	@ErrCode = 105
+				,	@ErrMsg = 'Insert feedback unsuccessfuly.';
+
+			RETURN;
+		END;
+	END
 	-- write log
 	DECLARE @LogElement XML;
 

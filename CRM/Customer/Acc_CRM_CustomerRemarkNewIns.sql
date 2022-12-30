@@ -23,6 +23,7 @@ AS
 
 	Revisions:
 		- 20220325@Winfred: CRM - insert special remarks renovation [RedmineId : #167941]
+		- 20221230@Winfred: CRM - Insert/Update Remark with special charater to xml [RedmineId : #182236]
 	
 	Parameter's Explanation:
 		
@@ -118,27 +119,27 @@ BEGIN
 	DECLARE @LogElement XML
 
 	SELECT @LogElement = 				
-					'<R>' + --SP Name
-						'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
-						'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
-						'<RemarkName>'		+ ISNULL(CONVERT(NVARCHAR(100),@RemarkName),'')		+ '</RemarkName>' +
-						'<RelatedPICs>'		+ ISNULL(@RelatedPICs,'')							+ '</RelatedPICs>' +
-						'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</ExtID>' +
-						'<Ext>'				+ ISNULL(@ExtStation,'')							+ '</Ext>' +
-						'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')		+ '</HandlerID>' +
-						'<Handler>'			+ ISNULL(@Handler,'')								+ '</Handler>' +
-						'<ApproverID>'		+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
-						'<Approver>'		+ ISNULL(@Approver,'')								+ '</Approver>' +
-						'<AcknowledgerID>'	+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
-						'<Acknowledger>'	+ ISNULL(@Acknowledger,'')							+ '</Acknowledger>' +
-						'<Requester>'		+ ISNULL(@Requester,'')								+ '</Requester>' +
-						'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')		+ '</ModifierID>' +
-						'<Modifier>'		+ ISNULL(@Updater,'')								+ '</Modifier>' +
-						'<CreatorID>'		+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')		+ '</CreatorID>' +
-						'<Creator>'			+ ISNULL(@Creator,'')								+ '</Creator>' +
-						'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
-						'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</CreatedDate>' +
-					'</R>' 
+		'<R>' + --SP Name
+			'<CustID>'			+ ISNULL(CONVERT(VARCHAR(10),@CustID),'')			+ '</CustID>' +
+			'<Remark>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Remark),'')		+ '</Remark>' +
+			'<RemarkName>'		+ ISNULL(CONVERT(NVARCHAR(100),@RemarkName),'')		+ '</RemarkName>' +
+			'<RelatedPICs>'		+ ISNULL([dbo].[f_EncodeXMLValue](@RelatedPICs),'')	+ '</RelatedPICs>' +
+			'<ExtID>'			+ ISNULL(CONVERT(VARCHAR(10),@Ext),'')				+ '</ExtID>' +
+			'<Ext>'				+ ISNULL([dbo].[f_EncodeXMLValue](@ExtStation),'')	+ '</Ext>' +
+			'<HandlerID>'		+ ISNULL(CONVERT(VARCHAR(10),@HandlerID),'')		+ '</HandlerID>' +
+			'<Handler>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Handler),'')		+ '</Handler>' +
+			'<ApproverID>'		+ ISNULL(CONVERT(VARCHAR(10),@ApproverID),'')		+ '</ApproverID>' +
+			'<Approver>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Approver),'')	+ '</Approver>' +
+			'<AcknowledgerID>'	+ ISNULL(CONVERT(VARCHAR(10),@AcknowledgerID),'')	+ '</AcknowledgerID>' +
+			'<Acknowledger>'	+ ISNULL([dbo].[f_EncodeXMLValue](@Acknowledger),'')+ '</Acknowledger>' +
+			'<Requester>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Requester),'')	+ '</Requester>' +
+			'<ModifierID>'		+ ISNULL(CONVERT(VARCHAR(10),@ModifierID),'')		+ '</ModifierID>' +
+			'<Modifier>'		+ ISNULL([dbo].[f_EncodeXMLValue](@Updater),'')		+ '</Modifier>' +
+			'<CreatorID>'		+ ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')		+ '</CreatorID>' +
+			'<Creator>'			+ ISNULL([dbo].[f_EncodeXMLValue](@Creator),'')		+ '</Creator>' +
+			'<LastUpdate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</LastUpdate>' +
+			'<CreatedDate>'		+ ISNULL(CONVERT(VARCHAR(20),@NewUpdate),'')		+ '</CreatedDate>' +
+		'</R>' 
 				
 
 	EXEC [dbo].[WriteLog_UserLog_crmLogCustomer]

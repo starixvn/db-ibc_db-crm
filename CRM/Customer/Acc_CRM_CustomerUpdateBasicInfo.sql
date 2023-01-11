@@ -48,6 +48,7 @@ Revisions:
 	- 20141118@Dom: Add new PIC name
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190807@Winnie: Fix SP when create account in CRM system: VIP = 0 instead of VIP = NULL RedmineID: #109775
+	- 20230111@Winfred: CRM - Move code from old site to new site & apply unit test RedmineID: #140196
 */
 	SET NOCOUNT ON
 
@@ -139,7 +140,7 @@ BEGIN
 			@BankState						= NULL,
 			@Question						= NULL,
 			@Answer							= NULL,
-			@CountryID						= NULL,
+			@CountryID						= @CountryID,
 			@IsVIP							= 0,
 			@SiteID							= @Site,
 			@Wire_BankName					= NULL,

@@ -11,11 +11,18 @@ CREATE TABLE dbo.VoidingHistoryCollection
 (
 	VoidingHistoryCollectionId INT IDENTITY(1, 1) NOT NULL
 	,IsProcessing BIT
+	,CreatedDate DATETIME DEFAULT GETDATE()
 	,CONSTRAINT [PK_VoidingHistoryCollection] PRIMARY KEY CLUSTERED 
 	(
 		VoidingHistoryCollectionId ASC
 	) ON [DATA]
 ) ON [DATA]
+GO
+
+CREATE NONCLUSTERED INDEX IX_CreatedDate ON VoidingHistoryCollection (CreatedDate)
+GO
+
+CREATE NONCLUSTERED INDEX IX_IsProcessing ON dbo.VoidingHistoryCollection (IsProcessing)
 GO
 
 CREATE TABLE dbo.VoidingHistoryCollectionDetail
@@ -27,4 +34,7 @@ CREATE TABLE dbo.VoidingHistoryCollectionDetail
 		VoidingHistoryCollectionId ASC, VoidingHistoryId ASC 
 	) ON [DATA]
 ) ON [DATA]
+
+CREATE NONCLUSTERED INDEX IX_VoidingHistoryId ON dbo.VoidingHistoryCollectionDetail (VoidingHistoryId)
+GO
 

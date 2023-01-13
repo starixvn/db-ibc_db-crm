@@ -117,7 +117,7 @@ BEGIN
 
 		SET @Id += 1
 	END
-	
+
 	--keep data for 2 months
 
 	SELECT @CollectionId = MAX(VoidingHistoryCollectionId) FROM dbo.VoidingHistoryCollection WITH(NOLOCK) WHERE CreatedDate <= DATEADD(MONTH, -2 , @CurrentDate)

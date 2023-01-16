@@ -120,6 +120,7 @@ AS
 		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
 		- 20220114@Johnson: fix performance for checking duplicate fb [redmine:#167537]		
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]			
+		- 20230116@Winfred: CRM - Prevent duplicated feedback creation within a short of time [redmine:#182911]		
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -341,7 +342,7 @@ BEGIN
 		RETURN;		
 	END
 	--check duplicate fb from Multiple Logs
-	IF @IsManualMultiple = 1
+	IF @IsManualMultiple = 1 
 	BEGIN
 		SELECT fs.FeedbackID, fs.SettingID, fs.SubSettingID
 		INTO #tmpDupFB
@@ -362,6 +363,31 @@ BEGIN
 			,	@ErrMsg = 'Please try creating new feedback after ONE minute.';
 
 			RETURN;
+		END
+	END
+	ELSE
+	BEGIN
+		IF @LogFeedbackId + @VoidingSettledID + @AmendmentLogID + @WinLimitLogID + @MessageID = 0 AND ISNULL(@PALogID,'') = ''  AND ISNULL(@TOControlLogID,'') = ''
+		BEGIN
+			SELECT fs.FeedbackID, fs.SettingID, fs.SubSettingID
+			INTO #tmpDupFBSingle
+			FROM crmFeedback fb WITH(NOLOCK) 
+				INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
+			WHERE fb.CreateDate >= DATEADD(SECOND, -30, GETDATE())
+				AND fb.CustID=@CustID
+				AND fb.CreatorID = @UserID
+				AND fb.Description = @Description
+			
+			IF EXISTS (SELECT TOP (1) 1
+			FROM #tmpDupFBSingle fs
+				INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
+			)
+			BEGIN
+				SELECT	@ErrCode = 112
+				,	@ErrMsg = 'Please try creating new feedback after THIRTY seconds.';
+
+				RETURN;
+			END
 		END
 	END
 	

@@ -41,7 +41,8 @@ AS
 		- 20190719@Winnie: CRM - Remove limit Is Related Customer RedmineID:#113305
 		- 20190711@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
-		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]		
+		- 20230116@Winfred: CRM - Prevent duplicated feedback creation within a short of time [redmine:#182911]	
 	Param's Explanation:
 */
 BEGIN
@@ -340,6 +341,26 @@ BEGIN
 		,	@BBM					= BBM
 	FROM	crmCustomer WITH (NOLOCK)
 	WHERE	CustID = @CustID;
+
+	SELECT fs.FeedbackID, fs.SettingID, fs.SubSettingID
+	INTO #tmpDupFBSingle
+	FROM crmFeedback fb WITH(NOLOCK) 
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fb.FeedbackID=fs.FeedbackID
+	WHERE fb.CreateDate >= DATEADD(SECOND, -30, GETDATE())
+		AND fb.CustID=@CustID
+		AND fb.CreatorID = @UserID
+		AND fb.Description = @Description
+			
+	IF EXISTS (SELECT TOP (1) 1
+	FROM #tmpDupFBSingle fs
+		INNER JOIN @tblCategory t ON fs.SettingID=t.MainCategoryID AND fs.SubSettingID=t.SubCategoryID
+	)
+	BEGIN
+		SELECT	@ErrCode = 112
+		,	@ErrMsg = 'Please try creating new feedback after 30 seconds.';
+
+		RETURN;
+	END
 
 	INSERT INTO	crmFeedback	(
 					CustID

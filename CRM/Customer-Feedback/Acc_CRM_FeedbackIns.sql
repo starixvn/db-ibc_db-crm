@@ -384,7 +384,7 @@ BEGIN
 			)
 			BEGIN
 				SELECT	@ErrCode = 112
-				,	@ErrMsg = 'Please try creating new feedback after THIRTY seconds.';
+				,	@ErrMsg = 'Please try creating new feedback after 30 seconds.';
 
 				RETURN;
 			END

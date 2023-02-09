@@ -1,5 +1,4 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-
 ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@UserRole TINYINT = 2
 	,@ListCustID VARCHAR(MAX) = NULL
@@ -30,7 +29,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@ErrMsg NVARCHAR(4000) = '' OUTPUT
 	,@IsCheckedDefaultComm BIT = 0
 	,@RelatedCustomers NVARCHAR(MAX) = NULL
-	,@MessageID 		INT 			= 0
+	,@MessageID 		VARCHAR(MAX)	= ''
+	,@VoidingHistoryCollectionId	INT 			= 0
 	,@WinLimitLogID		BIGINT			= 0	
 	,@TOControlLogID	VARCHAR(MAX)	= ''
 	,@PALogID			VARCHAR(MAX)	= ''
@@ -73,10 +73,12 @@ AS
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 		
 	Param's Explanation:
 		@RelatedCustomers: <ROOT><Row CustId='1' RelatedCustId='2' Username='test' /></ROOT>
-		@MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
+		@VoidingHistoryCollectionId : VoidingHistoryCollectionId from Auto fb service, each time just process 1 VoidingHistoryCollectionId with only 1 headline
+		@MessageID : MsgID from Auto fb service, each time just process multiple msgid with only 1 headline
 		@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
 		@TOControlLogID for auto fb TO control service
 		@PALogID for auto fb Problem account service
@@ -733,6 +735,7 @@ BEGIN
 				,@BBM = @BBM
 				,@IP = @IP
 				,@NoInquiries = @NoInquiries
+				,@VoidingHistoryCollectionId = @VoidingHistoryCollectionId
 				,@MessageID = @MessageID
 				,@WinLimitLogID = @WinLimitLogID
 				,@TOControlLogID = @TOControlLogID	

@@ -18,16 +18,16 @@ AS
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
 		@MessageIds = '<ROOT>
-						<r MsgID="1074539881" ReqID="67130" TransID="10071367596638214"/>
-						<r MsgID="1074539881" ReqID="67130" TransID="10071367596638215"/>
-						<r MsgID="1074539891" ReqID="67135" TransID="10071367596638209"/>
-						<r MsgID="1074539899" ReqID="67136" TransID="10071367596638208"/>
-						<r MsgID="1074539904" ReqID="67137" TransID="10130818533949440"/>
-						<r MsgID="1074539905" ReqID="67139" TransID="10140722728534130"/>
-						<r MsgID="1074539905" ReqID="67139" TransID="10140722728534131"/>
-						<r MsgID="1074539905" ReqID="67139" TransID="10140761383239823"/>
-						<r MsgID="1074539905" ReqID="67139" TransID="10140761383239824"/>
-						<r MsgID="1074539905" ReqID="67139" TransID="10140761383239825"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539881" ReqID="67130" TransID="10071367596638214"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539881" ReqID="67130" TransID="10071367596638215"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539891" ReqID="67135" TransID="10071367596638209"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539899" ReqID="67136" TransID="10071367596638208"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539904" ReqID="67137" TransID="10130818533949440"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539905" ReqID="67139" TransID="10140722728534130"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539905" ReqID="67139" TransID="10140722728534131"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539905" ReqID="67139" TransID="10140761383239823"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539905" ReqID="67139" TransID="10140761383239824"/>
+						<r VoidingHistoryCollectionId="1" MsgID="1074539905" ReqID="67139" TransID="10140761383239825"/>
 					  </ROOT>'
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
@@ -37,17 +37,19 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT, TransIDs VARCHAR(MAX))	
+	DECLARE @tmpMessage TABLE (VoidingHistoryCollectionId INT, MessageId INT, RequestID INT, TransIDs VARCHAR(MAX))	
 	DECLARE @xml XML = CAST(@TranIDs AS XML)	
 	
-	INSERT INTO @tmpMessage (MessageId,RequestID, TransIDs)
-	SELECT t.c.value('@MsgID[1]','int') MsgID,
+	INSERT INTO @tmpMessage (VoidingHistoryCollectionId, MessageId,RequestID, TransIDs)
+	SELECT t.c.value('@VoidingHistoryCollectionId[1]','int') AS VoidingHistoryCollectionId ,
+		t.c.value('@MsgID[1]','int') MsgID,
 		t.c.value('@ReqID[1]','int') ReqID,
 		t.c.value('@TransID[1]', 'VARCHAR(MAX)') AS TransIDs
 	FROM @xml.nodes('/ROOT/r') t(c)	
 
 	--tickets info	
-	DECLARE @tblTrans TABLE (MessageId INT, 
+	DECLARE @tblTrans TABLE (VoidingHistoryCollectionId INT,
+							MessageId INT, 
 							RequestID INT,
 							TransID BIGINT,
 							custid INT, 
@@ -59,8 +61,9 @@ BEGIN
 							RelatedCustID INT
 							)
 		
-	INSERT INTO @tblTrans (MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
-	SELECT vh.MessageId, 
+	INSERT INTO @tblTrans (VoidingHistoryCollectionId, MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
+	SELECT vh.VoidingHistoryCollectionId,
+		vh.MessageId, 
 		vh.RequestID,
 		t.TransId,
 		custid, 
@@ -81,8 +84,9 @@ BEGIN
 			WHEN b.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
 			ELSE 0 END	
 		
-	INSERT INTO @tblTrans (MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
-	SELECT vh.MessageId, 
+	INSERT INTO @tblTrans (VoidingHistoryCollectionId, MessageId, RequestID, transid, custid, username,srecommend,recommend, bettype)
+	SELECT vh.VoidingHistoryCollectionId,
+		vh.MessageId, 
 		vh.RequestID,
 		t.TransId,
 		custid, 
@@ -111,7 +115,9 @@ BEGIN
 	WHERE c.site = 'CN88'
 
 	--tickets info
-	SELECT MessageId, 
+	SELECT 
+		VoidingHistoryCollectionId,
+		MessageId, 
 		RequestID,
 		transid,
 		t.custid, 
@@ -124,7 +130,7 @@ BEGIN
 	FROM @tblTrans t
 		LEFT JOIN bettype b WITH(NOLOCK) ON t.bettype = b.typeid
 		LEFT JOIN CustDB.dbo.Dep_CustSuper s WITH(NOLOCK) ON t.srecommend = s.custid
-	ORDER BY MessageId,RequestID,isDeposit,custid
+	ORDER BY VoidingHistoryCollectionId,MessageId,RequestID,isDeposit,custid
 
 END	
 

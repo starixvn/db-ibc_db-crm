@@ -17,22 +17,24 @@ AS
 		- 20201029@Percy: Change left join to outer apply [RedmineID: #144466]
 		- 20201105@Percy: Try 5 times for duplicate primary key [RedmineID: #144466]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 	
 	Param's Explanation:
 		- @MessageIds = '<ROOT>
-						<r MsgID="123" ReqID="1" UsernameList="member1,member2,member3" CustIdList=""/>
-						<r MsgID="123" ReqID="2" UsernameList="member1,member2,member3" CustIdList=""/>
-						<r MsgID="345" ReqID="1" UsernameList="member1,member2,member3" CustIdList=""/>
+						<r VoidingHistoryCollectionId="1" MsgID="123" ReqID="1" UsernameList="member1,member2,member3" CustIdList=""/>
+						<r VoidingHistoryCollectionId="1" MsgID="123" ReqID="2" UsernameList="member1,member2,member3" CustIdList=""/>
+						<r VoidingHistoryCollectionId="1" MsgID="345" ReqID="1" UsernameList="member1,member2,member3" CustIdList=""/>
 						</ROOT>'
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))
+	DECLARE @tmpMessage TABLE (VoidingHistoryCollectionId INT,MessageId INT, RequestID INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))
 	DECLARE @xml XML = CAST(@MessageIds AS XML)	
 	
-	INSERT INTO @tmpMessage (MessageId, RequestID, UsernameList, CustIdList)
+	INSERT INTO @tmpMessage (VoidingHistoryCollectionId ,MessageId, RequestID, UsernameList, CustIdList)
 	SELECT DISTINCT
+		t.c.value('@VoidingHistoryCollectionId[1]','int') VoidingHistoryCollectionId,
 		t.c.value('@MsgID[1]','int') MsgID,
 		t.c.value('@ReqID[1]','int') ReqID,
 		t.c.value('@UsernameList[1]', 'NVARCHAR(MAX)') AS UsernameList,
@@ -45,12 +47,12 @@ BEGIN
 	BEGIN
 		SET @msg = ''
 		BEGIN TRY
-			INSERT INTO crmMessageImport (MessageId, RequestID, CreatedDate, IsProcessed ,IsProcessedUAT, UsernameList, CustIdList)
-			SELECT t.MessageId, t.RequestID, GETDATE(), 
+			INSERT INTO crmMessageImport (VoidingHistoryCollectionId ,MessageId, RequestID, CreatedDate, IsProcessed ,IsProcessedUAT, UsernameList, CustIdList)
+			SELECT t.VoidingHistoryCollectionId, t.MessageId, t.RequestID, GETDATE(), 
 			0 AS isProcessed, 
 			0 AS IsProcessedUAT ,UsernameList, CustIdList
 			FROM @tmpMessage t
-				OUTER APPLY (SELECT TOP 1 m.MessageId FROM crmMessageImport m WITH(NOLOCK) WHERE t.MessageId = m.MessageId AND t.RequestID = m.RequestID) m
+				OUTER APPLY (SELECT TOP 1 m.MessageId FROM crmMessageImport m WITH(NOLOCK) WHERE t.MessageId = m.MessageId AND t.RequestID = m.RequestID ) m
 			WHERE m.MessageId IS NULL
 		END TRY
 		BEGIN CATCH
@@ -76,14 +78,14 @@ BEGIN
 	--Get top new messages
 	;WITH tmp AS 
 	(	
-		SELECT DISTINCT TOP (@BatchSize) MessageId
+		SELECT DISTINCT TOP (@BatchSize) VoidingHistoryCollectionId
 		FROM crmMessageImport WITH(NOLOCK)
 		WHERE ((isProcessed = 0 AND  @Environment = 'LIVE') OR( @Environment <> 'LIVE' AND IsProcessedUAT = 0 AND CreatedDate >= @LastDateUAT)) 		
-		ORDER BY MessageId ASC
+		ORDER BY VoidingHistoryCollectionId ASC
 	)
-	SELECT MessageId, RequestID,ISNULL(UsernameList, '') AS UsernameList, ISNULL(CustIdList, '') AS CustIdList
+	SELECT VoidingHistoryCollectionId, MessageId, RequestID,ISNULL(UsernameList, '') AS UsernameList, ISNULL(CustIdList, '') AS CustIdList
 	FROM crmMessageImport c WITH(NOLOCK)
-	WHERE MessageId IN (SELECT MessageId FROM tmp)
+	WHERE VoidingHistoryCollectionId IN (SELECT VoidingHistoryCollectionId FROM tmp)
 		AND ((isProcessed = 0 AND  @Environment = 'LIVE') OR( @Environment <> 'LIVE' AND IsProcessedUAT = 0 AND CreatedDate >= @LastDateUAT)) 
 END
 GO	

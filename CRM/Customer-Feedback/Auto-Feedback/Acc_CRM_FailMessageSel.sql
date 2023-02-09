@@ -13,12 +13,13 @@ AS
 		- 20200831@Johnson: Add requestID to check missing auto void request [redmine:#139158]
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]	
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 	Param's Explanation:		
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	SELECT DISTINCT a.MessageID, a.RequestID , b.UsernameList,b.CustIdList
+	SELECT DISTINCT a.MessageID, a.RequestID , b.UsernameList,b.CustIdList , b.VoidingHistoryCollectionId
 	FROM dbo.crmAutoFeedbackInfo a WITH(NOLOCK)
 	Left Join crmMessageImport b WITH(NOLOCK) ON a.MessageID = b.MessageID  AND a.RequestID = b.RequestID
 	WHERE status IN ('initial','fail')

@@ -1,5 +1,6 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_VoidingMessageSel]	
+	@MaxLogVHCID	INT
 AS
 /*
 	Created: 20200612@Johnson
@@ -12,42 +13,52 @@ AS
 		- 20200810@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 		- 20210414@Johnson: add new issuetype 15 (AB Real member)[redmine:#153341]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 	Param's Explanation:
 		
 */
 BEGIN
 	SET NOCOUNT ON
 		
-	DECLARE @Result TABLE (MessageId INT, RequestId INT, VoidingHistoryId INT, UsernameList NVARCHAR(MAX))
+	DECLARE @MaxLogId INT = 0
 
-	INSERT INTO @Result (MessageId, RequestId, VoidingHistoryId)
-	SELECT DISTINCT vh.MessageId, vh.RequestId, CASE WHEN r.IssueTypeId = 13 THEN vh.VoidingHistoryId ELSE 0 END AS VoidingHistoryId
-	FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-		INNER JOIN TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND (r.IssueTypeId IN (11,15) OR (r.IssueTypeId = 13 
-		AND vh.MinWinlostdate IS NOT NULL))-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15)
-	WHERE vh.CreatedDate >= GETDATE() - 1
-		AND vh.StatusId = 2 -- tickets void successfully
-	ORDER BY MessageId
+	SELECT @MaxLogId = MIN(VoidingHistoryCollectionId) FROM dbo.VoidingHistoryCollection WITH(NOLOCK) 
+	WHERE IsProcessing = 1
 
-	IF EXISTS (SELECT 1 FROM @Result WHERE VoidingHistoryId <> 0)
-	BEGIN
-		UPDATE r
-			SET r.UsernameList = l.Usernames
-		FROM @Result r
-		CROSS APPLY (
+	DECLARE @Result TABLE (VoidingHistoryCollectionId INT, MessageId INT, RequestId INT, VoidingHistoryId INT, 
+							UsernameList NVARCHAR(MAX), IssueTypeId TINYINT)
+
+	;WITH CTE AS
+	(
+		SELECT VoidingHistoryCollectionId
+		FROM dbo.VoidingHistoryCollection WITH(NOLOCK)
+		WHERE VoidingHistoryCollectionId > @MaxLogVHCID AND VoidingHistoryCollectionId <= @MaxLogId
+		ORDER BY VoidingHistoryCollectionId ASC
+	)
+	INSERT INTO @Result (VoidingHistoryCollectionId, VoidingHistoryId)
+	SELECT d.VoidingHistoryCollectionId, d.VoidingHistoryId
+	FROM dbo.VoidingHistoryCollectionDetail d WITH(NOLOCK)
+		INNER JOIN CTE e ON e.VoidingHistoryCollectionId = d.VoidingHistoryCollectionId
+	ORDER BY VoidingHistoryCollectionId ASC, VoidingHistoryId ASC
+
+	UPDATE r
+	SET r.MessageId = vh.MessageId, r.RequestId = vh.RequestId, r.IssueTypeId = rq.IssueTypeId, 
+		r.UsernameList = CASE WHEN rq.IssueTypeId = 13 THEN l.Usernames ELSE '' END
+	FROM @Result r
+		INNER JOIN dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK) ON vh.VoidingHistoryId = r.VoidingHistoryId
+		INNER JOIN dbo.TicketVoiding_Request rq WITH(NOLOCK) ON vh.RequestId = rq.RequestId 
+		OUTER APPLY (
 			SELECT TOP 1 rd.Usernames
 			FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK)
 			WHERE rd.RequestId = r.RequestId
 		) l(Usernames)
-		WHERE r.VoidingHistoryId <> 0
-	END
-
-	SELECT DISTINCT MessageId, RequestId
+		
+	SELECT DISTINCT VoidingHistoryCollectionId, MessageId, RequestId
 	FROM @Result
 
-	SELECT MessageId, RequestId, VoidingHistoryId, UsernameList
+	SELECT VoidingHistoryCollectionId , MessageId, RequestId, VoidingHistoryId, UsernameList
 	FROM @Result
-	WHERE VoidingHistoryId <> 0
+	WHERE IssueTypeId  = 13 -- Abnormal accounts
 	
 END
 GO	

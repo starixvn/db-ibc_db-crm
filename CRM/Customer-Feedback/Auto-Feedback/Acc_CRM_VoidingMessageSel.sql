@@ -33,7 +33,6 @@ BEGIN
 		SELECT VoidingHistoryCollectionId
 		FROM dbo.VoidingHistoryCollection WITH(NOLOCK)
 		WHERE VoidingHistoryCollectionId > @MaxLogVHCID AND VoidingHistoryCollectionId <= @MaxLogId
-		ORDER BY VoidingHistoryCollectionId ASC
 	)
 	INSERT INTO @Result (VoidingHistoryCollectionId, VoidingHistoryId)
 	SELECT d.VoidingHistoryCollectionId, d.VoidingHistoryId

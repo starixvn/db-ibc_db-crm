@@ -1,6 +1,6 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_VoidingMessageSel]	
-	@MaxLogVHCID	INT
+	@MaxVoidingHistoryCollectionId	INT
 AS
 /*
 	Created: 20200612@Johnson
@@ -22,22 +22,20 @@ BEGIN
 		
 	DECLARE @MaxLogId INT = 0
 
-	SELECT @MaxLogId = MIN(VoidingHistoryCollectionId) FROM dbo.VoidingHistoryCollection WITH(NOLOCK) 
-	WHERE IsProcessing = 1
+	SELECT @MaxLogId = MAX(VoidingHistoryCollectionId) FROM dbo.VoidingHistoryCollection WITH(NOLOCK) 
+	
+	SELECT TOP(1) @MaxLogId = VoidingHistoryCollectionId - 1
+	FROM dbo.VoidingHistoryCollection WITH(NOLOCK) 
+	WHERE VoidingHistoryCollectionId <= @MaxLogId AND IsProcessing = 1
+	ORDER BY VoidingHistoryCollectionId ASC
 
 	DECLARE @Result TABLE (VoidingHistoryCollectionId INT, MessageId INT, RequestId INT, VoidingHistoryId INT, 
 							UsernameList NVARCHAR(MAX), IssueTypeId TINYINT)
 
-	;WITH CTE AS
-	(
-		SELECT VoidingHistoryCollectionId
-		FROM dbo.VoidingHistoryCollection WITH(NOLOCK)
-		WHERE VoidingHistoryCollectionId > @MaxLogVHCID AND VoidingHistoryCollectionId <= @MaxLogId
-	)
 	INSERT INTO @Result (VoidingHistoryCollectionId, VoidingHistoryId)
 	SELECT d.VoidingHistoryCollectionId, d.VoidingHistoryId
 	FROM dbo.VoidingHistoryCollectionDetail d WITH(NOLOCK)
-		INNER JOIN CTE e ON e.VoidingHistoryCollectionId = d.VoidingHistoryCollectionId
+	WHERE VoidingHistoryCollectionId > @MaxVoidingHistoryCollectionId AND VoidingHistoryCollectionId <= @MaxLogId
 	ORDER BY VoidingHistoryCollectionId ASC, VoidingHistoryId ASC
 
 	UPDATE r

@@ -30,7 +30,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@IsCheckedDefaultComm BIT = 0
 	,@RelatedCustomers NVARCHAR(MAX) = NULL
 	,@MessageID 		VARCHAR(MAX)	= ''
-	,@VoidingHistoryCollectionId	INT 			= 0
+	,@VoidingHistoryCollectionId	INT = 0
 	,@WinLimitLogID		BIGINT			= 0	
 	,@TOControlLogID	VARCHAR(MAX)	= ''
 	,@PALogID			VARCHAR(MAX)	= ''

@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoFeedbackInfoUpd]	
-	@MessageID 	INT,	
+	@MessageID 	VARCHAR(MAX)	= '' ,	
 	@RequestIDs	VARCHAR(100),
 	@Custids 	VARCHAR(MAX),
 	@Status 	VARCHAR(20),
@@ -19,6 +19,7 @@ AS
 		- 20200612@Johnson: enhance to check missing feedback [redmine:#135719]
 		- 20200811@Johnson: Add requestID to check missing auto void request [redmine:#139158]	
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 	Param's Explanation:		
 		- @custids: list custids for each feedback
 		- @RequestIDs : void requestid of this msg
@@ -42,7 +43,7 @@ BEGIN
 		RetryCount = CASE WHEN @status = 'fail' THEN retrycount + 1 ELSE retrycount END,
 		Description = @Description,
 		UpdatedTime = GETDATE()
-	WHERE MessageID = @MessageID
+	WHERE MessageID IN (SELECT value FROM string_split(@MessageID, ',') WHERE value <> '')
 		AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 		AND custid IN (SELECT custid FROM @tmpCust)
 	
@@ -50,7 +51,7 @@ BEGIN
 	BEGIN
 		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
 		SET isProcessed = 1		
-		WHERE MessageID = @MessageID
+		WHERE MessageID  IN (SELECT value FROM string_split(@MessageID, ',') WHERE value <> '')
 			AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 			AND isProcessed = 0
 	END
@@ -58,7 +59,7 @@ BEGIN
 	BEGIN
 		UPDATE crmMessageImport WITH(UPDLOCK,ROWLOCK)
 		SET IsProcessedUAT = 1		
-		WHERE MessageID = @MessageID
+		WHERE MessageID  IN (SELECT value FROM string_split(@MessageID, ',') WHERE value <> '')
 			AND RequestID IN (SELECT RequestID FROM @tmpRequest)
 			AND IsProcessedUAT = 0
 	END

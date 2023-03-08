@@ -47,7 +47,7 @@ BEGIN
 		OUTER APPLY (
 			SELECT TOP 1 rd.Usernames
 			FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK)
-			WHERE rd.RequestId = r.RequestId
+			WHERE rd.RequestId = rq.RequestId
 		) l(Usernames)
 		
 	SELECT DISTINCT VoidingHistoryCollectionId, MessageId, RequestId

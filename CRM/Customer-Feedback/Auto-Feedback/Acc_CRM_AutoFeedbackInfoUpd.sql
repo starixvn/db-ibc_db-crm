@@ -1,6 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoFeedbackInfoUpd]	
-	@VoidingHistoryCollectionId	INT,
 	@MessageID 	VARCHAR(MAX)	= '' ,	
 	@RequestIDs	VARCHAR(100),
 	@Custids 	VARCHAR(MAX),

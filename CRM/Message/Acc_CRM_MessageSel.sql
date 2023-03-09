@@ -21,7 +21,7 @@ BEGIN
 
 	IF @IsTest=0	
 	BEGIN
-		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title, mt.TargetName
+		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title, mt.TargetId, mt.TargetName
 			, m.Content_en
 			, ISNULL(m.Content_ch, m.Content_en) Content_ch
 			, ISNULL(m.Content_cs, m.Content_en) Content_cs
@@ -36,7 +36,7 @@ BEGIN
 	END
 	ELSE 
 	BEGIN
-		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title, mt.TargetName
+		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title, mt.TargetId, mt.TargetName
 			, m.Content_en
 			, ISNULL(m.Content_ch, m.Content_en) Content_ch
 			, ISNULL(m.Content_cs, m.Content_en) Content_cs

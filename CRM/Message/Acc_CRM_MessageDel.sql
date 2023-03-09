@@ -1,6 +1,7 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_MessageDel]
 	  @MessageID	INT
+	, @CustID		INT
 	, @ErrCode		INT				= 0		OUTPUT
 	, @ErrMsg		NVARCHAR(200)	= ''	OUTPUT
 	, @IP			VARCHAR(20)		= ''
@@ -23,15 +24,10 @@ BEGIN
 			, @EndRun		DATETIME
 			, @Duration		INT
 			, @logSpData	NVARCHAR(MAX)
-			, @CustID		INT
 			, @UserID		INT
 
 	SET @StartRun=GETDATE()
 	
-	SELECT @CustID=TargetId
-	FROM MsgTarget WITH (NOLOCK)
-	WHERE MessageId=@MessageID
-
 	SELECT @UserID=Creator
 	FROM Msg WITH (NOLOCK)
 	WHERE MessageId=@MessageID
@@ -48,16 +44,20 @@ BEGIN
 			, COALESCE (CAST (@IP AS VARCHAR(20)), SPACE (1)) AS IP
 		FROM Msg m WITH (NOLOCK)
 		INNER JOIN MsgTarget mt WITH (NOLOCK) ON mt.MessageId=m.MessageId
-		WHERE m.MessageId=@MessageID
+		WHERE m.MessageId=@MessageID AND mt.TargetId=@CustID
 		FOR XML RAW('Msg'))
 
 	--Delete Msg
 	BEGIN TRY
-		DELETE FROM Msg WITH (ROWLOCK)
-		WHERE MessageId=@MessageID
-
 		DELETE FROM MsgTarget WITH (ROWLOCK)
-		WHERE MessageId=@MessageID
+		WHERE MessageId=@MessageID AND TargetId=@CustID
+
+		IF NOT EXISTS (SELECT 1 FROM Msg m WITH (NOLOCK)
+						INNER JOIN MsgTarget mt WITH (NOLOCK) ON m.MessageId=mt.MessageId)
+		BEGIN
+			DELETE FROM Msg WITH (ROWLOCK)
+			WHERE MessageId=@MessageID
+		END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()

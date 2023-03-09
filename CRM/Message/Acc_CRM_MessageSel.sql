@@ -17,14 +17,6 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	IF @UserName<>'' AND
-		EXISTS (SELECT 1 
-				FROM string_split(@UserName,',') t
-				WHERE NOT EXISTS (SELECT 1 FROM DBCUST.Custdb.dbo.Customer c WITH (NOLOCK)
-								  WHERE c.username=RTRIM(LTRIM(t.value)))
-				)
-		RETURN
-	
 	IF @IsTest=0	
 	BEGIN
 		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title, mt.TargetName

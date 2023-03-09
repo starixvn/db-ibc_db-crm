@@ -59,8 +59,25 @@ BEGIN
 	CROSS APPLY (SELECT 1 val FROM string_split(@UserName,',') t
 				 WHERE c.username=RTRIM(LTRIM(t.value))) t
 	
-
 	--Insert Msg
+	INSERT INTO Msg (Content_ch, Content_cs, Content_th, Content_en, Content_vn,
+					 MsgType,  -- 1 : message to customer (personal)
+					 IsSticky, -- Is special Message or not
+					 Creator, CreatorName,
+					 LastUpdator, LastUpdateName, 
+					 CreateTime, LastUpdateTime, PostTime, 
+					 IsTest, Remark, MsgContentsType)
+	VALUES(@Content_ch, @Content_cs, @Content_th, @Content_en, @Content_vn,
+			1, 
+			0, 
+			@Creator, @CreatorName,
+			@Creator, @CreatorName, 
+			getdate(), getdate(), getdate(), 
+			@IsTest, @Title, 100);
+
+	SELECT @MessageId = SCOPE_IDENTITY();
+
+	--Insert MsgTarget
 	BEGIN TRY
 		WHILE (1=1)
 		BEGIN
@@ -73,23 +90,6 @@ BEGIN
 
 			IF @@ROWCOUNT=0
 				BREAK;
-
-			INSERT INTO Msg (Content_ch, Content_cs, Content_th, Content_en, Content_vn,
-							MsgType,  -- 1 : message to customer (personal)
-							IsSticky, -- Is special Message or not
-							Creator, CreatorName,
-							LastUpdator, LastUpdateName, 
-							CreateTime, LastUpdateTime, PostTime, 
-							IsTest, Remark, MsgContentsType)
-			VALUES(@Content_ch, @Content_cs, @Content_th, @Content_en, @Content_vn,
-				   1, 
-				   0, 
-				   @Creator, @CreatorName,
-				   @Creator, @CreatorName, 
-				   getdate(), getdate(), getdate(), 
-				   @IsTest, @Title, 100);
-
-			SELECT @MessageId = SCOPE_IDENTITY();
 
 			INSERT dbo.MsgTarget(MessageId, TargetId, TargetName)
 			VALUES (@MessageId, @TargetId, @TargetName)

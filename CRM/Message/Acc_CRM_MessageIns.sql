@@ -41,7 +41,7 @@ BEGIN
 	DECLARE @tbUser TABLE (
 			custid INT, 
 			UserName VARCHAR(30),
-			IsFinshed BIT DEFAULT(0))
+			IsFinished BIT DEFAULT(0))
 
 	SET @StartRun=GETDATE()
 	
@@ -82,11 +82,11 @@ BEGIN
 		WHILE (1=1)
 		BEGIN
 			UPDATE TOP (1) t
-			SET t.IsFinshed=1, 
+			SET t.IsFinished=1, 
 				@TargetId=t.custid, 
 				@TargetName=t.UserName
 			FROM @tbUser t
-			WHERE IsFinshed=0
+			WHERE IsFinished=0
 
 			IF @@ROWCOUNT=0
 				BREAK;
@@ -106,7 +106,7 @@ BEGIN
 						, COALESCE (CAST (@IP AS VARCHAR(20)), SPACE (1)) AS IP
 					FROM Msg m WITH (NOLOCK)
 					INNER JOIN MsgTarget mt WITH (NOLOCK) ON mt.MessageId=m.MessageId
-					WHERE m.MessageId=@MessageId
+					WHERE m.MessageId=@MessageId AND mt.TargetId=@TargetId
 					FOR XML RAW('Msg'))
 
 			--Write Log:

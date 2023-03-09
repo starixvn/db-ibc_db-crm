@@ -115,7 +115,7 @@ BEGIN
 			EXEC DBCUST.Custdb.dbo.Acc_WriteLog_UserLog_RunSP_Wrapper
 							@UserID = @Creator,
 							@CustID = @TargetId,
-							@ActionID = 6073,
+							@ActionID = 1051,
 							@TrackingValue = @LogSPData,
 							@duration = @Duration
 		END

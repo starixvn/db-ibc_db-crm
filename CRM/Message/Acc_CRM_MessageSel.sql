@@ -1,7 +1,9 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_MessageSel]
-	@UserName VARCHAR(MAX)='',
-	@IsTest bit = 0
+	@UserName	VARCHAR(MAX)='',
+	@FromDate	DATETIME=NULL,
+	@ToDate		DATETIME=NULL,
+	@IsTest		BIT = 0
 AS
 /*
 	Created: 20230308@Tacy

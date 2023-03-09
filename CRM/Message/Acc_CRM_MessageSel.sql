@@ -21,12 +21,6 @@ BEGIN
 
 	IF @IsTest=0	
 	BEGIN
-		--;WITH tmp AS (
-		--	SELECT MessageId, TargetName
-		--	FROM MsgTarget WITH (NOLOCK)
-		--	WHERE (@UserName='' 
-		--		OR TargetName IN (SELECT RTRIM(LTRIM(value)) FROM string_split(@UserName,',')))
-		--)
 		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title
 			, m.Content_en
 			, ISNULL(m.Content_ch, m.Content_en) Content_ch
@@ -52,12 +46,6 @@ BEGIN
 	END
 	ELSE 
 	BEGIN
-		;WITH tmp AS (
-			SELECT MessageId, TargetName
-			FROM MsgTarget WITH (NOLOCK)
-			WHERE (@UserName='' 
-				OR TargetName IN (SELECT RTRIM(LTRIM(value)) FROM string_split(@UserName,',')))
-		)
 		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title
 			, m.Content_en
 			, ISNULL(m.Content_ch, m.Content_en) Content_ch
@@ -65,8 +53,10 @@ BEGIN
 			, ISNULL(m.Content_th, m.Content_en) Content_th
 			, ISNULL(m.Content_vn, m.Content_en) Content_vn
 			, STUFF ((SELECT ', ' + TargetName
-					  FROM tmp t
+					  FROM MsgTarget t
 					  WHERE t.MessageId=m.MessageId
+						AND (@UserName='' 
+						  OR TargetName IN (SELECT RTRIM(LTRIM(value)) FROM string_split(@UserName,',')))
 					  FOR XML PATH('')),1,1,'') AS TargetName
 		FROM Msg m WITH (NOLOCK)
 		WHERE MsgContentsType=100

@@ -1,5 +1,5 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_MessageDel]
+ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageDel]
 	  @MessageID	INT
 	, @ErrCode		INT				= 0		OUTPUT
 	, @ErrMsg		NVARCHAR(200)	= ''	OUTPUT

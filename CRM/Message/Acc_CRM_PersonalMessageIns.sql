@@ -1,5 +1,5 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_MessageIns]
+ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageIns]
 	@UserName			VARCHAR(MAX),		--max 50 users
 	@Title				VARCHAR(MAX) = NULL,
 	@Content_en			NVARCHAR(4000),

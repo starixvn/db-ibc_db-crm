@@ -1,5 +1,5 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_MessageSel]
+ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageSel]
 	@UserName	VARCHAR(MAX)='',
 	@FromDate	DATETIME=NULL,
 	@ToDate		DATETIME=NULL,

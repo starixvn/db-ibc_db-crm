@@ -3,7 +3,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_MessageSel]
 	@UserName	VARCHAR(MAX)='',
 	@FromDate	DATETIME=NULL,
 	@ToDate		DATETIME=NULL,
-	@IsTest		BIT = 0
+	@IsTest		BIT = 0,
+	@PageSize	INT	=	50,
+	@PageIndex	INT	=	0,
+	@TotalRows 	INT	=	0 OUTPUT
 AS
 /*
 	Created: 20230308@Tacy
@@ -19,8 +22,29 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
+	CREATE TABLE #MsgTmp (
+		  RowID			INT IDENTITY (1,1)
+		, MessageId		INT
+		, Content_en	NVARCHAR(4000)
+		, Content_cs	NVARCHAR(4000)
+		, Content_ch	NVARCHAR(4000)
+		, Content_th	NVARCHAR(4000)
+		, Content_vn	NVARCHAR(4000)
+		, CreateTime	DATETIME
+		, CreatorName	VARCHAR(50)
+		, Title			VARCHAR(30)
+		, TargetNames	NVARCHAR(4000)	
+	)
+
+	DECLARE @RowStart INT, @RowEnd INT
+
+	SELECT	@PageIndex = @PageIndex - 1,
+			@RowStart = @PageSize * @PageIndex + 1, 
+			@RowEnd = @RowStart + @PageSize - 1 	
+
 	IF @IsTest=0	
 	BEGIN
+		INSERT INTO #MsgTmp (MessageId, CreateTime, CreatorName, Title, Content_en, Content_ch, Content_cs, Content_th, Content_vn, TargetNames)
 		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title
 			, m.Content_en
 			, ISNULL(m.Content_ch, m.Content_en) Content_ch
@@ -42,10 +66,10 @@ BEGIN
 				, ISNULL(m.Content_cs, m.Content_en) 
 				, ISNULL(m.Content_th, m.Content_en) 
 				, ISNULL(m.Content_vn, m.Content_en) 
-		ORDER BY M.MessageId
 	END
 	ELSE 
 	BEGIN
+		INSERT INTO #MsgTmp (MessageId, CreateTime, CreatorName, Title, Content_en, Content_ch, Content_cs, Content_th, Content_vn, TargetNames)
 		SELECT m.MessageId, m.CreateTime, m.CreatorName, m.Remark Title
 			, m.Content_en
 			, ISNULL(m.Content_ch, m.Content_en) Content_ch
@@ -66,7 +90,12 @@ BEGIN
 				, ISNULL(m.Content_cs, m.Content_en) 
 				, ISNULL(m.Content_th, m.Content_en) 
 				, ISNULL(m.Content_vn, m.Content_en) 
-		ORDER BY M.MessageId
 	END
+
+	SELECT MessageId, CreateTime, CreatorName, Title, Content_en, Content_ch, Content_cs, Content_th, Content_vn, TargetNames
+	FROM #MsgTmp
+	ORDER BY MessageId
+
+	SELECT @TotalRows = COUNT(1) FROM #MsgTmp
 END
 GO

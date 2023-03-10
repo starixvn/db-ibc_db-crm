@@ -94,7 +94,7 @@ BEGIN
 
 	SELECT MessageId, CreateTime, CreatorName, Title, Content_en, Content_ch, Content_cs, Content_th, Content_vn, TargetNames
 	FROM #MsgTmp
-	ORDER BY MessageId
+	ORDER BY MessageId DESC
 
 	SELECT @TotalRows = COUNT(1) FROM #MsgTmp
 END

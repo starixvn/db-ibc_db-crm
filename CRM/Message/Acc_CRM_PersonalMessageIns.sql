@@ -39,54 +39,19 @@ BEGIN
 			, @MessageId	INT
 
 	CREATE TABLE #tbUser (
-			custid INT, 
-			UserName VARCHAR(30),
-			IsFinished BIT DEFAULT(0))
-
-	SET @StartRun=GETDATE()
-
-	IF @UserName <>'' OR @UserName IS NOT NULL
-	BEGIN
-		INSERT INTO #tbUser (UserName)
-		SELECT RTRIM(LTRIM(value))
-		FROM string_split(@UserName,',')
-	END
+		custid INT PRIMARY KEY, 
+		UserName VARCHAR(30),
+		IsFinished BIT DEFAULT(0))
 	
-	--Check: exists Username
-	IF EXISTS (SELECT 1 
-				FROM #tbUser t
-				WHERE NOT EXISTS (SELECT 1 FROM DBCUST.Custdb.dbo.Customer c WITH (NOLOCK)
-								  WHERE c.username=T.UserName)
-			)
-	--check: support credit user only
-	OR EXISTS (SELECT 1 
-			   FROM #tbUser t
-			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=T.UserName
-			   INNER JOIN DBCUST.Custdb.dbo.Dep_CustSuper cs WITH (NOLOCK) ON cs.custid=c.srecommend
-			)
-	--check: not allow member level
-	OR EXISTS (SELECT 1 
-			   FROM #tbUser t
-			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=T.UserName
-			   WHERE c.roleid NOT IN (2,3,4)
-			)
-	BEGIN
-		SET @ErrCode=100
-		SET @ErrMsg='Username' 
-					+ STUFF ((SELECT ', ' + t.UserName
-							  FROM #tbUser t
-							  WHERE NOT EXISTS (SELECT 1 FROM DBCUST.Custdb.dbo.Customer c WITH (NOLOCK)
-												WHERE c.username=T.UserName)
-							  FOR XML PATH('')),1,1,'')
-					+ ' is invalid.'
-		RETURN
-	END
-
-	UPDATE T
-	SET T.custid=C.CUSTID
-	FROM #tbUser T
+	;WITH tbUser AS (
+		SELECT RTRIM(LTRIM(value)) UserName
+		FROM string_split(@UserName,',')
+	)
+	INSERT INTO #tbUser (custid, UserName)
+	SELECT c.CustID, c.UserName
+	FROM tbUser t
 	INNER JOIN DBCUST.CustDB.dbo.Customer c WITH (NOLOCK)
-		ON T.UserName=C.USERNAME
+		ON c.username=t.UserName
 	
 	--Insert Msg
 	INSERT INTO Msg (Content_ch, Content_cs, Content_th, Content_en, Content_vn,

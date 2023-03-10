@@ -12,6 +12,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageIns]
 	@IsTest				BIT = 0,
 	@ErrCode			INT	= 0					OUTPUT,
 	@ErrMsg				NVARCHAR(200)	= ''	OUTPUT,
+	@ValueError			NVARCHAR(MAX)	= ''	OUTPUT,
 	@IP					VARCHAR(20)		= ''
 AS
 /*
@@ -50,8 +51,36 @@ BEGIN
 				FROM string_split(@UserName,',') t
 				WHERE NOT EXISTS (SELECT 1 FROM DBCUST.Custdb.dbo.Customer c WITH (NOLOCK)
 								  WHERE c.username=RTRIM(LTRIM(t.value)))
-				)
+			)
+	BEGIN
+		SET @ErrCode=100
+		SET @ErrMsg='Users do not exists.'
 		RETURN
+	END 
+	
+	--check: support credit user only
+	IF EXISTS (SELECT 1 
+			   FROM string_split(@UserName,',') t
+			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=RTRIM(LTRIM(t.value))
+			   INNER JOIN DBCUST.Custdb.dbo.Dep_CustSuper cs WITH (NOLOCK) ON cs.custid=c.srecommend
+			)
+	BEGIN
+		SET @ErrCode=101
+		SET @ErrMsg='Support credit users only.'
+		RETURN
+	END 
+
+	--check: not allow member level
+	IF EXISTS (SELECT 1 
+			   FROM string_split(@UserName,',') t
+			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=RTRIM(LTRIM(t.value))
+			   WHERE c.roleid=1
+			)
+	BEGIN
+		SET @ErrCode=102
+		SET @ErrMsg='Do not allow to add message for member.'
+		RETURN
+	END
 
 	INSERT INTO @tbUser (custid, UserName)
 	SELECT c.Custid, c.username

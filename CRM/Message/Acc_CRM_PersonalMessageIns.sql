@@ -12,7 +12,6 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageIns]
 	@IsTest				BIT = 0,
 	@ErrCode			INT	= 0					OUTPUT,
 	@ErrMsg				NVARCHAR(200)	= ''	OUTPUT,
-	@ValueError			NVARCHAR(MAX)	= ''	OUTPUT,
 	@IP					VARCHAR(20)		= ''
 AS
 /*
@@ -39,54 +38,55 @@ BEGIN
 			, @TargetName	VARCHAR(30)
 			, @MessageId	INT
 
-	DECLARE @tbUser TABLE (
+	CREATE TABLE #tbUser (
 			custid INT, 
 			UserName VARCHAR(30),
 			IsFinished BIT DEFAULT(0))
 
 	SET @StartRun=GETDATE()
+
+	IF @UserName <>'' OR @UserName IS NOT NULL
+	BEGIN
+		INSERT INTO #tbUser (UserName)
+		SELECT RTRIM(LTRIM(value))
+		FROM string_split(@UserName,',')
+	END
 	
 	--Check: exists Username
 	IF EXISTS (SELECT 1 
-				FROM string_split(@UserName,',') t
+				FROM #tbUser t
 				WHERE NOT EXISTS (SELECT 1 FROM DBCUST.Custdb.dbo.Customer c WITH (NOLOCK)
-								  WHERE c.username=RTRIM(LTRIM(t.value)))
+								  WHERE c.username=T.UserName)
+			)
+	--check: support credit user only
+	OR EXISTS (SELECT 1 
+			   FROM #tbUser t
+			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=T.UserName
+			   INNER JOIN DBCUST.Custdb.dbo.Dep_CustSuper cs WITH (NOLOCK) ON cs.custid=c.srecommend
+			)
+	--check: not allow member level
+	OR EXISTS (SELECT 1 
+			   FROM #tbUser t
+			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=T.UserName
+			   WHERE c.roleid NOT IN (2,3,4)
 			)
 	BEGIN
 		SET @ErrCode=100
-		SET @ErrMsg='Users do not exists.'
-		RETURN
-	END 
-	
-	--check: support credit user only
-	IF EXISTS (SELECT 1 
-			   FROM string_split(@UserName,',') t
-			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=RTRIM(LTRIM(t.value))
-			   INNER JOIN DBCUST.Custdb.dbo.Dep_CustSuper cs WITH (NOLOCK) ON cs.custid=c.srecommend
-			)
-	BEGIN
-		SET @ErrCode=101
-		SET @ErrMsg='Support credit users only.'
-		RETURN
-	END 
-
-	--check: not allow member level
-	IF EXISTS (SELECT 1 
-			   FROM string_split(@UserName,',') t
-			   INNER JOIN DBCUST.Custdb.dbo.Customer c WITH (NOLOCK) ON c.username=RTRIM(LTRIM(t.value))
-			   WHERE c.roleid=1
-			)
-	BEGIN
-		SET @ErrCode=102
-		SET @ErrMsg='Do not allow to add message for member.'
+		SET @ErrMsg='Username' 
+					+ STUFF ((SELECT ', ' + t.UserName
+							  FROM #tbUser t
+							  WHERE NOT EXISTS (SELECT 1 FROM DBCUST.Custdb.dbo.Customer c WITH (NOLOCK)
+												WHERE c.username=T.UserName)
+							  FOR XML PATH('')),1,1,'')
+					+ ' is invalid.'
 		RETURN
 	END
 
-	INSERT INTO @tbUser (custid, UserName)
-	SELECT c.Custid, c.username
-	FROM DBCUST.CustDB.dbo.Customer c WITH (NOLOCK)
-	CROSS APPLY (SELECT 1 val FROM string_split(@UserName,',') t
-				 WHERE c.username=RTRIM(LTRIM(t.value))) t
+	UPDATE T
+	SET T.custid=C.CUSTID
+	FROM #tbUser T
+	INNER JOIN DBCUST.CustDB.dbo.Customer c WITH (NOLOCK)
+		ON T.UserName=C.USERNAME
 	
 	--Insert Msg
 	INSERT INTO Msg (Content_ch, Content_cs, Content_th, Content_en, Content_vn,
@@ -114,7 +114,7 @@ BEGIN
 			SET t.IsFinished=1, 
 				@TargetId=t.custid, 
 				@TargetName=t.UserName
-			FROM @tbUser t
+			FROM #tbUser t
 			WHERE IsFinished=0
 
 			IF @@ROWCOUNT=0

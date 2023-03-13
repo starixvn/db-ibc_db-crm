@@ -52,14 +52,15 @@ BEGIN
 			, ISNULL(m.Content_th, m.Content_en) Content_th
 			, ISNULL(m.Content_vn, m.Content_en) Content_vn
 			, STUFF ((SELECT ', ' + TargetName
-					  FROM MsgTarget t
-					  WHERE t.MessageId=m.MessageId
+					  FROM MsgTarget mt
+					  WHERE mt.MessageId=m.MessageId AND mt.isDeleted=0
 						AND (@UserName='' 
 						  OR TargetName IN (SELECT RTRIM(LTRIM(value)) FROM string_split(@UserName,',')))
 					  FOR XML PATH('')),1,1,'') AS TargetName
 		FROM Msg m WITH (NOLOCK)
 		WHERE m.IsTest=@IsTest
 		  AND MsgContentsType=100
+		  AND m.isDeleted=0
 		GROUP BY m.MessageId, m.CreateTime, m.CreatorName, m.Remark
 				, m.Content_en
 				, ISNULL(m.Content_ch, m.Content_en) 
@@ -77,13 +78,14 @@ BEGIN
 			, ISNULL(m.Content_th, m.Content_en) Content_th
 			, ISNULL(m.Content_vn, m.Content_en) Content_vn
 			, STUFF ((SELECT ', ' + TargetName
-					  FROM MsgTarget t
-					  WHERE t.MessageId=m.MessageId
+					  FROM MsgTarget mt
+					  WHERE mt.MessageId=m.MessageId AND mt.isDeleted=0
 						AND (@UserName='' 
 						  OR TargetName IN (SELECT RTRIM(LTRIM(value)) FROM string_split(@UserName,',')))
 					  FOR XML PATH('')),1,1,'') AS TargetName
 		FROM Msg m WITH (NOLOCK)
 		WHERE MsgContentsType=100
+		  AND isDeleted=0
 		GROUP BY m.MessageId, m.CreateTime, m.CreatorName, m.Remark
 				, m.Content_en
 				, ISNULL(m.Content_ch, m.Content_en) 

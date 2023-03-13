@@ -26,19 +26,9 @@ BEGIN
 			, @UserID		INT
 			, @CustID		INT
 
-	DECLARE @tbCust TABLE (CustID INT PRIMARY KEY, IsFinished BIT DEFAULT(0))
-
-	CREATE TABLE #MsgTmp (
-		  MessageId		INT
-		, Content_en	NVARCHAR(4000)
-		, Content_cs	NVARCHAR(4000)
-		, Content_ch	NVARCHAR(4000)
-		, Content_th	NVARCHAR(4000)
-		, Content_vn	NVARCHAR(4000)
-		, CreatorName	VARCHAR(50)
-		, Title			VARCHAR(30)
-		, TargetName	NVARCHAR(100)	
-		, TargetID		INT 
+	DECLARE @tbCust TABLE (
+				CustID INT PRIMARY KEY, 
+				IsFinished BIT DEFAULT(0)
 	)
 
 	SET @StartRun=GETDATE()
@@ -52,19 +42,14 @@ BEGIN
 	FROM Msg WITH (NOLOCK)
 	WHERE MessageId=@MessageID
 
-	INSERT INTO #MsgTmp (MessageId, CreatorName, Title, TargetName, TargetID, Content_en, Content_ch, Content_cs, Content_th, Content_vn)
-	SELECT m.MessageId, m.CreatorName, m.Remark Title, TargetName, TargetId
-		, Content_en, Content_ch, Content_cs, Content_th, Content_vn
-	FROM Msg m WITH (NOLOCK)
-	INNER JOIN MsgTarget mt WITH (NOLOCK) ON mt.MessageId=m.MessageId
-	WHERE m.MessageId=@MessageID
-
 	--Delete Msg
 	BEGIN TRY
-		DELETE FROM MsgTarget WITH (ROWLOCK)
+		UPDATE MsgTarget WITH (ROWLOCK, UPDLOCK)
+		SET isDeleted=1
 		WHERE MessageId=@MessageID
 
-		DELETE FROM Msg WITH (ROWLOCK)
+		UPDATE Msg WITH (ROWLOCK, UPDLOCK)
+		SET isDeleted=1
 		WHERE MessageId=@MessageID
 	END TRY
 	BEGIN CATCH
@@ -84,7 +69,7 @@ BEGIN
 
 		SELECT @logSpData = (
 			SELECT m.MessageId, m.CreatorName
-				, COALESCE (CAST (m.Title AS NVARCHAR(4000)), SPACE (1)) AS Title
+				, COALESCE (CAST (m.remark AS NVARCHAR(4000)), SPACE (1)) AS Title
 				, TargetName
 				, COALESCE (CAST (m.Content_en AS NVARCHAR(4000)), SPACE (1)) AS Content_en
 				, COALESCE (CAST (m.Content_ch AS NVARCHAR(4000)), SPACE (1)) AS Content_ch
@@ -92,8 +77,9 @@ BEGIN
 				, COALESCE (CAST (m.Content_th AS NVARCHAR(4000)), SPACE (1)) AS Content_th
 				, COALESCE (CAST (m.Content_vn AS NVARCHAR(4000)), SPACE (1)) AS Content_vn
 				, COALESCE (CAST (@IP AS VARCHAR(20)), SPACE (1)) AS IP
-			FROM #MsgTmp M
-			WHERE TargetID=@CustID
+			FROM Msg m WITH (NOLOCK)
+			INNER JOIN MsgTarget mt WITH (NOLOCK) ON mt.MessageId=m.MessageId
+			WHERE TargetId=@CustID
 			FOR XML RAW('Msg'))
 
 		--Write Log:
@@ -106,7 +92,5 @@ BEGIN
 						@TrackingValue = @LogSPData,
 						@duration = @Duration
 	END
-
-	DROP TABLE #MsgTmp
 END
 GO

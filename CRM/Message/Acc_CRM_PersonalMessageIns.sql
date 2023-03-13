@@ -85,8 +85,8 @@ BEGIN
 			IF @@ROWCOUNT=0
 				BREAK;
 
-			INSERT dbo.MsgTarget(MessageId, TargetId, TargetName)
-			VALUES (@MessageId, @TargetId, @TargetName)
+			INSERT dbo.MsgTarget(MessageId, TargetId, TargetName,PostTime)
+			VALUES (@MessageId, @TargetId, @TargetName, GETDATE())
 
 			SELECT @logSpData = (
 					SELECT m.MessageId, m.CreatorName

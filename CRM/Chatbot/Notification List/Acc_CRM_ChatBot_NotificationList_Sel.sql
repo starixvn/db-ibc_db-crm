@@ -132,11 +132,18 @@ BEGIN
 			ELSE
 			BEGIN
 				IF @MessageId IS NOT NULL
-				
-				INSERT INTO @NotificationIdList (NotificationId)
-				SELECT DISTINCT NotificationId 
-				FROM dbo.crmNotificationRefDetail WITH(NOLOCK)
-				WHERE ReferenceId = @MessageId AND DataSource = 'DBMSG.bodb_Message.dbo.Msg'
+				BEGIN
+					INSERT INTO @NotificationIdList (NotificationId)
+					SELECT DISTINCT NotificationId 
+					FROM dbo.crmNotificationRefDetail WITH(NOLOCK)
+					WHERE ReferenceId = @MessageId AND DataSource = 'DBMSG.bodb_Message.dbo.Msg'
+
+					IF @NotificationIdLower IS NULL
+					BEGIN
+						SELECT @NotificationIdLower = 0, @NotificationIdUpper = 0
+						SELECT @NotificationIdLower= MIN(NotificationId), @NotificationIdUpper = MAX(NotificationId) FROM @NotificationIdList
+					END
+				END
 
 				INSERT INTO #Tmp
 				(
@@ -173,8 +180,8 @@ BEGIN
 					LEFT JOIN @NotificationIdList nl ON nl.NotificationId = n.NotificationId
 				WHERE (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
 					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
-					AND (n.NotificationId >= @NotificationIdLower OR @NotificationIdLower IS NULL)
-					AND (n.NotificationId <= @NotificationIdUpper OR @NotificationIdUpper IS NULL)
+					AND (n.NotificationId >= @NotificationIdLower)
+					AND (n.NotificationId <= @NotificationIdUpper)
 					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
 					AND (@MessageId IS NULL OR nl.NotificationId IS NOT NULL)
 			END	

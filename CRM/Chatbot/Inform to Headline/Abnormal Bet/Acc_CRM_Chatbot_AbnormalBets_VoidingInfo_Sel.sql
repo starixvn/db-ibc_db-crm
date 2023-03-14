@@ -159,7 +159,7 @@ BEGIN
 	SELECT vcd.VoidingHistoryCollectionId, vh.MessageId, vh.RequestId
 	FROM dbo.VoidingHistoryCollectionDetail vcd WITH(NOLOCK)
 		INNER JOIN dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK) ON vh.VoidingHistoryId = vcd.VoidingHistoryId
-	WHERE EXISTS (SELECT 1 FROM #Result m WHERE m.VoidingHistoryCollectionId = vcd.VoidingHistoryCollectionId)
+	WHERE EXISTS (SELECT 1 FROM #Messages m WHERE m.VoidingHistoryCollectionId = vcd.VoidingHistoryCollectionId)
 	ORDER BY vcd.VoidingHistoryCollectionId ASC
 	
 	DROP TABLE #Result

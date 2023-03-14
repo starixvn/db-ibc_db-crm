@@ -38,3 +38,13 @@ CREATE TABLE dbo.VoidingHistoryCollectionDetail
 CREATE NONCLUSTERED INDEX IX_VoidingHistoryId ON dbo.VoidingHistoryCollectionDetail (VoidingHistoryId)
 GO
 
+CREATE TABLE dbo.VoidingHistoryCollectionDetail
+(
+	VoidingHistoryCollectionId INT
+	,VoidingHistoryId INT
+	,CONSTRAINT [PK_VoidingHistoryCollectionDetail] PRIMARY KEY CLUSTERED
+	(
+		VoidingHistoryCollectionId ASC, VoidingHistoryId ASC 
+	) ON [DATA]
+) ON [DATA]
+GO

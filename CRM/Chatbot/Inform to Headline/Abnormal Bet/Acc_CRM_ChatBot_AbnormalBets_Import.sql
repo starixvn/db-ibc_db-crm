@@ -96,6 +96,10 @@ BEGIN
 	FROM @Messages.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
+	DECLARE @VoidingHistoryCollectionId INT 
+
+	SELECT @VoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #MessageRequest
+
 	-- Get Imported Data
 	CREATE TABLE #ImportMessage (
 		VoidingHistoryCollectionId INT, Username VARCHAR(50), CustId INT, Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, Content_en NVARCHAR(4000)
@@ -129,12 +133,15 @@ BEGIN
 			AND SettingName = @SettingNameOfJobStatus
 			AND Value = 'running'
 
+		IF ISNULL(@VoidingHistoryCollectionId, 0) <> 0
+		BEGIN
+			UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+				SET Value = CONVERT(VARCHAR(50), @VoidingHistoryCollectionId)
+			WHERE ServiceName = 'ChatBot - AbnormalBets'
+				AND SettingName = @SettingNameOfVoidingHistoryCollectionId
+		END
 		RETURN
 	END
-
-	DECLARE @VoidingHistoryCollectionId INT 
-
-	SELECT @VoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #ImportMessage
 
 	-- Get Job Setting
 	DECLARE @Xml XML

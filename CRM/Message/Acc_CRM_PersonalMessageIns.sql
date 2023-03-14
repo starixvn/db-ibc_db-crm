@@ -1,7 +1,7 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageIns]
 	@UserName			VARCHAR(MAX),		--max 50 users
-	@Title				VARCHAR(MAX) = NULL,
+	@Title				VARCHAR(300) = NULL,
 	@Content_en			NVARCHAR(4000),
 	@Content_cs			NVARCHAR(4000),
 	@Content_ch			NVARCHAR(4000),
@@ -43,8 +43,10 @@ BEGIN
 		UserName VARCHAR(30),
 		IsFinished BIT DEFAULT(0))
 	
+	SET @StartRun=GETDATE()
+	
 	;WITH tbUser AS (
-		SELECT RTRIM(LTRIM(value)) UserName
+		SELECT DISTINCT RTRIM(LTRIM(value)) UserName
 		FROM string_split(@UserName,',')
 	)
 	INSERT INTO #tbUser (custid, UserName)

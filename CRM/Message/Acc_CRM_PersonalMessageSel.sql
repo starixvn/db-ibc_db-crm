@@ -32,7 +32,7 @@ BEGIN
 		, Content_vn	NVARCHAR(4000)
 		, CreateTime	DATETIME
 		, CreatorName	VARCHAR(50)
-		, Title			VARCHAR(30)
+		, Title			VARCHAR(300)
 		, TargetNames	NVARCHAR(4000)	
 	)
 

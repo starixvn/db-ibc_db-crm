@@ -49,7 +49,7 @@ BEGIN
 		WHERE MessageId=@MessageID
 
 		UPDATE Msg WITH (ROWLOCK, UPDLOCK)
-		SET isDeleted=1
+		SET isDeleted=1, LastUpdateTime=GETDATE()
 		WHERE MessageId=@MessageID
 	END TRY
 	BEGIN CATCH

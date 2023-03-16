@@ -38,9 +38,15 @@ BEGIN
 	END
 
 	INSERT INTO #Result (BroadcastSessionId, VoidingHistoryId, MatchId, StatusId, ModifiedDate, CreatedDate)
-	SELECT DISTINCT vh.BroadcastSessionId, vh.VoidingHistoryId, CASE WHEN r.ActionId = 1 THEN ISNULL(rq.MatchId, 0) ELSE 0 END, vh.StatusId, DATEADD(MINUTE, 1, vh.ModifiedDate), vh.CreatedDate
+	SELECT 
+		DISTINCT vh.BroadcastSessionId
+		,vh.VoidingHistoryId
+		,CASE WHEN r.ActionId = 1 THEN ISNULL(rq.MatchId, 0) ELSE 0 END AS MatchId
+		,CASE WHEN vh.StatusId = 2 AND r.IssueTypeId = 13 AND vh.MinWinlostdate IS NULL THEN 1 ELSE vh.StatusId END
+		,DATEADD(MINUTE, 1, vh.ModifiedDate) AS ModifiedDate
+		,vh.CreatedDate
 	FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND (r.IssueTypeId IN (11,15) OR r.IssueTypeId = 13 AND vh.MinWinlostdate IS NOT NULL)-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15)
+		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND (r.IssueTypeId IN (11,15) OR r.IssueTypeId = 13)-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15)
 		CROSS APPLY (
 			SELECT TOP(1) MatchId
 			FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK)
@@ -51,13 +57,13 @@ BEGIN
 		AND NOT EXISTS (SELECT 1 FROM dbo.VoidingHistoryCollectionDetail d WITH(NOLOCK) WHERE d.VoidingHistoryId = vh.VoidingHistoryId)
 	ORDER BY BroadcastSessionId, VoidingHistoryId
 
-	--Delete Broadcast Session Id created 2 seconds from the current time to remove sessions that have not yet been voided
+	--Delete Broadcast Session Id created 5 seconds from the current time to remove sessions that have not yet been voided
 	;WITH CTE_Session AS
 	(
 		SELECT BroadcastSessionId, MIN(CreatedDate) AS CreatedDate
 		FROM #Result r
 		GROUP BY BroadcastSessionId
-		HAVING MIN(CreatedDate) > DATEADD(SECOND, -2, @CurrentDate)
+		HAVING MIN(CreatedDate) > DATEADD(SECOND, -5, @CurrentDate)
 	)
 	DELETE r
 	FROM #Result r
@@ -69,7 +75,7 @@ BEGIN
 			BroadcastSessionId
 			,MatchId
 			,MAX(CASE WHEN StatusId <> 2 THEN 1 ELSE 0 END) + MAX(CASE WHEN StatusId = 2 THEN 2 ELSE 0 END) AS StatusSum
-			,MIN(ModifiedDate) AS ModifiedDate
+			,MIN(CASE WHEN StatusId = 2 THEN ModifiedDate ELSE NULL END) AS ModifiedDate
 		FROM #Result
 		GROUP BY BroadcastSessionId, MatchId
 	),CTE_SessionCollection AS
@@ -111,10 +117,11 @@ BEGIN
 
 		SET @Id += 1
 	END
+	
+	--keep data for 2 months
 
 	SELECT @CollectionId = MAX(VoidingHistoryCollectionId) FROM dbo.VoidingHistoryCollection WITH(NOLOCK) WHERE CreatedDate <= DATEADD(MONTH, -2 , @CurrentDate)
 
-	--keep data for 2 months
 	IF ISNULL(@CollectionId, 0) <> 0
 	BEGIN
 		DELETE dbo.VoidingHistoryCollectionDetail WITH(ROWLOCK, UPDLOCK)

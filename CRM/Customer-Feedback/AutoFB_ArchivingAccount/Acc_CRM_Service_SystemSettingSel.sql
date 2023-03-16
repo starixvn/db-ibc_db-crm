@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_Service_SystemSettingSel] 
+ALTER PROCEDURE [dbo].[Acc_CRM_Service_SystemSettingSel] 
 	@ServiceName varchar(100)
 AS
 /*
@@ -32,7 +32,8 @@ BEGIN
 			@ServiceFlag BIT,
 			@ServiceID 	INT,
 			@MaxLogFBId INT ,
-			@MaxVoidingHistoryCollectionId INT 
+			@MaxVoidingHistoryCollectionId INT ,
+			@MaxVoidingHistoryCollectionIdUAT INT 
 			
 	SELECT @JobStatus = value 
 	FROM SystemSetting WITH(NOLOCK)
@@ -107,6 +108,11 @@ BEGIN
 	SELECT @MaxVoidingHistoryCollectionId = value
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'MaxVoidingHistoryCollectionId'
+		AND ServiceName = @ServiceName	
+	
+	SELECT @MaxVoidingHistoryCollectionIdUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'MaxVoidingHistoryCollectionIdUAT'
 		AND ServiceName = @ServiceName					
 		
 	SELECT @JobStatus as JobStatus, 
@@ -123,5 +129,6 @@ BEGIN
 		@LastRuntimeUAT as LastRuntimeUAT,
 		@ServiceID as ServiceID,
 		@MaxLogFBId as MaxLogFBId,
-		@MaxVoidingHistoryCollectionId AS MaxVoidingHistoryCollectionId
+		@MaxVoidingHistoryCollectionId AS MaxVoidingHistoryCollectionId,
+		@MaxVoidingHistoryCollectionIdUAT AS MaxVoidingHistoryCollectionIdUAT
 END	

@@ -46,7 +46,7 @@ BEGIN
 		,DATEADD(MINUTE, 1, vh.ModifiedDate) AS ModifiedDate
 		,vh.CreatedDate
 	FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND (r.IssueTypeId IN (11,15) OR r.IssueTypeId = 13)-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15)
+		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND (r.IssueTypeId IN (11, 15, 13)-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15)
 		CROSS APPLY (
 			SELECT TOP(1) MatchId
 			FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK)

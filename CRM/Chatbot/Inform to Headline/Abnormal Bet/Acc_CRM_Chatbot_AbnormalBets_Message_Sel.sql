@@ -11,36 +11,40 @@ AS
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
+		- 20230112@Malcolm: Scale Out for CRM [RedmineId : #181906]
 
 	Param's Explanation:
 		@Messages:
 			<root>
-				<r MessageID="1" RequestID="1" />
-				<r MessageID="1" RequestID="2" />
-				<r MessageID="3" RequestID="2" />
+				<r VoidingHistoryCollectionId = "1" MessageId="1" RequestId="1"/>
+				<r VoidingHistoryCollectionId = "2" MessageId="2" RequestId="2"/>
+				<r VoidingHistoryCollectionId = "3" MessageId="3" RequestId="3"/>
 			</root>
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	CREATE TABLE #Messages (MessageId INT, RequestId INT)
-	INSERT INTO  #Messages (MessageId, RequestId)
+	CREATE TABLE #Messages (VoidingHistoryCollectionId INT, MessageId INT, RequestId INT)
+	INSERT INTO  #Messages (VoidingHistoryCollectionId, MessageId, RequestId)
 	SELECT
-		t.c.value('@MessageID', 'INT') AS MessageId
-		,t.c.value('@RequestID', 'INT') AS RequestId
+		t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId
+		,t.c.value('@MessageId', 'INT') AS MessageId
+		,t.c.value('@RequestId', 'INT') AS RequestId
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
-	-- Get messages
-	SELECT t.RequestId, m.MessageId, m.Content_en, m.Content_cs, m.Content_en AS Content_th, m.Content_en AS Content_vn
-	FROM dbo.Msg m WITH (NOLOCK)
-		INNER JOIN #Messages t ON m.MessageId = t.MessageId
-	WHERE m.msgtype = 1
-		AND m.isbatch = 1
-		AND m.Content_en LIKE '%@@%'
-	ORDER BY m.MessageId
-	OPTION (RECOMPILE)
+	;WITH CTE_Message AS 
+	(
+		SELECT VoidingHistoryCollectionId, MIN(MessageId) AS MessageId
+		FROM #Messages
+		GROUP BY VoidingHistoryCollectionId
+	)
+	SELECT ms.VoidingHistoryCollectionId, m.MessageId, m.Content_en, m.Content_cs, m.Content_en AS Content_th, m.Content_en AS Content_vn
+	FROM CTE_Message ms
+		INNER JOIN dbo.Msg m WITH(NOLOCK) ON ms.MessageId = m.MessageId
+	WHERE m.MsgType = 1 AND m.IsBatch = 1 AND m.Content_en LIKE '%@@%'
+	ORDER BY VoidingHistoryCollectionId ASC
 	
 	DROP TABLE #Messages
 END

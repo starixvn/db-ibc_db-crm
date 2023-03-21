@@ -25,6 +25,7 @@ Original:
 		- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
 		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 		- 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
+		- 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
 	Param's Explanation:
 		
 */
@@ -35,15 +36,18 @@ BEGIN
 	DECLARE @RowStart INT, @RowEnd INT, @MaxRetry INT = 5, @Id INT = 0, @Msg NVARCHAR(MAX) = ''
 
 	SELECT @PageIndex = @PageIndex - 1, @RowStart = @PageIndex * @PageSize + 1, @RowEnd = @RowStart + @PageSize - 1
+	
+	SELECT @ToDate = DATEADD(DAY, 1, @ToDate)
 
 	DECLARE @RecipientId INT = NULL, @HeadlineId INT = NULL
 
+	DECLARE @NotificationIdList TABLE (NotificationId INT PRIMARY KEY)
 	DECLARE @_NotificationTypeIds TABLE (NotificationTypeId INT)
 
 	INSERT INTO @_NotificationTypeIds(NotificationTypeId)
-	SELECT val
-	FROM dbo.f_CRM_strSplit(@NotificationTypeIds,',')
-
+	SELECT f.value
+	FROM STRING_SPLIT(@NotificationTypeIds,',') f
+	WHERE f.value <> ''
 
 	IF @RecipientName <> ''
 	BEGIN
@@ -127,6 +131,20 @@ BEGIN
 			END
 			ELSE
 			BEGIN
+				IF @MessageId IS NOT NULL
+				BEGIN
+					INSERT INTO @NotificationIdList (NotificationId)
+					SELECT DISTINCT NotificationId 
+					FROM dbo.crmNotificationRefDetail WITH(NOLOCK)
+					WHERE ReferenceId = @MessageId AND DataSource = 'DBMSG.bodb_Message.dbo.Msg'
+
+					IF @NotificationIdLower IS NULL
+					BEGIN
+						SELECT @NotificationIdLower = 0, @NotificationIdUpper = 0
+						SELECT @NotificationIdLower= MIN(NotificationId), @NotificationIdUpper = MAX(NotificationId) FROM @NotificationIdList
+					END
+				END
+
 				INSERT INTO #Tmp
 				(
 					NotificationId			
@@ -159,12 +177,13 @@ BEGIN
 					n.RelatedNotificationIds
 				FROM dbo.crmNotification n WITH(NOLOCK)
 					INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
-				WHERE (n.ReferenceId = @MessageId AND n.DataSource = 'MessageId' OR @MessageId IS NULL)
-					AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
+					LEFT JOIN @NotificationIdList nl ON nl.NotificationId = n.NotificationId
+				WHERE (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
 					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
-					AND (n.NotificationId >= @NotificationIdLower OR @NotificationIdLower IS NULL)
-					AND (n.NotificationId <= @NotificationIdUpper OR @NotificationIdUpper IS NULL)
+					AND (n.NotificationId >= @NotificationIdLower)
+					AND (n.NotificationId <= @NotificationIdUpper)
 					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
+					AND (@MessageId IS NULL OR nl.NotificationId IS NOT NULL)
 			END	
 		END TRY
 		BEGIN CATCH
@@ -224,10 +243,17 @@ BEGIN
 		WHERE t.RowNum < @RowStart OR t.RowNum > @RowEnd
 	END
 
+	;WITH CTE AS
+	(
+		SELECT nrd.NotificationId, nrd.DataSource, STRING_AGG(CONVERT(VARCHAR(50), nrd.ReferenceId), ',') WITHIN  GROUP (ORDER BY nrd.ReferenceId ASC) AS ReferenceIdList
+		FROM dbo.crmNotificationRefDetail nrd WITH(NOLOCK)
+			INNER JOIN #Tmp t ON t.NotificationId = nrd.NotificationId
+		GROUP BY nrd.NotificationId, nrd.DataSource
+	)
 	SELECT 
 		t.NotificationId
-		,t.ReferenceId
-		,t.DataSource
+		,e.ReferenceIdList
+		,e.DataSource
 		,c.username AS Sender
 		,t.NotificationTypeId
 		,t.NotificationTypeName
@@ -245,6 +271,7 @@ BEGIN
 		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = nr.ConversationGroupId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender
 		LEFT JOIN bodb02.dbo.Customer o WITH(NOLOCK) ON o.custid = t.ResolvedBy
+		LEFT JOIN CTE e ON e.NotificationId = t.NotificationId
 	ORDER BY t.NotificationId DESC
 
 	SELECT 

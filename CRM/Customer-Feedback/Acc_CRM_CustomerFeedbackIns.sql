@@ -71,7 +71,8 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_CustomerFeedbackIns] (
 				,	@IsOverWrite				BIT				= 0
 				,	@ProvinceID					INT				= NULL
 				,	@NoInquiries				SMALLINT		= NULL
-				,	@MessageID 					INT 			= 0
+				,	@VoidingHistoryCollectionId	INT = 0
+				,	@MessageID 					VARCHAR(MAX)	= '' 
 				,	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs 			VARCHAR(MAX)	= ''
 				)
@@ -107,10 +108,13 @@ AS
 		- 20200901@Johnson: add requestid to check missing auto void request [redmine:#139158]	
 		- 20201020@Johnson: - remove checking limit related customers 
 							- sync customer profile to CRM for related customers [redmine:#142194]
-		- 20210113@Johnson: check empty @RelatedCustID [redmine:#148690]					
+		- 20210113@Johnson: check empty @RelatedCustID [redmine:#148690]	
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
+		
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
-		- @MessageID : MsgID from Auto fb service, each time just process 1 msgid with only 1 headline
+		- @VoidingHistoryCollectionId : VoidingHistoryCollectionId from Auto fb service, each time just process 1 VoidingHistoryCollectionId with only 1 headline
+		- @MessageID : MsgID from Auto fb service, each time just process multiple msgid with only 1 headline
 		- @ListOrigCustIDs: list custid have void tickets from auto fb service	
 */
 BEGIN	
@@ -428,6 +432,7 @@ BEGIN
 			,	@IP						= @IP
 			,	@ProvinceID				= @ProvinceID
 			,	@NoInquiries			= @NoInquiries
+			,	@VoidingHistoryCollectionId = @VoidingHistoryCollectionId
 			, 	@MessageID				= @MessageID
 			,	@RequestIDs				= @RequestIDs
 			,	@ListOrigCustIDs		= @ListOrigCustIDs

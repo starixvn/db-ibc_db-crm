@@ -17,14 +17,15 @@ AS
 		- 20201126@Johnson: add param @Environment [redmine:#145274]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20211206@Winfred: Integrate Voiding Abnormal Mix Parlay tickets [RedmineId : #163833]
-		- 20220803@Winfred: CRM - Scale out DBTRANS [RedmineId : #175877]
+		- 20220803@Winfred: CRM - Scale out DBTRANS [RedmineId : #175877]	
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 		
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
 		@MessageIds = '<ROOT>
-						<r MsgID="123" ReqID="1" UsernameList="member1,member2,member3" CustIdList=""/>
-						<r MsgID="123" ReqID="2" UsernameList="member1,member2,member3" CustIdList=""/>
-						<r MsgID="345" ReqID="1" UsernameList="member1,member2,member3" CustIdList=""/>
+						<r MsgID="123" ReqID="1" UsernameList="member1,member2,member3" CustIdList="" VoidingHistoryCollectionId="1"/>
+						<r MsgID="123" ReqID="2" UsernameList="member1,member2,member3" CustIdList="" VoidingHistoryCollectionId="1"/>
+						<r MsgID="345" ReqID="1" UsernameList="member1,member2,member3" CustIdList="" VoidingHistoryCollectionId="1"/>
 						</ROOT>'
 		- @ConfigUAT: get uus ticket or not
 		- @ConfigPRO: get real tickets or not
@@ -33,17 +34,19 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX))	
+	DECLARE @tmpMessage TABLE (MessageId INT, RequestID INT, UsernameList NVARCHAR(MAX), CustIdList VARCHAR(MAX),VoidingHistoryCollectionId INT)	
 	DECLARE @xml XML = CAST(@MessageIds AS XML)	, @TranIDs VARCHAR(MAX)
 	
-	INSERT INTO @tmpMessage (MessageId,RequestID, UsernameList, CustIdList)
+	INSERT INTO @tmpMessage (MessageId,RequestID, UsernameList, CustIdList,VoidingHistoryCollectionId)
 	SELECT t.c.value('@MsgID[1]','int') MsgID,
 		t.c.value('@ReqID[1]','int') ReqID,
 		t.c.value('@UsernameList[1]', 'NVARCHAR(MAX)') AS UsernameList,
-		t.c.value('@CustIdList[1]', 'VARCHAR(MAX)') AS CustIdList
+		t.c.value('@CustIdList[1]', 'VARCHAR(MAX)') AS CustIdList,
+		t.c.value('@VoidingHistoryCollectionId[1]','int') AS VoidingHistoryCollectionId
 	FROM @xml.nodes('/ROOT/r') t(c)	
 	--event info
-	DECLARE @tblEventInfo TABLE (MessageId INT, 
+	DECLARE @tblEventInfo TABLE (VoidingHistoryCollectionId INT,
+								MessageId NVARCHAR(MAX), 
 								KickOffTime VARCHAR(8), 
 								LeagueName NVARCHAR(500), 
 								HomeName NVARCHAR(100), 
@@ -60,7 +63,8 @@ BEGIN
 								FilterBy	TINYINT
 								)	
 	--tickets info	
-	DECLARE @tblTrans TABLE (MessageId INT, 
+	DECLARE @tblTrans TABLE (VoidingHistoryCollectionId INT,
+								MessageId INT, 
 								RequestID INT,
 								TransID BIGINT,
 								custid INT, 
@@ -74,23 +78,24 @@ BEGIN
 		
 	-- Abnormal bet
 	BEGIN	
-		CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT,IssueTypeId TINYINT,DecidedBy NVARCHAR(200),Requestby INT)
-				
-		INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId,IssueTypeId,DecidedBy,Requestby)
-		SELECT vh.VoidingHistoryId, vh.RequestId, vh.MessageId, vh.ReasonId, vh.UserId AS VoidById, t.TransId,rq.IssueTypeId, rq.DecidedBy ,rq.UserId AS Requestby
-		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
+		CREATE TABLE #VoidingHistory (VoidingHistoryId INT, RequestId INT, MessageId INT, ReasonId INT, VoidById INT, TransId BIGINT,IssueTypeId TINYINT,DecidedBy NVARCHAR(200),Requestby INT,VoidingHistoryCollectionId INT)
+
+		INSERT INTO #VoidingHistory (VoidingHistoryId, RequestId, MessageId, ReasonId, VoidById, TransId,IssueTypeId,DecidedBy,Requestby,VoidingHistoryCollectionId)
+		SELECT vh.VoidingHistoryId, vh.RequestId, vh.MessageId, vh.ReasonId, vh.UserId AS VoidById, t.TransId,rq.IssueTypeId, rq.DecidedBy ,rq.UserId AS Requestby , tm.VoidingHistoryCollectionId
+		FROM VoidingHistoryCollectionDetail vhc WITH (NOLOCK) 
+		INNER JOIN @tmpMessage tm ON vhc.VoidingHistoryCollectionId = tm.VoidingHistoryCollectionId
+		INNER JOIN TicketVoiding_VoidingHistory vh WITH (NOLOCK) ON vhc.VoidingHistoryId = vh.VoidingHistoryId
+		INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15) -- Abnormal Bets, AB
 			CROSS APPLY (
 				SELECT value AS TransId FROM string_split(vh.TransIds, ',') WHERE value <> ''
 			) t
-		WHERE EXISTS (SELECT 1 FROM @tmpMessage m WHERE vh.MessageId = m.MessageId AND vh.RequestID = m.RequestID)
-			AND vh.StatusId = 2 --tickets void successfully
-		
+		 WHERE vh.MessageId = tm.MessageId AND vh.RequestID = tm.RequestID AND vh.StatusId = 2 --tickets void successfully
+
 		CREATE CLUSTERED INDEX IX_VoidingHistory_MID ON #VoidingHistory(MessageId,RequestId,TransId)
 
 	--	Abnormal bet Single ticket 
-		INSERT INTO @tblEventInfo (MessageId, KickOffTime, LeagueName, HomeName, AwayName,SportName,EventDate,IssueTypeId,FilterBy)
-		SELECT DISTINCT vh.MessageId, 
+		INSERT INTO @tblEventInfo (VoidingHistoryCollectionId, MessageId, KickOffTime, LeagueName, HomeName, AwayName,SportName,EventDate,IssueTypeId,FilterBy)
+		SELECT DISTINCT vh.VoidingHistoryCollectionId, b.MessageId, 
 			LTRIM(RTRIM(REPLACE(REPLACE(RIGHT(CONVERT(VARCHAR(20), DATEADD(HOUR, 12, m.GlobalShowTime), 100), 7), 'AM', ' AM'), 'PM', ' PM'))) AS KickOffTime, 
 			l.LeagueName, 
 			h.TeamName AS HomeName, 
@@ -101,6 +106,13 @@ BEGIN
 			rd.FilterBy
 		FROM #VoidingHistory vh
 			INNER JOIN dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK) ON rd.RequestId = vh.RequestId
+			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.MessageId as VARCHAR(10))  as [text()]
+					FROM #VoidingHistory a  
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
+					FOR XML PATH('')
+					),1,1,'')
+			)b (MessageId)
 			CROSS APPLY (
 				SELECT m.hthomescore, m.htawayscore, m.finalhomescore, m.finalawayscore, m.GlobalShowTime, m.eventdate
 				FROM dbo.match m WITH(NOLOCK)
@@ -117,8 +129,8 @@ BEGIN
 		WHERE rd.FilterBy IS NULL
 		--	Abnormal bet Parlay ticket
 		
-		INSERT INTO @tblEventInfo (MessageId, IssueTypeId, RequestIDList, DecidedBy, Requestby, VoidBy,FilterBy)
-		SELECT vh.MessageId, 
+		INSERT INTO @tblEventInfo (VoidingHistoryCollectionId, MessageId, IssueTypeId, RequestIDList, DecidedBy, Requestby, VoidBy,FilterBy)
+		SELECT vh.VoidingHistoryCollectionId, b.MessageId, 
 			vh.IssueTypeId,
 			c.RequestIDList,
 			d.DecidedBy,
@@ -128,16 +140,23 @@ BEGIN
 		FROM #VoidingHistory vh
 			INNER JOIN dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK) ON rd.RequestId = vh.RequestId
 			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.MessageId as VARCHAR(10))  as [text()]
+					FROM #VoidingHistory a  
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
+					FOR XML PATH('')
+					),1,1,'')
+			)b (MessageId)
+			OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.RequestId as VARCHAR(10))  as [text()]
 					FROM #VoidingHistory a  
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)c (RequestIDList)
 			OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.DecidedBy as VARCHAR(10))  as [text()]
 					FROM #VoidingHistory a  
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)d (DecidedBy)
@@ -145,7 +164,7 @@ BEGIN
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(c.username as VARCHAR(10))  as [text()]
 					FROM #VoidingHistory a  
 						INNER JOIN customer c WITH(NOLOCK) ON a.Requestby = c.custid
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)e (Requestby)
@@ -153,26 +172,27 @@ BEGIN
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(c.username as VARCHAR(10))  as [text()]
 					FROM #VoidingHistory a  
 						INNER JOIN customer c WITH(NOLOCK) ON a.VoidById = c.custid
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)f (VoidById)
 		WHERE rd.FilterBy = 1		
-		GROUP BY vh.MessageId,	vh.IssueTypeId,	c.RequestIDList,d.DecidedBy,e.Requestby,f.VoidById,rd.FilterBy
+		GROUP BY vh.VoidingHistoryCollectionId, b.MessageId, vh.IssueTypeId,	c.RequestIDList,d.DecidedBy,e.Requestby,f.VoidById,rd.FilterBy
 				
 	END
 	
 	-- Abnormal Acount
 	BEGIN	
-		CREATE TABLE #AbnormalAccounts(RequestId INT, MessageId INT, VoidById INT, CustId BIGINT,IssueTypeId TINYINT,DecidedBy NVARCHAR(200),Requestby INT , MinWinlostdate	DATETIME,MaxWinlostdate	DATETIME)
-		CREATE TABLE #RelatedAccounts(RequestId INT, MessageId INT, RelatedCustID INT, RelatedUserName VARCHAR(50))
-			
-		INSERT INTO #AbnormalAccounts ( RequestId, MessageId, VoidById, CustId,IssueTypeId,DecidedBy,Requestby,MinWinlostdate,MaxWinlostdate)
-		SELECT vh.RequestId, vh.MessageId, vh.UserId AS VoidById, c.CustId , rq.IssueTypeId , rq.DecidedBy ,rq.UserId AS Requestby , vh.MinWinlostdate,vh.MaxWinlostdate
-		FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
+		CREATE TABLE #AbnormalAccounts(VoidingHistoryCollectionId INT, RequestId INT, MessageId INT, VoidById INT, CustId BIGINT,IssueTypeId TINYINT,DecidedBy NVARCHAR(200),Requestby INT , MinWinlostdate	DATETIME,MaxWinlostdate	DATETIME)
+		CREATE TABLE #RelatedAccounts(VoidingHistoryCollectionId INT, RequestId INT, MessageId INT, RelatedCustID INT, RelatedUserName VARCHAR(50))
+				
+		INSERT INTO #AbnormalAccounts ( RequestId, MessageId, VoidById, CustId,IssueTypeId,DecidedBy,Requestby,MinWinlostdate,MaxWinlostdate,VoidingHistoryCollectionId)
+		SELECT vh.RequestId, vh.MessageId, vh.UserId AS VoidById, c.CustId , rq.IssueTypeId , rq.DecidedBy ,rq.UserId AS Requestby , vh.MinWinlostdate,vh.MaxWinlostdate,tm.VoidingHistoryCollectionId
+		FROM VoidingHistoryCollectionDetail vhc WITH (NOLOCK) 
+			INNER JOIN @tmpMessage tm ON vhc.VoidingHistoryCollectionId = tm.VoidingHistoryCollectionId
+			INNER JOIN dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK) ON vhc.VoidingHistoryId = vh.VoidingHistoryId
 			INNER JOIN dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId = 13 -- Abnormal Account
-			INNER JOIN @tmpMessage m ON m.MessageId = vh.MessageId AND m.RequestId = vh.RequestId
-			CROSS APPLY (SELECT value AS CustId FROM string_split(m.CustIdList, ',') WHERE value <> '') c
+			CROSS APPLY (SELECT value AS CustId FROM string_split(tm.CustIdList, ',') WHERE value <> '') c
 		WHERE vh.StatusId = 2 --tickets void successfully
 
 		INSERT INTO #RelatedAccounts ( RequestId, MessageId, RelatedUserName)
@@ -190,8 +210,8 @@ BEGIN
 			WHERE c.username = m.RelatedUserName
 		) l
 		
-		INSERT INTO @tblTrans (MessageId, RequestID, custid, username,srecommend,recommend,RelatedCustID,RelatedUserName)
-		SELECT vh.MessageId, 
+		INSERT INTO @tblTrans (VoidingHistoryCollectionId, MessageId, RequestID, custid, username,srecommend,recommend,RelatedCustID,RelatedUserName)
+		SELECT vh.VoidingHistoryCollectionId, vh.MessageId, 
 			vh.RequestID,
 			vh.custid, 
 			username, 
@@ -216,8 +236,8 @@ BEGIN
 			INNER JOIN customer c WITH(NOLOCK) ON t.custid = c.custid
 		WHERE c.site = 'CN88'
 	
-		INSERT INTO @tblEventInfo (MessageId, IssueTypeId, RequestIDList, DecidedBy, Requestby, VoidBy,MinWinlostdate,MaxWinlostdate)
-		SELECT vh.MessageId, 
+		INSERT INTO @tblEventInfo (VoidingHistoryCollectionId, MessageId, IssueTypeId, RequestIDList, DecidedBy, Requestby, VoidBy,MinWinlostdate,MaxWinlostdate)
+		SELECT vh.VoidingHistoryCollectionId, b.MessageId, 
 			vh.IssueTypeId,
 			c.RequestIDList,
 			d.DecidedBy,
@@ -227,16 +247,23 @@ BEGIN
 			MAX(MaxWinlostdate) AS MaxWinlostdate
 		FROM #AbnormalAccounts vh
 			OUTER APPLY(
+				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.MessageId as VARCHAR(10))  as [text()]
+					FROM #AbnormalAccounts a  
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
+					FOR XML PATH('')
+					),1,1,'')
+			)b (MessageId)
+			OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.RequestId as VARCHAR(10))  as [text()]
 					FROM #AbnormalAccounts a  
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)c (RequestIDList)
 			OUTER APPLY(
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(a.DecidedBy as VARCHAR(10))  as [text()]
 					FROM #AbnormalAccounts a  
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)d (DecidedBy)
@@ -244,7 +271,7 @@ BEGIN
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(c.username as VARCHAR(10))  as [text()]
 					FROM #AbnormalAccounts a  
 						INNER JOIN customer c WITH(NOLOCK) ON a.Requestby = c.custid
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)e (Requestby)
@@ -252,12 +279,11 @@ BEGIN
 				SELECT STUFF(( SELECT DISTINCT ','+ cast(c.username as VARCHAR(10))  as [text()]
 					FROM #AbnormalAccounts a  
 						INNER JOIN customer c WITH(NOLOCK) ON a.VoidById = c.custid
-					WHERE vh.MessageId = a.MessageId
+					WHERE vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 					FOR XML PATH('')
 					),1,1,'')
 			)f (VoidById)	
-		GROUP BY vh.MessageId,	vh.IssueTypeId,	c.RequestIDList,d.DecidedBy,e.Requestby,f.VoidById
-		
+		GROUP BY vh.VoidingHistoryCollectionId, b.MessageId, vh.IssueTypeId,	c.RequestIDList,d.DecidedBy,e.Requestby,f.VoidById
 				
 	END
 	
@@ -267,7 +293,7 @@ BEGIN
 	FROM @tblEventInfo
 	
 	--tickets info
-	SELECT MessageId, 
+	SELECT VoidingHistoryCollectionId, MessageId, 
 		RequestID,
 		transid,
 		t.custid, 
@@ -283,6 +309,7 @@ BEGIN
 	ORDER BY MessageId,RequestID,isDeposit,custid
 
 	SET @TranIDs = (  SELECT DISTINCT
+					  	VoidingHistoryCollectionId AS '@VoidingHistoryCollectionId', 
 					  	MessageId AS '@MsgID', 
 					  	RequestID AS '@ReqID',
 					  	transids AS '@TransID'
@@ -290,11 +317,11 @@ BEGIN
 					  OUTER APPLY(
 							SELECT STUFF(( SELECT DISTINCT ','+ cast(a.transid as VARCHAR(20))  as [text()]
 								FROM #VoidingHistory a  
-								WHERE vh.MessageId = a.MessageId AND vh.RequestID = a.RequestId
+								WHERE vh.MessageId = a.MessageId AND vh.RequestID = a.RequestId AND vh.VoidingHistoryCollectionId = a.VoidingHistoryCollectionId
 								FOR XML PATH('')
 								),1,1,'')
 						)c (transids)
-					  ORDER BY MessageId,RequestID
+					  ORDER BY MessageId, RequestID, VoidingHistoryCollectionId
 					  FOR XML PATH ('r'), ROOT ('ROOT'))
 	
 	SELECT @TranIDs AS CheckTrans

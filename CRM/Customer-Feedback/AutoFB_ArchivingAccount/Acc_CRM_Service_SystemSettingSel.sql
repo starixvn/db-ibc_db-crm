@@ -1,5 +1,5 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_Service_SystemSettingSel] 
+ALTER PROCEDURE [dbo].[Acc_CRM_Service_SystemSettingSel] 
 	@ServiceName varchar(100)
 AS
 /*
@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 	
 	Parameter's Explanation:
 		@ServiceName : 'ArchivedAccountFB'
@@ -30,7 +31,9 @@ BEGIN
 			@LastRuntimeUAT DATETIME,
 			@ServiceFlag BIT,
 			@ServiceID 	INT,
-			@MaxLogFBId INT 
+			@MaxLogFBId INT ,
+			@MaxVoidingHistoryCollectionId INT ,
+			@MaxVoidingHistoryCollectionIdUAT INT 
 			
 	SELECT @JobStatus = value 
 	FROM SystemSetting WITH(NOLOCK)
@@ -101,7 +104,16 @@ BEGIN
 	FROM SystemSetting WITH(NOLOCK)
 	WHERE SettingName = 'MaxLogFBId'
 		AND ServiceName = @ServiceName	
-					
+	
+	SELECT @MaxVoidingHistoryCollectionId = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'MaxVoidingHistoryCollectionId'
+		AND ServiceName = @ServiceName	
+	
+	SELECT @MaxVoidingHistoryCollectionIdUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'MaxVoidingHistoryCollectionIdUAT'
+		AND ServiceName = @ServiceName					
 		
 	SELECT @JobStatus as JobStatus, 
 		@BatchSize as BatchSize, 
@@ -116,5 +128,7 @@ BEGIN
 		@JobStatusUAT as JobStatusUAT,
 		@LastRuntimeUAT as LastRuntimeUAT,
 		@ServiceID as ServiceID,
-		@MaxLogFBId as MaxLogFBId
+		@MaxLogFBId as MaxLogFBId,
+		@MaxVoidingHistoryCollectionId AS MaxVoidingHistoryCollectionId,
+		@MaxVoidingHistoryCollectionIdUAT AS MaxVoidingHistoryCollectionIdUAT
 END	

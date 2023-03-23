@@ -70,7 +70,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 				,	@NoInquiries				SMALLINT		= NULL
-				, 	@MessageID 					INT 			= 0
+				,	@MessageID 					VARCHAR(MAX)	= ''
+				,	@VoidingHistoryCollectionId	INT = 0
 				,	@WinLimitLogID				BIGINT			= 0	
 				,	@TOControlLogID				VARCHAR(MAX)	= ''
 				,	@PALogID					VARCHAR(MAX)	= ''
@@ -120,7 +121,8 @@ AS
 		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
 		- 20220114@Johnson: fix performance for checking duplicate fb [redmine:#167537]		
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]			
-		- 20230116@Winfred: CRM - Prevent duplicated feedback creation within a short of time [redmine:#182911]		
+		- 20230116@Winfred: CRM - Prevent duplicated feedback creation within a short of time [redmine:#182911]
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]		
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -137,7 +139,8 @@ AS
 			  SubCategoryID="2401"      
 			/>
 		</ROOT>
-	@MessageID : MsgID from Auto fb service
+	@VoidingHistoryCollectionId : VoidingHistoryCollectionId from Auto fb service, each time just process 1 VoidingHistoryCollectionId with only 1 headline
+	@MessageID : MsgID from Auto fb service, each time just process multiple msgid with only 1 headline
 	@WinLimitLogID: LogID from winlimit auto fb service, process 1 logid with 1 headline
 	@TOControlLogID: LogID for TOContrl auto fb service
 	@PALogID: LogID for TOContrl auto fb service
@@ -276,21 +279,26 @@ BEGIN
 	--check msg from auto void service
 	DECLARE @tmpOrigCustID TABLE (custid INT)
 	DECLARE @tmpRequest TABLE (RequestID INT)
+	DECLARE @tmpMessageID TABLE (MessageID INT)
 		
-	IF @MessageID > 0
+	IF ISNULL(@MessageID,'') <> ''
 	BEGIN
 		INSERT INTO @tmpRequest(requestID)
-		SELECT val 
-		FROM dbo.f_CRM_strSplit(@RequestIDs,',')
+		SELECT CONVERT(INT,VALUE) FROM STRING_SPLIT(@RequestIDs,',') WHERE VALUE <> ''
+
+		INSERT INTO @tmpMessageID(MessageID)
+		SELECT CONVERT(INT,VALUE) FROM STRING_SPLIT(@MessageID,',') WHERE VALUE <> ''
 		
 		INSERT INTO @tmpOrigCustID(custid)
 		SELECT	CONVERT(INT, val)
 		FROM	dbo.f_CRM_strSplit(@ListOrigCustIDs, ',');
 		
 		--check fb for these custids base on voiding tickets create yet
-		IF EXISTS (SELECT 1 FROM crmAutoFeedbackInfo WITH(NOLOCK)
-					WHERE MessageID = @MessageID
-						AND RequestID IN (SELECT RequestID FROM @tmpRequest)
+		IF EXISTS (SELECT 1 FROM crmAutoFeedbackInfo a WITH(NOLOCK)
+							INNER JOIN crmMessageImport b WITH(NOLOCK) ON A.MessageID = b.MessageID AND a.RequestID = b.RequestID
+					WHERE a.MessageID IN (SELECT MessageID FROM @tmpMessageID)
+						AND a.RequestID IN (SELECT RequestID FROM @tmpRequest)
+						AND b.VoidingHistoryCollectionId = @VoidingHistoryCollectionId
 						AND	HeadlineID = @custid
 						AND CustID IN (SELECT custid FROM @tmpOrigCustID)
 						AND status = 'completed'
@@ -367,7 +375,7 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		IF @LogFeedbackId + @VoidingSettledID + @AmendmentLogID + @WinLimitLogID + @MessageID = 0 AND ISNULL(@PALogID,'') = ''  AND ISNULL(@TOControlLogID,'') = ''
+		IF @LogFeedbackId + @VoidingSettledID + @AmendmentLogID + @WinLimitLogID = 0 AND ISNULL(@PALogID,'') = ''  AND ISNULL(@TOControlLogID,'') = ''  AND ISNULL(@MessageID,'') = ''
 		BEGIN
 			SELECT fs.FeedbackID, fs.SettingID, fs.SubSettingID
 			INTO #tmpDupFBSingle
@@ -682,14 +690,16 @@ BEGIN
 	END;
 	
 	--update status for crmAutoFeedbackInfo 
-	IF  @MessageID > 0
+	IF  ISNULL(@MessageID,'') <> ''
 	BEGIN
 		UPDATE fb
 		SET status = 'completed',
 			UpdatedTime = GETDATE()
 		FROM crmAutoFeedbackInfo fb WITH(UPDLOCK,ROWLOCK)
-		WHERE MessageID = @MessageID
-			AND RequestID IN (SELECT requestID FROM @tmpRequest)
+			INNER JOIN crmMessageImport b WITH(NOLOCK) ON fb.MessageID = b.MessageID AND fb.RequestID = b.RequestID
+		WHERE fb.MessageID IN (SELECT MessageID FROM @tmpMessageID)
+			AND fb.RequestID IN (SELECT requestID FROM @tmpRequest)
+			AND b.VoidingHistoryCollectionId = @VoidingHistoryCollectionId
 			AND	HeadlineID = @custid
 			AND CustID IN (SELECT custid FROM @tmpOrigCustID)			
 		
@@ -710,7 +720,8 @@ BEGIN
 			m.IsProcessedUAT = 	CASE WHEN fb.Environment = 'UAT'  THEN 1 ELSE m.IsProcessedUAT END
 		FROM crmMessageImport m	
 		INNER JOIN crmAutoFeedbackInfo fb WITH(NOLOCK) ON m.MessageID = fb.MessageID AND m.RequestID = fb.RequestID
-		WHERE fb.MessageID = @MessageID
+		WHERE fb.MessageID IN (SELECT MessageID FROM @tmpMessageID)
+			AND m.VoidingHistoryCollectionId = @VoidingHistoryCollectionId
 			AND fb.RequestID IN (SELECT requestID FROM @tmpRequest)
 			AND ( (fb.Environment = 'LIVE' AND IsProcessed = 0) OR (fb.Environment = 'UAT' AND IsProcessedUAT = 0) )
 

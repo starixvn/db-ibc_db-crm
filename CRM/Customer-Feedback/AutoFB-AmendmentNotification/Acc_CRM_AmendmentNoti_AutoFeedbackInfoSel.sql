@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 202010303@Winfred: Initial sp [redmine:#147470]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
+		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
 	
 	Parameter's Explanation:
 
@@ -196,7 +197,8 @@ BEGIN
 		Listbettype,
 		currency,
 		MessageId,
-		site,
+		f.site,
+		s.SiteLabel,
 		ISNULL(hl.IsVip,0) as IsVip,
 		Sporttype ,
 		leagueid ,
@@ -208,6 +210,7 @@ BEGIN
 		race_time 
 	FROM #Result f
 	LEFT JOIN crmCustomer hl WITH(NOLOCK) ON f.HeadlineID = hl.custid
+	INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=f.site
 	ORDER BY TicketEventId
 		
 	DROP TABLE #Result	

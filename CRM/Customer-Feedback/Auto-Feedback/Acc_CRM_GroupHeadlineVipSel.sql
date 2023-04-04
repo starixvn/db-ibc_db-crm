@@ -10,6 +10,8 @@ AS
 
 	Revisions:
 		- 20211207@Winfred: Initial sp [redmine:#130949]
+		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
+
 	Param's Explanation:
 		
 */
@@ -194,9 +196,11 @@ BEGIN
 	SELECT custid,		
 		HeadlineID,
 		HeadlineName,
-		site,
+		c.site,
+		s.SiteLabel,
 		IsVip
-	FROM @tblCust 
+	FROM @tblCust c
+	INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=c.site
 	
 	DROP TABLE #GroupHeadline
 END	

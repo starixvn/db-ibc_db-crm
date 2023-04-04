@@ -14,6 +14,7 @@ AS
 		- 20150403@Elodie:	Filter by licensee type		
 		- 20160328@Billy:	Integrate Sub-Product Setting - [Redmine: #50691]
 		- 20190507@Winnie:	CN88 	[RedmineID:#112637]	
+		- 20220202@Tacy:	Split 789y site [RedmineID: #182438]
 	Param's Explanation:
 		- @LicenseeType =	0: Both
 							1: Credit
@@ -21,7 +22,7 @@ AS
 		- @Lang	=	en-US
 					zh-TW
 					zh-CN
-	Example: EXEC Acc_CRM_SiteSel_xpre @LicenseeType = 2
+	Example: EXEC Acc_CRM_SiteSel_UAT3 @LicenseeType = 1, @UserRole=2
 */
 
 
@@ -29,9 +30,10 @@ BEGIN
 	SET NOCOUNT ON
 	IF @UserRole=2
 	BEGIN
-	SELECT	s.SiteID, s.SiteName, s.IsLicensee, s.IsActive
+	SELECT s.SiteLabel, s.SiteID, s.SiteName, s.IsLicensee, s.IsActive
 	FROM (
-		SELECT	SiteID			=	s.SettingID
+		SELECT	SiteLabel		=	s.ExtraInfo
+			,	SiteID			=	s.SettingID
 			,	SiteName		=	CASE	WHEN @Lang='zh-TW' THEN ISNULL(s.SettingValueCT,s.SettingValue)
 											WHEN @Lang='zh-CN' THEN ISNULL(s.SettingValueCS,s.SettingValue)
 											ELSE s.SettingValue

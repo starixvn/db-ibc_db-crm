@@ -22,6 +22,7 @@ AS
 		- 20200421@Johnson: get mapping setting for auto feedback [redmine:#130949]
 		- 20200508@Malcolm : search by setting name  [Redmine: #108739]
 		- 20201013@Malcolm : change data type of @IsActive from TINYINT to BIT [Redmine: #130544]
+		- 20230203@Tacy: Split 789y site [RedmineID: #182438]
 	Param's Explanation:
 	
 */
@@ -37,6 +38,7 @@ BEGIN
 											WHEN @Lang='zh-CN' THEN ISNULL(cs.SettingValueCS,cs.SettingValue)
 											ELSE cs.SettingValue
 			END AS SettingValue
+		,	cs.ExtraInfo
 		,	cs.DisplayOrder
 		,	cs.IsActive
 		, 	m.SettingSource

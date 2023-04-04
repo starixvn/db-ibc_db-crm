@@ -5,6 +5,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingUpd]
 	@SettingID		INT,	
 	@SettingValue	NVARCHAR(100), 
 	@SettingName	VARCHAR(50),
+	@ExtraInfo		VARCHAR(50) = NULL,
 	@DisplayOrder	INT,
 	@IP				VARCHAR(15),
 	@ErrCode		INT = 0 OUTPUT,
@@ -23,6 +24,8 @@ Revisions:
 	- 20130121@Johnson: change linked server DB03 to DBPOLICY
 	- 20140303@Dom: Modify for new structure
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+	- 20230202@Tacy: Split 789y site [redmine:#182438]
+
 Param's Explanation:
 	
 */
@@ -40,11 +43,13 @@ BEGIN
 
 	DECLARE @SettingValue_Old	NVARCHAR(100), 
 	@SettingName_Old	VARCHAR(50),
+	@ExtraInfo_Old		VARCHAR(50),
 	@DisplayOrder_Old	INT
 
 	SELECT	
 		@SettingValue_Old	= SettingValue,
 		@SettingName_Old	= SettingName,
+		@ExtraInfo_Old		= ExtraInfo,
 		@DisplayOrder_Old	= DisplayOrder
 	FROM crmSetting WITH(NOLOCK)
 	WHERE 
@@ -55,6 +60,7 @@ BEGIN
 	SET	
 		SettingValue	= @SettingValue,
 		SettingName		= @SettingName,
+		ExtraInfo		= @ExtraInfo,
 		DisplayOrder	= @DisplayOrder
 	WHERE 
 		SettingID = @SettingID AND siteOffer=@UserRole
@@ -70,12 +76,14 @@ BEGIN
 
 	SELECT @OldValues =	(	SELECT	ISNULL(@SettingName_Old, '')						'SettingName'
 								,	ISNULL(@SettingValue_Old, '')						'SettingValue'
+								,	ISNULL(@ExtraInfo_Old, '')							'ExtraInfo'
 								,	ISNULL(CONVERT(VARCHAR(10), @DisplayOrder_Old), '')	'DisplayOrder'
 							FOR XML PATH ('Acc_CRM_SettingUpd')
 						)
 
 	SELECT @NewValues =	(	SELECT	ISNULL(@SettingName, '')							'SettingName'
 								,	ISNULL(@SettingValue, '')							'SettingValue'
+								,	ISNULL(@ExtraInfo, '')								'ExtraInfo'
 								,	ISNULL(CONVERT(VARCHAR(10), @DisplayOrder), '')		'DisplayOrder'
 							FOR XML PATH ('Acc_CRM_SettingUpd')
 						)

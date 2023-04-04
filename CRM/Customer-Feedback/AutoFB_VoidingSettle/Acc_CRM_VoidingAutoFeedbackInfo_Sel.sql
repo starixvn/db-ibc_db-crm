@@ -12,6 +12,8 @@ AS
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20211124@Winfred: fix site column for Voiding Settled Tickets [RedmineId : #164235]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
+		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
+
 	Parameter's Explanation:
 		
 */
@@ -149,9 +151,11 @@ BEGIN
 			,fb.Listbettype
 			,fb.CreatedDate
 			,c.site
+			,s.SiteLabel
 	FROM [dbo].[crmAutoFBVoiding] fb WITH(NOLOCK) 
 	INNER JOIN @Message m ON FB.LogVoidingID =  m.LogVoidingID
 	INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
+	INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=c.site
 	LEFT JOIN crmCustomer hl WITH(NOLOCK) ON fb.HeadlineID = hl.custid
 	
 	SELECT 

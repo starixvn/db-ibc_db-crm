@@ -17,6 +17,7 @@ AS
 		- 20210507@Johnson: Initial sp [redmine:#153119]
 		- 20220330@Johnson: Integrate new Customer Class for PA Probation [redmine:#170666]
 		- 20221020@Johnson: dont create fb for some CC [redmine: #179370]
+		- 20230202@Tacy: Split 789y site [redmine: #182438]
 */
 BEGIN
 	SET NOCOUNT ON
@@ -27,12 +28,13 @@ BEGIN
 		c.CategoryID
 	FROM CustCategoryHistory c WITH(NOLOCK)
 		INNER JOIN customer ci WITH(NOLOCK) ON c.custid = ci.custid
+		INNER JOIN Site s WITH(NOLOCK) ON s.site=ci.site
 	WHERE LogID > @LastLogID
 		AND CustomerClass IN (SELECT DISTINCT CustomerClass 
 							FROM CategoryConfig WITH(NOLOCK)
 							WHERE CustomerClass IS NOT NULL
 								AND HiddenSite NOT IN (1,3))
-		AND ci.site = '789y'
+		AND s.SiteLabel = '789y'
 		AND ci.roleid = 1		
 		AND 1= CASE WHEN ci.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
 				WHEN ci.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1

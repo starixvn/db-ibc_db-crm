@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20201125@Johnson: Initial sp [redmine:#142194]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
+		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
 	
 	Parameter's Explanation:
 		- @xml = '<ROOT>
@@ -157,6 +158,7 @@ BEGIN
 		c.username,
 		c.roleid,
 		c.site,
+		s.SiteLabel,
 		ISNULL(hl.IsVip,0) as IsVip,
 		e.currency,
 		m.homeid,
@@ -167,6 +169,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.match m WITH(NOLOCK) ON rs.matchid = m.matchid
 		INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON rs.custid = c.custid
 		INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON c.currency = e.ExchangeId
+		INNER JOIN bodb02.dbo.Site s WITH(NOLOCK) ON s.site=c.site
 		LEFT JOIN crmCustomer hl WITH(NOLOCK) ON rs.HeadlineID = hl.custid
 		
 	DROP TABLE #Result	

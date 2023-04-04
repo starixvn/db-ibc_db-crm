@@ -16,6 +16,7 @@ AS
 		- 20210120@Johnson: get sports to map sub-product [redmine:#148977]
 		- 20210507@Johnson: dont get sports for VS,VS2,NG mapping NA for them [redmine:#154722]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
+		- 20230214@Tacy:	CRM - Split 789y site [RedmineID: #182438]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" product="21" group="Allbet Casino" level="Orange" limitsetting="20000" winamount="25000" winamountRM="25000" time="2020-10-10 10:15:12" bettype="2401,2403" />
@@ -105,6 +106,7 @@ BEGIN
 		,ci.currency
 		,ci.username
 		,ag.site
+		,s.SiteLabel
 		,HeadlineID
 		,HeadlineName
 		,ISNULL(c.IsVip,0) as IsVip
@@ -123,6 +125,7 @@ BEGIN
 		INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON fb.ProductID = p.ProductID
 		INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON fb.custid = ci.custid
 		INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON ci.recommend = ag.custid
+		INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=ag.site
 		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
 	WHERE status IN ('initial','fail')
 		AND retryCount < 5
@@ -132,6 +135,7 @@ BEGIN
 		,e.currency
 		,username
 		,site
+		,SiteLabel
 		,HeadlineID
 		,HeadlineName
 		,IsVip

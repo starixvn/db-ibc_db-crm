@@ -6,6 +6,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingIns]
 	 @SettingType TINYINT  = 0,  
 	 @SettingValue NVARCHAR(100),  
 	 @SettingSource VARCHAR(MAX)='',
+	 @ExtraInfo		VARCHAR(50) = NULL,
 	 @ParentID  INT,  
 	 @DisplayOrder INT,  
 	 @IP    VARCHAR(15),  
@@ -27,6 +28,7 @@ AS
 	 - 20140114@Dom: Update Language setting  
 	 - 20190506@Winnie: CN88 Permission RedmineID: #112637
 	 - 20200421@Johnson: add mapping setting for auto feedback [redmine:#130949]
+	 - 20230202@Tacy: Split 789y site [redmine:#182438]
 	Param's Explanation:  
 	 @SettingType:  
 	   0 : Licensee site    
@@ -126,7 +128,8 @@ BEGIN
 			SettingID,   
 			SettingValue,   
 			DisplayOrder,
-			SiteOffer
+			SiteOffer,
+			ExtraInfo
 		)  
 		VALUES   
 		(  
@@ -134,7 +137,8 @@ BEGIN
 			@SettingID,  
 			@SettingValue,   
 			@DisplayOrder,
-			@UserRole  
+			@UserRole,
+			@ExtraInfo
 		)  
 	
 		IF @@ERROR <> 0  
@@ -179,6 +183,7 @@ BEGIN
 		'<SettingValue>' + ISNULL(@SettingValue,'')      + '</SettingValue>' +  
 		'<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),@DisplayOrder),'') + '</DisplayOrder>' +  
 		'<UserRole>' + ISNULL(CONVERT(VARCHAR(10),@UserRole),'') + '</UserRole>' +  
+		'<ExtraInfo>' + ISNULL(CONVERT(VARCHAR(10),@ExtraInfo),'') + '</ExtraInfo>' +
 		'</Acc_CRM_SettingIns>'  
 
 

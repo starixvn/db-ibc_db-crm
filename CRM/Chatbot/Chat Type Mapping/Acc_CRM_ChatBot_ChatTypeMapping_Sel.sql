@@ -22,6 +22,7 @@ AS
 			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 			- 20210801@Malcolm: get info for accouting pic [Redmine: #151509]
 			- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
+			- 20221222@Malcolm: Get Ignored notificationType list [RedmineId : #179118]
 		Param's Explanation:
 		
 */
@@ -288,6 +289,13 @@ BEGIN
 			)
 	END
 
+	;WITH CTE_IgnoredNotificationType AS
+	(
+		SELECT t.ConversationGroupId, STRING_AGG(CONVERT(VARCHAR(20), nt.NotificationTypeId), ',') WITHIN GROUP(ORDER BY nt.NotificationTypeId ASC) AS IgnoredNotificationTypeList
+		FROM #Tmp t
+			INNER JOIN dbo.crmIgnoredNotificationType nt WITH(NOLOCK) ON nt.ConversationGroupId = t.ConversationGroupId
+		GROUP BY t.ConversationGroupId
+	)
 	SELECT 
 		t.ConversationGroupId	
 		,t.ConversationGroupName 	
@@ -301,7 +309,9 @@ BEGIN
 		,t.IsActive	
 		,t.MappingStatusID
 		,t.Remark
+		,e.IgnoredNotificationTypeList
 	FROM #Tmp t
+		LEFT JOIN CTE_IgnoredNotificationType e ON e.ConversationGroupId = t.ConversationGroupId
 	ORDER BY t.ChatTypeId DESC, t.ConversationGroupName  
 
 	SELECT t.ConversationGroupId,gh.HeadlineId,ISNULL(c.username,'Not Assigned Group') AS HeadlineName 

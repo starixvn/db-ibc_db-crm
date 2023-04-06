@@ -27,6 +27,7 @@ AS
 		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie: CN88 Permission - [RedmineID: #112637]
 		- 20190701@Elodie: Offer for CN88 - [RedmineID: #112637]
+		- 20221102@Winfred: Fix issue duplicate when search - [RedmineID: #180042]
 	Param's Explanation:
 	
 */
@@ -484,7 +485,8 @@ BEGIN
 				,	fb.relatedCustomer
 				,	nr.value(N'@Remark',N'nvarchar(max)') AS Description		
 		FROM #result fb				
-			INNER JOIN  dbo.f_GetFeedbackSetting(0,@MainCategoryID,ISNULL(@SubCategoryID,0),2) fm 
+			INNER JOIN (SELECT DISTINCT FeedbackID
+						FROM  dbo.f_GetFeedbackSetting(0,@MainCategoryID,ISNULL(@SubCategoryID,0),2)) fm 
 					ON fb.FeedbackID=fm.FeedbackID
 			OUTER APPLY fb.Description.nodes(N'//row') AS A(nr)
 			ORDER BY fb.FeedbackDate DESC
@@ -674,7 +676,8 @@ BEGIN
 				,	fb.relatedCustomer
 				,	nr.value(N'@Remark',N'nvarchar(max)') AS Description			
 		FROM #result fb				
-			INNER JOIN  dbo.f_GetFeedbackSetting(0,@MainCategoryID,ISNULL(@SubCategoryID,0),2) fm 
+			INNER JOIN (SELECT DISTINCT FeedbackID
+						FROM  dbo.f_GetFeedbackSetting(0,@MainCategoryID,ISNULL(@SubCategoryID,0),2)) fm
 					ON fb.FeedbackID=fm.FeedbackID
 			INNER JOIN  dbo.f_GetFeedbackSetting(0,@CommunicationID,0,1) fc
 					ON fb.FeedbackID=fc.FeedbackID

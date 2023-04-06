@@ -1,19 +1,20 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Ins]
-	@BotId					INT
-	,@ConversationGroupName	NVARCHAR(1000) 
-	,@ChatTypeId			TINYINT = NULL
-	,@IsTest			    BIT = NULL
-	,@RecipientTypeId       TINYINT
-	,@HeadlineIds			VARCHAR(MAX) 
-	,@RecipientId			INT
-	,@LetstalkID			VARCHAR(200)
-	,@LanguageId			INT	
-	,@Remark				NVARCHAR(2000)
-	,@UserId				INT
-	,@ErrCode				INT = 0 OUTPUT
-	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP				NVARCHAR(20) = ''
+	@BotId							INT
+	,@ConversationGroupName			NVARCHAR(1000) 
+	,@ChatTypeId					TINYINT = NULL
+	,@IsTest						BIT = NULL
+	,@RecipientTypeId				TINYINT
+	,@IgnoredNotificationTypeList	VARCHAR(MAX) = ''
+	,@HeadlineIds					VARCHAR(MAX) 
+	,@RecipientId					INT
+	,@LetstalkID					VARCHAR(200)
+	,@LanguageId					INT	
+	,@Remark						NVARCHAR(2000)
+	,@UserId						INT
+	,@ErrCode						INT = 0 OUTPUT
+	,@ErrMsg						NVARCHAR(2000) = '' OUTPUT
+	,@LoginIP						VARCHAR(50) = ''
 AS
 /*
 	Created: 20200810@Malcolm
@@ -25,13 +26,14 @@ AS
 			- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 			- 20210811@Malcolm: check headline for Result Amendment [RedmineID: #151509]
 			- 20221028@Malcolm: Exclude groups is deleted [RedmineId : #179240]
+			- 20221222@Malcolm: Add Ignored notificationType list [RedmineId : #179118]
 		Param's Explanation:
 		
 */
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @ConversationGroupId INT = 0, @Existing_GroupName NVARCHAR(1000) = '',@NewValues NVARCHAR(MAX),
+	DECLARE @ConversationGroupId INT = 0, @Existing_GroupName NVARCHAR(1000) = '',@NewValues NVARCHAR(MAX), @__IgnoredNotificationType XML,
 			@__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__LanguageXML XML, @__ConversationGroup XML,
 			@ReferenceIds VARCHAR(1000), @__BotXML XML
 
@@ -40,9 +42,9 @@ BEGIN
 	SELECT @ReferenceIds = CAST(@RecipientId AS VARCHAR(1000))
 
 	INSERT INTO @_HeadlineIds (HeadlineID)
-	SELECT f.val
-	FROM  dbo.f_CRM_strSplit(@HeadlineIds, ',') f 
-	WHERE f.val <> ''
+	SELECT f.value
+	FROM  STRING_SPLIT(@HeadlineIds, ',') f 
+	WHERE f.value <> ''
 
 	-- check validation
 	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationId = @LetstalkID AND g.IsDeleted = 0
@@ -85,38 +87,22 @@ BEGIN
 
 		SELECT @ConversationGroupId = SCOPE_IDENTITY()
 
-		INSERT INTO dbo.crmConversationGroupBot
-		(
-			ConversationGroupId
-			,BotId
-		)
-		VALUES 
-		(
-			@ConversationGroupId
-			,@BotId
-		)
+		INSERT INTO dbo.crmConversationGroupBot (ConversationGroupId, BotId)
+		VALUES (@ConversationGroupId, @BotId)
 
-		INSERT INTO dbo.crmConversationGroupRecipient
-		(
-			ConversationGroupId
-			,RecipientId
-		)
-		VALUES
-		(
-			@ConversationGroupId
-			,@RecipientId
-		)
+		INSERT INTO dbo.crmConversationGroupRecipient(ConversationGroupId, RecipientId)
+		VALUES (@ConversationGroupId, @RecipientId)
 
-		INSERT INTO dbo.crmConversationGroupHeadline
-		(
-			ConversationGroupId
-			,HeadlineId
-		)
-		SELECT 
-			@ConversationGroupId
-			,f.Val
-		FROM dbo.f_CRM_strSplit(@HeadlineIds,',') f
-		WHERE f.val <> ''
+		INSERT INTO dbo.crmConversationGroupHeadline (ConversationGroupId, HeadlineId)
+		SELECT @ConversationGroupId, f.value
+		FROM STRING_SPLIT(@HeadlineIds,',') f
+		WHERE f.value <> ''
+
+		INSERT INTO dbo.crmIgnoredNotificationType (ConversationGroupId, NotificationTypeId)
+		SELECT @ConversationGroupId, f.value 
+		FROM STRING_SPLIT(@IgnoredNotificationTypeList, ',') f
+		WHERE f.value <> ''
+
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_NUMBER()
@@ -131,6 +117,9 @@ BEGIN
 
 			DELETE dbo.crmConversationGroupRecipient WITH(ROWLOCK, UPDLOCK)
 			WHERE ConversationGroupId = @ConversationGroupId
+			
+			DELETE dbo.crmIgnoredNotificationType WITH(ROWLOCK, UPDLOCK)
+			WHERE ConversationGroupId = @ConversationGroupId 
 		END 
 
 		RETURN
@@ -178,6 +167,13 @@ BEGIN
 				  WHERE r.RecipientId = @RecipientId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				  FOR XML PATH('Recipient'))
 
+	SELECT @__IgnoredNotificationType = (
+				  SELECT t.NotificationTypeId AS '@Id', t.NotificationTypeName AS '@Name'
+				  FROM dbo.crmIgnoredNotificationType it WITH(NOLOCK)
+					 INNER JOIN dbo.crmNotificationType t WITH(NOLOCK) ON t.NotificationTypeId = it.NotificationTypeId
+				  WHERE it.ConversationGroupId = @ConversationGroupId
+				  FOR XML PATH ('IgnoredNotificationType'))
+
 	SELECT @__ConversationGroup = (
 				  SELECT @ConversationGroupId AS '@Id'
 						,@ConversationGroupName AS '@Name'
@@ -195,6 +191,7 @@ BEGIN
 									  ,@__RecipientXML
 									  ,@__LanguageXML
 									  ,@__BotXML
+									  ,@__IgnoredNotificationType
 							 FOR XML PATH('Acc_CRM_ChatBot_ChatTypeMapping_Ins')
 						) AS NVARCHAR(MAX))
 

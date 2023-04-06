@@ -8,6 +8,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
 	,@Headline				VARCHAR(30) =''
 	,@RecipientName			NVARCHAR(200)=''
 	,@MessageId				INT = NULL
+	,@AnnouncementId		INT = NULL
 	,@NotificationId		INT = NULL
 	,@Content				NVARCHAR(MAX)=''
 	,@Status				VARCHAR(200) =''
@@ -16,17 +17,18 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
 	,@TotalRows				INT = 0 OUTPUT
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Get the notification list
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
-		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
-		- 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
-		- 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Get the notification list
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
+			- 20210731@Malcolm : Add alias [RedmineId : #151509] 
+			- 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
+	         	- 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
+			- 20221222@Malcolm : Add filter by AnnouncementId [RedmineId : #179118] 
+		Param's Explanation:
 		
 */
 
@@ -124,19 +126,20 @@ BEGIN
 				FROM dbo.crmNotification n WITH(NOLOCK)
 					INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
 				WHERE n.SendDate >= @FromDate
-					AND n.SendDate <= @ToDate 
+					AND n.SendDate < @ToDate 
 					AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
 					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
 					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
 			END
 			ELSE
 			BEGIN
-				IF @MessageId IS NOT NULL
+				IF @MessageId IS NOT NULL OR @AnnouncementId IS NOT NULL
 				BEGIN
 					INSERT INTO @NotificationIdList (NotificationId)
 					SELECT DISTINCT NotificationId 
 					FROM dbo.crmNotificationRefDetail WITH(NOLOCK)
 					WHERE ReferenceId = @MessageId AND DataSource = 'DBMSG.bodb_Message.dbo.Msg'
+						OR ReferenceId = @AnnouncementId AND DataSource = 'DBCRM.bodb_CRM.dbo.crmAnnouncement'
 
 					IF @NotificationIdLower IS NULL
 					BEGIN
@@ -183,7 +186,7 @@ BEGIN
 					AND (n.NotificationId >= @NotificationIdLower)
 					AND (n.NotificationId <= @NotificationIdUpper)
 					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
-					AND (@MessageId IS NULL OR nl.NotificationId IS NOT NULL)
+					AND ((@MessageId IS NULL AND @AnnouncementId IS NULL) OR nl.NotificationId IS NOT NULL)
 			END	
 		END TRY
 		BEGIN CATCH

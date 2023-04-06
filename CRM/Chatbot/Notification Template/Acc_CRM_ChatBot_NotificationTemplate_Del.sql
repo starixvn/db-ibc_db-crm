@@ -8,18 +8,19 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Del]
 	,@LoginIP					NVARCHAR(20) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Delete a new notification template
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
-		- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
-		- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
-		- 20210801@Malcolm: Get settings of Result Amendment [RedmineID: #151509]
-		- 20221121@Malcolm: Get settings of Archiving Dormant Accounts [RedmineID: #158258]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task :  Delete a new notification template
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
+			- 20201225@Malcolm: Get settings of TOControl [Redmine: #146735]
+			- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
+			- 20210801@Malcolm: Get settings of Result Amendment [RedmineID: #151509]
+			- 20221121@Malcolm: Get settings of Archiving Dormant Accounts [RedmineID: #158258]
+			- 20230223@Malcolm: Do not delete the template that created the announcement [RedmineID: #179118]
+		Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON
@@ -37,7 +38,6 @@ BEGIN
 	FROM dbo.f_CRM_strSplit(@ServiceNames, ',') f
 	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.val ) AS i(Setting)
 	CROSS APPLY(SELECT DISTINCT T.c.value('@NotificationTemplateID', 'INT') AS NotificationTemplateID FROM i.Setting.nodes('/root/r') T(c)) s(NotificationTemplateID)
-
 	-- Check permission
 
 	-- Check exists NotificationTemplateId
@@ -48,6 +48,7 @@ BEGIN
 	END
 
 	IF EXISTS(SELECT 1 FROM #NotificationTemplate WHERE NotificationTemplateId = @NotificationTemplateId)
+		OR EXISTS(SELECT 1 FROM dbo.crmAnnouncement WITH(NOLOCK) WHERE NotificationTemplateId = @NotificationTemplateId)
 	BEGIN
 		SELECT @ErrCode = 102, @ErrMsg = 'This is the system template, so you cannot delete it.'
 		RETURN

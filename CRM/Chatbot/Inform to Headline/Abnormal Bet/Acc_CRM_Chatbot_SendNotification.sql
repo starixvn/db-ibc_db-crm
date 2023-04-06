@@ -9,6 +9,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20221222@Malcolm: Get file name [RedmineID: #179118]
 */
 
 BEGIN
@@ -63,7 +64,9 @@ BEGIN
 		) ng
 
 	Result:
-		SELECT NotificationId, Content, ConversationGroupId, ChatTypeId, BotId, ConversationId
-		FROM @SendNotifications
+		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId, ISNULL(a.FileName, '') AS FileName, a.AnnouncementId 
+		FROM @SendNotifications s
+			LEFT JOIN dbo.crmAnnouncementNotification an WITH(NOLOCK) ON an.NotificationId = s.NotificationId
+			LEFT JOIN dbo.crmAnnouncement a WITH(NOLOCK) ON a.AnnouncementId = an.AnnouncementId 
 END
 GO

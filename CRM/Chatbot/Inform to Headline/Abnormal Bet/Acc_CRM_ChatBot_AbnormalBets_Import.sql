@@ -402,9 +402,9 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationRefDetail (NotificationId, ReferenceId, DataSource, CreatedDate)
-		SELECT @NotificationId, l.ReferenceId, 'DBMSG.bodb_Message.dbo.Msg', GETDATE()
+		SELECT @NotificationId NotificationId, f.value ReferenceId, 'DBMSG.bodb_Message.dbo.Msg' DataSource, GETDATE() CreatedDate
 		FROM #Result r
-             OUTER APPLY (SELECT f.value AS ReferenceId FROM STRING_SPLIT(r.MessageIdList, ',') f WHERE f.value <> '') l(ReferenceId)
+             CROSS APPLY STRING_SPLIT(r.MessageIdList, ',') f
 		WHERE r.Id = @Id
 
 		UPDATE r

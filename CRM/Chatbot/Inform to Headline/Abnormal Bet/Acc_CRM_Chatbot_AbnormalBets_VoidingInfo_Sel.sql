@@ -1,4 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_VoidingInfo_Sel]
 	@Messages XML
 	,@Environment VARCHAR(50) = ''
@@ -16,16 +20,19 @@ AS
 		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20211125@Malcolm: Notify Tickets of Abnormal Mix Parlay [RedmineId : #163833]
 		- 20220115@Malcolm: Scale out for CRM [RedmineId : #181906]
+        - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
 
 	Param's Explanation:
 		@Messages:
-			<root>
-				<r VoidingHistoryCollectionId = "1" UsernameList=""/>
-				<r VoidingHistoryCollectionId = "2" UsernameList="xxx,u1"/>
-				<r VoidingHistoryCollectionId = "3" UsernameList="xxx,u1"/>
-				<r VoidingHistoryCollectionId = "4" UsernameList="xxx,u1"/>
-			</root>
-			+ UsernameList: SMA list enter to void tickets
+            + Data
+			    <root>
+				    <r VoidingHistoryCollectionId = "1" VoidingHistoryID = "" UsernameList=""/>
+				    <r VoidingHistoryCollectionId = "2" VoidingHistoryID = "456" UsernameList="xxx,u1"/>
+				    <r VoidingHistoryCollectionId = "3" VoidingHistoryID = "789" UsernameList="xxx,u1"/>
+				    <r VoidingHistoryCollectionId = "4" VoidingHistoryID = "234" UsernameList="xxx,u1"/>
+			    </root>
+			+ Description
+                * UsernameList: SMA list enter to void tickets
 */
 
 BEGIN
@@ -43,23 +50,24 @@ BEGIN
 		SET @IsTest = 0
 	END
 
-	CREATE TABLE #Messages (VoidingHistoryCollectionId INT, UsernameList NVARCHAR(MAX))
-	INSERT INTO #Messages (VoidingHistoryCollectionId, UsernameList)
+	CREATE TABLE #Messages (VoidingHistoryCollectionId INT, VoidingHistoryID INT, UsernameList NVARCHAR(MAX))
+	INSERT INTO #Messages (VoidingHistoryCollectionId, VoidingHistoryID, UsernameList)
 	SELECT
 		t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId
-		,t.c.value('@UsernameList', 'NVARCHAR(MAX)')
+        ,t.c.value('@VoidingHistoryID', 'INT') AS VoidingHistoryID
+		,t.c.value('@UsernameList', 'NVARCHAR(MAX)') AS UsernameList
 	FROM @Messages.nodes('root/r') AS t(c)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
-	CREATE TABLE #Result (VoidingHistoryCollectionId INT, CustId INT, UsernameList NVARCHAR(MAX), Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, [Type] TINYINT)
+	CREATE TABLE #Result (VoidingHistoryCollectionId INT, MessageId INT, CustId INT, UsernameList NVARCHAR(MAX), Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, [Type] TINYINT)
 
 	CREATE CLUSTERED INDEX CIX_VoidingHistoryCollectionId ON #Result (VoidingHistoryCollectionId)
 
 	-- Get data for abnormal bets, AB
 	BEGIN
-		CREATE TABLE #AbnormalBetsInfo(VoidingHistoryCollectionId INT, TransId BIGINT, Username VARCHAR(30), CustId INT, Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, [Type] TINYINT)
-		INSERT INTO #AbnormalBetsInfo (VoidingHistoryCollectionId, TransId, [Type])
-		SELECT vc.VoidingHistoryCollectionId, t.TransId, CASE WHEN rq.IssueTypeId = 11 AND ISNULL(f.FilterBy, 0) = 1 THEN 3 ELSE 1 END AS [Type]
+		CREATE TABLE #AbnormalBetsInfo(VoidingHistoryCollectionId INT, TransId BIGINT, MessageId INT, Username VARCHAR(30), CustId INT, Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, [Type] TINYINT)
+		INSERT INTO #AbnormalBetsInfo (VoidingHistoryCollectionId, TransId, MessageId, [Type])
+		SELECT vc.VoidingHistoryCollectionId, t.TransId, vh.MessageId, CASE WHEN rq.IssueTypeId = 11 AND ISNULL(f.FilterBy, 0) = 1 THEN 3 ELSE 1 END AS [Type]
 		FROM dbo.VoidingHistoryCollection vc WITH(NOLOCK)
 			INNER JOIN dbo.VoidingHistoryCollectionDetail vcd WITH(NOLOCK) ON vcd.VoidingHistoryCollectionId = vc.VoidingHistoryCollectionId
 			INNER JOIN dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK) ON vh.VoidingHistoryId = vcd.VoidingHistoryId
@@ -84,29 +92,20 @@ BEGIN
 				WHERE b.transid = a.TransId
 			) b
 
-		UPDATE a
-			SET a.CustId = b.CustId, a.Username = b.Username, a.Srecommend = b.Srecommend, a.Mrecommend = b.Mrecommend, a.Recommend = b.Recommend, a.IsTest = b.IsTest
+		INSERT INTO #Result (VoidingHistoryCollectionId, MessageId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
+		SELECT a.VoidingHistoryCollectionId, a.MessageId, a.CustId, a.Username, a.Recommend, a.Mrecommend, a.Srecommend, MIN(CONVERT(TINYINT, a.IsTest)) AS IsTest, MAX(a.[Type]) AS [Type]
 		FROM #AbnormalBetsInfo a
-			CROSS APPLY (
-				SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest
-				FROM dbo.bettrans14 b WITH (NOLOCK)
-				WHERE b.transid = a.TransId
-			) b
-		WHERE a.CustId IS NULL
-
-		INSERT INTO #Result (VoidingHistoryCollectionId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
-		SELECT a.VoidingHistoryCollectionId, a.CustId, a.Username, a.Recommend, a.Mrecommend, a.Srecommend, MIN(CONVERT(TINYINT, a.IsTest)) AS IsTest, MAX(a.[Type]) AS [Type]
-		FROM #AbnormalBetsInfo a
-		GROUP BY a.VoidingHistoryCollectionId, a.CustId, a.Username, a.Srecommend, a.Mrecommend, a.Recommend
+		GROUP BY a.VoidingHistoryCollectionId, a.MessageId, a.CustId, a.Username, a.Srecommend, a.Mrecommend, a.Recommend
 
 	END
 
 	-- Get data for abnormal accounts (only get direct account of member who have tickets voided)
 	BEGIN
-		CREATE TABLE #AbnormalAccountsInfo (VoidingHistoryCollectionId INT, Username VARCHAR(30), CustId INT, Recommend INT, Mrecommend INT, Srecommned INT, IsTest BIT, DirectAccount INT)
-		INSERT INTO #AbnormalAccountsInfo (VoidingHistoryCollectionId, Username, CustId, Recommend, Mrecommend, Srecommned, DirectAccount, IsTest)
-		SELECT m.VoidingHistoryCollectionId, f.Username, c.custid, c.recommend, c.mrecommend, c.srecommend, cda.CustID, CASE WHEN c.Currency = 20 THEN 1 ELSE 0 END AS IsTest
+		CREATE TABLE #AbnormalAccountsInfo (VoidingHistoryCollectionId INT, MessageId INT, Username VARCHAR(30), CustId INT, Recommend INT, Mrecommend INT, Srecommned INT, IsTest BIT, DirectAccount INT)
+		INSERT INTO #AbnormalAccountsInfo (VoidingHistoryCollectionId, MessageId, Username, CustId, Recommend, Mrecommend, Srecommned, DirectAccount, IsTest)
+		SELECT m.VoidingHistoryCollectionId, vh.MessageId, f.Username, c.custid, c.recommend, c.mrecommend, c.srecommend, cda.CustID DirectAccount, CASE WHEN c.Currency = 20 THEN 1 ELSE 0 END AS IsTest
 		FROM #Messages m
+            INNER JOIN dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK) ON m.VoidingHistoryID = vh.VoidingHistoryId
 			CROSS APPLY (
 				SELECT CONVERT(VARCHAR(30), f.value) AS Username
 				FROM STRING_SPLIT(m.UsernameList, ',') f
@@ -114,18 +113,18 @@ BEGIN
 			) AS f(Username)
 			INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.username = f.Username
 			LEFT JOIN dbo.CustDirectAccount cda WITH(NOLOCK) ON cda.CustID IN (c.custid, c.recommend, c.mrecommend, c.srecommend)
-		WHERE m.UsernameList <> ''
+		WHERE m.UsernameList <> '' AND cda.CustID IS NOT NULL
 
-		CREATE INDEX ix_MessageId ON #AbnormalAccountsInfo (VoidingHistoryCollectionId, DirectAccount)
+		CREATE INDEX ix_MessageId ON #AbnormalAccountsInfo (VoidingHistoryCollectionId, MessageId, DirectAccount)
 
 		;WITH CTE AS
 		(
-			SELECT ai.VoidingHistoryCollectionId, ai.DirectAccount, MIN(CONVERT(TINYINT, ai.IsTest)) AS IsTest, STRING_AGG(ai.Username, ',') AS UsernameList
+			SELECT ai.VoidingHistoryCollectionId, ai.MessageId, ai.DirectAccount, MIN(CONVERT(TINYINT, ai.IsTest)) AS IsTest, STRING_AGG(ai.Username, ',') AS UsernameList
 			FROM #AbnormalAccountsInfo ai
-			GROUP BY ai.VoidingHistoryCollectionId, ai.DirectAccount
+			GROUP BY ai.VoidingHistoryCollectionId, ai.MessageId, ai.DirectAccount
 		)
-		INSERT INTO #Result (VoidingHistoryCollectionId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
-		SELECT e.VoidingHistoryCollectionId, e.DirectAccount, e.UsernameList, c.Recommend, c.Mrecommend, c.Srecommend, e.IsTest, 2 AS [Type]
+		INSERT INTO #Result (VoidingHistoryCollectionId, MessageId, CustId, UsernameList, Recommend, Mrecommend, Srecommend, IsTest, [Type])
+		SELECT e.VoidingHistoryCollectionId, e.MessageId, e.DirectAccount, e.UsernameList, c.Recommend, c.Mrecommend, c.Srecommend, e.IsTest, 2 AS [Type]
 		FROM CTE e
 			INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = e.DirectAccount
 	END
@@ -146,6 +145,7 @@ BEGIN
 	--Return Data
 	SELECT
 		VoidingHistoryCollectionId
+        ,MessageId
 		,ISNULL(CustId, 0) AS CustId 
 		,ISNULL(UsernameList, '') AS UsernameList
 		,ISNULL(Recommend, 0) AS Recommend

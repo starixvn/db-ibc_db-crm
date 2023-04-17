@@ -4,9 +4,10 @@ USE bodb02
 GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_VoidingInfo_Sel]
-	@Messages XML
-	,@Environment VARCHAR(50) = ''
-	,@IncludeUUSCurrency BIT = 1
+    @Messages XML
+    ,@Environment VARCHAR(50) = ''
+    ,@IncludeUUSCurrency BIT = 1
+    ,@MAXVoidingHistoryCollectionId INT OUTPUT
 AS
 
 /*
@@ -38,6 +39,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
+    -- Check Environment
 	DECLARE @IsTest BIT = NULL
 
 	IF @Environment = 'UAT'
@@ -50,6 +52,7 @@ BEGIN
 		SET @IsTest = 0
 	END
 
+    -- Parse XML data to temp table
 	CREATE TABLE #Messages (VoidingHistoryCollectionId INT, VoidingHistoryID INT, UsernameList NVARCHAR(MAX))
 	INSERT INTO #Messages (VoidingHistoryCollectionId, VoidingHistoryID, UsernameList)
 	SELECT
@@ -129,7 +132,7 @@ BEGIN
 			INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = e.DirectAccount
 	END
 
-	--Get data by environment
+	-- Get data by environment
 	IF @IsTest IS NOT NULL
 	BEGIN
 		;WITH CTE AS
@@ -142,7 +145,11 @@ BEGIN
 		WHERE (e.VoidingHistoryCollectionId IS NULL AND @IsTest = 0) 
 			OR (e.VoidingHistoryCollectionId IS NOT NULL AND @IsTest = 1)
 	END
-	--Return Data
+
+    -- Return data for output parameter
+    SELECT @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #Messages
+
+    -- Return result data set
 	SELECT
 		VoidingHistoryCollectionId
         ,MessageId

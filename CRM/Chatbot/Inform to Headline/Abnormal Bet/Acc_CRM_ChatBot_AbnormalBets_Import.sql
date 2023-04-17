@@ -4,10 +4,11 @@ USE bodb_CRM
 GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_Import]
-	@XmlData				XML
-	,@Environment			VARCHAR(50) = ''
-	,@ErrCode				INT = 0 OUTPUT
-	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
+    @XmlData                        XML
+    ,@MAXVoidingHistoryCollectionId INT
+    ,@Environment                   VARCHAR(50) = ''
+    ,@ErrCode                       INT = 0 OUTPUT
+    ,@ErrMsg                        NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -115,17 +116,19 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
+        UPDATE dbo.SystemSetting WITH (ROWLOCK)
+        SET Value = 'Completed'
+        WHERE ServiceName = 'ChatBot - AbnormalBets'
+              AND SettingName = @SettingNameOfJobStatus
+              AND Value = 'running'
+
+        UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+        SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
+        WHERE ServiceName = 'ChatBot - AbnormalBets'
+              AND SettingName = @SettingNameOfVoidingHistoryCollectionId
 
         RETURN
 	END
-
-    DECLARE @MAXVoidingHistoryCollectionId INT
-    SELECT  @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #ImportMessage
 
 	-- Get Job Setting
 	DECLARE @Xml XML

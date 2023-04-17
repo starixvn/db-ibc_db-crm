@@ -122,10 +122,13 @@ BEGIN
               AND SettingName = @SettingNameOfJobStatus
               AND Value = 'running'
 
-        UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
-        SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
-        WHERE ServiceName = 'ChatBot - AbnormalBets'
-              AND SettingName = @SettingNameOfVoidingHistoryCollectionId
+        IF (ISNULL(@MAXVoidingHistoryCollectionId, 0) <> 0)
+        BEGIN
+            UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+            SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
+            WHERE ServiceName = 'ChatBot - AbnormalBets'
+                  AND SettingName = @SettingNameOfVoidingHistoryCollectionId
+        END
 
         RETURN
 	END

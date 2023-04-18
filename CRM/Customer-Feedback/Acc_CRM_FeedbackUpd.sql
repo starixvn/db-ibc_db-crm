@@ -67,6 +67,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@Yahoo						NVARCHAR(100)	= NULL
 				,	@QQ							NVARCHAR(100)	= NULL
 				,	@BBM						NVARCHAR(100)	= NULL
+				,	@IsOverWrite				BIT				= 0	
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 				,	@NoInquiries				SMALLINT		= NULL
@@ -97,6 +98,7 @@ AS
 		- 20201021@Johnson: remove limit amount for related customers[redmine:#142194]
 		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]				
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -678,6 +680,7 @@ BEGIN
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM_Old),'')						+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID_Old),'')				+ '</ProvinceID>' +
 						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')				+ '</NoInquiries>' +
+						'<IsOverWrite>'					+ ISNULL(CONVERT(VARCHAR(10),0),'')								+ '</IsOverWrite>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	SELECT @NewValues = 				
@@ -745,6 +748,7 @@ BEGIN
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID),'')					+ '</ProvinceID>' +
 						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')					+ '</NoInquiries>' +
+						'<IsOverWrite>'					+ ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')					+ '</IsOverWrite>' +
 					'</Acc_CRM_FeedbackUpd>';
 
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

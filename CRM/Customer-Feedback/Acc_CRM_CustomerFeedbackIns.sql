@@ -110,6 +110,7 @@ AS
 							- sync customer profile to CRM for related customers [redmine:#142194]
 		- 20210113@Johnson: check empty @RelatedCustID [redmine:#148690]	
 		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
+		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]
 		
 	Param's Explanation:
 		- @IsOverWrite: comfirm that if the information of new feedback overwrite to current CRMInfo.	
@@ -436,6 +437,7 @@ BEGIN
 			, 	@MessageID				= @MessageID
 			,	@RequestIDs				= @RequestIDs
 			,	@ListOrigCustIDs		= @ListOrigCustIDs
+			,	@IsOverWrite			= @IsOverWrite
 			,	@ErrCode				= @ErrCode OUTPUT
 			,	@ErrMsg					= @ErrMsg OUTPUT;
 	IF	@ErrCode <> 0

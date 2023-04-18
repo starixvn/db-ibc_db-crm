@@ -82,6 +82,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackIns] (
 				, 	@RequestIDs					VARCHAR(1000)	= ''
 				,	@ListOrigCustIDs			VARCHAR(MAX)	= ''
 				,	@IsManualMultiple			BIT				= 0
+				,	@IsOverWrite				BIT				= 0
 				)
 AS
 /*
@@ -122,7 +123,8 @@ AS
 		- 20220114@Johnson: fix performance for checking duplicate fb [redmine:#167537]		
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]			
 		- 20230116@Winfred: CRM - Prevent duplicated feedback creation within a short of time [redmine:#182911]
-		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]		
+		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]	
+		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]	
 	Param's Explanation:
 	@Product:
 		<ROOT>
@@ -954,6 +956,7 @@ BEGIN
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +	
 						'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +	
+						'<IsOverWrite>'					+ ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')					+ '</IsOverWrite>' +
 					'</Acc_CRM_FeedbackIns>';
 
 	SELECT @Duration = DATEDIFF (millisecond,@startRun,GETDATE())

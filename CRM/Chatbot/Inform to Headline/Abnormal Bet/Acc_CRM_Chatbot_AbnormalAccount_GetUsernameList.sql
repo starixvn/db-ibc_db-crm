@@ -10,6 +10,7 @@ AS
 	Task: CRM - ChatBot - Get Username list of tickets belong to abnormal account type
 	Revisions:
 		- 20210628@Malcolm: Initialize SP [RedmineID: #181906]
+        - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
 		
 	Param's Explanation:
 		@Messages:
@@ -78,12 +79,12 @@ BEGIN
 
 	DELETE #MessageLst WHERE IsValid = 0
 
-	SELECT VoidingHistoryCollectionId, STRING_AGG(r.Username, ',') WITHIN GROUP (ORDER BY r.Username ASC) AS UsernameList
+	SELECT VoidingHistoryCollectionId, VoidingHistoryId, STRING_AGG(r.Username, ',') WITHIN GROUP (ORDER BY r.Username ASC) AS UsernameList
 	FROM (
-		SELECT DISTINCT VoidingHistoryCollectionId, Username
+		SELECT DISTINCT VoidingHistoryCollectionId, VoidingHistoryId, Username
 		FROM #MessageLst
 	) AS r
-	GROUP BY VoidingHistoryCollectionId
+	GROUP BY VoidingHistoryCollectionId, VoidingHistoryId
 
 	DROP TABLE #MessageLst
 	DROP TABLE #Result

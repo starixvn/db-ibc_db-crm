@@ -1,10 +1,14 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_Import]
-	@XmlData				XML
-	,@Messages				XML
-	,@Environment			VARCHAR(50) = ''
-	,@ErrCode				INT = 0 OUTPUT
-	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
+    @XmlData                        XML
+    ,@MAXVoidingHistoryCollectionId INT
+    ,@Environment                   VARCHAR(50) = ''
+    ,@ErrCode                       INT = 0 OUTPUT
+    ,@ErrMsg                        NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -20,21 +24,19 @@ AS
 		- 20211125@Malcolm: Add Comment [RedmineId : #163833]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20230112@Malcolm: Scale out for CRM [RedmineID: #167358]
+        - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
 
 	Param's Explanation:
 		- @XmlData
-			<root>
-				<r VoidingHistoryCollectionId="1" UsernameList="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
-				<r VoidingHistoryCollectionId="2" UsernameList="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
-			</root>
-				+ Type = 1 : get member of tickets belong to abnormal bets
-				+ Type = 2 : Get direct account of tickets belong to abnormal accounts, IsTest : MIN(IsTest) of member have tickets voided
-				+ Type = 3 : get member of tickets belong to abnormal bets (mix parlay)
-		- @Messages:
-			<root>
-				<r VoidingHistoryCollectionId = "1" MessageID="1" RequestID="1"/>
-				<r VoidingHistoryCollectionId = "2" MessageID="2" RequestID="2"/>
-			</root>
+            + Data
+			    <root>
+				    <r VoidingHistoryCollectionId="1" MessageId="1" UsernameList="XXX" CustId="114" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="1"/>
+				    <r VoidingHistoryCollectionId="2" MessageId="2" UsernameList="XYZ" CustId="115" Recommend="113" Mrecommend="112" Srecommend="111" IsTest="0" Content_en="" Content_cs="" Content_th="" Content_vn="" Type="2"/>
+			    </root>
+            + Description
+			    * Type = 1: get member of tickets belong to abnormal bets
+			             2: Get direct account of tickets belong to abnormal accounts, IsTest : MIN(IsTest) of member have tickets voided
+			             3: get member of tickets belong to abnormal bets (mix parlay)
 */
 
 BEGIN
@@ -86,28 +88,15 @@ BEGIN
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
 		AND SettingName = @SettingNameOfLastRuntime
 
-	-- Get messageId and requestId
-	CREATE TABLE #MessageRequest (VoidingHistoryCollectionId INT, MessageID INT, RequestID INT)
-	INSERT INTO #MessageRequest (VoidingHistoryCollectionId, MessageID, RequestID)
-	SELECT 
-		t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId
-		,t.c.value('@MessageID', 'INT') AS MessageID
-		,t.c.value('@RequestID', 'INT') AS RequestID
-	FROM @Messages.nodes('root/r') t(c)
-	OPTION (OPTIMIZE FOR (@Messages = NULL))
-
-	DECLARE @VoidingHistoryCollectionId INT 
-
-	SELECT @VoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #MessageRequest
-
 	-- Get Imported Data
 	CREATE TABLE #ImportMessage (
-		VoidingHistoryCollectionId INT, Username VARCHAR(50), CustId INT, Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, Content_en NVARCHAR(4000)
+		VoidingHistoryCollectionId INT, MessageId INT, Username VARCHAR(50), CustId INT, Recommend INT, Mrecommend INT, Srecommend INT, IsTest BIT, Content_en NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000), Content_th NVARCHAR(4000), Content_vn NVARCHAR(4000),[Type] TINYINT
 	)
-	INSERT INTO #ImportMessage (VoidingHistoryCollectionId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn, [Type])
+	INSERT INTO #ImportMessage (VoidingHistoryCollectionId, MessageId, Username, CustId, Recommend, Mrecommend, Srecommend, IsTest, Content_en, Content_cs, Content_th, Content_vn, [Type])
 	SELECT
-		t.c.value('@VoidingHistoryCollectionId', 'INT') AS MessageId
+		t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId
+        ,t.c.value('@MessageId', 'INT') AS MessageId
 		,ISNULL(l.Username, '') AS Username
 		,t.c.value('@CustId', 'INT') AS CustId
 		,t.c.value('@Recommend', 'INT') AS Recommend
@@ -127,20 +116,21 @@ BEGIN
 
 	IF @@ROWCOUNT = 0
 	BEGIN
-		UPDATE dbo.SystemSetting WITH (ROWLOCK)
-		SET Value = 'Completed'
-		WHERE ServiceName = 'ChatBot - AbnormalBets'
-			AND SettingName = @SettingNameOfJobStatus
-			AND Value = 'running'
+        UPDATE dbo.SystemSetting WITH (ROWLOCK)
+        SET Value = 'Completed'
+        WHERE ServiceName = 'ChatBot - AbnormalBets'
+              AND SettingName = @SettingNameOfJobStatus
+              AND Value = 'running'
 
-		IF ISNULL(@VoidingHistoryCollectionId, 0) <> 0
-		BEGIN
-			UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
-				SET Value = CONVERT(VARCHAR(50), @VoidingHistoryCollectionId)
-			WHERE ServiceName = 'ChatBot - AbnormalBets'
-				AND SettingName = @SettingNameOfVoidingHistoryCollectionId
-		END
-		RETURN
+        IF (ISNULL(@MAXVoidingHistoryCollectionId, 0) <> 0)
+        BEGIN
+            UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+            SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
+            WHERE ServiceName = 'ChatBot - AbnormalBets'
+                  AND SettingName = @SettingNameOfVoidingHistoryCollectionId
+        END
+
+        RETURN
 	END
 
 	-- Get Job Setting
@@ -149,8 +139,8 @@ BEGIN
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
 		AND SettingName = 'NotificationTemplate'
 
-	DECLARE @tmpSetting TABLE (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX), [Type] TINYINT)
-	INSERT INTO @tmpSetting (NotificationTemplateId, NotificationTypeId, IsTest, LanguageId, TemplateRequiredParam, [Type])
+	CREATE TABLE #tmpSetting (NotificationTemplateId SMALLINT, NotificationTypeId SMALLINT, IsTest BIT, LanguageId INT, TemplateRequiredParam NVARCHAR(MAX), [Type] TINYINT)
+	INSERT INTO #tmpSetting (NotificationTemplateId, NotificationTypeId, IsTest, LanguageId, TemplateRequiredParam, [Type])
 	SELECT
 		t.c.value('@NotificationTemplateID', 'SMALLINT') AS NotificationTemplateId
 		,t.c.value('@NotificationTypeID', 'SMALLINT') AS NotificationTypeId
@@ -176,7 +166,7 @@ BEGIN
 
 	-- Get Notification Template
 	CREATE TABLE #NotificationTemplate (NotificationTypeId SMALLINT, NotificationTemplateId SMALLINT, Title NVARCHAR(2000), IsTest BIT, LanguageId INT, Content NVARCHAR(MAX), [Type] TINYINT)
-	;WITH CTE_Setting AS (SELECT DISTINCT NotificationTemplateId, NotificationTypeId, IsTest, [Type] FROM @tmpSetting)
+	;WITH CTE_Setting AS (SELECT DISTINCT NotificationTemplateId, NotificationTypeId, IsTest, [Type] FROM #tmpSetting)
 	INSERT INTO #NotificationTemplate (NotificationTypeId, NotificationTemplateId, Title, IsTest, LanguageId, Content, [Type])
 	SELECT s.NotificationTypeId, nt.NotificationTemplateId, nt.Title, s.IsTest, ntc.LanguageId, ntc.Content, s.[Type]
 	FROM CTE_Setting s
@@ -186,7 +176,7 @@ BEGIN
 	-- Check require param
 	IF EXISTS (
 		SELECT 1
-		FROM @tmpSetting s
+		FROM #tmpSetting s
 			INNER JOIN #NotificationTemplate nt
 				ON		s.NotificationTemplateId = nt.NotificationTemplateId
 					AND s.NotificationTypeId = nt.NotificationTypeId
@@ -207,11 +197,11 @@ BEGIN
 
 	-- Get Recipient
 	CREATE TABLE #MessageRecipient (
-		VoidingHistoryCollectionId INT, Username VARCHAR(50), DirectAccount INT, HeadlineId INT, IsTest BIT, Content_en NVARCHAR(4000)
+		VoidingHistoryCollectionId INT, MessageId INT, Username VARCHAR(50), DirectAccount INT, HeadlineId INT, IsTest BIT, Content_en NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000), Content_th NVARCHAR(4000), Content_vn NVARCHAR(4000), RecipientId INT
 	)
-	INSERT INTO #MessageRecipient (VoidingHistoryCollectionId, Username, DirectAccount, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
-	SELECT m.VoidingHistoryCollectionId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
+	INSERT INTO #MessageRecipient (VoidingHistoryCollectionId, MessageId, Username, DirectAccount, HeadlineId, IsTest, Content_en, Content_cs, Content_th, Content_vn, RecipientId)
+	SELECT m.VoidingHistoryCollectionId, m.MessageId, m.Username, pm.CustId, pm.HeadlineId, m.IsTest, m.Content_en, m.Content_cs, m.Content_th, m.Content_vn, r.RecipientId
 	FROM #ImportMessage m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
@@ -249,26 +239,29 @@ BEGIN
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
-	CREATE TABLE #tmpResult (VoidingHistoryCollectionId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT)
-	INSERT INTO #tmpResult (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest)
-	SELECT m.VoidingHistoryCollectionId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest
+    -- Get result data
+    -- + #tmpResult
+	CREATE TABLE #tmpResult (VoidingHistoryCollectionId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT, MessageId INT, DirectAccount INT)
+	INSERT INTO #tmpResult (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest, MessageId, DirectAccount)
+	SELECT m.VoidingHistoryCollectionId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest, m.MessageId, m.DirectAccount
 	FROM #MessageRecipient m
 		INNER JOIN #tmpGroup g ON m.VoidingHistoryCollectionId = g.VoidingHistoryCollectionId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
 		INNER JOIN dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 
+    -- + #Result
 	CREATE TABLE #Result (
 		Id INT IDENTITY(1, 1), VoidingHistoryCollectionId INT, Content_en NVARCHAR(4000), Content_cs NVARCHAR(4000), Content_th NVARCHAR(4000), Content_vn NVARCHAR(4000), ConversationGroupId SMALLINT
-		,ChatTypeId TINYINT,LanguageId INT,AffectedList VARCHAR(MAX),HeadlineList VARCHAR(MAX),IsTest BIT,Status VARCHAR(20),RelatedIds VARCHAR(1000),[Type] TINYINT
+		,ChatTypeId TINYINT,LanguageId INT,AffectedList VARCHAR(MAX),HeadlineList VARCHAR(MAX), IsTest BIT,Status VARCHAR(20),RelatedIds VARCHAR(1000),[Type] TINYINT, MessageIdList VARCHAR(MAX)
 	)
 
 	DECLARE @Status VARCHAR(20) = 'Planned'
 	IF EXISTS (SELECT 1 FROM #NotificationTemplate WHERE IsTest = 1)
 		SET @Status = 'Draft'
 
-	-- For Group
-	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status)
-	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, @Status
+	-- + --> For Group
+	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, MessageIdList)
+	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, @Status, MessageIdList
 	FROM (
 		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId
 			,STUFF(
@@ -280,20 +273,27 @@ BEGIN
 				) AS AffectedList
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), HeadlineId)
-						FROM #tmpResult t2
-						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId
+						FROM #tmpResult t3
+						WHERE t1.VoidingHistoryCollectionId = t3.VoidingHistoryCollectionId AND t1.ConversationGroupId = t3.ConversationGroupId
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
+			,STUFF(
+					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), MessageId)
+						FROM #tmpResult t4
+						WHERE t1.VoidingHistoryCollectionId = t4.VoidingHistoryCollectionId AND t1.ConversationGroupId = t4.ConversationGroupId
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS MessageIdList
 			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM #tmpResult t1
 		WHERE t1.ChatTypeId = 1 -- Group
 		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId
 	) t
 
-	-- For Personal
+	-- + --> For Personal
 	;WITH CTE_tmpPersonal AS (
-		SELECT p.VoidingHistoryCollectionId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId
+		SELECT p.VoidingHistoryCollectionId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId, p.MessageId
 		FROM #tmpResult p
 			OUTER APPLY (
 				SELECT DISTINCT r.Id
@@ -315,12 +315,14 @@ BEGIN
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
+            ,MessageId
 		FROM CTE_tmpPersonal t1
 		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
 		,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END
+        ,MessageId
 	)
-	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, RelatedIds)
-	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END
+	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, RelatedIds, MessageIdList)
+	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END, MessageIdList
 	FROM (
 		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 			,STUFF(
@@ -331,19 +333,26 @@ BEGIN
 					), 1, 1, ''
 				) AS AffectedList
 			,STUFF(
-					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.HeadlineId)
-						FROM CTE_tempResult t2
-						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t3.HeadlineId)
+						FROM CTE_tempResult t3
+						WHERE t1.VoidingHistoryCollectionId = t3.VoidingHistoryCollectionId AND t1.ConversationGroupId = t3.ConversationGroupId AND t1.IsDuplicated = t3.IsDuplicated
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
 			,STUFF(
-					(SELECT DISTINCT ',' + t2.RelatedIds
-						FROM CTE_tempResult t2
-						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+					(SELECT DISTINCT ',' + t4.RelatedIds
+						FROM CTE_tempResult t4
+						WHERE t1.VoidingHistoryCollectionId = t4.VoidingHistoryCollectionId AND t1.ConversationGroupId = t4.ConversationGroupId AND t1.IsDuplicated = t4.IsDuplicated
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
+			,STUFF(
+					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t5.MessageId)
+						FROM CTE_tempResult t5
+						WHERE t1.VoidingHistoryCollectionId = t5.VoidingHistoryCollectionId AND t1.ConversationGroupId = t5.ConversationGroupId AND t1.IsDuplicated = t5.IsDuplicated
+						FOR XML PATH ('')
+					), 1, 1, ''
+				) AS MessageIdList
 			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM CTE_tempResult t1
 		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
@@ -399,9 +408,9 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationRefDetail (NotificationId, ReferenceId, DataSource, CreatedDate)
-		SELECT DISTINCT @NotificationId, mr.MessageID, 'DBMSG.bodb_Message.dbo.Msg', GETDATE()
-		FROM #MessageRequest mr
-			INNER JOIN #Result r ON mr.VoidingHistoryCollectionId = r.VoidingHistoryCollectionId 
+		SELECT @NotificationId NotificationId, f.value ReferenceId, 'DBMSG.bodb_Message.dbo.Msg' DataSource, GETDATE() CreatedDate
+		FROM #Result r
+             CROSS APPLY STRING_SPLIT(r.MessageIdList, ',') f
 		WHERE r.Id = @Id
 
 		UPDATE r
@@ -424,16 +433,16 @@ BEGIN
 		AND Value = 'running'
 
 	UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
-		SET Value = CONVERT(VARCHAR(50), @VoidingHistoryCollectionId)
+		SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
 	WHERE ServiceName = 'ChatBot - AbnormalBets'
 		AND SettingName = @SettingNameOfVoidingHistoryCollectionId
 	
 	DROP TABLE #ImportMessage
-	DROP TABLE #MessageRecipient
+    DROP TABLE #tmpSetting
 	DROP TABLE #NotificationTemplate
-	DROP TABLE #Result
+	DROP TABLE #MessageRecipient
 	DROP TABLE #tmpGroup
 	DROP TABLE #tmpResult
-	DROP TABLE #MessageRequest
+    DROP TABLE #Result
 END
 GO

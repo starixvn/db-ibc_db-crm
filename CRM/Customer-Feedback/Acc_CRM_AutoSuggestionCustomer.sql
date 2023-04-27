@@ -1,4 +1,6 @@
-﻿ ALTER PROCEDURE [dbo].[Acc_CRM_AutoSuggestionCustomer]
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+ALTER PROCEDURE [dbo].[Acc_CRM_AutoSuggestionCustomer]
 (
 	@Username	VARCHAR(50) = ''
 )

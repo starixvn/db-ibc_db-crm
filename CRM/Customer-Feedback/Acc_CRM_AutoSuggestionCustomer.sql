@@ -13,6 +13,7 @@ Original:
 Revisions:	
 	- 20130121@Johnson: Change link server DB06 to DBACC
 	- 20140303@Dom: Modify for new structure
+    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 Param's Explanation:	
 	
 */
@@ -23,7 +24,7 @@ BEGIN
 
 		INSERT INTO @UserNameTable 
 					SELECT TOP 10 Username 
-					FROM DBACC.bodb02.dbo.CustInfo WITH (NOLOCK) 
+					FROM bodb02.dbo.Customer WITH (NOLOCK) 
 					WHERE UserName LIKE @Username + '%'
 					ORDER BY UserName
 

@@ -29,6 +29,7 @@ AS
 		- 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637        
+        - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 	Param's Explanation:
 		
 */
@@ -40,11 +41,11 @@ DECLARE	@HandledID		INT
 	,	@ReviewedID		INT;
 
 SELECT	@HandledID = CustID 
-FROM	DBACC.bodb02.dbo.Customer WITH (NOLOCK)
+FROM	bodb02.dbo.Customer WITH (NOLOCK)
 WHERE	UserName = @HandledBy;
 
 SELECT	@ReviewedID = CustID
-FROM	DBACC.bodb02.dbo.Customer WITH (NOLOCK)
+FROM	bodb02.dbo.Customer WITH (NOLOCK)
 WHERE	UserName = @ReviewedBy;
 
 

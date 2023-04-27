@@ -21,6 +21,7 @@ AS
 	- 20170607@Winnie: Create new		[RedmineID: #77820]
 	- 20180910@Winnie: Update RoleID	[RedmineID: #99982]
 	- 20181004@Winnie: Fix bug RedmineID #102672
+    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 	Param's Explanation:
 		
 */
@@ -70,7 +71,7 @@ BEGIN
 	WHERE CustID=@CustID 
 
 	SELECT @New_RoleID	=	roleid
-	FROM DBACC.bodb02.dbo.Customer c WITH(NOLOCK) 
+	FROM bodb02.dbo.Customer c WITH(NOLOCK) 
 	WHERE CustID=@CustID 
 
 

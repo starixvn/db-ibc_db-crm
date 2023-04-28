@@ -58,7 +58,6 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@BettingCode				NVARCHAR(100)	= NULL
 				,	@RefCode2					NVARCHAR(100)	= NULL
 				,	@Passport					NVARCHAR(100)	= NULL
-				,	@IsVip						BIT
 				,	@LicenseeType				INT				= 0
 				,	@WhatsApp					NVARCHAR(100)	= NULL
 				,	@Line						NVARCHAR(100)	= NULL
@@ -103,7 +102,8 @@ AS
 		- 20201021@Johnson: - remove limit amount for related customers
 							- sync customer profile to CRM for related customers [redmine:#142194]
 		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]
-		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]				
+		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]		
+		- 20230418@Winfred: CRM - Update Feedback > Auto update Isvip=0 when checking Overwrite then Update FB [redmine:#187064]			
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -136,10 +136,16 @@ BEGIN
 
 		RETURN;
 	END;
+	DECLARE @IsVip BIT
 
 	--- check to update customer info
 	IF  @IsOverWrite = 1 
 	BEGIN
+		SELECT	
+			@IsVip = IsVip		
+		FROM crmCustomer WITH(NOLOCK)
+		WHERE CustID = @CustID
+
 		EXECUTE	dbo.Acc_CRM_CustomerShortUpd
 					@UserID					= @UserID
 				,	@CustID					= @CustID
@@ -190,6 +196,10 @@ BEGIN
 				,	@ErrMsg					= @ErrMsg OUTPUT;
 	END;
 
+	SELECT	
+		@IsVip = IsVip		
+	FROM crmFeedback WITH(NOLOCK)
+	WHERE FeedbackID = @FeedbackID AND CustID = @CustID
 	--- update feedback
 	EXECUTE	dbo.Acc_CRM_FeedbackUpd
 				@UserID					= @UserID

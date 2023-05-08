@@ -20,6 +20,7 @@ AS
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 		- 20200320@Tim: fix bug get headline [RedmineId: #129144]
 		- 20210705@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
+        - 20230508@Ned.Le: [CRM] Headline shown Unassigned if Headline is member level [RedmineID: #187854]
 	Param's Explanation:	
 */
 BEGIN
@@ -118,6 +119,7 @@ BEGIN
 				INNER JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
 				OR c.mrecommend = upline.custid
 				OR c.recommend = upline.custid
+                OR c.custid = upline.custid
 				CROSS APPLY (
 				SELECT ci.custid
 					,ci.username

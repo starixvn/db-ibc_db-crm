@@ -11,7 +11,8 @@ AS
     DB: DBMSG-bodb_Message
 
 	Revisions:
-		- 20230308@Tacy: Create SP
+		- 20230308@Tacy: Create SP [RedmineID: #184753]
+		- 20230509@Tacy: CRM - Add SMA Personal Message - Delete Action Log is incorrect [RedmineID: #187957]
 
 	Param's Explanation:
 
@@ -19,7 +20,7 @@ AS
 BEGIN
 	SET NOCOUNT ON;
 
-	DECLARE	  @StartRun		DATETIME
+	DECLARE	@StartRun		DATETIME
 			, @EndRun		DATETIME
 			, @Duration		INT
 			, @logSpData	NVARCHAR(MAX)
@@ -32,7 +33,7 @@ BEGIN
 	)
 
 	SET @StartRun=GETDATE()
-	
+
 	INSERT INTO @tbCust (CustID)
 	SELECT TargetId
 	FROM MsgTarget WITH (NOLOCK)
@@ -76,21 +77,20 @@ BEGIN
 				, COALESCE (CAST (m.Content_cs AS NVARCHAR(4000)), SPACE (1)) AS Content_cs
 				, COALESCE (CAST (m.Content_th AS NVARCHAR(4000)), SPACE (1)) AS Content_th
 				, COALESCE (CAST (m.Content_vn AS NVARCHAR(4000)), SPACE (1)) AS Content_vn
-				, COALESCE (CAST (@IP AS VARCHAR(20)), SPACE (1)) AS IP
+				, DATEDIFF(MILLISECOND, @StartRun, GETDATE()) AS Duration
 			FROM Msg m WITH (NOLOCK)
 			INNER JOIN MsgTarget mt WITH (NOLOCK) ON mt.MessageId=m.MessageId
-			WHERE TargetId=@CustID
+			WHERE TargetId=@CustID AND m.MessageId=@MessageID
+				AND m.isDeleted=1 AND mt.isDeleted=1
 			FOR XML RAW('Msg'))
 
 		--Write Log:
-		SELECT @EndRun	= GETDATE(), @Duration = DATEDIFF(MILLISECOND, @StartRun, @EndRun)
-	
-		EXEC DBCUST.Custdb.dbo.Acc_WriteLog_UserLog_RunSP_Wrapper
+		EXEC DBCRM.bodb_CRM.dbo.WriteLog_UserLog_crmUserLog_RunSP
 						@UserID = @UserID,
 						@CustID = @CustID,
-						@ActionID = 1053,
-						@TrackingValue = @LogSPData,
-						@duration = @Duration
+						@ActionID = 1017,
+						@IP = @IP,
+						@NewValues = @logSpData
 	END
 END
 GO

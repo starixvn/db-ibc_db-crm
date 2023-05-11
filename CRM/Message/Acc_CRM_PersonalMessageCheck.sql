@@ -11,7 +11,7 @@ AS
 	Original:
 
 	Revisions:
-		- 20230308@Tacy: Create SP
+		- 20230308@Tacy: Create SP [RedmineID: #184753]
 */
 BEGIN
 	SET NOCOUNT ON;

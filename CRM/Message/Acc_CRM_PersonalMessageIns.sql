@@ -21,7 +21,8 @@ AS
 	Original: refer SP [Dot_Msg_SetMessage]
 
 	Revisions:
-		- 20230308@Tacy: Create SP
+		- 20230308@Tacy: Create SP [RedmineID: #184753]
+		- 20230509@Tacy: Write log into [crmUserLog_RunSP] instead of [UserLog_RunSP] [redmineID: #187957]
 
 	Param's Explanation:
 		- @MsgContentsType: to identify normal message or changed settings message
@@ -44,7 +45,7 @@ BEGIN
 		IsFinished BIT DEFAULT(0))
 	
 	SET @StartRun=GETDATE()
-	
+
 	;WITH tbUser AS (
 		SELECT DISTINCT RTRIM(LTRIM(value)) UserName
 		FROM string_split(@UserName,',')
@@ -99,21 +100,19 @@ BEGIN
 						, COALESCE (CAST (m.Content_cs AS NVARCHAR(4000)), SPACE (1)) AS Content_cs
 						, COALESCE (CAST (m.Content_th AS NVARCHAR(4000)), SPACE (1)) AS Content_th
 						, COALESCE (CAST (m.Content_vn AS NVARCHAR(4000)), SPACE (1)) AS Content_vn
-						, COALESCE (CAST (@IP AS VARCHAR(20)), SPACE (1)) AS IP
+						, DATEDIFF(MILLISECOND, @StartRun, GETDATE()) AS Duration
 					FROM Msg m WITH (NOLOCK)
 					INNER JOIN MsgTarget mt WITH (NOLOCK) ON mt.MessageId=m.MessageId
 					WHERE m.MessageId=@MessageId AND mt.TargetId=@TargetId
 					FOR XML RAW('Msg'))
 
 			--Write Log:
-			SELECT @EndRun	= GETDATE(), @Duration = DATEDIFF(MILLISECOND, @StartRun, @EndRun)
-	
-			EXEC DBCUST.Custdb.dbo.Acc_WriteLog_UserLog_RunSP_Wrapper
-							@UserID = @Creator,
-							@CustID = @TargetId,
-							@ActionID = 1051,
-							@TrackingValue = @LogSPData,
-							@duration = @Duration
+			EXEC DBCRM.bodb_CRM.dbo.WriteLog_UserLog_crmUserLog_RunSP
+						@UserID = @Creator,
+						@CustID = @TargetId,
+						@ActionID = 1015,
+						@IP = @IP,
+						@NewValues = @logSpData
 		END
 	END TRY
 	BEGIN CATCH

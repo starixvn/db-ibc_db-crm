@@ -14,7 +14,7 @@ AS
     DB: DBMSG-bodb_Message
 
 	Revisions:
-		- 20230308@Tacy: Create SP
+		- 20230308@Tacy: Create SP [RedmineID: #184753]
 
 	Param's Explanation:
 

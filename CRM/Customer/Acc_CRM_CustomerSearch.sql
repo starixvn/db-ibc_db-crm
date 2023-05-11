@@ -53,7 +53,7 @@ BEGIN
 		BEGIN
 			PRINT 'search by nickname';
             SELECT @custID = CustID, @RoleID = roleid
-            FROM customer WITH(NOLOCK)
+            FROM bodb02.dbo.customer WITH(NOLOCK)
             WHERE UserName2 = @UserName
                 AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))		
 		END

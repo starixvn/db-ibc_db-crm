@@ -1,4 +1,3 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet,vnteam" viewers="vnteam" isFunction="0"></info>*/
 USE [bodb_CRM]
 GO
 

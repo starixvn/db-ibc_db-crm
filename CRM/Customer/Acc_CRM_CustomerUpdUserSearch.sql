@@ -17,6 +17,7 @@ Revisions:
 	- 20140811@Dom: [Feature #18632] Customize Auto-suggestion for Phone number and add more Communication Types to Customer info
 	- 20181003@Winnie: Search Thai[RedmineID: #99982]
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 Param's Explanation:
 	• @UserID: User who are logging in.	
 */
@@ -45,7 +46,7 @@ BEGIN
 	FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID
 
 	SELECT @UserID  = CASE WHEN @CustID > 0 THEN @UserID ELSE -1 END
-	IF EXISTS (SELECT 1 FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE Username2 = @UserName)
+	IF EXISTS (SELECT 1 FROM bodb02.dbo.Customer WITH (NOLOCK) WHERE Username2 = @UserName)
 		RETURN
 	ELSE
 	BEGIN

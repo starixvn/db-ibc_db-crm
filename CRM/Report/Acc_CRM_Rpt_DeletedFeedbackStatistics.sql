@@ -13,7 +13,8 @@ AS
 	    - 20180529@Vicky: change the query to use index on DBACC [RedmineID: #95024]
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 	    - 20190506@Winnie:  CN88 Permission RedmineID: #112637      
-		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
+		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708] 
+        - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 	Parameters' Explanation:
 */
 BEGIN
@@ -35,14 +36,14 @@ BEGIN
 		SELECT	@CreatorID = -1;
 	ELSE
 		SELECT	@CreatorID = c.custid
-		FROM	DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
+		FROM	bodb02.dbo.Customer c WITH (NOLOCK)
 		WHERE	c.username = @CreatorName;
 
 	IF	@DeletorName = '' OR @DeletorName IS NULL
 		SELECT	@DeletorID = -1;
 	ELSE
 		SELECT	@DeletorID = c.custid
-		FROM	DBACC.bodb02.dbo.Customer c WITH (NOLOCK)
+		FROM	bodb02.dbo.Customer c WITH (NOLOCK)
 		WHERE	c.username = @DeletorName;
 	
 	IF	@CreatorID IS NOT NULL AND @DeletorID IS NOT NULL

@@ -20,11 +20,12 @@ BEGIN
 			- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 			- 20190506@Winnie: CN88 Permission RedmineID: #112637
 			- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
+            - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 */
 
 DECLARE @handlerid int
 SELECT @handlerid = CustID
-FROM DBACC.bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
+FROM bodb02.dbo.Customer WITH (NOLOCK) WHERE UserName = @Handler
 
 	SELECT DISTINCT f.FeedbackID,
 			FeedbackDate,

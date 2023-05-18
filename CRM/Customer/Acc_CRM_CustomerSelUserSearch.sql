@@ -18,6 +18,7 @@ Revisions:
 	- 20180924@Winnie: Search Chinese RedmineID: #99982
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
+    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 Param's Explanation:
 	• @userid: User who are logging in.
 	• @username: the search term.
@@ -58,7 +59,7 @@ BEGIN
 		IF @Rows > 0
 			INSERT INTO @UserNameTable (UserName, SearchCount)
 			SELECT TOP (@Rows) Username, -1 as SearchCount
-			FROM DBACC.bodb02.dbo.Custinfo WITH (NOLOCK) -- CRM allow to search unicode usernames
+			FROM bodb02.dbo.Customer WITH (NOLOCK) -- CRM allow to search unicode usernames
 			WHERE username LIKE @Username +'%' 
 					and username not in (SELECT UserName from @UserNameTable)
 					AND ((@UserRole=2 AND ISNULL(srecommend,-1)<>0 AND ISNULL(srecommend,-1) NOT IN(SELECT custid FROM #SuperCN88 WITH(NOLOCK))) 

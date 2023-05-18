@@ -28,6 +28,7 @@ Revisions:
 	- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 	- 20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
+    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
 Param's Explanation:	
 */
 BEGIN
@@ -42,23 +43,19 @@ BEGIN
 
 	IF @IsGuest = 0
 	BEGIN
-		PRINT 'search by username';
-		EXEC DBACC.bodb02.dbo.Acc_UserInfoSel --- search by username
-			@Username = @Username,	
-			@IsNickName = 0,	
-			@UserID = @custID OUTPUT,
-			@RoleID = @RoleID OUTPUT,
-			@UserRole=@UserRole		
+		PRINT 'search by username';    --- search by username
+        SELECT @custID = CustID, @RoleID = roleid
+		FROM bodb02.dbo.Customer WITH(NOLOCK)
+		WHERE UserName = @UserName
+			AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))
 		
 		IF @custID IS NULL    --- search by nickname
 		BEGIN
 			PRINT 'search by nickname';
-			EXEC DBACC.bodb02.dbo.Acc_UserInfoSel 
-			@Username = @Username,	
-			@IsNickName = 1,	
-			@UserID = @custID OUTPUT,
-			@RoleID = @RoleID OUTPUT,
-			@UserRole=@UserRole				
+            SELECT @custID = CustID, @RoleID = roleid
+            FROM bodb02.dbo.customer WITH(NOLOCK)
+            WHERE UserName2 = @UserName
+                AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))		
 		END
 		
 		IF @custID IS NULL    --- search by phone in IBC

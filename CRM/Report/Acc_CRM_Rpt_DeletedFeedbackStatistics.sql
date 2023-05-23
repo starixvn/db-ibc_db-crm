@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
@@ -6,6 +10,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 				,	@ToDate			DATETIME
 				,	@Userrole		TINYINT=2
 AS
+
 /*
 	Created:	20151214@Billy
 	Task:		Deleted Feedback Statistics Report [Redmine: #49318]
@@ -15,8 +20,10 @@ AS
 	    - 20190506@Winnie:  CN88 Permission RedmineID: #112637      
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708] 
         - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+        - 20230523@Ned.Le: CRM | Report-> Deleted Feedback Statistic: Unable to show feedback of licensee which deleted by function Multiple Review & Update status (#188634)
 	Parameters' Explanation:
 */
+
 BEGIN
 	SET NOCOUNT ON;
 
@@ -112,6 +119,12 @@ BEGIN
 				AND	iq.UserID = ISNULL(@DeletorID, iq.UserID)
 			ORDER BY iq.LogDate
 		) lf;
+
+        INSERT INTO #ResultTable (CreateDate, CreatorID, DeletorID, FeedbackID, Subject, Username)
+        SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
+        FROM #feedback f
+             INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
+        WHERE l.ActionID = 204;
 	END;
 
 	SELECT	rt.CreateDate		CreateDate
@@ -148,6 +161,8 @@ BEGIN
 			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
 		LEFT JOIN crmSetting c
 			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'	
+
+    DROP TABLE #feedback;
 	DROP TABLE #ResultTable;
 
 END;

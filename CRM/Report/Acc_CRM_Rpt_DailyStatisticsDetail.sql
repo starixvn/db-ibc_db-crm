@@ -27,6 +27,7 @@ AS
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
+		- 20230517@Malcolm: Add recompile option [RedmineID : #187090]
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -87,6 +88,7 @@ BEGIN
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 		AND	fb.StatusID <> 11004
 		AND	fb.StatusID <> 11019
+	OPTION (RECOMPILE)
 				
 	INSERT INTO #FBCategory(FeedbackID,CategoryID,SubCategoryID)
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID

@@ -28,6 +28,7 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
 		- 20230517@Malcolm: Add recompile option [RedmineID : #187090]
+		- 20230517@Malcolm: order by result [RedmineID : #187090]
 	Param's Explanation:		
 		@SiteType: 	0: IBC
 					1: Licensee
@@ -324,6 +325,7 @@ BEGIN
 		,   CommunicationID			=	pag.CommunicationID
 		,   StationID			    =	pag.StationID
 		,   NoInquiries             =   ISNULL(fb.Inquiries,0)
+		,   pag.RowNum
 	INTO #temp
 	FROM		crmFeedback fb WITH (NOLOCK) 
 	INNER JOIN	Pag
@@ -416,5 +418,6 @@ BEGIN
 			,   NoInquiries	   		
 	 from #temp AS c
 	 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)	
+	 ORDER BY c.RowNum ASC 
 END;
 GO

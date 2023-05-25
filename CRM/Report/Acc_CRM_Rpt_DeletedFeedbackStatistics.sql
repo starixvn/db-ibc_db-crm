@@ -124,7 +124,8 @@ BEGIN
         SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
         FROM #feedback f
              INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
-        WHERE l.ActionID = 204;
+        WHERE l.ActionID = 204
+              AND ISNULL(l.Doing.value('(/Acc_CRM_UpdMultipleReviewAndStatus/StatusID)[1]', 'INT'), 0) = 11004;
 	END;
 
 	SELECT	rt.CreateDate		CreateDate

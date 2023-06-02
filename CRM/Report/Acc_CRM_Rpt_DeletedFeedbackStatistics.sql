@@ -127,6 +127,7 @@ BEGIN
         WHERE l.ActionID = 204
               AND ISNULL(l.Doing.value('(/Acc_CRM_UpdMultipleReviewAndStatus/StatusID)[1]', 'INT'), 0) IN (11004,11019);
 
+        INSERT INTO #ResultTable (CreateDate, CreatorID, DeletorID, FeedbackID, Subject, Username)
         SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
         FROM #feedback f
              INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID

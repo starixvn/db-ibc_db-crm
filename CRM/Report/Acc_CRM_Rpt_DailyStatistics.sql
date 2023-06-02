@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+		- 20230424@Malcolm:  Enhance Performance: #112637
 	Param's Explanation:
 		@ProductType:	0: Summary
 						1: Detail	
@@ -35,169 +36,122 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON	
+
 	CREATE TABLE #Product  (ProductID INT PRIMARY KEY, Product NVARCHAR(100))	
 	CREATE TABLE #MainCategory (MainCategoryID INT PRIMARY KEY, MainCategory NVARCHAR(100))	
 	CREATE TABLE #Communication  (CommunicationID INT PRIMARY KEY, Communication NVARCHAR(100))		
-	
-	DECLARE @string VARCHAR(max), @splitter CHAR(1), @xml XML
-	SELECT @splitter = ',' 
-	
-	SELECT @string = @ProductID
-	SET @XML = N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>'
+	CREATE TABLE #tmpFB (FeedbackID INT, SiteID INT)
+	CREATE TABLE #ProductFeedback (SettingID INT, FeedbackID INT)
+	CREATE TABLE #MainCategoryFeedBack (SettingID INT, SubSettingID INT,FeedbackID INT)
+	CREATE TABLE #CommunicationFeedBack (SettingID INT, FeedbackID INT)
 
 	INSERT INTO #Product(ProductID, Product)
-	SELECT r.value('.','INT'), s.SettingValue
-	FROM @xml.nodes('//root/r') AS RECORDS(r)
-		INNER JOIN crmSetting s WITH(NOLOCK) ON r.value('.','INT') = s.SettingID
-	WHERE SettingName = 'Product'
-	
-	SELECT @string = @MainCategoryID
-	SET @XML = N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>'
+	SELECT s.SettingID, s.SettingValue
+	FROM STRING_SPLIT(@ProductID, ',') f
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = f.value
+	WHERE s.SettingName = 'Product'
 
 	INSERT INTO #MainCategory (MainCategoryID, MainCategory)
-	SELECT r.value('.','INT'), s.SettingValue
-	FROM @xml.nodes('//root/r') AS RECORDS(r)
-		INNER JOIN crmSetting s WITH(NOLOCK) ON r.value('.','INT') = s.SettingID
-	WHERE SettingName = 'Maincategory'
-
-	SELECT @string = @CommunicationID
-	SET @XML = N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>'
+	SELECT s.SettingID, s.SettingValue
+	FROM STRING_SPLIT(@MainCategoryID, ',') f
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = f.value
+	WHERE s.SettingName = 'Maincategory'
 
 	INSERT INTO #Communication (CommunicationID, Communication)
-	SELECT r.value('.','INT'), s.SettingValue
-	FROM @xml.nodes('//root/r') AS RECORDS(r)
-		INNER JOIN crmSetting s WITH(NOLOCK) ON r.value('.','INT') = s.SettingID
-	WHERE SettingName = 'Communication'
+	SELECT s.SettingID, s.SettingValue
+	FROM STRING_SPLIT(@CommunicationID, ',') f
+		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = f.value
+	WHERE s.SettingName = 'Communication'
 
-	IF @ProductType = 0
-	BEGIN	
-		IF @CategoryType = 0
-		BEGIN
-			CREATE TABLE #tmpResultAll (MainCategoryID INT, CommunicationID INT, Total INT,PRIMARY KEY(MainCategoryID,CommunicationID))
+	INSERT INTO #tmpFB (FeedbackID, SiteID)
+	SELECT fb.FeedbackID, fb.SiteID
+	FROM dbo.crmFeedback fb WITH(NOLOCK)
+	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
+		AND fb.StatusID NOT IN (11004, 11001,11019,11016)
+	OPTION (RECOMPILE)
 
-			INSERT INTO #tmpResultAll (MainCategoryID, CommunicationID, Total)
-			SELECT mc.MainCategoryID, c.CommunicationID, count (DISTINCT fb.Feedbackid) AS Total
-			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID	
-				INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
-				INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID			
-				INNER JOIN #Product p ON fp.SettingID = p.ProductID
-				INNER JOIN #MainCategory mc ON fm.SettingID = mc.MainCategoryID
-				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
-				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
-			GROUP BY mc.MainCategoryID, c.CommunicationID
-			ORDER BY mc.MainCategoryID, c.CommunicationID
+	INSERT INTO #ProductFeedback (SettingID, FeedbackID)
+	SELECT fs.SettingID, fs.FeedbackID
+	FROM dbo.crmFeedbackSetting fs WITH(NOLOCK)
+	WHERE fs.FeedbackID IN (SELECT fb.FeedbackId FROM #TmpFB fb)
+		AND fs.SettingID IN (SELECT p.ProductId FROM #Product p)
 
-			SELECT f.MainCategoryID, f.MainCategory, f.CommunicationID, f.Communication, ISNULL(r.Total, 0) AS Total
-			FROM #tmpResultAll r
-				RIGHT JOIN (SELECT MainCategoryID, MainCategory, CommunicationID, Communication
-							FROM #MainCategory
-								CROSS JOIN #Communication) AS f ON r.MainCategoryID = f.MainCategoryID AND r.CommunicationID = f.CommunicationID
-			ORDER BY f.MainCategoryID, f.CommunicationID
+	INSERT INTO #MainCategoryFeedBack (SettingID,SubSettingID,FeedbackID)
+	SELECT SettingID,SubSettingID,FeedbackID
+	FROM crmFeedbackSetting (NOLOCK)
+	WHERE FeedbackID IN (SELECT Feedbackid FROM #ProductFeedback)
+		AND SettingID IN (SELECT MainCategoryID FROM #MainCategory)
 
-			DROP TABLE #tmpResultAll
-		END
-		ELSE
-		BEGIN			
-			CREATE TABLE #tmpResultAllDetail (MainCategoryID INT, SubCategoryID INT, CommunicationID INT, Total INT,PRIMARY KEY(MainCategoryID,SubCategoryID,CommunicationID))
+	INSERT INTO #CommunicationFeedBack (SettingID,FeedbackID)
+	SELECT SettingID,FeedbackID
+	FROM crmFeedbackSetting (NOLOCK)
+	WHERE FeedbackID IN (SELECT Feedbackid FROM #MainCategoryFeedBack)
+		AND SettingID IN (SELECT CommunicationID FROM #Communication)
 
-			INSERT INTO #tmpResultAllDetail (MainCategoryID, SubCategoryID, CommunicationID, Total)
-			SELECT mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID, count(DISTINCT fb.Feedbackid) AS Total
-			FROM crmFeedback fb WITH(NOLOCK)				
-				INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID	
-				INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
-				INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID	
-				INNER JOIN #Product p ON fp.SettingID = p.ProductID
-				INNER JOIN #MainCategory mc ON fm.SettingID = mc.MainCategoryID
-				INNER JOIN crmSubCategory sc ON fm.SubSettingID = sc.SubCategoryID AND fm.SettingID = sc.MainCategoryID
-				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
-				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
-			GROUP BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID
-			ORDER BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID
-
-			SELECT f.MainCategoryID, f.MainCategory, f.SubCategoryID, f.SubCategory, f.CommunicationID, f.Communication, ISNULL(r.Total, 0) AS Total
-			FROM #tmpResultAllDetail r
-				RIGHT JOIN (SELECT mc.MainCategoryID, MainCategory, sc.SubCategoryID, sc.Name AS SubCategory, CommunicationID, Communication
-							FROM #MainCategory mc
-								INNER JOIN crmSubCategory sc ON mc.MainCategoryID = sc.MainCategoryID
-								CROSS JOIN #Communication) AS f ON r.MainCategoryID = f.MainCategoryID AND r.CommunicationID = f.CommunicationID AND r.SubCategoryID = f.SubCategoryID
-			ORDER BY f.MainCategoryID, f.SubCategoryID, f.CommunicationID
-
-			DROP TABLE #tmpResultAllDetail
-		END
-	END
-	ELSE 
-	BEGIN
-		IF @CategoryType = 0
-		BEGIN
-			CREATE TABLE #tmpResult (MainCategoryID INT, CommunicationID INT, ProductID INT, Total INT,PRIMARY KEY(MainCategoryID,CommunicationID,ProductID))
-
-			INSERT INTO #tmpResult (MainCategoryID, CommunicationID, ProductID, Total)
-			SELECT mc.MainCategoryID, c.CommunicationID, p.ProductID, count(DISTINCT fb.Feedbackid) AS Total
-			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID	
-				INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
-				INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID	
-				INNER JOIN #Product p ON fp.SettingID = p.ProductID
-				INNER JOIN #MainCategory mc ON fm.SettingID = mc.MainCategoryID				
-				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
-				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
-			GROUP BY mc.MainCategoryID, c.CommunicationID, p.ProductID
-			ORDER BY mc.MainCategoryID, c.CommunicationID, p.ProductID
-
-			SELECT f.MainCategoryID, f.MainCategory, f.CommunicationID, f.Communication, f.ProductID, f.Product, ISNULL(r.Total, 0) AS Total
-			FROM #tmpResult r
-				RIGHT JOIN (SELECT ProductID, Product, MainCategoryID, MainCategory, CommunicationID, Communication
-							FROM #Product
-								CROSS JOIN #MainCategory
-								CROSS JOIN #Communication) AS f ON r.MainCategoryID = f.MainCategoryID AND r.CommunicationID = f.CommunicationID AND r.ProductID = f.ProductID
-			ORDER BY f.MainCategoryID, f.CommunicationID, f.ProductID
-
-			DROP TABLE #tmpResult
-		END
-		ELSE
-		BEGIN			
-			CREATE TABLE #tmpResultDetail (MainCategoryID INT, SubCategoryID INT, CommunicationID INT, ProductID INT, Total INT,PRIMARY KEY(MainCategoryID,SubCategoryID,CommunicationID,ProductID))
+	/*Sum*/
+	CREATE TABLE #tmpResultDetail (MainCategoryID INT, SubCategoryID INT, CommunicationID INT, ProductID INT, Total INT,PRIMARY KEY(MainCategoryID,SubCategoryID,CommunicationID,ProductID))
 			
-			INSERT INTO #tmpResultDetail (MainCategoryID, SubCategoryID, CommunicationID, ProductID, Total)
-			SELECT mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID, p.ProductID, count(DISTINCT fb.Feedbackid) AS Total
-			FROM crmFeedback fb WITH(NOLOCK) 
-				INNER JOIN crmFeedbackSetting fp WITH(NOLOCK) ON fb.FeedbackID=fp.FeedbackID	
-				INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
-				INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
-				INNER JOIN #Product p ON fp.SettingID = p.ProductID
-				INNER JOIN #MainCategory mc ON fm.SettingID = mc.MainCategoryID
-				INNER JOIN crmSubCategory sc ON fm.SubSettingID = sc.SubCategoryID AND fm.SettingID = sc.MainCategoryID
-				INNER JOIN #Communication c ON fc.SettingID = c.CommunicationID
-				LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-			WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-					AND fb.StatusID NOT IN (11004, 11001,11019,11016)
-					AND (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1))
-			GROUP BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID, p.ProductID
-			ORDER BY mc.MainCategoryID, sc.SubCategoryID, c.CommunicationID, p.ProductID
-			
-			SELECT f.MainCategoryID, f.MainCategory, f.SubCategoryID, f.SubCategory, f.CommunicationID, f.Communication, f.ProductID, f.Product, ISNULL(r.Total, 0) AS Total
-			FROM #tmpResultDetail r
-				RIGHT JOIN (SELECT ProductID, Product, mc.MainCategoryID, MainCategory, sc.SubCategoryID, sc.Name AS SubCategory, CommunicationID, Communication
-							FROM #Product
-								CROSS JOIN #MainCategory mc
-								INNER JOIN crmSubCategory sc ON mc.MainCategoryID = sc.MainCategoryID
-								CROSS JOIN #Communication) AS f ON r.MainCategoryID = f.MainCategoryID AND r.SubCategoryID = f.SubCategoryID AND r.CommunicationID = f.CommunicationID AND r.ProductID = f.ProductID				
-			ORDER BY f.MainCategoryID, f.SubCategoryID, f.CommunicationID, f.ProductID
+	INSERT INTO #tmpResultDetail (MainCategoryID, SubCategoryID, ProductID, CommunicationID, Total)
+	SELECT 
+		fm.SettingID AS MainCategoryID
+		,CASE WHEN @CategoryType = 1 THEN sc.SubCategoryID ELSE @CategoryType END  AS SubCategoryID
+		,CASE WHEN @ProductType = 1 THEN fp.SettingID ELSE @ProductType END AS ProductID
+		,fc.SettingID AS CommunicationID
+		,COUNT(DISTINCT fb.Feedbackid) AS Total
+	FROM #tmpfb fb WITH(NOLOCK) 
+		INNER JOIN #ProductFeedback fp ON fb.FeedbackID=fp.FeedbackID	
+		INNER JOIN #MainCategoryFeedBack fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
+		INNER JOIN #CommunicationFeedBack fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
+		LEFT JOIN crmSubCategory sc ON fm.SubSettingID = sc.SubCategoryID AND fm.SettingID = sc.MainCategoryID
+		LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
+	WHERE (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1)) AND (@CategoryType = 0 OR sc.MainCategoryID IS NOT NULL)
+	GROUP BY 
+		fm.SettingID
+		,CASE WHEN @CategoryType = 1 THEN sc.SubCategoryID ELSE @CategoryType END 
+		,CASE WHEN @ProductType = 1 THEN fp.SettingID ELSE @ProductType END
+		,fc.SettingID
+	OPTION(RECOMPILE)
 
-			DROP TABLE #tmpResultDetail
-		END
-	END	
+	;WITH CTE AS
+	(
+		SELECT 
+			mc.MainCategoryID
+			,c.CommunicationID
+			,CASE WHEN @ProductType = 1 THEN p.ProductID ELSE @ProductType END AS ProductID
+			,MAX(CASE WHEN @ProductType = 1 THEN Product ELSE '' END) AS Product
+			,MAX(mc.MainCategory) AS MainCategory
+			,CASE WHEN @CategoryType = 1 THEN sc.SubCategoryID ELSE @CategoryType END AS SubCategoryID
+			,MAX(CASE WHEN @CategoryType = 1 THEN sc.Name ELSE '' END) AS SubCategory
+			,MAX(Communication) AS Communication
+		FROM #MainCategory mc
+		LEFT JOIN crmSubCategory sc ON mc.MainCategoryID = sc.MainCategoryID
+		LEFT JOIN #Product p ON 1 = 1
+		CROSS JOIN #Communication c
+		WHERE (@CategoryType = 0 OR sc.MainCategoryID IS NOT NULL) AND (@ProductType = 0 OR p.ProductId IS NOT NULL) 
+		GROUP BY 
+			mc.MainCategoryID
+			,c.CommunicationID
+			,CASE WHEN @CategoryType = 1 THEN sc.SubCategoryID ELSE @CategoryType END 
+			,CASE WHEN @ProductType = 1 THEN p.ProductID ELSE @ProductType END
+	)
+	SELECT e.MainCategoryID, e.MainCategory, e.SubCategoryID, e.SubCategory, e.CommunicationID, e.Communication, e.ProductID, e.Product, ISNULL(n.Total, 0) AS Total
+	FROM CTE e	
+		OUTER APPLY 
+		(
+			SELECT tr.Total
+			FROM #tmpResultDetail tr
+			WHERE tr.MainCategoryID = e.MainCategoryID AND tr.SubCategoryID = e.SubCategoryID AND tr.CommunicationID = e.CommunicationID AND tr.ProductID = e.ProductID
+
+		) AS n
+   ORDER BY e.MainCategoryID, e.SubCategoryID, e.CommunicationID, e.ProductID
+
+   DROP TABLE #Product 
+   DROP TABLE #MainCategory
+   DROP TABLE #Communication 
+   DROP TABLE #tmpFB
+   DROP TABLE #ProductFeedback 
+   DROP TABLE #MainCategoryFeedBack 
+   DROP TABLE #CommunicationFeedBack
+   DROP TABLE #tmpResultDetail
 END
-
-
 GO

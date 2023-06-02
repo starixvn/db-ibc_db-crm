@@ -38,6 +38,14 @@ BEGIN
 					,	Subject			NVARCHAR(200)				
 					,	Username		NVARCHAR(50)
 					);
+                    
+    CREATE TABLE #feedback (
+        CreateDate DATETIME,
+        CreatorID  INT,
+        FeedbackID INT,
+        Subject    NVARCHAR(200),
+        Username   NVARCHAR(50)
+    )
 
 	IF	@CreatorName = '' OR @CreatorName IS NULL
 		SELECT	@CreatorID = -1;
@@ -61,8 +69,8 @@ BEGIN
 		IF @DeletorID = -1
 			SELECT @DeletorID = NULL;
 
+        INSERT INTO #feedback
 		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, c.UserName
-		INTO	#feedback
 		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
 			INNER JOIN crmCustomer c WITH(NOLOCK) ON cf.custID=c.CustID
 		WHERE	cf.StatusID IN( 11004,11019)

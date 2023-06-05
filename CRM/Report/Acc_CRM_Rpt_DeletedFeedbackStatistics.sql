@@ -69,7 +69,7 @@ BEGIN
 		IF @DeletorID = -1
 			SELECT @DeletorID = NULL;
 
-        INSERT INTO #feedback
+        INSERT INTO #feedback (CreateDate, CreatorID, FeedbackID, Subject, Username)
 		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, c.UserName
 		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
 			INNER JOIN crmCustomer c WITH(NOLOCK) ON cf.custID=c.CustID

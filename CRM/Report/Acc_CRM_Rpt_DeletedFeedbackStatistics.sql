@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 					@CreatorName	VARCHAR(30) = NULL
 				,	@DeletorName	VARCHAR(30) = NULL
@@ -6,6 +10,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DeletedFeedbackStatistics]
 				,	@ToDate			DATETIME
 				,	@Userrole		TINYINT=2
 AS
+
 /*
 	Created:	20151214@Billy
 	Task:		Deleted Feedback Statistics Report [Redmine: #49318]
@@ -15,8 +20,10 @@ AS
 	    - 20190506@Winnie:  CN88 Permission RedmineID: #112637      
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708] 
         - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+        - 20230523@Ned.Le: CRM | Report-> Deleted Feedback Statistic: Unable to show feedback of licensee which deleted by function Multiple Review & Update status (#188634)
 	Parameters' Explanation:
 */
+
 BEGIN
 	SET NOCOUNT ON;
 
@@ -31,6 +38,14 @@ BEGIN
 					,	Subject			NVARCHAR(200)				
 					,	Username		NVARCHAR(50)
 					);
+                    
+    CREATE TABLE #feedback (
+        CreateDate DATETIME,
+        CreatorID  INT,
+        FeedbackID INT,
+        Subject    NVARCHAR(200),
+        Username   NVARCHAR(50)
+    )
 
 	IF	@CreatorName = '' OR @CreatorName IS NULL
 		SELECT	@CreatorID = -1;
@@ -54,8 +69,8 @@ BEGIN
 		IF @DeletorID = -1
 			SELECT @DeletorID = NULL;
 
+        INSERT INTO #feedback (CreateDate, CreatorID, FeedbackID, Subject, Username)
 		SELECT	cf.CreateDate, cf.CreatorID, cf.FeedbackID, cf.Subject, c.UserName
-		INTO	#feedback
 		FROM	dbo.crmFeedback AS cf WITH (NOLOCK)
 			INNER JOIN crmCustomer c WITH(NOLOCK) ON cf.custID=c.CustID
 		WHERE	cf.StatusID IN( 11004,11019)
@@ -112,6 +127,22 @@ BEGIN
 				AND	iq.UserID = ISNULL(@DeletorID, iq.UserID)
 			ORDER BY iq.LogDate
 		) lf;
+
+        INSERT INTO #ResultTable (CreateDate, CreatorID, DeletorID, FeedbackID, Subject, Username)
+        SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
+        FROM #feedback f
+             INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
+        WHERE l.ActionID = 204
+              AND ISNULL(l.Doing.value('(/Acc_CRM_UpdMultipleReviewAndStatus/StatusID)[1]', 'INT'), 0) IN (11004,11019)
+              AND l.UserID = ISNULL(@DeletorID, l.UserID);
+
+        INSERT INTO #ResultTable (CreateDate, CreatorID, DeletorID, FeedbackID, Subject, Username)
+        SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
+        FROM #feedback f
+             INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
+        WHERE l.ActionID = 205
+              AND ISNULL(l.Doing.value('(/Acc_CRM_FeedbackUpdMultiple/StatusID)[1]', 'INT'), 0) IN (11004,11019)
+              AND l.UserID = ISNULL(@DeletorID, l.UserID);
 	END;
 
 	SELECT	rt.CreateDate		CreateDate
@@ -148,6 +179,8 @@ BEGIN
 			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
 		LEFT JOIN crmSetting c
 			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'	
+
+    DROP TABLE #feedback;
 	DROP TABLE #ResultTable;
 
 END;

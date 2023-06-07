@@ -10,12 +10,15 @@ AS
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20221222@Malcolm: Get file name [RedmineID: #179118]
+		- 20230607@Malcolm: Don't get notification of annoucement [RedmineID: #189408]
+
+	Param's Explanation:
 */
 
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId INT, ConversationId VARCHAR(200))
+	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId BIGINT, ConversationId VARCHAR(200))
 	DECLARE @Notifications TABLE (NotificationId INT, ConversationGroupId SMALLINT)
 
 	INSERT INTO @Notifications (NotificationId, ConversationGroupId)
@@ -24,6 +27,7 @@ BEGIN
 		INNER JOIN dbo.crmNotificationGroup ng WITH (NOLOCK) ON n.NotificationId = ng.NotificationId
 	WHERE n.Status IN ('Planned', 'Sending')
 		AND ng.Status IN ('Planned', 'Retrying')
+		AND NOT EXISTS (SELECT 1 FROM dbo.crmAnnouncementNotification an WITH(NOLOCK) WHERE an.NotificationId = n.NotificationId)
 
 	IF @@ROWCOUNT = 0
 		GOTO Result
@@ -64,9 +68,7 @@ BEGIN
 		) ng
 
 	Result:
-		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId, ISNULL(a.FileName, '') AS FileName, a.AnnouncementId 
+		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId
 		FROM @SendNotifications s
-			LEFT JOIN dbo.crmAnnouncementNotification an WITH(NOLOCK) ON an.NotificationId = s.NotificationId
-			LEFT JOIN dbo.crmAnnouncement a WITH(NOLOCK) ON a.AnnouncementId = an.AnnouncementId 
 END
 GO

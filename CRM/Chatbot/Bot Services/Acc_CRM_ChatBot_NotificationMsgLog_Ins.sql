@@ -1,7 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationMsgLog_Ins] @NotificationId INT
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationMsgLog_Ins]
+	@ReferenceId INT
+	,@DataSource NVARCHAR(128) 
 	,@BotId INT
-	,@ConversationId VARCHAR(200)
+	,@ConversationId VARCHAR(2000)
 	,@Content NVARCHAR(MAX)
 	,@IsBotBlocked BIT = 0
 	,@IsSuccess BIT = 0
@@ -14,6 +16,7 @@ DB: DBCRM/bodb_CRM
 Original:
 	Revisions:
 		- 20200911@Oliver: Initialize SPs [Redmine: #130544]
+		- 20230704@Malcolm: Add param @ReferenceId [Redmine: #189408]
 	Param's Explanation:
 		
 */
@@ -21,7 +24,8 @@ BEGIN
 	SET NOCOUNT ON
 
 	INSERT INTO dbo.crmNotificationMsgLog(
-		NotificationId
+		ReferenceId
+		,DataSource
 		,BotId
 		,ConversationId
 		,Content
@@ -31,7 +35,8 @@ BEGIN
 		,ErrMsg
 		)
 	VALUES (
-		@NotificationId
+		@ReferenceId
+		,@DataSource
 		,@BotId
 		,@ConversationId
 		,@Content
@@ -42,3 +47,4 @@ BEGIN
 		)
 END
 GO
+

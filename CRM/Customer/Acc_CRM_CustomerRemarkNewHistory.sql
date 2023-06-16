@@ -16,13 +16,15 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	- 20220315@Winfred: Special history remarks renovation  [RedmineID:#167941]   
+	- 20220315@Winfred: Special history remarks renovation  [RedmineID:#167941]  
+    - 20230616@Ned.Le: CRM | Remark - System gets internal error 500 when viewing history a remark (#189828)
+    
 Param's Explanation:	
 */
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @RowStart INT,@RowEnd INT ,@Logdata VARCHAR(MAX) = '' ,@ModifierID INT, @LastUpdate DATETIME, @Version INT, @iDoc INT
+	DECLARE @RowStart INT,@RowEnd INT ,@Logdata NVARCHAR(MAX) = '' ,@ModifierID INT, @LastUpdate DATETIME, @Version INT, @iDoc INT
 	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
 	
 	CREATE TABLE #TempHistory (VersionID INT IDENTITY (1,1), RemarkID INT, CustID INT, 

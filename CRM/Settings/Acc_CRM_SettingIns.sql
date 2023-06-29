@@ -29,6 +29,8 @@ AS
 	 - 20190506@Winnie: CN88 Permission RedmineID: #112637
 	 - 20200421@Johnson: add mapping setting for auto feedback [redmine:#130949]
 	 - 20230202@Tacy: Split 789y site [redmine:#182438]
+	 - 20230629@Malcolm: fix Out of range SettingID when synchronizing licensee from OIC to CRM [redmine:#190437]
+
 	Param's Explanation:  
 	 @SettingType:  
 	   0 : Licensee site    
@@ -71,23 +73,23 @@ BEGIN
 		FROM crmSetting WITH(NOLOCK)   
 		WHERE SettingName = @SettingName AND @SettingName = 'Site' AND SettingValue = @SettingValue   
 			AND CASE WHEN @SettingType = 1 AND SettingID BETWEEN 6000 AND 6199 THEN 1  
-					WHEN @SettingType = 0 AND SettingID BETWEEN 6200 AND 6999 THEN 1  
+					WHEN @SettingType = 0 AND (SettingID BETWEEN 6200 AND 6999 OR SettingID BETWEEN 53000 AND 53999)THEN 1  
 					ELSE 0 END = 1  
 			AND SiteOffer=@UserRole
 		ORDER BY SettingID DESC  
 
-	IF ISNULL(@SettingID, '') <> ''  
-	BEGIN  
-		UPDATE  crmSetting WITH(ROWLOCK,UPDLOCK)  
-		SET  IsActive = 1, @SettingID = SettingID  
-		WHERE SettingName = @SettingName   
-			AND SettingValue = @SettingValue  
-			AND CASE WHEN @SettingType = 1 AND SettingID BETWEEN 6000 AND 6199 THEN 1  
-					WHEN @SettingType = 0 AND SettingID BETWEEN 6200 AND 6999 THEN 1  
-					ELSE 0 END = 1  
-			AND SettingID =@SettingID   
-			AND SiteOffer=@UserRole
-	END  
+		IF ISNULL(@SettingID, '') <> ''  
+		BEGIN  
+			UPDATE  crmSetting WITH(ROWLOCK,UPDLOCK)  
+			SET  IsActive = 1, @SettingID = SettingID  
+			WHERE SettingName = @SettingName   
+				AND SettingValue = @SettingValue  
+				AND CASE WHEN @SettingType = 1 AND SettingID BETWEEN 6000 AND 6199 THEN 1  
+						WHEN @SettingType = 0 AND (SettingID BETWEEN 6200 AND 6999 OR SettingID BETWEEN 53000 AND 53999) THEN 1  
+						ELSE 0 END = 1  
+				AND SettingID =@SettingID   
+				AND SiteOffer=@UserRole
+		END  
 	ELSE --create new  
 	BEGIN  
 		-- generate SettingID  
@@ -109,9 +111,12 @@ BEGIN
 			END  
 			ELSE   
 			BEGIN  
-				SELECT @SettingID = MAX(SettingID) + 1  
-				FROM crmSetting WITH(NOLOCK)  
-				WHERE SettingName = @SettingName  
+				SELECT @MaxSettingID = MAX(SettingID) FROM dbo.crmSetting WITH(NOLOCK) WHERE SettingName = @SettingName  
+				
+				IF @SettingName = 'Site' AND @MaxSettingID = 6999
+					SELECT @MaxSettingID = 52999
+
+				SELECT @SettingID = @MaxSettingID + 1	
 			END  
 		END
 		

@@ -2,7 +2,7 @@
 CREATE PROCEDURE [dbo].[Acc_CRM_SettingRelationUpd]
 (
 	@UserID			INT,
-	@SettingID		VARCHAR(4000)	= '',
+	@SettingID		VARCHAR(MAX)	= '',
 	@ParentID		INT,
 	@SettingName	VARCHAR(50)		= '',
 	@IP				VARCHAR(15),
@@ -21,6 +21,7 @@ AS
 		- 20120329@Lukas: fix bug - wrong SP name & ActionID when write log
 		- 20130121@Johnson: change linked server DB03 to DBPOLICY		
 		- 20181113@Winnie: Fix bug log RedmineID: #103259
+		- 20230629@Malcolm: change data type of @SettingID from VARCHAR(4000) to VARCHAR(MAX)  [redmine:#190437]
 	Param's Explanation:
 		
 */
@@ -30,21 +31,11 @@ BEGIN
 	DECLARE @SubSetting TABLE(ID INT PRIMARY KEY IDENTITY, SettingID INT, DisplayOrder INT)
 	DECLARE @OldValue NVARCHAR(MAX)
 
-	SELECT @OldValue = STUFF(
-						(   SELECT ',' + CONVERT(NVARCHAR(20), SettingID) 
-							FROM crmSettingRelation WITH(NOLOCK)
-							WHERE ParentID = @ParentID
-							FOR xml path('')
-						)
-						, 1
-						, 1
-						, '')
+	SELECT @OldValue = STRING_AGG(CONVERT(VARCHAR(MAX), SettingID), ',') FROM dbo.crmSettingRelation WITH(NOLOCK)WHERE ParentID = @ParentID 
 
+	SELECT	@ErrCode = 0, @ErrMsg = ''
 
-	SELECT	@ErrCode	= 0,
-			@ErrMsg		= ''
-
-	IF NOT EXISTS (SELECT 1 FROM crmSetting WITH(NOLOCK) WHERE SettingID = @ParentID)
+	IF NOT EXISTS (SELECT 1 FROM dbo.crmSetting WITH(NOLOCK) WHERE SettingID = @ParentID)
 	BEGIN
 		SELECT @ErrCode = 100, @ErrMsg = 'Setting does not exist.'
 		RETURN
@@ -53,20 +44,27 @@ BEGIN
 	IF @SettingID <> ''
 	BEGIN	
 		INSERT INTO @SubSetting(SettingId, DisplayOrder)
-						SELECT CONVERT(INT,val1), CONVERT(INT,val2) 
-						FROM [dbo].[f_ConvertToTable] (@SettingID,'|','_')	
+		SELECT n.SettingId, n.DisplayOrder
+		FROM STRING_SPLIT (@SettingID, '|') r
+			CROSS APPLY (
+				SELECT 
+					SUBSTRING(r.value, 1, CHARINDEX('_', r.value,1) -1) AS SettingId
+					,SUBSTRING(r.value, CHARINDEX('_', r.value,1) + 1, LEN(r.value)) AS DisplayOrder
+			) AS n
+		WHERE r.value <> ''
 	END
 
 	--- delete
-	DELETE FROM crmSettingRelation WITH(ROWLOCK,UPDLOCK)
-	WHERE	SettingID IN (	SELECT SettingID 
-							FROM crmSetting WITH(NOLOCK)
-							WHERE SettingName = @SettingName
-							EXCEPT
-							SELECT SettingID FROM @SubSetting
-						)
-			AND
-			ParentID = @ParentID
+	DELETE FROM dbo.crmSettingRelation WITH(ROWLOCK,UPDLOCK)
+	WHERE SettingID IN 
+	(		
+		SELECT SettingID 
+		FROM dbo.crmSetting WITH(NOLOCK)
+		WHERE SettingName = @SettingName
+		EXCEPT
+		SELECT SettingID FROM @SubSetting
+	) AND ParentID = @ParentID
+
 	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'Update setting relation unsuccessfuly.'
@@ -86,14 +84,13 @@ BEGIN
 		RETURN
 	END
 	--- insert
-	INSERT INTO crmSettingRelation(SettingID,ParentID,DisplayOrder)
-					SELECT SettingID, @ParentID, DisplayOrder
-					FROM @SubSetting
-					WHERE SettingID NOT IN ( SELECT s.SettingID
-											 FROM crmSettingRelation rl 
-													INNER JOIN @SubSetting s ON rl.ParentID = @ParentID 
-																			AND rl.SettingID = s.SettingID
-											)
+	INSERT INTO dbo.crmSettingRelation(SettingID,ParentID,DisplayOrder)
+	SELECT SettingID, @ParentID, DisplayOrder
+	FROM @SubSetting
+	WHERE SettingID NOT IN (SELECT s.SettingID
+							FROM dbo.crmSettingRelation rl 
+								INNER JOIN @SubSetting s ON rl.ParentID = @ParentID 
+							AND rl.SettingID = s.SettingID)
 	IF @@ERROR <> 0
 	BEGIN
 		SELECT @ErrCode = 103, @ErrMsg = 'Insert setting relation unsuccessfuly.'

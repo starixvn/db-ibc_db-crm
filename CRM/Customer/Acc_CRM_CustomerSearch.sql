@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
-	@Username	NVARCHAR(50) = '',
+	@Username	VARCHAR(50) = '',
 	@IsGuest	BIT = 0,
 	@UserRole   TINYINT
 )
@@ -29,6 +29,7 @@ Revisions:
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
 	- 20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
     - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+    - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
 Param's Explanation:	
 */
 BEGIN

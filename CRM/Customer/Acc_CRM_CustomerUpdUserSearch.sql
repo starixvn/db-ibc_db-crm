@@ -2,7 +2,7 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUserSearch]	
 	@UserID		int,
 	@CustID		int,
-	@UserName	nvarchar(50),
+	@UserName	varchar(50),
 	@UserRole   TINYINT
 AS
 /*
@@ -18,6 +18,7 @@ Revisions:
 	- 20181003@Winnie: Search Thai[RedmineID: #99982]
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
     - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+    - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
 Param's Explanation:
 	• @UserID: User who are logging in.	
 */

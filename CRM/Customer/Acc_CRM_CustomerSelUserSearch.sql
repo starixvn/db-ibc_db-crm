@@ -1,7 +1,7 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSelUserSearch]
 	@userid		INT,
-	@username	NVARCHAR(50),
+	@username	VARCHAR(50),
 	@IsGuest	BIT = 0,
 	@UserRole   TINYINT
 AS
@@ -19,6 +19,7 @@ Revisions:
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
     - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+    - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
 Param's Explanation:
 	• @userid: User who are logging in.
 	• @username: the search term.
@@ -29,7 +30,7 @@ Param's Explanation:
 */
 BEGIN
 	SET NOCOUNT ON	
-	DECLARE @UserNameTable TABLE (UserName nvarchar(50), SearchCount int)
+	DECLARE @UserNameTable TABLE (UserName varchar(50), SearchCount int)
 	Declare @Rows int
 	CREATE TABLE #SuperCN88(CustID INT PRIMARY KEY)
 	INSERT INTO #SuperCN88(CustID)

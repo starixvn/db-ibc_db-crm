@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_GuestFeedbackIns_Multiple] @UserID INT
 	,@UserRole TINYINT = 2
 	,@ListCustID VARCHAR(MAX) = NULL
@@ -74,6 +78,7 @@ AS
 		- 20210908@Winfred: Add VoidingSettledID  for auto feedback Voiding Settled Tickets[redmine:#157481]
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]
 		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
+        - 20230728@Ned.Le: CRM - Enhance for Displaying of Related to Customer info (#190763)
 		
 	Param's Explanation:
 		@RelatedCustomers: <ROOT><Row CustId='1' RelatedCustId='2' Username='test' /></ROOT>
@@ -448,6 +453,7 @@ BEGIN
 					SELECT ', ' + Username
 					FROM #tblRelatedCustomer WITH (NOLOCK)
 					WHERE CustId = @CustId
+                    ORDER BY Username
 					FOR XML path('')
 					), 1, 1, '')
 

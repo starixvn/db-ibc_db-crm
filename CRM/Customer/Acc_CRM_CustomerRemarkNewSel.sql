@@ -12,12 +12,13 @@ DB: DBCRM.bodb_CRM
 Original:
 
 Revisions:	
-	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
+	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]
+    - 20220817@Ned.Le: Change from TOP 5 to TOP 1 and change to use LastUpdate instead of CreatedDate
 Param's Explanation:	
 */
 BEGIN
 	SET NOCOUNT ON
-	SELECT TOP 5 a.Remark ,a.RemarkID ,a.CustID ,a.Remark ,a.RemarkTitle ,a.RelatedPICs ,
+	SELECT TOP 1 a.Remark ,a.RemarkID ,a.CustID ,a.Remark ,a.RemarkTitle ,a.RelatedPICs ,
 				a.HandlerID ,a.Ext ,a.Requester ,a.ApproverID ,a.AcknowledgerID ,
 				a.ModifierID ,a.LastUpdate, a.CreatorID, a.CreatedDate, b.UserName,
 				c.SettingValue AS RemarkName,e.UserName AS Creator, (CASE WHEN  d.custid IS NOT NULL THEN 1 ELSE 0 END) AS IsGroupHeadLine
@@ -28,6 +29,6 @@ BEGIN
 		LEFT JOIN bodb02.dbo.CustAccount d WITH(NOLOCK) ON a.custid = d.custid AND d.IsGroupHeadLine = 1
 	WHERE a.CustID = @CustID 
 		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND ISNULL(b.SiteID,0) <>33002))
-	ORDER BY a.CreatedDate DESC, a.RemarkID 
+	ORDER BY a.LastUpdate DESC, a.RemarkID 
 END
 GO 

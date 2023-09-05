@@ -7,13 +7,15 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicAssignmentValidation]
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 AS
 /*
-Created: 20200511@Malcolm
-Task :  CRM - Staff/Boss Management of headline
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200511@Malcolm
+	Task : CRM - Headline Notification - Assign PIC - Save
+	DB: DBCRM/bodb_CRM
+	Original:
 
 	Revisions:
 		- 20200511@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		
 	Param's Explanation:
 		
 */
@@ -30,7 +32,7 @@ BEGIN
 		SELECT @GroupID = 0
 
 	INSERT INTO @tblUsername (Username)
-	SELECT DISTINCT val FROM dbo.f_split(@UserName, ',')
+	SELECT DISTINCT value FROM STRING_SPLIT(@UserName, ',')
 
 	UPDATE t
 	SET t.CustId = c.custid, t.srecommend = c.srecommend, t.RoleId = c.roleid, t.recommend = c.recommend
@@ -40,12 +42,10 @@ BEGIN
 	-- check  usernames
 	IF EXISTS (SELECT 1 FROM @tblUsername WHERE CustId IS NULL)
 	BEGIN
-		SELECT @InvalidUsername = STUFF((SELECT ',' + Username 
-											FROM @tblUsername
-											WHERE CustId IS NULL
-											FOR XML PATH('')),1,1,'')	
-		DELETE @tblUsername
-		WHERE custid IS NULL
+
+		SELECT @InvalidUsername = STRING_AGG(CONVERT(VARCHAR(MAX), Username), ',') FROM @tblUsername WHERE CustId IS NULL
+
+		DELETE @tblUsername WHERE custid IS NULL
 
 		SELECT @ErrCode = 1007
 	END
@@ -80,12 +80,9 @@ BEGIN
 	
 	IF EXISTS (SELECT 1 FROM @tblUsername WHERE IsDirectAccount IS NULL)
 	BEGIN	 
-		SELECT @NotDirectAccount =  STUFF((SELECT ',' + Username
-											FROM @tblUsername
-											WHERE IsDirectAccount IS NULL
-											FOR XML PATH('')),1,1,'')
-		DELETE @tblUsername
-		WHERE IsDirectAccount IS NULL
+		SELECT @NotDirectAccount = STRING_AGG(CONVERT(VARCHAR(MAX), Username), ',') FROM @tblUsername WHERE IsDirectAccount IS NULL
+
+		DELETE @tblUsername WHERE IsDirectAccount IS NULL
 
 		SELECT @ErrCode = 1007
 	END
@@ -102,12 +99,10 @@ BEGIN
 
 	IF EXISTS (SELECT 1 FROM @tblUsername WHERE IsBelongHeadline IS NULL)
 	BEGIN	 
-		SELECT @NoBelongHeadlineAccount =  STUFF((SELECT ',' + Username
-													FROM @tblUsername
-													WHERE IsBelongHeadline IS NULL
-													FOR XML PATH('')),1,1,'')
-		DELETE @tblUsername
-		WHERE IsDirectAccount IS NULL
+
+		SELECT @NoBelongHeadlineAccount = STRING_AGG(CONVERT(VARCHAR(MAX), Username), ',') FROM @tblUsername WHERE IsBelongHeadline IS NULL
+
+		DELETE @tblUsername WHERE IsBelongHeadline IS NULL
 
 		SELECT @ErrCode = 1007
 	END
@@ -136,10 +131,7 @@ BEGIN
 	SELECT 
 		t.PicName AS PicName,
 		t.Role,
-		STUFF ((SELECT ', ' + e.Username 
-				FROM CTE e 
-				WHERE e.PicName = t.PicName
-				FOR XML PATH('')),1,1,'') AS DirectAccount
+		STUFF ((SELECT ', ' + e.Username FROM CTE e WHERE e.PicName = t.PicName FOR XML PATH('')),1,1,'') AS DirectAccount
 	FROM CTE t 
 	GROUP BY t.PicName, t.Role
 END

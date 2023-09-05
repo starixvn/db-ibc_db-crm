@@ -8,16 +8,17 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Upd]
 	,@SystemId				TINYINT
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP				NVARCHAR(20) = ''
+	,@LoginIP				VARCHAR(45) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  update a notification type
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200810@Malcolm
+	Task : CRM - Headline Notification - Notification Type - Action - Edit (update a notification type)
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 		
 */
@@ -77,24 +78,13 @@ BEGIN
 			INTO @Tmp(ChatTypeId, NotificationTypeId, Type)
 		WHERE NotificationTypeId = @NotificationTypeId
         
-		INSERT INTO dbo.crmNotificationRecipientType
-		(
-			NotificationTypeId,
-			RecipientTypeId
-		)
-		SELECT @NotificationTypeId,
-			   val
-		FROM dbo.f_CRM_strSplit(@RecipientTypeIds,',')		
+		INSERT INTO dbo.crmNotificationRecipientType (NotificationTypeId, RecipientTypeId)
+		SELECT @NotificationTypeId, value
+		FROM STRING_SPLIT(@RecipientTypeIds,',')		
 
-		INSERT INTO dbo.crmNotificationChatType
-		(
-			NotificationTypeId,
-			ChatTypeId
-		)
-		SELECT 
-			@NotificationTypeId,
-			val 
-		FROM dbo.f_CRM_strSplit(@ChatTypeIds,',')			
+		INSERT INTO dbo.crmNotificationChatType (NotificationTypeId, ChatTypeId)
+		SELECT @NotificationTypeId, value 
+		FROM STRING_SPLIT(@ChatTypeIds,',')			
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
@@ -150,14 +140,14 @@ BEGIN
 
 	--New values
 	SELECT @RecipientTypeXML = (
-					SELECT f.val AS '@Id', rt.RecipientTypeName AS '@Name'
-					FROM dbo.f_CRM_strSplit(@RecipientTypeIds,',') f
-						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = f.val
+					SELECT f.value AS '@Id', rt.RecipientTypeName AS '@Name'
+					FROM STRING_SPLIT(@RecipientTypeIds,',') f
+						INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON rt.RecipientTypeId = f.value
 					FOR XML PATH('RecipientType'))
 
 	SELECT @ChatTypeXML	= (
-					SELECT f.val AS '@Id', CASE WHEN f.val = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
-					FROM dbo.f_CRM_strSplit(@ChatTypeIds, ',') f
+					SELECT f.value AS '@Id', CASE WHEN f.value = 1 THEN 'Group' ELSE 'Personal' END AS '@Name'
+					FROM STRING_SPLIT(@ChatTypeIds, ',') f
 					FOR XML PATH('ChatType'))
 
 	SELECT @SystemXML =	(

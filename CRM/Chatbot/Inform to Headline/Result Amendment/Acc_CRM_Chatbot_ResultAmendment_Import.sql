@@ -22,6 +22,7 @@ AS
 		- 20210922@Malcolm: Add comment : Type = 7 [RedmineID: #161524]
 		- 20220110@Malcolm: Stop UAT Job when @IncludeUUSCurrency = 1 [Redmine: #164235]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 		
 	Param's Explanation:
 		. @TicketData
@@ -30,7 +31,7 @@ AS
 			</root>
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="1" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type=""
+				<r TicketEventId="" ProductId="1" EventDate="2023-01-01" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type=""
 				/>
 			</root>
 		. @MessageData
@@ -59,7 +60,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
-			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfGroup INT = 250, @Settings XML, @LastRuntime DATETIME 
+			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfLetstalkGroup INT = 250, @MaxBatchOfTelegramGroup INT = 100, @Settings XML, @LastRuntime DATETIME 
 			,@SettingNameOfLastRuntime VARCHAR(50) = ''
 	
 	DECLARE @ServerNameDB NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
@@ -313,8 +314,8 @@ BEGIN
 	FROM @Xml.nodes('root/r') t(c)
 		CROSS APPLY t.c.nodes('TemplateRequiredParam') t1(c)
 		CROSS APPLY (
-			select f.val 
-			from dbo.f_CRM_strSplit(t.c.value('@RecipientTypeIds', 'VARCHAR(MAX)'), ',') AS  f
+			select f.value 
+			from STRING_SPLIT(t.c.value('@RecipientTypeIds', 'VARCHAR(MAX)'), ',') AS  f
 		) as r(c)
 
 	IF @@ROWCOUNT = 0
@@ -389,7 +390,7 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (MessageId INT, TicketId INT, TicketEventId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (MessageId INT, TicketId INT, TicketEventId INT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (MessageId, TicketId, TicketEventId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.MessageId, m.TicketId, m.TicketEventId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
@@ -416,7 +417,7 @@ BEGIN
 	WHERE t.NoRecipient < g.NoRecipient
 
 	UPDATE t
-	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId
+	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId, t.ChannelId = cg.ChannelId
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
@@ -427,6 +428,7 @@ BEGIN
 		,TicketId				INT 
 		,TicketEventId			INT
 		,ConversationGroupId	SMALLINT
+		,ChannelId				TINYINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
 		,Username				VARCHAR(50)
@@ -436,8 +438,8 @@ BEGIN
 		,IsTest					BIT
 		,RecipientTypeId		TINYINT
 	)
-	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
-	SELECT m.MessageId, m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
+	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
+	SELECT m.MessageId, m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChannelId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.MessageId = g.MessageId AND m.TicketId = g.TicketId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -445,10 +447,10 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 
 	---- For Accounting PIC
-	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChatTypeId TINYINT, RecipientTypeId TINYINT, IsTest BIT)
+	DECLARE @Group TABLE (ConversationGroupId SMALLINT, LanguageId INT, ChannelId TINYINT, ChatTypeId TINYINT, RecipientTypeId TINYINT, IsTest BIT)
 
-	INSERT INTO @Group (ConversationGroupId, LanguageId, ChatTypeId, RecipientTypeId, IsTest)
-	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, g.ChatTypeId, r.RecipientTypeId, g.IsTest
+	INSERT INTO @Group (ConversationGroupId, LanguageId, ChannelId, ChatTypeId, RecipientTypeId, IsTest)
+	SELECT DISTINCT g.ConversationGroupId, g.LanguageId, g.ChannelId, g.ChatTypeId, r.RecipientTypeId, g.IsTest
 	FROM dbo.crmConversationGroup g WITH(NOLOCK)
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
@@ -469,8 +471,8 @@ BEGIN
 		FROM #ImportData
 		GROUP BY MessageId, TicketEventId
 	)
-	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
-	SELECT t.MessageId, t.TicketId, t.TicketEventId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
+	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
+	SELECT t.MessageId, t.TicketId, t.TicketEventId, g.ConversationGroupId, G.ChannelId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
 	FROM @Group g 
 		INNER JOIN CTE e ON e.IsTest = g.IsTest
 		INNER JOIN #ImportData t ON t.MessageId = e.MessageId AND t.TicketEventId = e.TicketEventId
@@ -486,7 +488,7 @@ BEGIN
 			SELECT 1 
 			FROM #tmpResult g 
 				INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = g.ConversationGroupId
-			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId AND t.Username = g.Username 
+			WHERE g.ChatTypeId = 1 AND g.TicketId = t.TicketId AND g.MessageId = t.MessageId AND cgr.RecipientId = cr.RecipientId AND t.Username = g.Username AND t.ChannelId = g.ChannelId
 		) AND t.ChatTypeId = 2 
 
 	CREATE TABLE #Result
@@ -495,6 +497,7 @@ BEGIN
 		,MessageId				INT
 		,TicketIdLst			NVARCHAR(MAX)
 		,ConversationGroupId	SMALLINT
+		,ChannelId				TINYINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
 		,Status					VARCHAR(20)
@@ -539,12 +542,28 @@ BEGIN
 
 	-- For Group, Personal Which have IsDuplicated = 0
 	;WITH CTE_Batch AS (
-		SELECT t.MessageId, t.Username, t.TicketEventId, t.TicketId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY t.MessageId, t.TicketEventId, t.ConversationGroupId ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
+		SELECT 
+			t.MessageId
+			,t.Username
+			,t.TicketEventId
+			,t.TicketId
+			,t.ConversationGroupId
+			,t.ChannelId
+			,(DENSE_RANK() OVER(PARTITION BY t.MessageId, t.TicketEventId, t.ConversationGroupId ORDER BY Username ASC) - 1)
+			 / CASE WHEN t.ChannelId = 1 THEN @MaxBatchOfLetstalkGroup
+					WHEN t.ChannelId = 2 THEN @MaxBatchOfTelegramGroup
+			   ELSE 1 END AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 0
 	)
 	,CTE_Group AS (
-		SELECT t.MessageId, t.Username, t.TicketEventId, t.TicketId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.MessageId, t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
+		SELECT 
+			t.MessageId
+			,t.Username
+			,t.TicketEventId
+			,t.TicketId
+			,t.ConversationGroupId
+			,DENSE_RANK() OVER(ORDER BY t.ChannelId, t.MessageId, t.TicketEventId, ConversationGroupId, BatchOfGroup) AS Id
 		FROM CTE_Batch t
 	)
 	UPDATE t
@@ -564,7 +583,7 @@ BEGIN
 						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
 						FROM #tmpResult p	
 							INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
-						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId AND t.Username = p.Username 
+						WHERE p.ChatTypeId = 1 AND p.TicketId = t.TicketId AND p.MessageId = t.MessageId AND cg.RecipientId = cgr.RecipientId AND t.Username = p.Username AND p.ChannelId = t.ChannelId
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
@@ -579,12 +598,23 @@ BEGIN
 	--For Personal (Groups have IsDuplicated = 1)
 	;WITH CTE_Batch AS
 	(
-		SELECT t.MessageId, t.Username, t.TicketId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds,((DENSE_RANK() OVER(PARTITION BY t.MessageId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
+		SELECT 
+			t.MessageId
+			,t.Username
+			,t.TicketId
+			,t.ticketEventId
+			,t.ConversationGroupId
+			,t.ChannelId
+			,t.RelatedIds
+			,(DENSE_RANK() OVER(PARTITION BY t.MessageId, t.ticketEventId, t.ConversationGroupId, t.RelatedIds ORDER BY Username ASC) - 1)
+			 /CASE WHEN t.ChannelId = 1 THEN @MaxBatchOfLetstalkGroup	
+                   WHEN t.ChannelId = 2 THEN @MaxBatchOfTelegramGroup
+			  ELSE 1 END AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 1
-	), CTE_Group AS
+	),CTE_Group AS
 	(
-		SELECT MessageId, Username, TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY MessageId, ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
+		SELECT MessageId, Username, TicketId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ChannelId, MessageId, ticketEventId, ConversationGroupId, RelatedIds, BatchOfGroup) AS Id
 		FROM CTE_Batch
 	)
 	UPDATE t
@@ -599,6 +629,7 @@ BEGIN
 			   ,r.MessageId
 			   ,r.TicketEventId
 			   ,r.ConversationGroupId
+			   ,r.ChannelId
 			   ,r.ChatTypeId
 			   ,r.LanguageId
 			   ,r.RecipientTypeId
@@ -608,7 +639,7 @@ BEGIN
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
 			   ,STUFF ((SELECT DISTINCT ', ' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UsernameLst
 		FROM #tmpResult r
-		GROUP BY r.Id, r.MessageId, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
+		GROUP BY r.Id, r.MessageId, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChannelId, r.ChatTypeId, r.LanguageId
 	)
 	INSERT INTO #Result 
 	(
@@ -619,6 +650,7 @@ BEGIN
 		,HeadlineList
 		,UsernameLst
 		,ConversationGroupId
+		,ChannelId
 		,ChatTypeId
 		,LanguageId
 		,Status
@@ -657,6 +689,7 @@ BEGIN
 		,g.HeadlineIdLst
 		,g.UsernameLst
 		,g.ConversationGroupId
+		,g.ChannelId
 		,g.ChatTypeId
 		,g.LanguageId
 		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN g.IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
@@ -712,8 +745,8 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 			BREAK
 
-		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds, ChannelId)
+		SELECT nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			 ,REPLACE(
 			 	REPLACE(
 			 		REPLACE(
@@ -772,7 +805,7 @@ BEGIN
 			 			,'{message_content_th}', REPLACE(r.ContentTH, '@@', ''))
 			 		,'{message_content_yn}', REPLACE(r.ContentYN, '@@', ''))
 			 	,'{affected_list}', r.UsernameLst)		
-			 ,r.RelatedIds
+			 ,r.RelatedIds, r.ChannelId
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId AND nt.[Type] = r.[Type] AND r.RecipientTypeId = nt.RecipientTypeId
 		WHERE r.Id = @Id 
@@ -791,9 +824,9 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationHeadline (NotificationId, HeadlineId)
-		SELECT DISTINCT @NotificationId, f.val
+		SELECT DISTINCT @NotificationId, f.value
 		FROM #Result r
-			CROSS APPLY dbo.f_CRM_strSplit(r.HeadlineList, ',') f
+			CROSS APPLY STRING_SPLIT(r.HeadlineList, ',') f
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)

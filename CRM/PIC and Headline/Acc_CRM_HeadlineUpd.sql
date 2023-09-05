@@ -11,21 +11,22 @@ ALTER PROCEDURE [dbo].[Acc_CRM_HeadlineUpd]
 	@UserID			INT
 AS
 /*
-Created: 20200717@Malcolm
-Task : 
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200717@Malcolm
+	Task : 
+	DB: DBCRM/bodb_CRM
+	Original:
 
 	Revisions:
 		- 20200717@Malcolm:  Integrate Credit Term & Staff/Boss Management  [Redmine: #137144]
 		- 20200916@Malcolm : Update Chat Type Mapping [Redmine : #130544]
 		- 20200916@Malcolm : Update chat Type mapping property[Redmine : #130544]
-		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
+		- 20210731@Malcolm : Add alias [RedmineId : #151509]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]		
 
 	Param's Explanation:
 		@Case = 0 : No change
 		      = 1 : IsGroupHeadline 0-> 0, the user change group
-			  = 2 : IsGroupHeadline 1-> 0
+			  = 2 : IsGroupHeadline 1-> 0, the user don't change group
 			  = 3 : IsGroupHeadline 0-> 1, the user don't change group
 			  = 4 : IsGroupHeadline 0-> 1, the user change group
 				
@@ -242,7 +243,6 @@ BEGIN
 		@CustID			= @CustID
 		,@Old_Headline	= @Old_Headline
 		,@New_Headline	= @New_Headline
-		,@Username		= @Username	
 		,@Case			= @Case		
 		,@LoginIP		= @LoginIP
 		,@ErrCode		= @ErrCode OUTPUT	

@@ -25,6 +25,7 @@ AS
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20230112@Malcolm: Scale out for CRM [RedmineID: #167358]
         - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 
 	Param's Explanation:
 		- @XmlData
@@ -43,6 +44,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME, @SettingNameOfVoidingHistoryCollectionId VARCHAR(50)
+			,@MaxGroup INT = 0, @MaxBatchOfLetstalkGroup INT = 250, @MaxBatchOfTelegramGroup INT = 100
 	
 	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
@@ -208,7 +210,7 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (VoidingHistoryCollectionId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (VoidingHistoryCollectionId INT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (VoidingHistoryCollectionId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.VoidingHistoryCollectionId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #MessageRecipient m
@@ -235,15 +237,42 @@ BEGIN
 	WHERE t.NoRecipient < g.NoRecipient
 
 	UPDATE t
-	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId
+	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId, t.ChannelId = cg.ChannelId
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
     -- Get result data
     -- + #tmpResult
-	CREATE TABLE #tmpResult (VoidingHistoryCollectionId INT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT, MessageId INT, DirectAccount INT)
-	INSERT INTO #tmpResult (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest, MessageId, DirectAccount)
-	SELECT m.VoidingHistoryCollectionId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, m.IsTest, m.MessageId, m.DirectAccount
+	CREATE TABLE #tmpResult (VoidingHistoryCollectionId INT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT, IsTest BIT, MessageId INT, DirectAccount INT, BatchOfGroup INT)
+	INSERT INTO #tmpResult 
+	(
+		VoidingHistoryCollectionId
+		,ConversationGroupId
+		,ChannelId
+		,ChatTypeId
+		,LanguageId
+		,Username
+		,HeadlineId
+		,IsTest
+		,MessageId
+		,DirectAccount
+		,BatchOfGroup
+	)
+	SELECT 
+		m.VoidingHistoryCollectionId
+		,g.ConversationGroupId
+		,g.ChannelId
+		,g.ChatTypeId
+		,g.LanguageId
+		,m.Username
+		,m.HeadlineId
+		,m.IsTest
+		,m.MessageId
+		,m.DirectAccount
+		,(DENSE_RANK() OVER(PARTITION BY m.VoidingHistoryCollectionId, g.ConversationGroupId ORDER BY m.Username ASC) - 1)
+		 / CASE WHEN g.ChannelId = 1 THEN @MaxBatchOfLetstalkGroup
+		 	    WHEN g.ChannelId = 2 THEN @MaxBatchOfTelegramGroup
+		   ELSE 1 END AS BatchOfGroup
 	FROM #MessageRecipient m
 		INNER JOIN #tmpGroup g ON m.VoidingHistoryCollectionId = g.VoidingHistoryCollectionId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -252,7 +281,7 @@ BEGIN
     -- + #Result
 	CREATE TABLE #Result (
 		Id INT IDENTITY(1, 1), VoidingHistoryCollectionId INT, Content_en NVARCHAR(4000), Content_cs NVARCHAR(4000), Content_th NVARCHAR(4000), Content_vn NVARCHAR(4000), ConversationGroupId SMALLINT
-		,ChatTypeId TINYINT,LanguageId INT,AffectedList VARCHAR(MAX),HeadlineList VARCHAR(MAX), IsTest BIT,Status VARCHAR(20),RelatedIds VARCHAR(1000),[Type] TINYINT, MessageIdList VARCHAR(MAX)
+		,ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, AffectedList VARCHAR(MAX), HeadlineList VARCHAR(MAX), IsTest BIT, Status VARCHAR(20), RelatedIds VARCHAR(1000), [Type] TINYINT, MessageIdList VARCHAR(MAX)
 	)
 
 	DECLARE @Status VARCHAR(20) = 'Planned'
@@ -260,40 +289,46 @@ BEGIN
 		SET @Status = 'Draft'
 
 	-- + --> For Group
-	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, MessageIdList)
-	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, @Status, MessageIdList
+	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, MessageIdList)
+	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, @Status, MessageIdList
 	FROM (
-		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId
+		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId
 			,STUFF(
 					(SELECT DISTINCT ', ' + Username
 						FROM #tmpResult t2
-						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId
+						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.BatchOfGroup = t2.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS AffectedList
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), HeadlineId)
 						FROM #tmpResult t3
-						WHERE t1.VoidingHistoryCollectionId = t3.VoidingHistoryCollectionId AND t1.ConversationGroupId = t3.ConversationGroupId
+						WHERE t1.VoidingHistoryCollectionId = t3.VoidingHistoryCollectionId AND t1.ConversationGroupId = t3.ConversationGroupId AND t1.BatchOfGroup = t3.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), MessageId)
 						FROM #tmpResult t4
-						WHERE t1.VoidingHistoryCollectionId = t4.VoidingHistoryCollectionId AND t1.ConversationGroupId = t4.ConversationGroupId
+						WHERE t1.VoidingHistoryCollectionId = t4.VoidingHistoryCollectionId AND t1.ConversationGroupId = t4.ConversationGroupId AND t1.BatchOfGroup = t4.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS MessageIdList
 			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM #tmpResult t1
 		WHERE t1.ChatTypeId = 1 -- Group
-		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId
+		GROUP BY ChannelId, VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, BatchOfGroup
 	) t
 
 	-- + --> For Personal
 	;WITH CTE_tmpPersonal AS (
-		SELECT p.VoidingHistoryCollectionId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId, p.MessageId
+		SELECT p.VoidingHistoryCollectionId, p.ConversationGroupId, p.ChannelId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, p.IsTest, t.Id AS RelatedId, p.MessageId
+		,(DENSE_RANK() OVER(
+						   PARTITION BY p.VoidingHistoryCollectionId, p.ConversationGroupId,CASE WHEN t.Id IS NULL THEN 0 ELSE 1 END  
+						   ORDER BY CASE WHEN t.Id IS NULL THEN p.Username ELSE '' END ASC) - 1)
+		  / CASE WHEN p.ChannelId = 1 THEN @MaxBatchOfLetstalkGroup
+		 		 WHEN p.ChannelId = 2 THEN @MaxBatchOfTelegramGroup
+			ELSE 1 END AS BatchOfGroup
 		FROM #tmpResult p
 			OUTER APPLY (
 				SELECT DISTINCT r.Id
@@ -301,12 +336,12 @@ BEGIN
 					INNER JOIN dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK) ON cgr2.RecipientId = cgr1.RecipientId
 					INNER JOIN #tmpResult g ON g.ConversationGroupId = cgr2.ConversationGroupId
 					INNER JOIN #Result r ON g.VoidingHistoryCollectionId = r.VoidingHistoryCollectionId AND g.ConversationGroupId = r.ConversationGroupId
-				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.VoidingHistoryCollectionId = g.VoidingHistoryCollectionId AND p.Username = g.Username AND g.ChatTypeId = 1 -- Group
+				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.VoidingHistoryCollectionId = g.VoidingHistoryCollectionId AND p.Username = g.Username AND p.ChannelId = g.ChannelId AND g.ChatTypeId = 1 -- Group
 			) t
 		WHERE p.ChatTypeId = 2 -- Personal
 	)
 	,CTE_tempResult AS (
-		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
+		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest, MessageId
 			,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END AS IsDuplicated
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.RelatedId)
@@ -315,47 +350,46 @@ BEGIN
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
-            ,MessageId
+			,BatchOfGroup
 		FROM CTE_tmpPersonal t1
-		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest
-		,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END
-        ,MessageId
+		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsTest, MessageId
+			,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END, BatchOfGroup
 	)
-	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, RelatedIds, MessageIdList)
-	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END, MessageIdList
+	INSERT INTO #Result (VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, Status, RelatedIds, MessageIdList)
+	SELECT VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, AffectedList, HeadlineList, IsTest, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END, MessageIdList
 	FROM (
-		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+		SELECT VoidingHistoryCollectionId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, IsDuplicated
 			,STUFF(
 					(SELECT DISTINCT ', ' + t2.Username
 						FROM CTE_tempResult t2
-						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated
+						WHERE t1.VoidingHistoryCollectionId = t2.VoidingHistoryCollectionId AND t1.ConversationGroupId = t2.ConversationGroupId AND t1.IsDuplicated = t2.IsDuplicated AND t1.BatchOfGroup = t2.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS AffectedList
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t3.HeadlineId)
 						FROM CTE_tempResult t3
-						WHERE t1.VoidingHistoryCollectionId = t3.VoidingHistoryCollectionId AND t1.ConversationGroupId = t3.ConversationGroupId AND t1.IsDuplicated = t3.IsDuplicated
+						WHERE t1.VoidingHistoryCollectionId = t3.VoidingHistoryCollectionId AND t1.ConversationGroupId = t3.ConversationGroupId AND t1.IsDuplicated = t3.IsDuplicated AND t1.BatchOfGroup = t3.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS HeadlineList
 			,STUFF(
 					(SELECT DISTINCT ',' + t4.RelatedIds
 						FROM CTE_tempResult t4
-						WHERE t1.VoidingHistoryCollectionId = t4.VoidingHistoryCollectionId AND t1.ConversationGroupId = t4.ConversationGroupId AND t1.IsDuplicated = t4.IsDuplicated
+						WHERE t1.VoidingHistoryCollectionId = t4.VoidingHistoryCollectionId AND t1.ConversationGroupId = t4.ConversationGroupId AND t1.IsDuplicated = t4.IsDuplicated AND t1.BatchOfGroup = t4.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS RelatedIds
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t5.MessageId)
 						FROM CTE_tempResult t5
-						WHERE t1.VoidingHistoryCollectionId = t5.VoidingHistoryCollectionId AND t1.ConversationGroupId = t5.ConversationGroupId AND t1.IsDuplicated = t5.IsDuplicated
+						WHERE t1.VoidingHistoryCollectionId = t5.VoidingHistoryCollectionId AND t1.ConversationGroupId = t5.ConversationGroupId AND t1.IsDuplicated = t5.IsDuplicated AND t1.BatchOfGroup = t5.BatchOfGroup
 						FOR XML PATH ('')
 					), 1, 1, ''
 				) AS MessageIdList
 			,MIN(CONVERT(TINYINT, t1.IsTest)) AS IsTest
 		FROM CTE_tempResult t1
-		GROUP BY VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+		GROUP BY ChannelId, VoidingHistoryCollectionId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated, BatchOfGroup
 	) t
 
 	UPDATE #Result SET Status = 'Planned' WHERE IsTest = 1 AND Status = 'Draft'
@@ -380,10 +414,10 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 			BREAK
 
-		INSERT INTO dbo.crmNotification (ReferenceId, DataSource ,NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT NULL AS ReferenceId, NULL, nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds, ChannelId)
+		SELECT nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			,REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(nt.Content, '{EN Announcement}', r.Content_en), '{SC Announcement}', r.Content_cs), '{TH Announcement}', r.Content_th), '{YN Announcement}', r.Content_vn), '{Affected List}', r.AffectedList)
-			,r.RelatedIds
+			,r.RelatedIds, r.ChannelId
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId AND r.[Type] = nt.[Type]
 		WHERE r.Id = @Id

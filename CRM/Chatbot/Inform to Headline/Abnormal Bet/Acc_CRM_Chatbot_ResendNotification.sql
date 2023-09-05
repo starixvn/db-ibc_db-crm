@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 */
 
 BEGIN
@@ -23,7 +24,7 @@ BEGIN
 
 	DECLARE @Notifications TABLE (NotificationId INT)
 	INSERT INTO @Notifications (NotificationId)
-	SELECT DISTINCT val FROM dbo.f_CRM_strSplit(@NotificationIds, ',')
+	SELECT DISTINCT value FROM STRING_SPLIT(@NotificationIds, ',')
 
 	DECLARE @NotificationGroups TABLE (NotificationId INT, ConversationGroupId SMALLINT)
 	INSERT INTO @NotificationGroups (NotificationId, ConversationGroupId)

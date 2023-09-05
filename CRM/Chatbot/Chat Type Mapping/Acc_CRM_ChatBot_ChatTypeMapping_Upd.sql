@@ -1,25 +1,26 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	@ConversationGroupId			INT
-	,@BotId							INT
+	,@BotId							BIGINT
 	,@ConversationGroupName			NVARCHAR(1000) 
 	,@IgnoredNotificationTypeList	VARCHAR(MAX) = ''
 	,@RecipientTypeId				TINYINT
 	,@HeadlineIds					VARCHAR(MAX) 
 	,@RecipientIds					VARCHAR(MAX)
-	,@LetstalkID					VARCHAR(200)
+	,@ConversationId				VARCHAR(200)
 	,@LanguageId					INT	
 	,@Remark						NVARCHAR(2000)
 	,@UserId						INT
+	,@Username						VARCHAR(32) = NULL 
 	,@IsTest						BIT = NULL
 	,@ErrCode						INT = 0 OUTPUT
 	,@ErrMsg						NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP						VARCHAR(50) = ''
+	,@LoginIP						VARCHAR(45) = ''
 	,@IsAuto						BIT = 0
 AS
 /*
 	Created: 20200810@Malcolm
-	Task :  Update personal/group chat mapping
+	Task : CRM - Headline Notification - Chat Type Mapping - Action - Edit
 	DB: DBCRM/bodb_CRM
 	Original:
 		Revisions:
@@ -28,7 +29,13 @@ AS
 			- 20210906@Malcolm: Add IsTest for Accounting pic [RedmineID: #151509]
 			- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
 			- 20221222@Malcolm: Add Ignored notificationType list [RedmineId : #179118]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+			
 		Param's Explanation:
+		
+		@ConversationId = LetstalkId for Letstalk
+						= Chat ID for telegram
+		@Username : Username of telegram accounts
 		
 */
 BEGIN
@@ -36,7 +43,8 @@ BEGIN
 
 	DECLARE @Existing_GroupName NVARCHAR(1000) = '',@NumberOfRecipients BIT = 0, @SourceId INT, @NewValues NVARCHAR(MAX), 
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__IgnoredNotificationType XML,
-			@__LanguageXML XML, @__BotXML XML, @__ConversationGroup XML, @CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000)
+			@__LanguageXML XML, @__BotXML XML, @__ConversationGroup XML, @__ChannelXML XML,@CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000), @ChannelId TINYINT,
+			@ChatType TINYINT, @Existing_UserName VARCHAR(32) = ''
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN
@@ -46,15 +54,12 @@ BEGIN
 			RETURN
 		END
 
-		SELECT @ConversationGroupName = CASE WHEN @ConversationGroupName IS NULL THEN cg.ConversationGroupName 
-										ELSE @ConversationGroupName END
-			   ,@LetstalkID			  = CASE WHEN @LetstalkID IS NULL THEN cg.ConversationId 
-										ELSE @LetstalkID END
-			   ,@LanguageId			  = CASE WHEN @LanguageId IS NULL THEN cg.LanguageId 
-										ELSE @LanguageId END
-			   ,@Remark				  = CASE WHEN @Remark IS NULL THEN cg.Remark 
-										ELSE @Remark END
+		SELECT @ConversationGroupName = CASE WHEN @ConversationGroupName IS NULL THEN cg.ConversationGroupName ELSE @ConversationGroupName END
+			   ,@ConversationId		  = CASE WHEN @ConversationId IS NULL THEN cg.ConversationId ELSE @ConversationId END
+			   ,@LanguageId			  = CASE WHEN @LanguageId IS NULL THEN cg.LanguageId ELSE @LanguageId END
+			   ,@Remark				  = CASE WHEN @Remark IS NULL THEN cg.Remark ELSE @Remark END
 			   ,@RecipientTypeId	  = 0
+			   ,@Username			  = CASE WHEN @Username IS NULL THEN Username ELSE @Username END
 			   ,@IsTest				  = cg.IsTest
 		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 		WHERE cg.ConversationGroupId = @ConversationGroupId
@@ -113,11 +118,12 @@ BEGIN
 		,LanguageId				INT
 		,Remark					NVARCHAR(2000)
 		,IsActive				BIT
-		,BotId					INT
+		,BotId					BIGINT
 		,RecipientId			INT
 		,HeadlineId				INT
 		,NotificationTypeId		SMALLINT
 		,IsTest					BIT
+		,Username				VARCHAR(32)
 		,Type                   SMALLINT
 	)
 
@@ -132,13 +138,33 @@ BEGIN
 	WHERE value <> ''
 
 	-- check validation
-	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName 
+	SELECT @ChannelId = ChannelId, @ChatType = ChatTypeId FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId
+
+	SET @Username = ISNULL(@Username, '')
+
+	IF @ChatType = 2 AND @ChannelId = 2 AND @Username = '' AND @IsAuto = 0
+	BEGIN
+		SELECT @ErrMsg = 'Username is mandatory', @ErrCode = 101
+		RETURN
+	END
+
+	IF @ChannelId = 1 OR @ChatType = 1
+		SET @Username = ''
+
+	SELECT TOP(1) @Existing_GroupName = g.ConversationGroupName, @Existing_UserName = Username
 	FROM dbo.crmConversationGroup g WITH(NOLOCK) 
-	WHERE g.ConversationId = @LetstalkID AND g.ConversationGroupId <> @ConversationGroupId AND g.IsDeleted = 0
+	WHERE g.ConversationId = @ConversationId AND g.ConversationGroupId <> @ConversationGroupId AND g.IsDeleted = 0
 
 	IF ISNULL(@Existing_GroupName,'') <> '' AND ISNULL(@IsAuto,0) = 0
 	BEGIN
-		SELECT @ErrCode = 101,  @ErrMsg = 'The Letstalk ID ' + @LetstalkID  +' has been set to receive notification already!'
+		SELECT  @ErrMsg = 'The ' + CASE @ChannelId WHEN 1 THEN 'Letstalk ID :' 
+												   WHEN 2 THEN 'ChatID '
+								   ELSE '' END 
+								 + @ConversationId 
+								 + CASE @ChannelId WHEN 1 THEN ' has been set to receive notification already!'
+												   WHEN 2 THEN  '(username: ' + @Existing_UserName + ')'+ ' has been set to receive notifications'
+								   ELSE '' END
+		        ,@ErrCode = 101
 		RETURN
 	END
 
@@ -163,28 +189,32 @@ BEGIN
 	BEGIN TRY
 		UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
 		SET ConversationGroupName = @ConversationGroupName
-			,ConversationId = @LetstalkID
+			,ConversationId = @ConversationId
 			,Remark = @Remark
 			,UpdatedDate = GETDATE()
 			,LanguageId = @LanguageId
 			,IsTest = @IsTest
-		OUTPUT	deleted.ConversationId, 
-				deleted.ConversationGroupName, 
-				deleted.ChatTypeId, 
-				deleted.UpdatedDate, 
-				deleted.LanguageId, 
-				deleted.Remark, 
-				deleted.IsTest, 1
+			,Username = @Username
+		OUTPUT	deleted.ConversationId
+				,deleted.ConversationGroupName
+				,deleted.ChatTypeId
+				,deleted.UpdatedDate
+				,deleted.LanguageId
+				,deleted.Remark
+				,deleted.IsTest
+				,deleted.Username
+				,1
 			INTO #Tmp 
 			(
-				ConversationId, 
-				ConversationGroupName, 
-				ChatTypeId, 
-				UpdatedDate, 
-				LanguageId, 
-				Remark, 
-				IsTest,
-				Type
+				ConversationId 
+				,ConversationGroupName
+				,ChatTypeId 
+				,UpdatedDate 
+				,LanguageId
+				,Remark
+				,IsTest
+				,Username
+				,Type		
 			)
 		WHERE ConversationGroupId = @ConversationGroupId
 
@@ -234,6 +264,7 @@ BEGIN
 				,g.UpdatedDate = t.UpdatedDate
 				,g.LanguageId = t.LanguageId
 				,g.IsTest = t.IsTest
+				,g.Username = t.Username
 			FROM dbo.crmConversationGroup g WITH(ROWLOCK)
 				,#Tmp t
 			WHERE t.Type = 1 AND g.ConversationGroupId = @ConversationGroupId
@@ -298,7 +329,7 @@ BEGIN
 	SELECT @__BotXML = (
 				SELECT t.BotId AS '@Id', cb.BotName AS '@Name'
 				FROM #Tmp t
-					INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId
+					INNER JOIN dbo.crmConversationBot cb WITH(NOLOCK) ON cb.BotId = t.BotId AND cb.ChannelId = @ChannelId
 				WHERE t.Type = 2 
 				FOR XML PATH('Bot'))
 
@@ -346,9 +377,11 @@ BEGIN
 		SELECT 
 				@ConversationGroupId AS '@Id'
 				,t.ConversationGroupName AS '@Name'
-				,t.ConversationId AS '@LetstalkID'
+				,CASE WHEN @ChannelId = 1 THEN t.ConversationId ELSE NULL END AS '@LetstalkID'
+				,CASE WHEN @ChannelId = 2 THEN t.ConversationId ELSE NULL END AS '@ChatID'
 				,t.Remark AS '@Remark'
 				,t.IsTest AS '@IsTest'
+				,CASE WHEN @ChannelId = 2 AND @ChatType = 2 THEN t.Username ELSE NULL END AS '@Username'
 		FROM #Tmp t
 		WHERE t.Type = 1
 		FOR XML PATH('ConversationGroup')
@@ -384,11 +417,11 @@ BEGIN
 
 	SELECT @__RecipientTypeXML = (
 				SELECT DISTINCT r.RecipientTypeId AS '@Id', rt.RecipientTypeName AS '@Name'
-				FROM #Tmp t
+				FROM dbo.crmConversationGroupRecipient t WITH(NOLOCK)
 					INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = t.RecipientId
 					INNER JOIN dbo.crmRecipientType rt WITH(NOLOCK) ON r.RecipientTypeId = rt.RecipientTypeId
  					INNER JOIN dbo.crmPIC p WITH(NOLOCK) ON p.PicID = r.SourceId
-				WHERE t.Type = 3 AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+				WHERE t.ConversationGroupId = @ConversationGroupId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				FOR XML PATH('RecipientType'))
 
 	SELECT @__LanguageXML = (
@@ -418,11 +451,12 @@ BEGIN
 		SELECT 
 				@ConversationGroupId AS '@Id'
 				,@ConversationGroupName AS '@Name'
-				,@LetstalkID AS '@LetstalkID'
+				,CASE WHEN @ChannelId = 1 THEN @ConversationId ELSE NULL END AS '@LetstalkID'
+				,CASE WHEN @ChannelId = 2 THEN @ConversationId ELSE NULL END AS '@ChatID'
+				,CASE WHEN @ChannelId = 2 AND @ChatType = 2 THEN @Username ELSE NULL END AS '@Username'
 				,@Remark AS '@Remark'
 				,@IsTest AS '@IsTest'
-		FOR XML PATH('ConversationGroup')
-			  
+		FOR XML PATH('ConversationGroup')  
 	)
 
 	SELECT @NewValues =	CAST((SELECT @__ConversationGroup,

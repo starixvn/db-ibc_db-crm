@@ -9,13 +9,14 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Sel]
 	,@TotalRows				INT = 0 OUTPUT
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Get notification types
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200810@Malcolm
+	Task : CRM - Headline Notification Type - Submit (Get notification types)
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 		
 */
@@ -46,7 +47,7 @@ BEGIN
 		nt.SystemId
 	FROM dbo.crmNotificationType nt WITH(NOLOCK)
 	WHERE (@NotificationTypeName IS NULL OR nt.NotificationTypeName LIKE '%' + @NotificationTypeName + '%')
-		AND (EXISTS(SELECT 1 FROM dbo.f_CRM_strSplit(@SystemId,',') f WHERE f.val = nt.SystemId) OR @SystemId IS NULL)
+		AND (EXISTS(SELECT 1 FROM STRING_SPLIT(@SystemId,',') f WHERE f.value = nt.SystemId) OR @SystemId IS NULL)
 		
 	IF @RecipientTypeIds IS NOT NULL
 	BEGIN
@@ -54,9 +55,9 @@ BEGIN
 		FROM #Tmp t
 		WHERE NOT EXISTS(
 			SELECT 1 
-			FROM dbo.f_CRM_strSplit(@RecipientTypeIds,',') f
+			FROM STRING_SPLIT(@RecipientTypeIds,',') f
 				INNER JOIN dbo.crmNotificationRecipientType nr WITH(NOLOCK) 
-					ON f.val = nr.RecipientTypeId
+					ON f.value = nr.RecipientTypeId
 			WHERE t.NotificationTypeId = nr.NotificationTypeId)
 	END
 	
@@ -66,9 +67,9 @@ BEGIN
 		FROM #Tmp t
 		WHERE NOT EXISTS(
 			SELECT 1 
-			FROM dbo.f_CRM_strSplit(@ChatTypeIds,',') f
+			FROM STRING_SPLIT(@ChatTypeIds,',') f
 				INNER JOIN dbo.crmNotificationChatType nc WITH(NOLOCK) 
-					ON f.val = nc.ChatTypeId
+					ON f.value = nc.ChatTypeId
 			WHERE t.NotificationTypeId = nc.NotificationTypeId)
 	END
 	

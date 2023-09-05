@@ -4,26 +4,29 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Sel]
 	,@ConversationGroupName	NVARCHAR(1000) = ''
 	,@Headline				VARCHAR(30) = ''
 	,@RecipientName			NVARCHAR(200) = ''
-	,@LetstalkID			VARCHAR(200) = ''
+	,@LetstalkIdOrUsername	VARCHAR(200) = ''
 	,@LanguageId			INT = NULL
 	,@IsActive				BIT = NULL
-	,@BotId					INT = NULL
+	,@BotIds				VARCHAR(MAX) = ''
+	,@ChannelId				TINYINT = NULL
 	,@MappingStatus         VARCHAR(20) = ''
 	,@PageSize				INT = 0
 	,@PageIndex				INT = 0
 	,@TotalRows				INT = 0 OUTPUT
 AS
 /*
-	Created: 20200810@Malcolm
-	Task :  Get chat type mapping
-	DB: DBCRM/bodb_CRM
-	Original:
-		Revisions:
-			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-			- 20210801@Malcolm: get info for accouting pic [Redmine: #151509]
-			- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
-			- 20221222@Malcolm: Get Ignored notificationType list [RedmineId : #179118]
-		Param's Explanation:
+	 Created: 20200810@Malcolm
+	 Task : CRM - Headline Notification - Chat Type Mapping - Submit
+	 DB: DBCRM/bodb_CRM
+	 Original:
+	 Revisions:
+	 	- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+	 	- 20210801@Malcolm: get info for accouting pic [Redmine: #151509]
+	 	- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
+	 	- 20221222@Malcolm: Get Ignored notificationType list [RedmineId : #179118]
+	 	- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+	 	
+	 Param's Explanation:
 		
 */
 BEGIN
@@ -47,12 +50,14 @@ BEGIN
 		 ,ChatTypeId			TINYINT
 		 ,IsTest				BIT
 		 ,BotName				NVARCHAR(1000)
-		 ,BotId					INT
+		 ,BotId					BIGINT
 		 ,LanguageId			INT
 		 ,Language				NVARCHAR(200)
 		 ,IsActive				BIT
 		 ,Remark				NVARCHAR(2000)
+		 ,Username				VARCHAR(32)
 		 ,MappingStatusID       INT
+		 ,ChannelId				TINYINT
 		 ,RowNum                INT
 		 ,Type					TINYINT DEFAULT (0) -- 1 For Accounting Pic
 	)
@@ -70,10 +75,12 @@ BEGIN
 		,Language
 		,IsActive	
 		,Remark
+		,Username
+		,ChannelId
 	)
 	SELECT 
 		cg.ConversationGroupId
-		,cg.ConversationGroupName
+		,cg.ConversationGroupName AS [DisplayName]
 		,cg.ConversationId
 		,cg.ChatTypeId
 		,cg.IsTest
@@ -83,15 +90,22 @@ BEGIN
 		,l.SettingValue
 		,cg.IsActive
 		,cg.Remark
+		,cg.Username
+		,cg.ChannelId
 	FROM dbo.crmConversationGroup cg WITH (NOLOCK)
 		LEFT JOIN dbo.crmConversationGroupBot cgb WITH (NOLOCK) ON cg.ConversationGroupId = cgb.ConversationGroupId
-		LEFT JOIN dbo.crmConversationBot cb WITH (NOLOCK) ON cgb.BotId = cb.BotId
+		LEFT JOIN dbo.crmConversationBot cb WITH (NOLOCK) ON cgb.BotId = cb.BotId AND cb.ChannelId = cg.ChannelId
 		LEFT JOIN dbo.crmSetting l WITH(NOLOCK) ON cg.LanguageId = l.SettingID AND l.IsActive = 1
 	WHERE (@IsActive IS NULL OR cg.IsActive = @IsActive)
 	    AND (@ChatTypeId IS NULL OR cg.ChatTypeId = @ChatTypeId)	
 		AND (@ConversationGroupName = '' OR CHARINDEX(@ConversationGroupName, cg.ConversationGroupName, 1) > 0)			
 		AND (cg.LanguageId = @LanguageId OR @LanguageId IS NULL)
-		AND (cgb.BotId = @BotId OR @BotId IS NULL)
+		AND (cgb.BotId IN (SELECT Value FROM STRING_SPLIT(@BotIds, ',')) OR @BotIds = '')
+		AND (@ChannelId IS NULL OR cg.ChannelId = @ChannelId)
+		AND (@LetstalkIdOrUsername = '' OR 
+			(
+				cg.ChannelId = 1 AND cg.ConversationId LIKE '%' + @LetstalkIdOrUsername + '%' OR cg.ChannelId = 2 AND cg.Username LIKE '%' + @LetstalkIdOrUsername + '%'
+			) AND cg.ChatTypeId = 2) 
 		AND cg.isdeleted = 0
 
 	-- Get Group of Accounting PIC
@@ -158,22 +172,13 @@ BEGIN
 		WHERE NOT EXISTS(
 			SELECT 1
 			FROM dbo.crmPIC p WITH(NOLOCK)
-				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = p.PicID
+				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = p.PicID AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 				INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId 
 			WHERE t.ConversationGroupId = cgr.ConversationGroupId
 				AND p.Username LIKE '%' + @RecipientName + '%'
 		)
 	END
 
-	IF @LetstalkID <> ''
-	BEGIN		
-		DELETE t
-		FROM #Tmp t
-		WHERE (t.ConversationId NOT LIKE '%' + @LetstalkID + '%' AND t.ChatTypeId = 2)
-			OR t.ChatTypeId = 1
-	END
-
-	
 	IF ',' + @MappingStatus + ',' NOT LIKE '%,0,%' --Bot Removed
 	BEGIN
 		DELETE t
@@ -221,15 +226,16 @@ BEGIN
 	END
 	
 	
-	SELECT @TotalRows = COUNT(*) FROM #Tmp
+	SELECT @TotalRows = COUNT(1) FROM #Tmp
 
 	UPDATE x
 	SET	x.RowNum = x.NewRowNum 
 	FROM(
 		SELECT 
 			RowNum,
-			ROW_NUMBER() OVER(ORDER BY t.ChatTypeId DESC, t.ConversationGroupName) AS NewRowNum				
+			ROW_NUMBER() OVER(ORDER BY c.ChannelName, t.ChatTypeId DESC, t.ConversationGroupName) AS NewRowNum				
 		FROM #Tmp t
+			LEFT JOIN dbo.crmChannel c WITH(NOLOCK) ON c.ChannelId = t.ChannelId
 	) x
 	IF @PageIndex >= 0 AND @PageSize > 0
 	BEGIN
@@ -291,14 +297,14 @@ BEGIN
 
 	;WITH CTE_IgnoredNotificationType AS
 	(
-		SELECT t.ConversationGroupId, STRING_AGG(CONVERT(VARCHAR(20), nt.NotificationTypeId), ',') WITHIN GROUP(ORDER BY nt.NotificationTypeId ASC) AS IgnoredNotificationTypeList
+		SELECT t.ConversationGroupId, STRING_AGG(CONVERT(VARCHAR(MAX), nt.NotificationTypeId), ',') WITHIN GROUP(ORDER BY nt.NotificationTypeId ASC) AS IgnoredNotificationTypeList
 		FROM #Tmp t
 			INNER JOIN dbo.crmIgnoredNotificationType nt WITH(NOLOCK) ON nt.ConversationGroupId = t.ConversationGroupId
 		GROUP BY t.ConversationGroupId
 	)
 	SELECT 
 		t.ConversationGroupId	
-		,t.ConversationGroupName 	
+		,t.ConversationGroupName AS [DisplayName]
 		,t.ConversationId
 		,t.ChatTypeId
 		,t.IsTest
@@ -309,10 +315,15 @@ BEGIN
 		,t.IsActive	
 		,t.MappingStatusID
 		,t.Remark
+		,t.Username
+		,CASE WHEN t.ChannelId = 2 AND t.ChatTypeId = 2 THEN t.Username ELSE t.ConversationId END AS [LetstalkID_Username]
+		,t.ChannelId
+		,c.ChannelName
 		,e.IgnoredNotificationTypeList
 	FROM #Tmp t
 		LEFT JOIN CTE_IgnoredNotificationType e ON e.ConversationGroupId = t.ConversationGroupId
-	ORDER BY t.ChatTypeId DESC, t.ConversationGroupName  
+		LEFT JOIN dbo.crmChannel c WITH(NOLOCK) ON c.ChannelId = t.ChannelId
+	ORDER BY c.ChannelName, t.ChatTypeId DESC, t.ConversationGroupName  
 
 	SELECT t.ConversationGroupId,gh.HeadlineId,ISNULL(c.username,'Not Assigned Group') AS HeadlineName 
 	FROM #Tmp t

@@ -1,9 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Import]
-	@XmlData				XML
-	,@Environment			VARCHAR(50) = ''
-	,@ErrCode				INT = 0 OUTPUT
-	,@ErrMsg				NVARCHAR(4000) = '' OUTPUT
+	@XmlData		XML
+	,@Environment	VARCHAR(50) = ''
+	,@ErrCode		INT = 0 OUTPUT
+	,@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -17,6 +17,7 @@ AS
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20220330@Malcolm: remove space [RedmineId: #170666]
 		- 20221109@Malcolm: Add log [RedmineId: #180493]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -60,8 +61,9 @@ BEGIN
 
 	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME()
 
-	DECLARE @MaxGroup 		 INT = 0,
-			@MaxBatchOfGroup INT = 250
+	DECLARE @MaxGroup INT = 0,
+			@MaxBatchOfLetstalkGroup INT = 250,
+			@MaxBatchOfTelegramGroup INT = 100
 
 	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - ProblemAccounts' AND SettingName = 'IncludeUUSCurrency'
 
@@ -424,7 +426,7 @@ BEGIN
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.LogId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
@@ -451,7 +453,7 @@ BEGIN
 	WHERE t.NoRecipient < g.NoRecipient
 
 	UPDATE t
-	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId
+	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId, t.ChannelId = cg.ChannelId
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
@@ -462,6 +464,7 @@ BEGIN
 		CustId				INT, 
 		CategoryId			SMALLINT, 
 		ConversationGroupId	SMALLINT, 
+		ChannelId			TINYINT,
 		ChatTypeId			TINYINT, 
 		LanguageId			INT, 
 		Username			VARCHAR(50), 
@@ -474,8 +477,8 @@ BEGIN
 		RelatedIdLst		NVARCHAR(MAX),
 		IsTest				BIT
 	)
-	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
-	SELECT m.LogId, m.CustId, g.ConversationGroupId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, m.IsTest
+	INSERT INTO #tmpResult (LogId, CustId, ConversationGroupId, ChannelId, CategoryId, CategoryNameEN, CategoryNameSC, CategoryNameTH, CategoryNameYN, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest)
+	SELECT m.LogId, m.CustId, g.ConversationGroupId, g.ChannelId, m.CategoryId, m.CategoryNameEN, m.CategoryNameSC, m.CategoryNameTH, m.CategoryNameYN ,g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, m.IsTest
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.LogId = g.LogId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -489,7 +492,7 @@ BEGIN
 			SELECT 1 
 			FROM #tmpResult g 
 				INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = g.ConversationGroupId
-			WHERE g.ChatTypeId = 1 AND g.LogId = t.LogId AND cg.RecipientId = cgr.RecipientId
+			WHERE g.ChatTypeId = 1 AND g.LogId = t.LogId AND cg.RecipientId = cgr.RecipientId AND t.ChannelId = g.ChannelId
 	) AND t.ChatTypeId = 2
 
 	CREATE TABLE #Result
@@ -497,6 +500,7 @@ BEGIN
 		Id						INT
 		,LogIdLst				NVARCHAR(MAX)
 		,ConversationGroupId	SMALLINT
+		,ChannelId				TINYINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
 		,Status					VARCHAR(20)
@@ -515,12 +519,19 @@ BEGIN
 
 	-- For Group, Personal Which have IsDuplicated = 0
 	;WITH CTE_Batch AS (
-		SELECT t.LogId, t.ConversationGroupId, (DENSE_RANK() OVER(PARTITION BY ConversationGroupId ORDER BY CategoryId ASC, CustId ASC) - 1)/ @MaxBatchOfGroup AS BatchOfGroup
+		SELECT 
+			t.LogId
+			,t.ConversationGroupId
+			,t.ChannelId
+			,(DENSE_RANK() OVER(PARTITION BY ConversationGroupId ORDER BY CategoryId ASC, CustId ASC) - 1) 
+			 / CASE WHEN t.ChannelId = 1 THEN @MaxBatchOfLetstalkGroup	
+                    WHEN t.ChannelId = 2 THEN @MaxBatchOfTelegramGroup
+			   ELSE 1 END AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 0
 	)
 	,CTE_Group AS (
-		SELECT t.LogId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY ConversationGroupId, BatchOfGroup) AS Id
+		SELECT t.LogId, t.ConversationGroupId, DENSE_RANK() OVER(ORDER BY t.ChannelId, t.ConversationGroupId, t.BatchOfGroup) AS Id
 		FROM CTE_Batch t
 	)
 	UPDATE t
@@ -534,16 +545,14 @@ BEGIN
 	FROM #tmpResult t
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = t.ConversationGroupId
 	CROSS APPLY (
-		SELECT STUFF
-			   ( 
-					(
-						SELECT DISTINCT ',' + CONVERT(VARCHAR(30), p.Id)
-						FROM #tmpResult p
-							INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
-						WHERE p.ChatTypeId = 1 AND p.CustId = t.CustId AND p.CategoryId = t.CategoryId AND cg.RecipientId = cgr.RecipientId
-						FOR XML PATH ('')
-					), 1, 1, ''
-				) AS RelatedLst
+		 SELECT STRING_AGG(RelatedLst.Id, ',') AS RelatedLst
+		 FROM 
+		 (
+			SELECT DISTINCT p.Id
+			FROM #tmpResult p
+				INNER JOIN dbo.crmConversationGroupRecipient cg WITH(NOLOCK) ON cg.ConversationGroupId = p.ConversationGroupId
+			WHERE p.ChatTypeId = 1 AND p.CustId = t.CustId AND p.CategoryId = t.CategoryId AND cg.RecipientId = cgr.RecipientId AND t.ChannelId = p.ChannelId
+		 ) AS RelatedLst
 	) u(RelatedLst)
 	WHERE t.IsDuplicated = 1
 
@@ -555,12 +564,20 @@ BEGIN
 	-- For Personal (Groups have IsDuplicated = 1)
 	;WITH CTE_Batch AS
 	(
-		SELECT LogId, ConversationGroupId, RelatedIdLst, ((DENSE_RANK() OVER(PARTITION BY ConversationGroupId, RelatedIdLst ORDER BY CategoryId, CustId) - 1)/ @MaxBatchOfGroup) AS BatchOfGroup
+		SELECT 
+			t.LogId
+			,t.ConversationGroupId
+			,t.ChannelId
+			,t.RelatedIdLst
+			,(DENSE_RANK() OVER(PARTITION BY t.ConversationGroupId, t.RelatedIdLst ORDER BY t.CategoryId, t.CustId) - 1)
+			/ CASE WHEN t.ChannelId = 1 THEN @MaxBatchOfLetstalkGroup	
+                   WHEN t.ChannelId = 2 THEN @MaxBatchOfTelegramGroup
+			  ELSE 1 END AS BatchOfGroup
 		FROM #tmpResult t
 		WHERE t.IsDuplicated = 1
-	), CTE_Group AS
+	),CTE_Group AS
 	(
-		SELECT LogId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ConversationGroupId, RelatedIdLst, BatchOfGroup) AS Id
+		SELECT LogId, ConversationGroupId, DENSE_RANK() OVER(ORDER BY ChannelId, ConversationGroupId, RelatedIdLst, BatchOfGroup) AS Id
 		FROM CTE_Batch
 	)
 	UPDATE t
@@ -573,6 +590,7 @@ BEGIN
 	(
 		SELECT r.Id
 			   ,r.ConversationGroupId
+			   ,r.ChannelId
 			   ,r.ChatTypeId
 			   ,r.LanguageId
 			   ,MIN(CASE WHEN r.IsTest = 1 THEN 1 ELSE 0 END) AS IsTest
@@ -580,7 +598,7 @@ BEGIN
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), LogId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS LogIdLst
 		FROM #tmpResult r
-		GROUP BY r.Id, r.ConversationGroupId, r.ChatTypeId, r.LanguageId
+		GROUP BY r.Id, r.ConversationGroupId, r.ChannelId, r.ChatTypeId, r.LanguageId
 	),CTE_Category AS 
 	(
 		SELECT t.Id , t.LanguageId ,t.CategoryId, t.CategoryNameEN, t.CategoryNameSC, t.CategoryNameTH, t.CategoryNameYN
@@ -598,11 +616,12 @@ BEGIN
 			   ,i.HeadlineIdLst
 		FROM CTE_Group i 
 	)
-	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId ,ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, ContentENSC, HeadlineList, RelatedIds)
+	INSERT INTO #Result (Id, LogIdLst, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Status, ContentEN, ContentSC, ContentTH, ContentYN, ContentENSC, HeadlineList, RelatedIds)
 	SELECT 
 		g.Id 
 		,g.LogIdLst
 		,g.ConversationGroupId
+		,g.ChannelId
 		,g.ChatTypeId
 		,g.LanguageId
 		,CASE WHEN g.Id > @MaxGroup THEN 'Duplicated' WHEN g.IsTest = 1 THEN 'Planned' ELSE @Status END AS [Status]
@@ -628,8 +647,8 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 			BREAK
 
-		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT NULL, '', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds, ChannelId)
+		SELECT nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			   ,REPLACE(
 					REPLACE(
 						REPLACE(
@@ -639,7 +658,7 @@ BEGIN
 								,'{Content_th}', r.ContentTH)
 							,'{Content_yn}', r.ContentYN)
 						,'{content_en_sc}', r.ContentENSC)
-			   ,r.RelatedIds
+			   ,r.RelatedIds, r.ChannelId
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId 
 		WHERE r.Id = @Id 
@@ -658,9 +677,9 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationHeadline (NotificationId, HeadlineId)
-		SELECT DISTINCT @NotificationId, f.val
+		SELECT DISTINCT @NotificationId, f.value
 		FROM #Result r
-			CROSS APPLY dbo.f_CRM_strSplit(r.HeadlineList, ',') f
+			CROSS APPLY STRING_SPLIT(r.HeadlineList, ',') f
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationReference (NotificationId, ReferenceId, DataSource)

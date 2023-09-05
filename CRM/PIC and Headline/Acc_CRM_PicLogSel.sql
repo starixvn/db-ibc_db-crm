@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PicLogSel]
 	@PicName		NVARCHAR(200) = '',
-	@LetstalkName	NVARCHAR(1000) = '',
+	@DisplayName	NVARCHAR(1000) = '',
 	@EditBy			VARCHAR(30)  = '', 
 	@FromDate		DATETIME,
 	@ToDate			DATETIME,
@@ -20,16 +20,21 @@ AS
 			- 20200724@Malcolm: Get log of PIC [Redmine: #137144]
 			- 20210726@Malcolm: Get pic type [Redmine: #151509]
 			- 20221028@Malcolm: Get conversation group [Redmine: #179240]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+
 		Param's Explanation:
 */
 BEGIN 
 	SET NOCOUNT ON
 
-	IF @PicName <> '' OR @LetstalkName <> ''
+	SELECT @PicName = ISNULL(@PicName, ''), @EditBy = ISNULL(@EditBy,''), @DisplayName = ISNULL(@DisplayName, '')
+		,@FromDate = DATEADD(HOUR,-12, @FromDate), @ToDate = DATEADD(HOUR,-12, @ToDate)
+
+	IF @PicName <> '' OR @DisplayName <> ''
 	BEGIN
 		IF NOT EXISTS (SELECT 1 FROM dbo.crmPIC p WITH(NOLOCK) WHERE p.Username = @PicName OR @PicName = '')
-		   OR NOT EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupName = @LetstalkName OR @LetstalkName = '')
-		   OR (@PicName <> '' AND @LetstalkName <> '')
+		   OR NOT EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupName = @DisplayName OR @DisplayName = '')
+		   OR (@PicName <> '' AND @DisplayName <> '')
 		BEGIN
 			SELECT @TotalRows = 0
 			GOTO Result
@@ -50,29 +55,26 @@ BEGIN
 		,RowNum			INT
 	)
 	DECLARE @ConversationGroupId INT = 0, @NumberOfGroup INT = 0
-
-	SELECT @PicName = ISNULL(@PicName, ''), @EditBy = ISNULL(@EditBy,''), @LetstalkName = ISNULL(@LetstalkName, '')
-		,@FromDate = DATEADD(HOUR,-12,@FromDate), @ToDate = DATEADD(HOUR,-12,@ToDate)
 	
-	SELECT @NumberOfGroup = COUNT(1) FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupName = @LetstalkName
+	SELECT @NumberOfGroup = COUNT(1) FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupName = @DisplayName
 
 	IF @NumberOfGroup = 1
 	BEGIN
 		SELECT @ConversationGroupId = ConversationGroupId
 		FROM dbo.crmConversationGroup WITH(NOLOCK) 
-		WHERE ConversationGroupName = @LetstalkName
+		WHERE ConversationGroupName = @DisplayName
 	END
-	IF @NumberOfGroup <= 1 OR @LetstalkName = ''
+	IF @NumberOfGroup <= 1 OR @DisplayName = ''
 	BEGIN
 		SELECT @TotalRows = COUNT(1)
 		FROM dbo.crmUserLog_RunSP r WITH(NOLOCK)
 			INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
 			LEFT JOIN dbo.crmPIC p WITH(NOLOCK) ON r.CustID = p.PicID AND l.ActionTypeID = 1 
 			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
-		WHERE l.ActionTypeID IN (CASE WHEN @LetstalkName <> '' THEN 0 ELSE 1 END, CASE WHEN @PicName <> '' THEN 0 ELSE 5 END) 
+		WHERE l.ActionTypeID IN (CASE WHEN @DisplayName <> '' THEN 0 ELSE 1 END, CASE WHEN @PicName <> '' THEN 0 ELSE 5 END) 
 			AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate AND (@EditBy = '' OR c.username = @EditBy)
 			AND (@PicName = '' OR p.Username = @PicName)
-			AND (@LetstalkName = '' OR (CONVERT(XML, NewValues)).exist('(//ConversationGroup[1]/@Id[number()=sql:variable("@ConversationGroupId")])') = 1 AND @ConversationGroupId <> 0)
+			AND (@DisplayName = '' OR (CONVERT(XML, NewValues)).exist('(//ConversationGroup[1]/@Id[number()=sql:variable("@ConversationGroupId")])') = 1 AND @ConversationGroupId <> 0)
 
 		INSERT INTO @Tmp (LogID, LogDate, EditBy, [Name], [PicType], ActionId, NewValues, OldValues, ActionTypeID)
 		SELECT 
@@ -89,10 +91,10 @@ BEGIN
 			INNER JOIN dbo.crmLogAction l WITH(NOLOCK) ON l.ActionID = r.ActionID
 			LEFT JOIN dbo.crmPIC p WITH(NOLOCK) ON r.CustID = p.PicID AND l.ActionTypeID = 1 
 			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON r.UserID = c.custid
-		WHERE l.ActionTypeID IN (CASE WHEN @LetstalkName <> '' THEN 0 ELSE 1 END, CASE WHEN @PicName <> '' THEN 0 ELSE 5 END) 
+		WHERE l.ActionTypeID IN (CASE WHEN @DisplayName <> '' THEN 0 ELSE 1 END, CASE WHEN @PicName <> '' THEN 0 ELSE 5 END) 
 			AND r.LogDate >= @FromDate AND r.LogDate <= @ToDate AND (@EditBy = '' OR c.username = @EditBy)
 			AND (@PicName = '' OR p.Username = @PicName)
-			AND (@LetstalkName = '' OR (CONVERT(XML, NewValues)).exist('(//ConversationGroup[1]/@Id[number()=sql:variable("@ConversationGroupId")])') = 1 AND @ConversationGroupId <> 0)
+			AND (@DisplayName = '' OR (CONVERT(XML, NewValues)).exist('(//ConversationGroup[1]/@Id[number()=sql:variable("@ConversationGroupId")])') = 1 AND @ConversationGroupId <> 0)
 		ORDER BY r.LogID DESC
 		OFFSET (@PageIndex - 1) * @PageSize ROWS
 		FETCH NEXT @PageSize ROWS ONLY
@@ -103,9 +105,9 @@ BEGIN
 
 		SELECT @ExpressGroupIds = '*[ConversationGroup/@Id = 1]'
 
-		SELECT @ExpressGroupIds = STRING_AGG('ConversationGroup/@Id = ' + CONVERT(VARCHAR(50), g.ConversationGroupId), ' or ')
+		SELECT @ExpressGroupIds = STRING_AGG('ConversationGroup/@Id = ' + CONVERT(VARCHAR(MAX), g.ConversationGroupId), ' or ')
 		FROM dbo.crmConversationGroup g WITH(NOLOCK)
-		WHERE g.ConversationGroupName = @LetstalkName
+		WHERE g.ConversationGroupName = @DisplayName
 
 		SELECT @ExpressGroupIds = '*[' + @ExpressGroupIds + ']'
 		

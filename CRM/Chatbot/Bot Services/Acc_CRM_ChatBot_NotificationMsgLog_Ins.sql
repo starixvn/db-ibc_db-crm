@@ -2,12 +2,12 @@
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationMsgLog_Ins]
 	@ReferenceId INT
 	,@DataSource NVARCHAR(128) 
-	,@BotId INT
+	,@BotId BIGINT
 	,@ConversationId VARCHAR(2000)
 	,@Content NVARCHAR(MAX)
 	,@IsBotBlocked BIT = 0
 	,@IsSuccess BIT = 0
-	,@ErrMsg NVARCHAR(4000)
+	,@ErrMsg NVARCHAR(4000) = ''
 AS
 /*
 Created: 20200911@Oliver.Dang
@@ -17,6 +17,7 @@ Original:
 	Revisions:
 		- 20200911@Oliver: Initialize SPs [Redmine: #130544]
 		- 20230704@Malcolm: Add param @ReferenceId [Redmine: #189408]
+		- 20230704@Malcolm: Change INT to BIGINT for @BotId [Redmine: #179119]
 	Param's Explanation:
 		
 */
@@ -47,4 +48,3 @@ BEGIN
 		)
 END
 GO
-

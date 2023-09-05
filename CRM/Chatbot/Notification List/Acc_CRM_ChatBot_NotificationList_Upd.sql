@@ -7,12 +7,13 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Upd]
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Update remarks of notification list
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200810@Malcolm
+	Task : CRM - Headline Notification - Notification List - View Detail (For notification with status as error) - Resolve (Update remarks of notification list)
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 		
 */

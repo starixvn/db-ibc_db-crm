@@ -5,11 +5,11 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Del]
 	,@NotificationTemplateName  NVARCHAR(1000)
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP					NVARCHAR(20) = ''
+	,@LoginIP					VARCHAR(45) = ''
 AS
 /*
 	Created: 20200810@Malcolm
-	Task :  Delete a new notification template
+	Task : CRM - Headline Notification - Notification Template - Action - Delete (Delete a notification template)
 	DB: DBCRM/bodb_CRM
 	Original:
 		Revisions:
@@ -20,6 +20,7 @@ AS
 			- 20210801@Malcolm: Get settings of Result Amendment [RedmineID: #151509]
 			- 20221121@Malcolm: Get settings of Archiving Dormant Accounts [RedmineID: #158258]
 			- 20230223@Malcolm: Do not delete the template that created the announcement [RedmineID: #179118]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 		Param's Explanation:
 */
 BEGIN
@@ -35,8 +36,8 @@ BEGIN
 
 	INSERT INTO #NotificationTemplate(NotificationTemplateId)
 	SELECT DISTINCT s.NotificationTemplateID
-	FROM dbo.f_CRM_strSplit(@ServiceNames, ',') f
-	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.val ) AS i(Setting)
+	FROM STRING_SPLIT(@ServiceNames, ',') f
+	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.value ) AS i(Setting)
 	CROSS APPLY(SELECT DISTINCT T.c.value('@NotificationTemplateID', 'INT') AS NotificationTemplateID FROM i.Setting.nodes('/root/r') T(c)) s(NotificationTemplateID)
 	-- Check permission
 

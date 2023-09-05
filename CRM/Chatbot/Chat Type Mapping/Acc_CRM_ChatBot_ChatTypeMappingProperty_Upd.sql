@@ -3,22 +3,21 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMappingProperty_Upd]
 	@CustID			INT = 0,
 	@Old_Headline   INT = 0,
 	@New_Headline   INT = 0,
-	@Username		VARCHAR(30) = '',
 	@Case			INT = 0,
-	@LoginIP		VARCHAR(20)='',
+	@LoginIP		VARCHAR(45)='',
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
 	@UserID			INT
 AS
 /*
-Created: 20200916@Malcolm
-Task : 
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200916@Malcolm
+	Task : 
+	DB: DBCRM/bodb_CRM
+	Original:
 
-	Revisions:		
-		- 20200916@Malcolm : Update chat Type mapping property[Redmine : #130544]
-
+		Revisions:		
+			- 20200916@Malcolm : Update chat Type mapping property[Redmine : #130544]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 */
 BEGIN
 	
@@ -27,7 +26,10 @@ BEGIN
 			@OldValues				NVARCHAR(MAX),
 			@NewValues              NVARCHAR(MAX),
 			@HeadlineIds			VARCHAR(1000), 
-			@RecipientIds			VARCHAR(1000)
+			@RecipientIds			VARCHAR(1000),
+			@ConversationId			VARCHAR(200),
+			@Username				VARCHAR(32),
+			@ConversationGroupName	NVARCHAR(1000)
 
 	DECLARE @TmpHeadline TABLE (ConversationGroupId SMALLINT, HeadlineId INT)
 	DECLARE @TmpRecipient TABLE (ConversationGroupId SMALLINT, RecipientId INT)
@@ -105,7 +107,7 @@ BEGIN
 				,@RecipientTypeId  = NULL 
 				,@HeadlineIds = @HeadlineIds		
 				,@RecipientIds	= NULL		
-				,@LetstalkID = NULL
+				,@ConversationId = NULL
 				,@LanguageId = NULL		
 				,@Remark = NULL			
 				,@UserId = @UserId	
@@ -155,17 +157,17 @@ BEGIN
 
 		;WITH CTE AS (
 			SELECT cgr.ConversationGroupId ,cgh.HeadlineId, cpm.CustId  ,COUNT(cpm.custid) AS NoOfCustId,MAX (m.NoOfRecipient) AS NoOfRecipient
-			FROM dbo.crmConversationGroupRecipient cgr
-				INNER JOIN dbo.crmConversationGroupHeadline cgh ON cgh.ConversationGroupId = cgr.ConversationGroupId
-				INNER JOIN dbo.crmRecipient r ON r.RecipientId = cgr.RecipientId
-				LEFT JOIN dbo.crmPICManagement cpm ON cpm.HeadlineId = cgh.HeadlineId AND cpm.PicId = r.SourceId
+			FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
+				INNER JOIN dbo.crmConversationGroupHeadline cgh WITH(NOLOCK) ON cgh.ConversationGroupId = cgr.ConversationGroupId
+				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
+				LEFT JOIN dbo.crmPICManagement cpm WITH(NOLOCK) ON cpm.HeadlineId = cgh.HeadlineId AND cpm.PicId = r.SourceId
 				CROSS APPLY(
 					SELECT COUNT(RecipientId) AS NoOfRecipient
-					FROM dbo.crmConversationGroupRecipient cg
+					FROM dbo.crmConversationGroupRecipient cg WITH(NOLOCK)
 					WHERE cg.ConversationGroupId = cgr.ConversationGroupId
 				) AS M(NoOfRecipient)
 			WHERE EXISTS (SELECT 1 FROM @TmpHeadline g WHERE cgr.ConversationGroupId = g.ConversationGroupId)
-			GROUP BY   cgr.ConversationGroupId, cgh.HeadlineId, cpm.CustId
+			GROUP BY cgr.ConversationGroupId, cgh.HeadlineId, cpm.CustId
 			HAVING MAX (m.NoOfRecipient) = COUNT(cpm.CustId)
 		)
 		DELETE t
@@ -208,7 +210,7 @@ BEGIN
 
 	WHILE @@FETCH_STATUS = 0
 	BEGIN
-		SELECT @RecipientIds = NULL, @HeadlineIds = NULL
+		SELECT @RecipientIds = NULL, @HeadlineIds = NULL, @Username = NULL, @ConversationId = NULL, @ConversationGroupName = NULL
 
 		SELECT @HeadlineIds = STUFF((SELECT ',' + CONVERT(VARCHAR(20), cgh.HeadlineId)
 									 FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
@@ -228,17 +230,22 @@ BEGIN
 
 		IF EXISTS(SELECT 1 FROM @TmpRecipient h WHERE h.ConversationGroupId = @GroupId)
 		BEGIN
-			SELECT @RecipientIds = ''
+			SELECT @RecipientIds = '', @Username = ''
+
+			SELECT @ConversationId = CASE WHEN g.ChatTypeId = 2 THEN '' ELSE @ConversationId END 
+				  ,@ConversationGroupName = CASE WHEN g.ChatTypeId = 2 THEN '' ELSE @ConversationGroupName END
+			FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @GroupId
 		END
 
 		EXEC dbo.Acc_CRM_ChatBot_ChatTypeMapping_Upd
 				@ConversationGroupId = @GroupId
 				,@BotId = NULL			
-				,@ConversationGroupName	= NULL
+				,@ConversationGroupName	= @ConversationGroupName
 				,@RecipientTypeId  = NULL 
 				,@HeadlineIds = @HeadlineIds		
 				,@RecipientIds	= @RecipientIds		
-				,@LetstalkID = NULL
+				,@ConversationId = @ConversationId
+				,@Username = @Username
 				,@LanguageId = NULL		
 				,@Remark = NULL			
 				,@UserId = @UserId	

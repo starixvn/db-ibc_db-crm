@@ -14,15 +14,16 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Upd]
 	,@SendImmediately			BIT
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP					VARCHAR(50) = ''
+	,@LoginIP					VARCHAR(45) = ''
 AS
 /*
 	Created: 20221213@Malcolm
-	Task :  Announcement - Annoucement list - New annoucement (Insert a new announcement)
+	Task :  Announcement - Action (when Status = Cancelled) - Edit annoucement (Edit a announcement)
 	DB: DBCRM/bodb_CRM
 	Original:
 		Revisions:
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 
 	- @Contents:

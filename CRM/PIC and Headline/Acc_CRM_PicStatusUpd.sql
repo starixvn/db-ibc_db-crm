@@ -8,15 +8,17 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PICStatusUpd]
 	@ErrMsg		NVARCHAR(4000) = '' OUTPUT
 AS
 /*
-Created: 20200506@Malcolm
-Task :  CRM - Staff/Boss Management of headline
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200506@Malcolm
+	Task :  CRM - Staff/Boss Management of headline
+	DB: DBCRM/bodb_CRM
+	Original:
 
 	Revisions:
 		- 20200506@Malcolm: Update status of PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
 		- 20200921@Malcolm : Update chat type mapping when deactive Pic Status[RedmineId : #130544] 
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		
 	Param's Explanation:
 	
 		
@@ -26,7 +28,7 @@ BEGIN
 
 	DECLARE @OldValues NVARCHAR(MAX) = '', @NewValues NVARCHAR(MAX) = '', @Old_IsActive BIT = 0, @PicName NVARCHAR(200) = '',
 			@RemovedPICs NVARCHAR(MAX), @OldDirectAccounts XML, @OldHeadlines XML , @___GroupId INT, @RecipientIds VARCHAR(1000),
-			@HeadlineIds VARCHAR(1000), @RecipientId INT = NULL
+			@HeadlineIds VARCHAR(1000), @RecipientId INT = NULL, @Username VARCHAR(32) = NULL, @ConversationId VARCHAR(200) = NULL
 			
 	DECLARE @___HeadlineXML			XML, 
 			@___RecipientXML		XML,
@@ -159,15 +161,17 @@ BEGIN
 	    WHILE @@FETCH_STATUS = 0
 	    BEGIN
 	    	
-	    	SELECT @RecipientIds = NULL, @HeadlineIds = NULL
+	    	SELECT @RecipientIds = NULL, @HeadlineIds = NULL, @Username = NULL, @ConversationId = NULL
 	    
 	    	SELECT @RecipientIds = STUFF((SELECT ',' + CONVERT(VARCHAR(20), cgr.RecipientId)
-	    								  FROM dbo.crmConversationGroupRecipient cgr
+	    								  FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
 	    								  WHERE cgr.ConversationGroupId = @___GroupId AND cgr.RecipientId <> @RecipientId
 	    								  FOR XML PATH('')),1,1,'')
 			IF @RecipientIds IS NULL
 			BEGIN
-				SELECT @RecipientIds = ''
+				SELECT @RecipientIds = '', @Username = ''
+
+				SELECT @ConversationId = CASE WHEN g.ChatTypeId = 2 THEN '' ELSE @ConversationId END FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @___GroupId
 			END
 
 	    	IF EXISTS(SELECT 1 FROM @TmpHeadline h WHERE h.ConversationGroupId = @___GroupId)
@@ -182,7 +186,8 @@ BEGIN
 	    			,@RecipientTypeId  = NULL 
 	    			,@HeadlineIds = @HeadlineIds		
 	    			,@RecipientIds	= @RecipientIds		
-	    			,@LetstalkID = NULL
+	    			,@ConversationId = @ConversationId
+					,@Username = @Username
 	    			,@LanguageId = NULL		
 	    			,@Remark = NULL			
 	    			,@UserId = @UserId	

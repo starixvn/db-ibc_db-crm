@@ -5,16 +5,17 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationType_Del]
 	,@NotificationTypeName	NVARCHAR(500)
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP				NVARCHAR(20) = ''
+	,@LoginIP				VARCHAR(45) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Delete a new notification type
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200810@Malcolm
+	Task : CRM - Headline Notification - Notification Type - Action - Delete (Delete a notification type)
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201216@Malcolm: not check notification type in setting [Redmine: #146735]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 		
 */

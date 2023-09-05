@@ -5,16 +5,18 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMappingRemark_Upd]
 	,@UserId				INT
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP				NVARCHAR(20) = ''
+	,@LoginIP				VARCHAR(45) = ''
 AS
 /*
 	Created: 20221019@Malcolm
-	Task :  Update Remark of group chat mapping
+	Task : CRM - Headline Notification - Chat Type Mapping - Remark - Edit
 	DB: DBCRM/bodb_CRM
 	Original:
 		Revisions:
 			- 20221019@Malcolm: Initialize SPs [Redmine: #179240]
 			- 20221028@Malcolm: Change logs [RedmineId : #179240]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+
 		Param's Explanation:
 		
 */

@@ -4,14 +4,16 @@ CREATE PROCEDURE [dbo].[Acc_CRM_VodingMessage_Check]
 	,@Environment VARCHAR(50) = ''
 AS
 /*
-Created: 20211105@Malcolm
-Task : Check message
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20211105@Malcolm
+	Task : Check message
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20211105@Malcolm: Initialize SPs [Redmine: #164235]
 		- 20220110@Malcolm: Include @Environment parameter [Redmine: #164235]
 		- 20210111@Malcolm: If same TransId get the largest messageid [Redmine: #164235]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		
 	Param's Explanation:
 	 @Message:
 			<root>
@@ -36,8 +38,8 @@ BEGIN
 		,n.TransId
 	FROM @Message.nodes('root/r') t(c)
 	CROSS APPLY (
-		SELECT f.val AS TransId
-		FROM dbo.f_CRM_strSplit(t.c.value('@BetTransId','VARCHAR(MAX)'), ',') AS f
+		SELECT f.value AS TransId
+		FROM STRING_SPLIT(t.c.value('@BetTransId','VARCHAR(MAX)'), ',') AS f
 	) AS n
 	OPTION (OPTIMIZE FOR (@Message = NULL))
 

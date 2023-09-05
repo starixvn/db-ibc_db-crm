@@ -3,12 +3,13 @@ CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_VodingMessage_Sel]
 	@BatchSizeGetMsg INT = 10
 AS
 /*
-Created: 20210811@Malcolm
-Task :  Get message
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20210811@Malcolm
+	Task :  Get message
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20210811@Malcolm: Initialize SPs [Redmine: #151509]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 
 		
@@ -35,7 +36,7 @@ BEGIN
 	INSERT INTO #InfoMessage (MessageId, TransId)
 	SELECT vm.MessageId, t.TransId
 	FROM #TargetMessage vm WITH(NOLOCK)
-		CROSS APPLY (SELECT RTRIM(LTRIM(f.val)) AS TransId FROM f_CRM_strSplit(vm.BetTransId, ',') f WHERE f.val <> '') t
+		CROSS APPLY (SELECT TRIM(f.value) AS TransId FROM STRING_SPLIT(vm.BetTransId, ',') f WHERE f.value <> '') t
 	
 	CREATE INDEX ix_TransId ON #InfoMessage (TransId)
 

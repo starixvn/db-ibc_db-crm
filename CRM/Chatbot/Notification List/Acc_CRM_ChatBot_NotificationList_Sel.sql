@@ -3,6 +3,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
 	@NotificationTypeIds	VARCHAR(MAX) = ''
 	,@FromDate				DATETIME = NULL
 	,@ToDate				DATETIME = NULL
+	,@ChannelId				TINYINT = NULL
 	,@NotificationIdUpper	INT = NULL
 	,@NotificationIdLower	INT = NULL
 	,@Headline				VARCHAR(30) =''
@@ -18,7 +19,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
 AS
 /*
 	Created: 20200810@Malcolm
-	Task :  Get the notification list
+	Task : CRM - Headline Notification - Notification List - Submit
 	DB: DBCRM/bodb_CRM
 	Original:
 		Revisions:
@@ -26,8 +27,10 @@ AS
 			- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
 			- 20210731@Malcolm : Add alias [RedmineId : #151509] 
 			- 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
-	         	- 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
-			- 20221222@Malcolm : Add filter by AnnouncementId [RedmineId : #179118] 
+	        - 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
+			- 20221222@Malcolm : Add filter by AnnouncementId [RedmineId : #179118]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+			
 		Param's Explanation:
 		
 */
@@ -44,9 +47,9 @@ BEGIN
 	DECLARE @RecipientId INT = NULL, @HeadlineId INT = NULL
 
 	DECLARE @NotificationIdList TABLE (NotificationId INT PRIMARY KEY)
-	DECLARE @_NotificationTypeIds TABLE (NotificationTypeId INT)
+	DECLARE @NotificationTypeList TABLE (NotificationTypeId INT)
 
-	INSERT INTO @_NotificationTypeIds(NotificationTypeId)
+	INSERT INTO @NotificationTypeList (NotificationTypeId)
 	SELECT f.value
 	FROM STRING_SPLIT(@NotificationTypeIds,',') f
 	WHERE f.value <> ''
@@ -81,6 +84,7 @@ BEGIN
 		,ResolvedRemark			NVARCHAR(2000)
 		,ResolvedBy				INT
 		,RelatedNotificationIds NVARCHAR(1000)
+		,ChannelId				TINYINT
 		,RowNum					INT
 	)
 	
@@ -108,6 +112,7 @@ BEGIN
 					,ResolvedRemark
 					,ResolvedBy
 					,RelatedNotificationIds
+					,ChannelId
 				)
 				SELECT 
 					n.NotificationId,
@@ -122,14 +127,16 @@ BEGIN
 					n.Status,
 					n.ResolvedRemark,
 					n.ResolvedBy,
-					n.RelatedNotificationIds
+					n.RelatedNotificationIds,
+					n.ChannelId
 				FROM dbo.crmNotification n WITH(NOLOCK)
 					INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
 				WHERE n.SendDate >= @FromDate
 					AND n.SendDate < @ToDate 
 					AND (',' + @Status + ',' LIKE '%,' + n.Status + ',%')
 					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
-					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
+					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @NotificationTypeList)
+					AND (n.ChannelId = @ChannelId OR @ChannelId IS NULL)
 			END
 			ELSE
 			BEGIN
@@ -163,6 +170,7 @@ BEGIN
 					,ResolvedRemark
 					,ResolvedBy
 					,RelatedNotificationIds
+					,ChannelId
 				)
 				SELECT 
 					n.NotificationId,
@@ -177,7 +185,8 @@ BEGIN
 					n.Status,
 					n.ResolvedRemark,
 					n.ResolvedBy,
-					n.RelatedNotificationIds
+					n.RelatedNotificationIds,
+					n.ChannelId
 				FROM dbo.crmNotification n WITH(NOLOCK)
 					INNER JOIN dbo.crmNotificationType nt WITH(NOLOCK) ON n.NotificationTypeId = nt.NotificationTypeId
 					LEFT JOIN @NotificationIdList nl ON nl.NotificationId = n.NotificationId
@@ -185,8 +194,9 @@ BEGIN
 					AND (n.Content LIKE '%' + @Content + '%' OR @Content = '')
 					AND (n.NotificationId >= @NotificationIdLower)
 					AND (n.NotificationId <= @NotificationIdUpper)
-					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @_NotificationTypeIds)
+					AND n.NotificationTypeId IN (SELECT NotificationTypeId FROM @NotificationTypeList)
 					AND ((@MessageId IS NULL AND @AnnouncementId IS NULL) OR nl.NotificationId IS NOT NULL)
+					AND (n.ChannelId = @ChannelId OR @ChannelId IS NULL)
 			END	
 		END TRY
 		BEGIN CATCH
@@ -267,8 +277,9 @@ BEGIN
 		,t.ResolvedRemark
 		,o.username AS ResolvedBy
 		,nr.Reason
-		,cg.ConversationGroupName AS LetstalkName
+		,cg.ConversationGroupName AS [DisplayName]
 		,t.RelatedNotificationIds
+		,t.ChannelId
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationGroup nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = nr.ConversationGroupId

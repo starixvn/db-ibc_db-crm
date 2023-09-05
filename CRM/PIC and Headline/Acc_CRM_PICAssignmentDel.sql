@@ -7,15 +7,17 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PICAssignmentDel]
 	@UserID			INT
 AS
 /*
-Created: 20200513@Malcolm
-Task :  CRM - Staff/Boss Management of headline
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200513@Malcolm
+	Task :  CRM - Staff/Boss Management of headline
+	DB: DBCRM/bodb_CRM
+	Original:
 
 	Revisions:
 		- 20200513@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
 		- 20200916@Malcolm : Update chat Type mapping [Redmine : #130544]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		
 	Param's Explanation:
 	- @RemovedPICs:		
 		<ROOT>
@@ -41,7 +43,9 @@ BEGIN
 			@NewValues 				NVARCHAR(MAX),
 			@OldValues 				NVARCHAR(MAX),						
 			@HeadlineIds			VARCHAR(1000),
-			@RecipientIds			VARCHAR(1000)
+			@RecipientIds			VARCHAR(1000),
+			@Username				VARCHAR(32) = NULL,
+			@ConversationId			VARCHAR(200) = NULL
 
 	DECLARE @TmpLog TABLE (HeadlineID INT, CustID INT, PicID INT, Type INT)
 
@@ -154,13 +158,13 @@ BEGIN
 	
 	;WITH CTE AS (
 			SELECT cgr.ConversationGroupId ,cgh.HeadlineId, cpm.CustId  ,COUNT(cpm.custid) AS NoOfCustId,MAX (m.NoOfRecipient) AS NoOfRecipient
-			FROM dbo.crmConversationGroupRecipient cgr
-				INNER JOIN dbo.crmConversationGroupHeadline cgh ON cgh.ConversationGroupId = cgr.ConversationGroupId
-				INNER JOIN dbo.crmRecipient r ON r.RecipientId = cgr.RecipientId
-				LEFT JOIN dbo.crmPICManagement cpm ON cpm.HeadlineId = cgh.HeadlineId AND cpm.PicId = r.SourceId
+			FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
+				INNER JOIN dbo.crmConversationGroupHeadline cgh WITH(NOLOCK) ON cgh.ConversationGroupId = cgr.ConversationGroupId
+				INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
+				LEFT JOIN dbo.crmPICManagement cpm WITH(NOLOCK) ON cpm.HeadlineId = cgh.HeadlineId AND cpm.PicId = r.SourceId
 				CROSS APPLY(
 					SELECT COUNT(RecipientId) AS NoOfRecipient
-					FROM dbo.crmConversationGroupRecipient cg
+					FROM dbo.crmConversationGroupRecipient cg WITH(NOLOCK)
 					WHERE cg.ConversationGroupId = cgr.ConversationGroupId
 				) AS M(NoOfRecipient)
 			WHERE EXISTS (SELECT 1 FROM @TmpHeadline g WHERE cgr.ConversationGroupId = g.ConversationGroupId)
@@ -207,7 +211,7 @@ BEGIN
 
 	WHILE @@FETCH_STATUS = 0
 	BEGIN		
-		SELECT @RecipientIds = NULL, @HeadlineIds = NULL
+		SELECT @RecipientIds = NULL, @HeadlineIds = NULL, @Username = NULL, @ConversationId = NULL
 
 		SELECT @HeadlineIds = STUFF((SELECT ',' + CONVERT(VARCHAR(20), cgh.HeadlineId)
 									  FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
@@ -227,7 +231,9 @@ BEGIN
 
 		IF EXISTS(SELECT 1 FROM @TmpRecipient h WHERE h.ConversationGroupId = @GroupId)
 		BEGIN
-			SELECT @RecipientIds = ''
+			SELECT @RecipientIds = '', @Username = ''
+
+			SELECT @ConversationId = CASE WHEN g.ChatTypeId = 2 THEN '' ELSE @ConversationId END FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @GroupId
 		END
 		
 		EXEC dbo.Acc_CRM_ChatBot_ChatTypeMapping_Upd
@@ -237,7 +243,8 @@ BEGIN
 				,@RecipientTypeId  = NULL 
 				,@HeadlineIds = @HeadlineIds		
 				,@RecipientIds	= @RecipientIds		
-				,@LetstalkID = NULL
+				,@ConversationId = @ConversationId
+				,@Username = @Username
 				,@LanguageId = NULL		
 				,@Remark = NULL			
 				,@UserId = @UserId	

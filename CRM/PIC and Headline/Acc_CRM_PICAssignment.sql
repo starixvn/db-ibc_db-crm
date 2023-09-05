@@ -11,15 +11,17 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PICAssignment]
 	
 AS
 /*
-Created: 20200506@Malcolm
-Task :  CRM - Staff/Boss Management of headline
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200506@Malcolm
+	Task :  CRM - Staff/Boss Management of headline
+	DB: DBCRM/bodb_CRM
+	Original:
 
 	Revisions:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
 		- 20200916@Malcolm : Update chat Type mapping [Redmine : #130544]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		
 	Param's Explanation:
 	
 		
@@ -70,7 +72,9 @@ BEGIN
 			@NumberOfRecipient		INT,
 			@NumberOfHeadline		INT,
 			@HeadlineIds			VARCHAR(1000),
-			@RecipientIds			VARCHAR(1000)
+			@RecipientIds			VARCHAR(1000),
+			@Username				VARCHAR(32) = NULL,
+			@ConversationId			VARCHAR(200) = NULL
 		
 	DECLARE @DirectAccounts TABLE (username VARCHAR(50))
 	INSERT INTO @DirectAccounts (username)
@@ -288,7 +292,7 @@ BEGIN
 
 		WHILE @@FETCH_STATUS = 0
 		BEGIN		
-			SELECT @RecipientIds = NULL, @HeadlineIds = NULL
+			SELECT @RecipientIds = NULL, @HeadlineIds = NULL, @Username = NULL, @ConversationId = NULL
 
 			SELECT @HeadlineIds = STUFF((SELECT ',' + CONVERT(VARCHAR(20), cgh.HeadlineId)
 										  FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
@@ -308,7 +312,9 @@ BEGIN
 
 			IF EXISTS(SELECT 1 FROM @TmpRecipient h WHERE h.ConversationGroupId = @GroupId)
 			BEGIN
-				SELECT @RecipientIds = ''
+				SELECT @RecipientIds = '', @Username = ''
+
+				SELECT @ConversationId = CASE WHEN g.ChatTypeId = 2 THEN '' ELSE @ConversationId END FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @GroupId
 			END
 		
 			EXEC dbo.Acc_CRM_ChatBot_ChatTypeMapping_Upd
@@ -318,7 +324,8 @@ BEGIN
 					,@RecipientTypeId  = NULL 
 					,@HeadlineIds = @HeadlineIds		
 					,@RecipientIds	= @RecipientIds		
-					,@LetstalkID = NULL
+					,@ConversationId = @ConversationId
+					,@Username = @Username
 					,@LanguageId = NULL		
 					,@Remark = NULL			
 					,@UserId = @UserId	

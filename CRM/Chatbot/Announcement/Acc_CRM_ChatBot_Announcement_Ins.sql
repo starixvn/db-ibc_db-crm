@@ -14,7 +14,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Ins]
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
 	,@AnnouncementId			INT = 0 OUTPUT
-	,@LoginIP					VARCHAR(50) = ''
+	,@LoginIP					VARCHAR(45) = ''
 AS
 /*
 	Created: 20221213@Malcolm
@@ -23,6 +23,7 @@ AS
 	Original:
 		Revisions:
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 
 	- @Contents:

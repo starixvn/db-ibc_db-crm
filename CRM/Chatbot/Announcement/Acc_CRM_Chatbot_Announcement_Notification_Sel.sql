@@ -8,6 +8,7 @@ AS
 
 	Revisions:
 		- 20230607@Malcolm: Initialize SP [RedmineID: #189408]
+		- 20230712@Malcolm: Add ChannelId [RedmineID: #179119]
 
 	Param's Explanation:
 
@@ -17,7 +18,7 @@ BEGIN
 	SET NOCOUNT ON
 
 	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId BIGINT, ConversationId VARCHAR(200)
-		,IsOnlyRetryImage BIT, ErrImages NVARCHAR(2000))
+		,IsOnlyRetryImage BIT, ErrImages NVARCHAR(2000), ChannelId TINYINT)
 
 	DECLARE @Notifications TABLE (NotificationId INT, ConversationGroupId SMALLINT)
 
@@ -55,6 +56,7 @@ BEGIN
 		,sn.ConversationId = ng.ConversationId
 		,sn.IsOnlyRetryImage = n.IsOnlyRetryImage
 		,sn.ErrImages = n.ErrImages
+		,sn.ChannelId = ng.ChannelId
 	FROM @SendNotifications sn
 		CROSS APPLY (
 			SELECT n.Content, t.c.value('@IsOnlyRetryImage', 'BIT') AS IsOnlyRetryImage, t.c.value('@ErrImages', 'NVARCHAR(2000)') AS ErrImages
@@ -65,14 +67,14 @@ BEGIN
 		) n
 		CROSS APPLY
 		(
-			SELECT cg.ChatTypeId, cgb.BotId, cg.ConversationId, cg.LanguageId
+			SELECT cg.ChatTypeId, cgb.BotId, cg.ConversationId, cg.LanguageId, cg.ChannelId
 			FROM dbo.crmConversationGroup cg WITH (NOLOCK)
 				LEFT JOIN dbo.crmConversationGroupBot cgb WITH (NOLOCK) ON cg.ConversationGroupId = cgb.ConversationGroupId
 			WHERE cg.ConversationGroupId = sn.ConversationGroupId
 		) ng
 
 	Result:
-		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId, ISNULL(a.FileName, '') AS FileName, a.AnnouncementId, s.IsOnlyRetryImage, s.ErrImages
+		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId, ISNULL(a.FileName, '') AS FileName, a.AnnouncementId, s.IsOnlyRetryImage, s.ErrImages, s.ChannelId
 		FROM @SendNotifications s
 			LEFT JOIN dbo.crmAnnouncementNotification an WITH(NOLOCK) ON an.NotificationId = s.NotificationId
 			LEFT JOIN dbo.crmAnnouncement a WITH(NOLOCK) ON a.AnnouncementId = an.AnnouncementId 

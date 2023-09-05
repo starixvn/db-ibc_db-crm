@@ -11,6 +11,7 @@ AS
 		- 20200811@Percy: Initialize SP [RedmineID: #130544]
 		- 20221222@Malcolm: Get file name [RedmineID: #179118]
 		- 20230607@Malcolm: Don't get notification of annoucement [RedmineID: #189408]
+		- 20230712@Malcolm: Add ChannelId [RedmineID: #179119]
 
 	Param's Explanation:
 */
@@ -18,7 +19,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId BIGINT, ConversationId VARCHAR(200))
+	DECLARE @SendNotifications TABLE (NotificationId INT, Content NVARCHAR(MAX), ConversationGroupId SMALLINT, ChatTypeId TINYINT, BotId BIGINT, ConversationId VARCHAR(200), ChannelId TINYINT)
 	DECLARE @Notifications TABLE (NotificationId INT, ConversationGroupId SMALLINT)
 
 	INSERT INTO @Notifications (NotificationId, ConversationGroupId)
@@ -53,6 +54,7 @@ BEGIN
 		,sn.ChatTypeId = ng.ChatTypeId
 		,sn.BotId = ng.BotId
 		,sn.ConversationId = ng.ConversationId
+		,sn.ChannelId = ng.ChannelId
 	FROM @SendNotifications sn
 		CROSS APPLY (
 			SELECT n.Content
@@ -61,14 +63,14 @@ BEGIN
 		) n
 		CROSS APPLY
 		(
-			SELECT cg.ChatTypeId, cgb.BotId, cg.ConversationId
+			SELECT cg.ChatTypeId, cgb.BotId, cg.ConversationId, cg.ChannelId
 			FROM dbo.crmConversationGroup cg WITH (NOLOCK)
 				LEFT JOIN dbo.crmConversationGroupBot cgb WITH (NOLOCK) ON cg.ConversationGroupId = cgb.ConversationGroupId
 			WHERE cg.ConversationGroupId = sn.ConversationGroupId
 		) ng
 
 	Result:
-		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId
+		SELECT s.NotificationId, s.Content, s.ConversationGroupId, s.ChatTypeId, s.BotId, s.ConversationId, s.ChannelId
 		FROM @SendNotifications s
 END
 GO

@@ -14,16 +14,18 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicUpd]
 	@UserID					INT
 AS
 /*
-Created: 20200506@Malcolm
-Task : CRM - PIC and Headlin -> PIC Management -> Edit
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200506@Malcolm
+	Task : CRM - PIC and Headline -> PIC Management -> Edit
+	DB: DBCRM/bodb_CRM
+	Original:
 
 	Revisions:
 		- 20200506@Malcolm: Update information of PIC [Redmine: #108739]
 		- 20200723@Malcolm : change logs [RedmineId : #137144]
 		- 20200916@Malcolm : Update chat Type mapping [Redmine : #130544]
-		- 20210731@Malcolm : Add pic type [RedmineId : #151509] 
+		- 20210731@Malcolm : Add pic type [RedmineId : #151509]
+		- 20230508@Malcolm : Offer Telegram bot service for Headlines [RedmineId : #179119]
+
 	Param's Explanation:
 	- @CommunicationTools:		
 		<ROOT>
@@ -86,12 +88,7 @@ BEGIN
 
 	SELECT @Remark  = ISNULL(@Remark,''), @Language  = ISNULL(@Language,'')
 
-	SELECT	@Role_Old		= Role,
-			@PicType_Old	= PicType,
-			@Remark_Old		= Remark,
-			@PicName_Old	= Username,
-			@Country_Old	= Country,
-			@Language_Old	= Language			
+	SELECT @Role_Old = Role, @PicType_Old = PicType, @Remark_Old = Remark, @PicName_Old = Username, @Country_Old = Country, @Language_Old = Language			
 	FROM dbo.crmPIC WITH(NOLOCK)
 	WHERE PicID = @PicID
 
@@ -206,36 +203,44 @@ BEGIN
 
 	-- Update for Chat Type Mapping
 	BEGIN
-		DECLARE @SettingLetstalkId INT
-		SELECT  @SettingLetstalkId = SettingId
+		-- Telegram
+		DECLARE @SettingLetstalkId INT, @SettingTelegram INT
+
+		SELECT  
+			@SettingLetstalkId = CASE WHEN SettingValue = 'Letstalk' THEN SettingId ELSE @SettingLetstalkId END
+			,@SettingTelegram = CASE WHEN SettingValue = 'Telegram' THEN SettingId ELSE @SettingTelegram END
 		FROM dbo.crmSetting WITH(NOLOCK)
-		WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Letstalk'
+		WHERE SettingName = 'PICCommunicationTool' AND SettingValue IN ('Letstalk', 'Telegram')
 
-		DECLARE @Used__Letstalk TABLE (ConversationGroupId SMALLINT, LetstalkId VARCHAR(200), IsActive BIT)
-		DECLARE @New__Letstalk TABLE (LetstalkId VARCHAR(200))
+		DECLARE @UsedConversation TABLE (ConversationGroupId SMALLINT, ConversationId VARCHAR(200), Username VARCHAR(32), IsActive BIT, ChannelId TINYINT)
+		DECLARE @NewConversation TABLE (ConversationId VARCHAR(200), Username VARCHAR(32), ChannelId TINYINT)
 
-		INSERT INTO @New__Letstalk (LetstalkId)
-		SELECT DISTINCT LTRIM(RTRIM(f.val))
+		INSERT INTO @NewConversation (ConversationId, Username, ChannelId)
+		SELECT 
+			DISTINCT CASE WHEN s.SettingValue = 'Letstalk' THEN TRIM(f.value) ELSE '' END AS ConversationId
+			,CASE WHEN s.SettingValue = 'Telegram' THEN TRIM(f.value) ELSE '' END AS Username
+			,CASE WHEN s.SettingValue = 'Letstalk' THEN 1 ELSE 2 END AS ChannelId
 		FROM #input i
-			CROSS APPLY dbo.f_CRM_strSplit(i.SettingValue, ',') f
-		WHERE i.SettingId = @SettingLetstalkId AND ISNULL(LTRIM(RTRIM(f.val)), '') <> ''
+			CROSS APPLY STRING_SPLIT(i.SettingValue, ',') f
+			INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = i.SettingID 
+		WHERE s.SettingName = 'PICCommunicationTool' AND s.SettingValue IN ('Letstalk', 'Telegram') AND f.value <> ''
 	
-		INSERT INTO @Used__Letstalk (ConversationGroupId, LetstalkId, IsActive)
-		SELECT DISTINCT cg.ConversationGroupId, cg.ConversationId, cg.IsActive
+		INSERT INTO @UsedConversation (ConversationGroupId, ConversationId, Username, IsActive, ChannelId)
+		SELECT DISTINCT cg.ConversationGroupId, CASE WHEN cg.ChannelId = 1 THEN cg.ConversationId ELSE '' END AS ConversationId, ISNULL(cg.Username, ''), cg.IsActive,cg.ChannelId
 		FROM dbo.crmConversationGroup cg WITH(NOLOCK)
 			INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
 			INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.RecipientId = cgr.RecipientId
 		WHERE cg.ChatTypeId = 2 AND r.SourceId = @PicId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-			AND ISNULL(cg.ConversationId, '') <> ''
+			AND cg.IsDeleted = 0
 
 		DELETE u
-		FROM @Used__Letstalk u
-			INNER JOIN @New__Letstalk n ON u.LetstalkId = n.LetstalkId
+		FROM @UsedConversation u
+			INNER JOIN @NewConversation n ON u.ConversationId = n.ConversationId AND u.Username = n.Username AND u.ChannelId = n.ChannelId
 
 		DECLARE @ConversationGroupId SMALLINT, @IsActive BIT
-		WHILE EXISTS (SELECT 1 FROM @Used__Letstalk)
+		WHILE EXISTS (SELECT 1 FROM @UsedConversation)
 		BEGIN
-			SELECT TOP 1 @ConversationGroupId = ConversationGroupId, @IsActive = IsActive FROM @Used__Letstalk
+			SELECT TOP 1 @ConversationGroupId = ConversationGroupId, @IsActive = IsActive FROM @UsedConversation
 
 			IF @IsActive = 1
 			BEGIN
@@ -273,9 +278,10 @@ BEGIN
 				,@BotId = NULL
 				,@ConversationGroupName	= ''
 				,@RecipientTypeId  = NULL
-				,@HeadlineIds = NULL
-				,@RecipientIds	= NULL
-				,@LetstalkID = ''
+				,@HeadlineIds = ''
+				,@RecipientIds	= ''
+				,@ConversationId = ''
+				,@Username = ''
 				,@LanguageId = NULL
 				,@Remark = NULL
 				,@UserId = @UserId
@@ -311,7 +317,7 @@ BEGIN
 				RETURN
 			END
 
-			DELETE @Used__Letstalk WHERE ConversationGroupId = @ConversationGroupId
+			DELETE @UsedConversation WHERE ConversationGroupId = @ConversationGroupId
 		END
 	END
 

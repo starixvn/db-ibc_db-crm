@@ -8,13 +8,13 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Upd]
 	,@Contents					NVARCHAR(MAX) = NULL
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP					NVARCHAR(20) = ''
+	,@LoginIP					VARCHAR(45) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Insert a new notification template
-DB: DBCRM/bodb_CRM
-Original:
+	Created: 20200810@Malcolm
+	Task : CRM - Headline Notification - Notification Template - Action - Edit (Update a notification template)
+	DB: DBCRM/bodb_CRM
+	Original:
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201116@Malcolm: Get settings of CWL Service [Redmine: #144265]
@@ -22,6 +22,7 @@ Original:
 		- 20210428@Malcolm: Get settings of Problem Accounts [Redmine: #153119]
 		- 20210801@Malcolm: Get settings of Result Amendment [RedmineID: #151509]
 		- 20221121@Malcolm: Get settings of Archiving Dormant Accounts [RedmineID: #158258]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 	- @Contents:
 		<Contents>
@@ -45,8 +46,8 @@ BEGIN
 
 	INSERT INTO @RequiredParameters(NotificationTemplateID, Value, LanguageId, Frenquency)
 	SELECT d.NotificationTemplateID, d.Value, d.LanguageId, d.Frequency
-	FROM dbo.f_CRM_strSplit(@ServiceNames, ',') f
-	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.val ) AS i(Setting)
+	FROM STRING_SPLIT(@ServiceNames, ',') f
+	CROSS APPLY(SELECT CONVERT(XML, VALUE) AS Setting FROM dbo.SystemSetting WITH(NOLOCK) WHERE SettingName = 'NotificationTemplate' AND ServiceName = f.value ) AS i(Setting)
 	CROSS APPLY(
 		SELECT T.c.value('@NotificationTemplateID', 'INT') AS NotificationTemplateID , h.Value, h.LanguageId, h.Frequency
 		FROM i.Setting.nodes('root/r') AS T(c)

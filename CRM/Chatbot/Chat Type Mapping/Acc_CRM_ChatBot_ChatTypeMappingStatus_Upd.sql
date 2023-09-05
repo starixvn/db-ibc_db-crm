@@ -5,28 +5,25 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd]
 	,@UserId				INT
 	,@ErrCode				INT = 0 OUTPUT
 	,@ErrMsg				NVARCHAR(2000) = '' OUTPUT
-	,@LoginIP				NVARCHAR(20) = ''
+	,@LoginIP				VARCHAR(45) = ''
 AS
 /*
-Created: 20200810@Malcolm
-Task :  Update Status of group chat mapping
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-		- 20221028@Malcolm: Change logs [RedmineId : #179240]
-	Param's Explanation:
+	Created: 20200810@Malcolm
+	Task : CRM - Headline Notification - Chat Type Mapping - Active - Checkbox
+	DB: DBCRM/bodb_CRM
+	Original:
+		Revisions:
+			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20221028@Malcolm: Change logs [RedmineId : #179240]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+
+		Param's Explanation:
 		
 */
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @CustIds					VARCHAR(1000),
-			@OldValues					NVARCHAR(MAX), 
-			@NewValues					NVARCHAR(MAX),	
-			@__IsActive					BIT,
-			@ReferenceIds				VARCHAR(1000),
-			@__ConversationGroupName	NVARCHAR(1000)
+	DECLARE @CustIds VARCHAR(1000), @OldValues NVARCHAR(MAX), @NewValues NVARCHAR(MAX),	@OldIsActive BIT, @ReferenceIds VARCHAR(1000), @ConversationGroupName NVARCHAR(1000)
 
 	IF EXISTS (SELECT 1 FROM dbo.crmConversationGroup g WITH(NOLOCK) WHERE g.ConversationGroupId = @ConversationGroupId AND g.IsDeleted = 1)
 	BEGIN
@@ -34,10 +31,7 @@ BEGIN
 		RETURN
 	END
 
-	SELECT @__IsActive = IsActive
-		   ,@__ConversationGroupName= ConversationGroupName 
-	FROM dbo.crmConversationGroup cg WITH(NOLOCK) 
-	WHERE cg.ConversationGroupId = @ConversationGroupId
+	SELECT @OldIsActive = IsActive, @ConversationGroupName= ConversationGroupName FROM dbo.crmConversationGroup cg WITH(NOLOCK) WHERE cg.ConversationGroupId = @ConversationGroupId
 
 	BEGIN TRY
 		UPDATE dbo.crmConversationGroup WITH(ROWLOCK)
@@ -48,30 +42,30 @@ BEGIN
 		SELECT @ErrCode = @@ERROR, @ErrMsg = ERROR_MESSAGE()
 		RETURN
 	END CATCH
+
 	-- Write Logs
 
-	SELECT @CustIds = STUFF((
-				SELECT ','  + CONVERT(VARCHAR(20), cgh.HeadlineId)
-				FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
-				WHERE cgh.ConversationGroupId = @ConversationGroupId
-				FOR XML PATH('')),1,1,'')
+	SELECT @CustIds = STRING_AGG(CONVERT(VARCHAR(MAX), cgh.HeadlineId), ',') FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK) WHERE cgh.ConversationGroupId = @ConversationGroupId
 
-	SELECT @ReferenceIds = STUFF((
-				SELECT ','  + CONVERT(VARCHAR(20), cgr.RecipientId)
-				FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK)
-				WHERE cgr.ConversationGroupId = @ConversationGroupId
-				FOR XML PATH('')),1,1,'')
+	SELECT @ReferenceIds = STRING_AGG(CONVERT(VARCHAR(MAX), cgr.RecipientId), ',') FROM dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) WHERE cgr.ConversationGroupId = @ConversationGroupId
 
+	SELECT @OldValues = CONVERT(NVARCHAR(MAX),
+						(
+							SELECT 
+								@ConversationGroupId AS '@Id'
+								,@ConversationGroupName AS '@Name'
+								,@OldIsActive AS '@Active'
+							FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')
+						))
 
-	SELECT @OldValues = CAST((SELECT @ConversationGroupId AS '@Id', 
-									 @__ConversationGroupName AS '@Name',
-									 @__IsActive AS '@Active'
-							 FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
-
-	SELECT @NewValues = CAST((SELECT @ConversationGroupId AS '@Id', 
-									 @__ConversationGroupName AS '@Name',
-									 @IsActive AS '@Active'
-							  FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')) AS NVARCHAR(MAX))
+	SELECT @NewValues = CONVERT(NVARCHAR(MAX), 
+						(
+							SELECT 
+								@ConversationGroupId AS '@Id'
+								,@ConversationGroupName AS '@Name'
+								,@IsActive AS '@Active'
+							FOR XML PATH('ConversationGroup'), ROOT('Acc_CRM_ChatBot_ChatTypeMappingStatus_Upd')
+						))
 
 	EXEC dbo.WriteLog_UserLog_crmUserLog_RunSP
 			@UserID = @UserID,

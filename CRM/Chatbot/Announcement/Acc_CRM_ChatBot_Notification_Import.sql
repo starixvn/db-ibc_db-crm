@@ -11,6 +11,7 @@ AS
 	Original:
 		Revisions:
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 	Param's Explanation:
 		
 */
@@ -24,9 +25,9 @@ BEGIN
 
 	DECLARE @Notificationlist TABLE (NotificationId INT PRIMARY KEY)
 
-	CREATE TABLE #ConversationGroupHeadline (Id INT, ConversationGroupId SMALLINT, CustId INT, IsGroupHeadline BIT, RelatedIds VARCHAR(MAX), ChatTypeId TINYINT, IsDuplicated BIT DEFAULT 0)
+	CREATE TABLE #ConversationGroupHeadline (Id INT, ConversationGroupId SMALLINT, CustId INT, IsGroupHeadline BIT, RelatedIds VARCHAR(MAX), ChatTypeId TINYINT, ChannelId TINYINT, IsDuplicated BIT DEFAULT 0)
 	
-	CREATE TABLE #Result (Id INT, ConversationGroupId SMALLINT, Status VARCHAR(20), LanguageId INT, ChatTypeId TINYINT, RelatedIds VARCHAR(MAX))
+	CREATE TABLE #Result (Id INT, ConversationGroupId SMALLINT, Status VARCHAR(20), LanguageId INT, ChatTypeId TINYINT, ChannelId TINYINT, RelatedIds VARCHAR(MAX))
 
 	CREATE TABLE #ConversationGroupRecipient (CustId INT, ConversationGroupId SMALLINT, NoRecipient INT)
 	CREATE CLUSTERED INDEX CIX_ConversationGroupId ON #ConversationGroupRecipient (ConversationGroupId)
@@ -92,7 +93,7 @@ BEGIN
 	END
 
 	UPDATE cgh
-		SET cgh.ChatTypeId = g.ChatTypeId
+		SET cgh.ChatTypeId = g.ChatTypeId, cgh.ChannelId = g.ChannelId
 	FROM #ConversationGroupHeadline cgh 
 		INNER JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = cgh.ConversationGroupId
 
@@ -104,14 +105,14 @@ BEGIN
 			SELECT 1 AS IsDuplicated
 			FROM #ConversationGroupHeadline r
 				INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = r.ConversationGroupId
-			WHERE r.ChatTypeId = 1 AND cr.RecipientId = cgr.RecipientId AND r.IsGroupHeadline = g.IsGroupHeadline AND g.CustId = r.CustId
+			WHERE r.ChatTypeId = 1 AND cr.RecipientId = cgr.RecipientId AND r.IsGroupHeadline = g.IsGroupHeadline AND g.CustId = r.CustId AND r.ChannelId = g.ChannelId
 		) AS n
 	WHERE g.ChatTypeId = 2 
 
 	---IsDuplicated = 0	
 	;WITH CTE_Group AS
 	(
-		SELECT ConversationGroupId, DENSE_RANK() OVER(ORDER BY ChatTypeId ASC, ConversationGroupId ASC) AS Id
+		SELECT ConversationGroupId, DENSE_RANK() OVER(ORDER BY ChannelId, ChatTypeId ASC, ConversationGroupId ASC) AS Id
 		FROM #ConversationGroupHeadline
 		WHERE IsDuplicated = 0
 	)
@@ -134,14 +135,14 @@ BEGIN
 				SELECT DISTINCT r.Id
 				FROM #ConversationGroupHeadline r
 					INNER JOIN dbo.crmConversationGroupRecipient cr WITH(NOLOCK) ON cr.ConversationGroupId = r.ConversationGroupId
-				WHERE r.ChatTypeId = 1 AND r.IsDuplicated = 0 AND cr.RecipientId = cgr.RecipientId AND r.IsGroupHeadline = g.IsGroupHeadline AND g.CustId = r.CustId 
+				WHERE r.ChatTypeId = 1 AND r.IsDuplicated = 0 AND cr.RecipientId = cgr.RecipientId AND r.IsGroupHeadline = g.IsGroupHeadline AND g.CustId = r.CustId AND g.ChannelId = r.ChannelId
 			) AS n
 		) AS n
 	WHERE g.ChatTypeId = 2 AND g.IsDuplicated = 1
 
 	;WITH CTE_Group AS
 	(
-		SELECT g.CustId, g.IsGroupHeadline, g.IsDuplicated, g.ConversationGroupId, g.RelatedIds, DENSE_RANK() OVER(ORDER BY g.ConversationGroupId, g.RelatedIds) as Id
+		SELECT g.CustId, g.IsGroupHeadline, g.IsDuplicated, g.ConversationGroupId, g.RelatedIds, DENSE_RANK() OVER(ORDER BY g.ChannelId, g.ConversationGroupId, g.RelatedIds) as Id
 		FROM #ConversationGroupHeadline g
 		WHERE g.IsDuplicated = 1
 	)
@@ -156,8 +157,8 @@ BEGIN
 		FROM #ConversationGroupHeadline g
 		GROUP BY g.Id, g.ConversationGroupId, g.IsDuplicated, g.RelatedIds
 	)
-	INSERT INTO #Result (Id, ConversationGroupId, Status, LanguageId, ChatTypeId, RelatedIds)
-	SELECT Id, g.ConversationGroupId, CASE WHEN cg.IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END AS Status, g.LanguageId, g.ChatTypeId, cg.RelatedIds
+	INSERT INTO #Result (Id, ConversationGroupId, Status, LanguageId, ChatTypeId, RelatedIds, ChannelId)
+	SELECT Id, g.ConversationGroupId, CASE WHEN cg.IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END AS Status, g.LanguageId, g.ChatTypeId, cg.RelatedIds, g.ChannelId
 	FROM CTE_ConversationGroup cg
 		INNER JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = cg.ConversationGroupId
 
@@ -179,8 +180,9 @@ BEGIN
 				,ResolvedRemark
 				,RelatedNotificationIds
 				,ResolvedBy
+				,ChannelId
 			)
-			SELECT @NotificationTypeId, @UserId, GETDATE(), @Title, c.Content,g.Status, '', g.RelatedIds, NULL
+			SELECT @NotificationTypeId, @UserId, GETDATE(), @Title, c.Content,g.Status, '', g.RelatedIds, NULL, g.ChannelId
 			FROM #Result g
 			OUTER APPLY (
 				SELECT TOP(1) ac.Content

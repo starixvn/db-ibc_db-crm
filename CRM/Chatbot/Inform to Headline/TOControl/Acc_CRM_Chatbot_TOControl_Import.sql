@@ -15,6 +15,7 @@ AS
 		- 20201104@Malcolm: Initialize SP [RedmineID: #146735]
 		- 20210726@Malcolm: Change data type of logId [RedmineID: #157303]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
+		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 
 	Param's Explanation:
 		. @XmlData
@@ -32,7 +33,7 @@ BEGIN
 
 	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
-	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM SystemSetting WHERE ServiceName = 'ChatBot - TOControl' and SettingName = 'IncludeUUSCurrency'
+	SELECT @IncludeUUSCurrency = CONVERT(BIT, Value) FROM dbo.SystemSetting WITH(NOLOCK) WHERE ServiceName = 'ChatBot - TOControl' and SettingName = 'IncludeUUSCurrency'
 
 	SELECT @Environment = ISNULL(@Environment, '')
 		   ,@SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -241,8 +242,8 @@ BEGIN
 	FROM #ImportData i
 	CROSS APPLY (
 		SELECT TOP 1 n.ReferenceId
-		FROM dbo.crmNotification n WITH(NOLOCK)
-		WHERE n.ReferenceId = i.LogId AND n.DataSource = 'TOControl'
+		FROM dbo.crmNotificationRefDetail n WITH(NOLOCK)
+		WHERE n.ReferenceId = i.LogId AND n.DataSource = 'DBCUST.CustDB.dbo.TOControl_Setting_History'
 	) AS c
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData)
@@ -262,35 +263,16 @@ BEGIN
 	END
 
 	-- Get Recipient
-	CREATE TABLE #LogRecipient
-	(
-		LogId				BIGINT
-		,Username			VARCHAR(30)
-		,DirectAccount		INT
-		,HeadlineId			INT
-		,RecipientId		INT
-	)
-	INSERT INTO #LogRecipient 
-	(
-		LogId			
-		,Username		
-		,DirectAccount	
-		,HeadlineId		
-		,RecipientId	
-	)
-	SELECT 
-		m.LogId			
-		,m.Username		
-		,pm.CustId	
-		,pm.HeadlineId		
-		,r.RecipientId
+	CREATE TABLE #LogRecipient (LogId BIGINT, Username VARCHAR(30), DirectAccount INT, HeadlineId INT, RecipientId INT)
+	INSERT INTO #LogRecipient (LogId, Username, DirectAccount, HeadlineId, RecipientId)
+	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, r.RecipientId
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
 	-- Get group to receive message
-	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
+	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)
 	SELECT m.LogId, cgr.ConversationGroupId, m.DirectAccount, COUNT(DISTINCT m.RecipientId) AS NoRecipient
 	FROM #LogRecipient m
@@ -317,13 +299,13 @@ BEGIN
 	WHERE t.NoRecipient < g.NoRecipient
 
 	UPDATE t
-	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId
+	SET t.ChatTypeId = cg.ChatTypeId, t.LanguageId = cg.LanguageId, t.ChannelId = cg.ChannelId
 	FROM #tmpGroup t
 		INNER JOIN dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
-	CREATE TABLE #tmpResult (LogId BIGINT, ConversationGroupId SMALLINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT)
-	INSERT INTO #tmpResult (LogId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId)
-	SELECT m.LogId, g.ConversationGroupId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId
+	CREATE TABLE #tmpResult (LogId BIGINT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, Username VARCHAR(50), HeadlineId INT)
+	INSERT INTO #tmpResult (LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId)
+	SELECT m.LogId, g.ConversationGroupId, g.ChannelId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.LogId = g.LogId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -357,6 +339,7 @@ BEGIN
 		,AwayNameYN				NVARCHAR(100)
 		,Outstanding			MONEY
 		,ConversationGroupId	SMALLINT
+		,ChannelId				TINYINT
 		,ChatTypeId				TINYINT
 		,LanguageId				INT
 		,HeadlineList			VARCHAR(MAX)
@@ -369,10 +352,10 @@ BEGIN
 		SET @Status = 'Draft'
 
 	-- For Group
-	INSERT INTO #Result (LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, Status)
-	SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, @Status
+	INSERT INTO #Result (LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, HeadlineList, Status)
+	SELECT LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, HeadlineList, @Status
 	FROM (
-		SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId
+		SELECT LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), HeadlineId)
 						FROM #tmpResult t2
@@ -382,12 +365,12 @@ BEGIN
 				) AS HeadlineList
 		FROM #tmpResult t1
 		WHERE t1.ChatTypeId = 1 -- Group
-		GROUP BY LogId, ConversationGroupId, ChatTypeId, LanguageId
+		GROUP BY LogId, ChannelId, ConversationGroupId, ChatTypeId, LanguageId
 	) t
 
 	-- For Personal
 	;WITH CTE_tmpPersonal AS (
-		SELECT p.LogId, p.ConversationGroupId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, t.Id AS RelatedId
+		SELECT p.LogId, p.ConversationGroupId, p.ChannelId, p.ChatTypeId, p.LanguageId, p.Username, p.HeadlineId, t.Id AS RelatedId
 		FROM #tmpResult p
 			OUTER APPLY (
 				SELECT DISTINCT r.Id
@@ -395,12 +378,12 @@ BEGIN
 					INNER JOIN dbo.crmConversationGroupRecipient cgr2 WITH (NOLOCK) ON cgr2.RecipientId = cgr1.RecipientId
 					INNER JOIN #tmpResult g ON g.ConversationGroupId = cgr2.ConversationGroupId
 					INNER JOIN #Result r ON g.LogId = r.LogId AND g.ConversationGroupId = r.ConversationGroupId
-				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.LogId = g.LogId AND p.Username = g.Username AND g.ChatTypeId = 1 -- Group
+				WHERE p.ConversationGroupId = cgr1.ConversationGroupId AND p.LogId = g.LogId AND p.ChannelId = g.ChannelId AND g.ChatTypeId = 1 -- Group
 			) t
 		WHERE p.ChatTypeId = 2 -- Personal
 	)
 	,CTE_tempResult AS (
-		SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId
+		SELECT LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId
 			,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END AS IsDuplicated
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.RelatedId)
@@ -410,13 +393,13 @@ BEGIN
 					), 1, 1, ''
 				) AS RelatedIds
 		FROM CTE_tmpPersonal t1
-		GROUP BY LogId, ConversationGroupId, ChatTypeId, LanguageId, Username, HeadlineId
+		GROUP BY LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId
 		,CASE WHEN t1.RelatedId IS NULL THEN 0 ELSE 1 END
 	)
-	INSERT INTO #Result (LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, Status, RelatedIds)
-	SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, HeadlineList, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END
+	INSERT INTO #Result (LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, HeadlineList, Status, RelatedIds)
+	SELECT LogId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, HeadlineList, CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END, CASE WHEN IsDuplicated = 1 THEN RelatedIds END
 	FROM (
-		SELECT LogId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+		SELECT LogId, ChannelId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 			,STUFF(
 					(SELECT DISTINCT ',' + CONVERT(VARCHAR(20), t2.HeadlineId)
 						FROM CTE_tempResult t2
@@ -432,7 +415,7 @@ BEGIN
 					), 1, 1, ''
 				) AS RelatedIds
 		FROM CTE_tempResult t1
-		GROUP BY LogId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
+		GROUP BY LogId, ChannelId, ConversationGroupId, ChatTypeId, LanguageId, IsDuplicated
 	) t
 
 	UPDATE r
@@ -501,8 +484,8 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 			BREAK
 
-		INSERT INTO dbo.crmNotification (ReferenceId, DataSource, NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds)
-		SELECT r.LogId, 'TOControl', nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
+		INSERT INTO dbo.crmNotification (NotificationTypeId, Sender, SendDate, Title, Status, Content, RelatedNotificationIds, ChannelId)
+		SELECT nt.NotificationTypeId, @Sender, @SendDate, nt.Title, r.Status
 			,REPLACE
 				(REPLACE
 					(REPLACE
@@ -548,7 +531,7 @@ BEGIN
 					,'{SMA_level_th}', r.RoleTH)
 				,'{SMA_level_yn}', r.RoleYN)
 			,'{SMA_username}', r.Username)
-			,r.RelatedIds
+			,r.RelatedIds, r.ChannelId
 		FROM #Result r
 			INNER JOIN #NotificationTemplate nt ON r.LanguageId = nt.LanguageId
 		WHERE r.Id = @Id 
@@ -567,9 +550,14 @@ BEGIN
 		WHERE r.Id = @Id
 
 		INSERT INTO dbo.crmNotificationHeadline (NotificationId, HeadlineId)
-		SELECT DISTINCT @NotificationId, f.val
+		SELECT DISTINCT @NotificationId, f.value
 		FROM #Result r
-			CROSS APPLY dbo.f_CRM_strSplit(r.HeadlineList, ',') f
+			CROSS APPLY STRING_SPLIT(r.HeadlineList, ',') f
+		WHERE r.Id = @Id
+
+		INSERT INTO dbo.crmNotificationRefDetail (NotificationId, ReferenceId, DataSource)
+		SELECT @NotificationId AS NotificationId, r.LogId, 'DBCUST.CustDB.dbo.TOControl_Setting_History' AS DataSource
+		FROM #Result r
 		WHERE r.Id = @Id
 
 		UPDATE r

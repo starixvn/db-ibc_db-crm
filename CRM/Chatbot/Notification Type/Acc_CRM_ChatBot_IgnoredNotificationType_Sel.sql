@@ -3,11 +3,12 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_IgnoredNotificationType_Sel]
 AS
 /*
 	Created: 20221222@Malcolm
-	Task :  Get Ignored notification types
+	Task : CRM - Headline Notification - Chat Type Mapping - Action - Edit - Get Ignored notification types
 	DB: DBCRM/bodb_CRM
 	Original:
 		Revisions:
 			- 20221222@Malcolm: Initialize SPs [Redmine: #130544]
+			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 		Param's Explanation:
 		
 */

@@ -13,6 +13,7 @@ AS
 		- 20201104@Malcolm: Initialize SP [RedmineId: #144265]
 		- 20210626@Percy: Fix code loop LogId [RedmineId: #144265]
 		- 20210627@Malcolm: remove WHILE loop [RedmineId: #144265]
+        - 20230829@Ned.Le: CRM - don't include Company Max Payout rules per ticket (Exclude ActionID=255) into service (#193293)
 */
 
 BEGIN
@@ -37,7 +38,7 @@ BEGIN
 		INNER JOIN dbo.exchange e WITH(NOLOCK) ON e.ExchangeId = c.currency
 	WHERE h.LogId > @LastLogId AND h.LogID <= @MaxLogId
 		AND h.WinlostDate >= CONVERT(DATE, GETDATE() - 1)
-		AND h.ActionID NOT IN (2, 4)
+		AND h.ActionID NOT IN (2, 4) AND ActionID < 200
 		AND s.isDeposit = 0 AND s.isActive = 1 AND s.site <> 'CN88'
 	ORDER BY LogId ASC
 

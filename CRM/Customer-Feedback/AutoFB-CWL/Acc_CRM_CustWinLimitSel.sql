@@ -18,6 +18,8 @@ AS
 	Revisions:
 		- 20201014@Johnson: Initial sp [redmine:#142194]
 		- 20201126@Johnson: add param @Environment [redmine:#145274]
+        - 20230829@Ned.Le: CRM - don't include Company Max Payout rules per ticket (Exclude ActionID=255) into service (#193293)
+
 	Parameter's Explanation:
 		- @ConfigUAT = 1: UUS customers
 		- @ConfigPRO = 1: real customers
@@ -47,7 +49,7 @@ BEGIN
 		LEFT JOIN Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
 	WHERE LogID > @LastLogID
 		AND cg.WinlostDate >= CAST(GETDATE() -1  as DATE)
-		AND ActionID NOT IN (2,4)
+		AND ActionID NOT IN (2,4) AND ActionID < 200
 		AND ci.site <> 'cn88'
 	)
 	SELECT TOP (@BatchSize) 

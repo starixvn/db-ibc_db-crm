@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 (
 	@ProductType		BIT = 0,
@@ -8,9 +12,11 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 	@ToDate				DATETIME,
 	@ProductID			VARCHAR(500), 
 	@MainCategoryID		VARCHAR(500), 
-	@CommunicationID	VARCHAR(500)
+	@CommunicationID	VARCHAR(500),
+    @LicenseeType       TINYINT = 0
 )
 AS
+
 /*
 	Created:	20151111@Elodie
 	Task:		Daily statistics report
@@ -21,6 +27,8 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20230424@Malcolm:  Enhance Performance: #112637
+        - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+
 	Param's Explanation:
 		@ProductType:	0: Summary
 						1: Detail	
@@ -31,9 +39,13 @@ AS
 		@SiteType: 	0: IBC
 					1: Licensee
 
-	Ex: EXEC Acc_CRM_Rpt_DailyStatistics @ProductType = 0, @CategoryType = 1, @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007'
-				
+        @LicenseeType = 0: Both
+                        1: Credit
+                        2: Licensee	
+
+	Ex: EXEC Acc_CRM_Rpt_DailyStatistics @ProductType = 0, @CategoryType = 1, @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0
 */
+
 BEGIN
 	SET NOCOUNT ON	
 
@@ -104,7 +116,25 @@ BEGIN
 		INNER JOIN #CommunicationFeedBack fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
 		LEFT JOIN crmSubCategory sc ON fm.SubSettingID = sc.SubCategoryID AND fm.SettingID = sc.MainCategoryID
 		LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-	WHERE (@SiteType = 0 AND (s.IsLicensee = 0 OR ISNULL(fb.SiteID,0) = 0) OR (@SiteType = 1 AND s.IsLicensee = 1)) AND (@CategoryType = 0 OR sc.MainCategoryID IS NOT NULL)
+	WHERE (
+           (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                       OR ISNULL(fb.SiteID,0) = 0
+                                                       OR ISNULL(s.SiteID, 0) = 0))
+                                   OR
+                                   (@SiteType = 1 AND (s.IsLicensee = 1))))
+           OR
+           (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                       OR ISNULL(fb.SiteID,0) = 0
+                                                       OR ISNULL(s.SiteID, 0) = 0))))
+           OR
+           (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
+                                                       OR ISNULL(fb.SiteID,0) = 0
+                                                       OR ISNULL(s.SiteID, 0) = 0))))
+          )
+          AND
+          (
+           @CategoryType = 0 OR sc.MainCategoryID IS NOT NULL
+          )
 	GROUP BY 
 		fm.SettingID
 		,CASE WHEN @CategoryType = 1 THEN sc.SubCategoryID ELSE @CategoryType END 

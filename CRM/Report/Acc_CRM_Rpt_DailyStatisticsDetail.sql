@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 					@SiteType			BIT				= 0
 				,	@FromDate			DATETIME
@@ -11,8 +15,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 				,	@TotalRows			INT				= 0		OUTPUT
 				,	@ErrorCode			INT				= 0		OUTPUT
 				,	@ErrorMsg			VARCHAR(200)	= ''	OUTPUT
+                ,   @LicenseeType       TINYINT         = 0
 				)
 AS
+
 /*
 	Created:	20151111@Elodie
 	Task:		View daily statistics report more detail
@@ -29,11 +35,19 @@ AS
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
 		- 20230517@Malcolm: Add recompile option [RedmineID : #187090]
 		- 20230517@Malcolm: order by result [RedmineID : #187090]
+        - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+
 	Param's Explanation:		
-		@SiteType: 	0: IBC
+		@SiteType =	0: IBC
 					1: Licensee
-	Ex: EXEC Acc_CRM_Rpt_DailyStatisticsDetail @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007'				
+
+        @LicenseeType = 0: Both
+                        1: Credit
+                        2: Licensee	
+
+	Ex: EXEC Acc_CRM_Rpt_DailyStatisticsDetail @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0
 */
+
 BEGIN
 	SET NOCOUNT ON;
 		
@@ -114,15 +128,21 @@ BEGIN
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 	AND	fb.StatusID <> 11004
 	AND	fb.StatusID <> 11019
-	AND (	@SiteType = 0
-		AND	(	s.IsLicensee = 0
-			OR	ISNULL(fb.SiteID, 0) = 0
-			OR	ISNULL(s.SiteID, 0) = 0
-			)
-		OR	(	@SiteType = 1
-			AND	s.IsLicensee = 1
-			)
-		)
+	AND (
+         (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                     OR ISNULL(fb.SiteID,0) = 0
+                                                     OR ISNULL(s.SiteID, 0) = 0))
+                                 OR
+                                 (@SiteType = 1 AND (s.IsLicensee = 1))))
+         OR
+         (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                     OR ISNULL(fb.SiteID,0) = 0
+                                                     OR ISNULL(s.SiteID, 0) = 0))))
+         OR
+         (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
+                                                     OR ISNULL(fb.SiteID,0) = 0
+                                                     OR ISNULL(s.SiteID, 0) = 0))))
+        )
 		
 	INSERT INTO #FBStation(FeedbackID,StationID)
 	SELECT DISTINCT fs.FeedbackID,fs.SettingID

@@ -1,4 +1,8 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_ManageFeedbackList] (
 					@UserName			NVARCHAR(50)	= NULL
 				,	@IsGuest			BIT				= NULL
@@ -15,10 +19,12 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ManageFeedbackList] (
 				,	@TotalRows			INT				= 0 OUTPUT
 				,	@PageIndex			INT				= 1
 				,	@ItemsPerPage		INT				= 2
-				,	@HandledBy			VARCHAR(30)	= ''
+				,	@HandledBy			VARCHAR(30)	    = ''
 				,	@UserRole			TINYINT
+                ,   @LicenseeType       TINYINT         = 0
 				)
 AS
+
 /*
 	Created:	Lukas
 	Date:		20101023
@@ -45,13 +51,19 @@ AS
 		- 20190614@Helen: CN88 - Performance Tuning [Redmine: #112637]
 		- 20201027@Johnson: - get Description to show tooltip for fb 
 							- show inactive setting [redmine: #142194]
-		- 202010315@Winfred: Related Customer displayed properly when search Username in Manage Feedback [redmine:#138771]							
-Param's Explanation:
-	
+		- 202010315@Winfred: Related Customer displayed properly when search Username in Manage Feedback [redmine:#138771]
+        - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+
+    Param's Explanation:
+        - @LicenseeType = 0: Both
+                          1: Credit
+                          2: Licensee	
 */
+
 BEGIN		
 	SET NOCOUNT ON;
 
+    -- Declare variables
 	DECLARE	@CustID			INT
 		,	@GuestID		INT
 		,	@TotalPages		INT;
@@ -68,19 +80,44 @@ BEGIN
 	SELECT	@ReviewerID = CustID
 	FROM	bodb02.dbo.Customer WITH (NOLOCK)
 	WHERE	UserName = @Reviewer;
-	
+
+    -- #tmpSite
+    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), IsLicensee INT)
+
+    IF (@UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        SELECT s.SettingID SiteID,
+               s.SettingValue SiteName,
+               CASE WHEN sr.ParentID = 33000 THEN 1
+                    WHEN sr.ParentID = 33001 THEN 0
+                    ELSE -1 END IsLicensee
+        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+             INNER JOIN	bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
+        WHERE sr.ParentID IN (33000, 33001)
+    END
+    ELSE IF (@UserRole = 1)
+	BEGIN
+        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        SELECT s.SettingID SiteID,
+               s.SettingValue SiteName,
+               0 IsLicensee
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
+		WHERE s.SettingID = 33002
+    END
+
+    CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- Get Feedback for specific FeedbackID
 	IF	ISNULL(@FeedbackID, 0) <> 0
 	BEGIN
-		DECLARE	@IsRelated INT = 0;
+		DECLARE	@IsRelated INT = 0
 
 		SELECT TOP 1 @IsRelated = IsRelated
 		FROM	crmFeedbackCustomer WITH (NOLOCK)
 		WHERE	FeedbackID = @FeedbackID
-			AND	IsRelated = 1;
+			AND	IsRelated = 1
 
-		IF	EXISTS(SELECT 1 FROM crmFeedback WITH(NOLOCK) WHERE FeedbackID = @FeedbackID)
-			SELECT	@TotalRows = 1;
-		
 		;WITH fb AS
 		(SELECT *,CAST(Description as XML) as Description2
 		FROM crmFeedback WITH(NOLOCK)
@@ -135,6 +172,7 @@ BEGIN
 					,	st.Name Status
 					,	l.list AS relatedCustomer
 		FROM	fb
+            LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK) ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)	ON	fb.CreatorID = c.custid
 			LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid	
@@ -142,20 +180,27 @@ BEGIN
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			OUTER APPLY fb.Description2.nodes(N'//row') AS A(nr)
 		WHERE	fb.FeedbackID = @FeedbackID AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-		ORDER BY FeedbackDate DESC, FeedbackID DESC;
-			
-		SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
-		CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
-				WHEN s.StationID		IS NOT NULL THEN 'Station' 
-				WHEN p.SettingID		IS NOT NULL THEN 'Product' 
-				WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
-				END AS SettingType
-		FROM dbo.crmFeedbackSetting fs WITH(NOLOCK)
-			LEFT JOIN crmMainCategory m WITH (NOLOCK) ON fs.SettingID=m.MainCategoryID
-			LEFT JOIN crmStation s WITH (NOLOCK) ON fs.SettingID=s.StationID
-			LEFT JOIN crmSetting p WITH (NOLOCK) ON fs.SettingID=p.SettingID AND p.SettingName='Product'
-			LEFT JOIN crmSetting c WITH (NOLOCK) ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
-		WHERE FeedbackID = @feedbackID
+                AND (s.IsLicensee IS NULL
+                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+		ORDER BY FeedbackDate DESC, FeedbackID DESC
+        
+        IF(@@ROWCOUNT > 0 )
+        BEGIN
+		    SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3,
+		    CASE	WHEN m.MainCategoryID	IS NOT NULL THEN 'Category' 
+				    WHEN s.StationID		IS NOT NULL THEN 'Station' 
+				    WHEN p.SettingID		IS NOT NULL THEN 'Product' 
+				    WHEN c.SettingID		IS NOT NULL THEN 'Communication' 
+				    END AS SettingType
+		    FROM dbo.crmFeedbackSetting fs WITH(NOLOCK)
+			    LEFT JOIN crmMainCategory m WITH (NOLOCK) ON fs.SettingID=m.MainCategoryID
+			    LEFT JOIN crmStation s WITH (NOLOCK) ON fs.SettingID=s.StationID
+			    LEFT JOIN crmSetting p WITH (NOLOCK) ON fs.SettingID=p.SettingID AND p.SettingName='Product'
+			    LEFT JOIN crmSetting c WITH (NOLOCK) ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
+		    WHERE FeedbackID = @feedbackID
+
+            SELECT	@TotalRows = 1
+        END
 		
 		RETURN;
 	END;
@@ -203,6 +248,7 @@ BEGIN
 			,	fb.FeedbackDate
 		FROM	crmFeedbackCustomer fbc WITH (NOLOCK)
 			INNER JOIN	crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID=fbc.FeedbackID
+            LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
 			INNER JOIN  crmCustomer ctm WITH(NOLOCK) ON fbc.CustID=ctm.CustID
 			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
 			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
@@ -218,10 +264,13 @@ BEGIN
 			AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 			AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 			AND	(@ResponseID IS NULL OR ResponseID = @ResponseID) 
-			AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) ) 
+			AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
+            AND (s.IsLicensee IS NULL
+                 OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC;
 		
-	END;	
+	END;
+    -- Get list of Feedback
 	ELSE  
 	BEGIN	
 		IF	@IsGuest IS NULL    ------ get feedback for all customer: Guest and our customer MBC
@@ -230,6 +279,8 @@ BEGIN
 			INSERT INTO #Feedback(FeedbackID, IsRelated,FeedbackDate)	
 			SELECT 	fb.FeedbackID, 0,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
+                LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
 							WHERE fb.FeedbackID = fbc_t.FeedbackID AND fbc_t.IsRelated = 0) AS fbc
@@ -258,6 +309,8 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
+                AND (s.IsLicensee IS NULL
+                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC				
 		OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -268,6 +321,8 @@ BEGIN
 			INSERT INTO #Feedback(FeedbackID, IsRelated,FeedbackDate)			
 			SELECT  fb.FeedbackID, 0 AS IsRelated,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
+                LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
 							WHERE fb.FeedbackID = fbc_t.FeedbackID AND fbc_t.IsRelated = 0) AS fbc
@@ -296,7 +351,8 @@ BEGIN
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-
+                AND (s.IsLicensee IS NULL
+                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -306,6 +362,8 @@ BEGIN
 			INSERT INTO #Feedback(FeedbackID, IsRelated,FeedbackDate)			
 			SELECT fb.FeedbackID, 0 AS IsRelated,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
+                LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
 							WHERE fb.FeedbackID = fbc_t.FeedbackID AND fbc_t.IsRelated = 0) AS fbc
@@ -333,7 +391,8 @@ BEGIN
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-
+                AND (s.IsLicensee IS NULL
+                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )	
 			
@@ -403,8 +462,10 @@ BEGIN
 	FROM #tempResult t
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON t.FeedbackID= fs.FeedbackID
 		INNER JOIN crmMainCategory m WITH (NOLOCK) ON fs.SettingID=m.MainCategoryID
-	
+
+    -- DROP temp tables	
 	DROP TABLE #Feedback
+    DROP TABLE #tmpSite
 	
 END
 GO

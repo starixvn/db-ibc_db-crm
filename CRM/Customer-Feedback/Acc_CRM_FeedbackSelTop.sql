@@ -75,8 +75,6 @@ BEGIN
              OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
 	ORDER BY fb.FeedbackDate DESC
 
-    CREATE CLUSTERED INDEX CIX_tmpFeedbackIDList ON #tmpFeedbackIDList(FeedbackID)
-
     -- Get data to return
 	;WITH CTE AS (
 		SELECT	fb.FeedbackID

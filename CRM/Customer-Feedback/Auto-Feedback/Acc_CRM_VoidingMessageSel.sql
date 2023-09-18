@@ -14,6 +14,7 @@ AS
 		- 20210414@Johnson: add new issuetype 15 (AB Real member)[redmine:#153341]
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
+		- 20230731@Malcolm: Exclude Issue type = 20 [RedmineId : #191355]
 	Param's Explanation:
 		
 */
@@ -52,6 +53,7 @@ BEGIN
 		
 	SELECT DISTINCT VoidingHistoryCollectionId, MessageId, RequestId
 	FROM @Result
+	WHERE IssueTypeId IN (11, 15, 13)
 
 	SELECT VoidingHistoryCollectionId , MessageId, RequestId, VoidingHistoryId, UsernameList
 	FROM @Result

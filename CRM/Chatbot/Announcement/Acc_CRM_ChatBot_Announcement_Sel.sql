@@ -16,6 +16,8 @@ AS
 	Original:
 		Revisions:
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
+			- 20230804@Malcolm: Add Draft Status [Redmine: #192158]
+
 	Param's Explanation:
 		
 */
@@ -23,7 +25,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 
-	DECLARE @Result TABLE (AnnouncementId INT, NotificationTemplateId SMALLINT, SendDate DATETIME, Title NVARCHAR(2000), CreatedBy INT, CreatedDate DATETIME, Status VARCHAR(20), TotalRows INT)
+	DECLARE @Result TABLE (Id INT IDENTITY(1, 1), AnnouncementId INT, NotificationTemplateId SMALLINT, SendDate DATETIME, Title NVARCHAR(2000), CreatedBy INT, CreatedDate DATETIME, Status VARCHAR(20), TotalRows INT)
 
 	SELECT @ToDate = DATEADD(DAY, 1, @ToDate)
 
@@ -33,9 +35,9 @@ BEGIN
 		SELECT a.AnnouncementId, a.NotificationTemplateId, a.SendDate, a.Title, a.CreatedBy, a.CreatedDate, a.Status, COUNT(1) OVER()
 		FROM dbo.crmAnnouncement a WITH(NOLOCK)
 		WHERE (a.Title LIKE '%' + @Title + '%' OR @Title = '')
-			AND (SendDate >= @FromDate AND SendDate < @ToDate)
+			AND (SendDate >= @FromDate AND SendDate < @ToDate OR SendDate IS NULL)
 			AND ',' + @Status + ',' LIKE '%,' + a.Status + ',%'
-		ORDER BY AnnouncementId DESC
+		ORDER BY CASE WHEN SendDate IS NULL THEN 2 ELSE 1 END DESC, SendDate DESC, AnnouncementId DESC
 		OFFSET @PageSize * (@PageIndex - 1) ROWS
 		FETCH FIRST @PageSize ROWS ONLY
 	END
@@ -47,9 +49,6 @@ BEGIN
 		WHERE (a.AnnouncementId = @AnnouncementId)
 			AND (a.Title LIKE '%' + @Title + '%' OR @Title = '')
 			AND ',' + @Status + ',' LIKE '%,' + a.Status + ',%'
-		ORDER BY AnnouncementId DESC
-		OFFSET @PageSize * (@PageIndex - 1) ROWS
-		FETCH FIRST @PageSize ROWS ONLY
 	END
 
 	SELECT TOP(1) @TotalRows = TotalRows FROM @Result
@@ -81,7 +80,7 @@ BEGIN
 		LEFT JOIN dbo.crmNotificationTemplate nt WITH(NOLOCK) ON nt.NotificationTemplateId = r.NotificationTemplateId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = r.CreatedBy
 		LEFT JOIN CTE_Completed e ON e.AnnouncementId = r.AnnouncementId
-	ORDER BY r.AnnouncementId DESC
+	ORDER BY r.Id ASC
 
 END
 GO

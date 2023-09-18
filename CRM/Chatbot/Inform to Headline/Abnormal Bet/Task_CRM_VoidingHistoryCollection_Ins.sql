@@ -8,6 +8,7 @@ AS
 	Original:
 		Revisions:
 			- 20230104@Malcolm: Initialize SPs [Redmine: #181906]
+			- 20230802@Malcolm: Incorporate voiding duplicated bet tickets with TVS [Redmine: #191355]
 	Param's Explanation:
 		
 */
@@ -17,7 +18,7 @@ BEGIN
 
 	DECLARE @Id INT, @VoidingHistoryCollectionId INT, @CurrentDate DATETIME = GETDATE(), @Time DATETIME, @ErrMsg NVARCHAR(2000) = '', @CollectionId INT = 0
 
-	CREATE TABLE #Result (Id INT, BroadcastSessionId VARCHAR(100), VoidingHistoryId INT, ModifiedDate DATETIME, CreatedDate DATETIME, MatchId INT, StatusId INT, IsCollect BIT DEFAULT(1))
+	CREATE TABLE #Result (Id INT, BroadcastSessionId VARCHAR(100), VoidingHistoryId INT, RequestId INT, ModifiedDate DATETIME, CreatedDate DATETIME, MatchId INT, StatusId INT, IsCollect BIT DEFAULT(1))
 
 	CREATE CLUSTERED INDEX CIX_BroadcastSessionId_MatchId ON #Result (BroadcastSessionId, MatchId)
 
@@ -37,16 +38,17 @@ BEGIN
 		RETURN
 	END
 
-	INSERT INTO #Result (BroadcastSessionId, VoidingHistoryId, MatchId, StatusId, ModifiedDate, CreatedDate)
-	SELECT 
-		DISTINCT vh.BroadcastSessionId
+	INSERT INTO #Result (BroadcastSessionId, VoidingHistoryId, RequestId, MatchId, StatusId, ModifiedDate, CreatedDate)
+	SELECT DISTINCT 
+		vh.BroadcastSessionId
 		,vh.VoidingHistoryId
+		,CASE WHEN r.IssueTypeId = 20 THEN vh.RequestId ELSE 0 END AS RequestId
 		,CASE WHEN r.ActionId = 1 THEN ISNULL(rq.MatchId, 0) ELSE 0 END AS MatchId
 		,CASE WHEN vh.StatusId = 2 AND r.IssueTypeId = 13 AND vh.MinWinlostdate IS NULL THEN 1 ELSE vh.StatusId END
 		,DATEADD(MINUTE, 1, vh.ModifiedDate) AS ModifiedDate
 		,vh.CreatedDate
 	FROM dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
-		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND r.IssueTypeId IN (11, 15, 13)-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15)
+		INNER JOIN dbo.TicketVoiding_Request r WITH (NOLOCK) ON vh.RequestId = r.RequestId AND r.IssueTypeId IN (11, 15, 13, 20)-- abnormal bet(11), Abnormal Accounts(13), AB (real member)(15), Duplicated tickets(20)
 		CROSS APPLY (
 			SELECT TOP(1) MatchId
 			FROM dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK)
@@ -74,20 +76,21 @@ BEGIN
 		SELECT  
 			BroadcastSessionId
 			,MatchId
+			,RequestId
 			,MAX(CASE WHEN StatusId <> 2 THEN 1 ELSE 0 END) + MAX(CASE WHEN StatusId = 2 THEN 2 ELSE 0 END) AS StatusSum
 			,MIN(CASE WHEN StatusId = 2 THEN ModifiedDate ELSE NULL END) AS ModifiedDate
 		FROM #Result
-		GROUP BY BroadcastSessionId, MatchId
+		GROUP BY BroadcastSessionId, MatchId, RequestId
 	),CTE_SessionCollection AS
 	(
-		SELECT BroadcastSessionId, MatchId
+		SELECT BroadcastSessionId, MatchId, RequestId
 		FROM CTE_Session s
 		WHERE StatusSum = 2 OR (StatusSum = 3 AND @CurrentDate >= ModifiedDate)
 	)
 	UPDATE r
 		SET r.IsCollect = 0 
 	FROM #Result r
-		LEFT JOIN CTE_SessionCollection e ON e.BroadcastSessionId = r.BroadcastSessionId AND e.MatchId = r.MatchId 
+		LEFT JOIN CTE_SessionCollection e ON e.BroadcastSessionId = r.BroadcastSessionId AND e.MatchId = r.MatchId AND e.RequestId = r.RequestId
 	WHERE e.BroadcastSessionId IS NULL
 
 	DELETE FROM #Result WHERE StatusId <> 2 OR IsCollect = 0
@@ -95,7 +98,7 @@ BEGIN
 	UPDATE r
 		SET r.Id = r.rn
 	FROM (
-		SELECT Id, DENSE_RANK() OVER(ORDER BY r.BroadcastSessionId, r.MatchId) AS rn
+		SELECT Id, DENSE_RANK() OVER(ORDER BY r.BroadcastSessionId, r.MatchId, r.RequestId) AS rn
 		FROM #Result r
 	) r
 

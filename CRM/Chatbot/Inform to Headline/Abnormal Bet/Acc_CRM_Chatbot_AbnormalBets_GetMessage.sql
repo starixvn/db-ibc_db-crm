@@ -14,6 +14,7 @@ AS
 		- 20210415@Malcolm: Notify Tickets of AB (Real Member) [RedmineId : #153259]
 		- 20210415@Malcolm: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20220112@Malcolm: Scale Out for CRM [RedmineId : #181906]
+		- 20230731@Malcolm: Exclude Issue type = 20 [RedmineId : #191355]
 */
 
 BEGIN
@@ -30,17 +31,21 @@ BEGIN
 
 	CREATE TABLE #Result (VoidingHistoryCollectionId INT, VoidingHistoryId INT, UsernameList NVARCHAR(MAX), IssueTypeId TINYINT)
 
-	;WITH CTE AS
+	;WITH CTE_VoidingHistoryCollection AS
 	(
-		SELECT TOP(@BatchSize) VoidingHistoryCollectionId
-		FROM dbo.VoidingHistoryCollection WITH(NOLOCK)
-		WHERE VoidingHistoryCollectionId > @LastVoidingHistoryCollectionId AND VoidingHistoryCollectionId <= @MaxVoidingHistoryCollectionId
-		ORDER BY VoidingHistoryCollectionId ASC
+		SELECT DISTINCT TOP(@BatchSize) vhc.VoidingHistoryCollectionId
+		FROM dbo.VoidingHistoryCollection vhc WITH(NOLOCK)
+			INNER JOIN dbo.VoidingHistoryCollectionDetail vcd WITH(NOLOCK) ON vcd.VoidingHistoryCollectionId = vhc.VoidingHistoryCollectionId
+			INNER JOIN dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK) ON vh.VoidingHistoryId = vcd.VoidingHistoryId
+			INNER JOIN dbo.TicketVoiding_Request r WITH(NOLOCK) ON r.RequestId = vh.RequestId
+		WHERE vhc.VoidingHistoryCollectionId > @LastVoidingHistoryCollectionId AND vhc.VoidingHistoryCollectionId <= @MaxVoidingHistoryCollectionId
+			AND r.IssueTypeId <> 20
+		ORDER BY vhc.VoidingHistoryCollectionId ASC
 	)
 	INSERT INTO #Result (VoidingHistoryCollectionId, VoidingHistoryId)
 	SELECT d.VoidingHistoryCollectionId, d.VoidingHistoryId
 	FROM dbo.VoidingHistoryCollectionDetail d WITH(NOLOCK)
-		INNER JOIN CTE e ON e.VoidingHistoryCollectionId = d.VoidingHistoryCollectionId
+		INNER JOIN CTE_VoidingHistoryCollection e ON e.VoidingHistoryCollectionId = d.VoidingHistoryCollectionId
 	ORDER BY VoidingHistoryCollectionId ASC, VoidingHistoryId ASC
 
 	UPDATE r

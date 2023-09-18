@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_ProvinceSel]
 @CountryID		INT = 0,
 @Lang			VARCHAR(10)='en-US'
@@ -12,9 +16,11 @@ AS
 
 	Revisions:
 			20190521@Winnie: select Province
-	Param's Explanation:
+            20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
+	Param's Explanation:
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -23,8 +29,9 @@ BEGIN
 							WHEN @Lang='zh-CN' THEN ISNULL(ProvinceNameCS,ProvinceName)
 													ELSE ProvinceName
 					END AS ProvinceName,		
-			CountryID,DisplayOrder
+			CountryID
 	FROM crmProvince WITH (NOLOCK)
 	WHERE isActive=1 AND(ISNULL(@CountryID,0)=0 OR CountryID=@CountryID)
+    ORDER BY ProvinceName
 	
 END

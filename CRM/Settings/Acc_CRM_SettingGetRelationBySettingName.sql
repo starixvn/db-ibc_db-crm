@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingGetRelationBySettingName]
 (
 	@SettingName	VARCHAR(50),
@@ -8,6 +12,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingGetRelationBySettingName]
 	@Lang			VARCHAR(10)='en-US'
 )
 AS
+
 /*
 Created: 
 Date: 
@@ -19,11 +24,13 @@ Revisions:
 	- 20120424@Sophia: Modify DisplayOrder and IsSub
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20201030@Johnson: add filter IsActive [redmine: #142194]
+    - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
 Param's Explanation:
 	- @Active = 1: get active
 				= 2: get all 
-	
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -33,11 +40,10 @@ BEGIN
 					WHEN @Lang='zh-CN' THEN ISNULL(SettingValueCS,SettingValue)
 											ELSE SettingValue
 			END AS SettingValue,
-			CASE WHEN ISNULL(rl.ParentID,0) = 0 THEN ISNULL(st.DisplayOrder,0) ELSE ISNULL(rl.DisplayOrder,0) END DisplayOrder, 
 		    CASE WHEN ISNULL(rl.ParentID,0) = 0 THEN 0 ELSE 1 END IsSub,
 			IsActive
 	FROM crmSetting st WITH(NOLOCK) 
-					LEFT JOIN ( SELECT	SettingID, ParentID, DisplayOrder
+					LEFT JOIN ( SELECT	SettingID, ParentID
 								FROM	crmSettingRelation rl WITH(NOLOCK)
 								WHERE	ParentID = @ParentID
 							  ) rl ON st.SettingID = rl.SettingID
@@ -45,7 +51,7 @@ BEGIN
 		st.SettingName = @SettingName
 		AND 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END		
 		AND ( st.SiteOffer=@UserRole)
-	ORDER BY IsSub DESC, DisplayOrder ASC, st.SettingID ASC
+	ORDER BY IsSub DESC, SettingValue ASC, st.SettingID ASC
 END
 
 GO

@@ -1,9 +1,14 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE Acc_CRM_CountryList
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE Acc_CRM_CountryList
 	@UserRole		TINYINT=2,
 	@Active			TINYINT = 1,
 	@Lang			VARCHAR(10)='en-US'
 AS
+
 /*
 Created: Winnie
 Date: 20140212
@@ -14,11 +19,12 @@ Original:
 Revisions:	
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20201030@Johnson: add filter IsActive [redmine: #142194]
+    - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
 Param's Explanation:
 	- @Active = 1: get active
 				= 2: get all 	
 */
-
 
 BEGIN
 	SET NOCOUNT ON
@@ -29,10 +35,11 @@ BEGIN
 												ELSE [CountryName]
 				END AS [CountryName],
 			[CountryCode],
-			[isActive],[DisplayOrder] 
+			[isActive]
 	FROM crmCountry  WITH(NOLOCK) 
 	WHERE 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
 			AND @UserRole=SiteOffer
+    ORDER BY [CountryName]
 END
 GO
 

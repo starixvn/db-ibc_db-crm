@@ -1,5 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE procedure Acc_CRM_SubCategoryList
+
+USE bodb_CRM
+GO
+
+ALTER procedure Acc_CRM_SubCategoryList
 	@MainCategoryID INT = null,
 	@UserRole		TINYINT,
 	@Active			TINYINT = 1,
@@ -16,11 +20,13 @@ as
 	Revisions:
 		- 20190507@Winnie:	CN88 	[RedmineID:#112637]
 		- 20201030@Johnson: add filter IsActive [redmine: #142194]
+        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
 	Param's Explanation:
 		- @Active = 1: get active
-				= 2: get all 
-	
+				= 2: get all	
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -29,13 +35,13 @@ BEGIN
 								WHEN @Lang='zh-CN' THEN ISNULL(NameCS,Name)
 														ELSE Name
 						END AS Name,
-						DisplayOrder,
 						IsActive AS IsActive,
 			[MainCategoryID]
 	FROM crmSubCategory WITH(NOLOCK) 
 	WHERE 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
 		AND (ISNULL(@MainCategoryID,0)=0 OR MainCategoryID = @MainCategoryID)
 		AND (siteoffer=@UserRole)
+    ORDER BY Name
 END
 GO
 

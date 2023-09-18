@@ -1,9 +1,13 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_ProvinceIns]	
 @CountryID		INT,
 @ProvinceName	NVARCHAR(150),
 @IsActive		BIT,
-@DisplayOrder	TINYINT,
+@DisplayOrder	TINYINT         = 0,
 @ErrCode		INT				= 0 OUTPUT,
 @ErrMsg			NVARCHAR(4000)	= '' OUTPUT
 AS
@@ -16,9 +20,12 @@ AS
 
 	Revisions:
 			20190521@Winnie: Add Province
+            20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
 	Param's Explanation:
 
 */
+
 BEGIN
 	SET NOCOUNT ON
 	IF EXISTS(SELECT TOP 1 1 FROM crmProvince WITH(NOLOCK) WHERE ProvinceName=@ProvinceName )

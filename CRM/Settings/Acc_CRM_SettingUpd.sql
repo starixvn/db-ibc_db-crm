@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingUpd]
 (
 	@UserID			INT,
@@ -6,13 +10,14 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingUpd]
 	@SettingValue	NVARCHAR(100), 
 	@SettingName	VARCHAR(50),
 	@ExtraInfo		VARCHAR(50) = NULL,
-	@DisplayOrder	INT,
+	@DisplayOrder	INT = 0,
 	@IP				VARCHAR(15),
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT,
 	@UserRole		INT
 )
 AS
+
 /*
 Created: Lukas
 Date: 20101117
@@ -25,10 +30,12 @@ Revisions:
 	- 20140303@Dom: Modify for new structure
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20230202@Tacy: Split 789y site [redmine:#182438]
+    - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 Param's Explanation:
 	
 */
+
 BEGIN
 	SET NOCOUNT ON
 

@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_SettingSel
 (
 	@UserRole			TINYINT = NULL,

@@ -1,10 +1,5 @@
-
-SET QUOTED_IDENTIFIER ON 
+USE bodb_CRM
 GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_SettingRelationDel    Script Date: 3/26/2014 6:06:09 PM ******/
 
 CREATE PROCEDURE [dbo].[Acc_CRM_SettingRelationDel]
 (

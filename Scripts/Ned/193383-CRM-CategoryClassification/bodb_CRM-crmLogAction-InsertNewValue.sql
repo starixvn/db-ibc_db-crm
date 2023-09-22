@@ -11,5 +11,5 @@ GO
 
 INSERT INTO dbo.crmLogAction (ActionID, SPName, ActionNameEN, IsInternal, ExcludedForCn88, ActionTypeID) VALUES
 (312, 'Acc_CRM_CategoryClassificationUpd', 'Update remark of category classification', 0, NULL, NULL),
-(313, 'Acc_CRM_CategoryClassificationDel', 'Remove remark of category classification', 0, NULL, NULL)
+(313, 'Acc_CRM_CategoryClassificationUpd', 'Remove remark of category classification', 0, NULL, NULL)
 GO

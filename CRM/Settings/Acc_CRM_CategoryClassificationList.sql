@@ -5,7 +5,10 @@ GO
 
 ALTER PROCEDURE dbo.Acc_CRM_CategoryClassificationList @Category     VARCHAR(MAX),
                                                        @RemarkSearch NVARCHAR(MAX) = '',
-                                                       @Active       TINYINT       = 1
+                                                       @Active       TINYINT       = 1,
+                                                       @PageSize     INT           = 100,
+                                                       @PageIndex    INT           = 1,
+                                                       @TotalRows    INT           = 0 OUTPUT
 AS
 
 /*
@@ -45,9 +48,14 @@ AS
                                                   MainCategoryID="86000"
                                                   SubCategoryID="97002"/>
                                              </ROOT>'
+        DECLARE @TotalRows_out INT
         EXEC bodb_CRM.dbo.Acc_CRM_CategoryClassificationList @Category     = @Category_in,
                                                              @RemarkSearch = '',
-                                                             @Active       = 1
+                                                             @Active       = 1,
+                                                             @PageSize     = 100,
+                                                             @PageIndex    = 1,
+                                                             @TotalRows    = @TotalRows_out OUTPUT
+        SELECT @TotalRows_out
 */
 
 BEGIN
@@ -63,6 +71,8 @@ BEGIN
     FROM OPENXML(@iDoc, '/ROOT/Category', 1)
          WITH (MainCategoryID INT, SubCategoryID INT) AS ox
 
+    CREATE TABLE #tmpResult (Category NVARCHAR(100), SubCategory NVARCHAR(100), Remark NVARCHAR(MAX))
+    INSERT INTO  #tmpResult (Category, SubCategory, Remark)
     SELECT m.SettingValue Category,
            s.SettingValue SubCategory,
            sr.Remark      Remark
@@ -73,6 +83,19 @@ BEGIN
     WHERE ISNULL(sr.Remark, '') LIKE ('%' + @RemarkSearch + '%')
           AND 1 = CASE WHEN (@Active = 1 AND m.IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
           AND 1 = CASE WHEN (@Active = 1 AND s.IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
+    ORDER BY m.SettingValue, s.SettingValue
+    OFFSET @PageSize * (@PageIndex - 1) ROWS
+    FETCH FIRST @PageSize ROWS ONLY
+    
+    SET @TotalRows = ISNULL((SELECT	COUNT(1) FROM #tmpResult), 0)
+    
+    SELECT Category,
+           SubCategory,
+           Remark
+    FROM #tmpResult
+
+    DROP TABLE #tmpCategory
+    DROP TABLE #tmpResult
 
 END
 GO

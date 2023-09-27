@@ -71,9 +71,23 @@ BEGIN
     FROM OPENXML(@iDoc, '/ROOT/Category', 1)
          WITH (MainCategoryID INT, SubCategoryID INT) AS ox
 
-    CREATE TABLE #tmpResult (Category NVARCHAR(100), SubCategory NVARCHAR(100), Remark NVARCHAR(MAX))
-    INSERT INTO  #tmpResult (Category, SubCategory, Remark)
-    SELECT m.SettingValue Category,
+    CREATE TABLE #tmpResult (
+        MainCategoryID INT,
+        MainCategory   NVARCHAR(100),
+        SubCategoryID  INT,
+        SubCategory    NVARCHAR(100),
+        Remark         NVARCHAR(MAX)
+    )
+    INSERT INTO #tmpResult (
+        MainCategoryID,
+        MainCategory,
+        SubCategoryID,
+        SubCategory,
+        Remark
+    )
+    SELECT m.SettingID    MainCategoryID,
+           m.SettingValue MainCategory,
+           s.SettingID    SubCategoryID,
            s.SettingValue SubCategory,
            sr.Remark      Remark
     FROM #tmpCategory tmp
@@ -89,7 +103,9 @@ BEGIN
     
     SET @TotalRows = ISNULL((SELECT	COUNT(1) FROM #tmpResult), 0)
     
-    SELECT Category,
+    SELECT MainCategoryID,
+           MainCategory,
+           SubCategoryID,
            SubCategory,
            Remark
     FROM #tmpResult

@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_CRM_CategoryClassificationUpd @MainCategoryID INT,
                                                       @SubCategoryID  INT,
-                                                      @RemarkNewValue NVARCHAR(MAX),
+                                                      @RemarkNewValue NVARCHAR(MAX) = NULL,
                                                       @ActionType     INT,
                                                       @UserID         INT,
                                                       @IP             VARCHAR(45),

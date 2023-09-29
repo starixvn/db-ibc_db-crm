@@ -15,26 +15,36 @@ Original:
 Revisions:	
 	- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+    - 20230929@Ned.Le: Fix bug that return not correct the total row
+
 Param's Explanation:	
 */
 BEGIN
-	CREATE TABLE #Feedback (FeedbackID INT)
 
 	SELECT @CustID=b.CustID
 	FROM  crmCustomer b WITH(NOLOCK) 
 	WHERE b.CustID = @CustID
 		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
+    DECLARE @totalreturn  INT = 10
+    DECLARE @totalexisted INT = 0
+    DECLARE @totalremain  INT = 0
+
+	CREATE TABLE #Feedback (FeedbackID INT)
+
 	INSERT INTO #Feedback
-	SELECT DISTINCT TOP 10 f.FeedbackID	
+	SELECT DISTINCT TOP (@totalreturn) f.FeedbackID	
 	FROM crmFeedback f WITH(NOLOCK)  
 	WHERE f.custid = @CustID
 		AND f.StatusID <> 11004 -- exclude deleted
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
+    SELECT @totalexisted = COUNT(1) FROM #Feedback
+    SELECT @totalremain  = @totalreturn - @totalexisted
+
 	INSERT INTO #Feedback
-	SELECT DISTINCT TOP 10 f.FeedbackID
+	SELECT DISTINCT TOP (@totalremain) f.FeedbackID
 	FROM crmFeedback f WITH(NOLOCK) 
 		INNER JOIN  crmFeedbackCustomer cf WITH(NOLOCK) ON cf.FeedbackID = f.FeedbackID
 	WHERE cf.CustID = @CustID AND cf.IsRelated = 1
@@ -42,7 +52,7 @@ BEGIN
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
-	SELECT TOP 10 f.FeedbackID,
+	SELECT f.FeedbackID,
 	FeedbackDate,
 	f.Subject,
 	st.Name Status,
@@ -56,7 +66,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer(NOLOCK) Reviewer ON Reviewer.custid = f.ReviewerID
 	ORDER BY f.FeedbackID DESC
 
-	SELECT TOP 10 fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3, 'Category' AS SettingType
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3, 'Category' AS SettingType
 	FROM #Feedback fp
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fs.FeedbackID=fp.FeedbackID	
 		INNER JOIN crmMainCategory m ON fs.SettingID=m.MainCategoryID

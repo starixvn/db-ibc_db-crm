@@ -22,7 +22,7 @@ AS
         @ParentID:    The settingid that have child settingid
         @SettingName: The settingname of child settingid
 
-    Example
+    Example:
         EXEC bodb_CRM.dbo.Acc_CRM_SettingRelationConfirm @SettingID   = '97000,97003,97001,97002',
                                                          @ParentID    = 86000,
                                                          @SettingName = 'qc'

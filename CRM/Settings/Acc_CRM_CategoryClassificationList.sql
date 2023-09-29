@@ -36,7 +36,7 @@ AS
         @Active:       1-Get only active (IsActive=1)
                        2-Get all (IsActive=0|1)
 
-    Example
+    Example:
         DECLARE @Category_in VARCHAR(MAX) = '<ROOT>
 			                                     <Category
                                                   MainCategoryID="86000"
@@ -62,15 +62,25 @@ BEGIN
 
 	SET NOCOUNT ON
 
+    -- Parse data from @Category to temp table #tmpCategory
     DECLARE	@iDoc INT
     EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category
 
-    CREATE TABLE #tmpCategory (MainCategoryID INT, SubCategoryID INT)
-    INSERT INTO	 #tmpCategory (MainCategoryID, SubCategoryID)
-    SELECT ox.MainCategoryID, ox.SubCategoryID
+    CREATE TABLE #tmpCategory (
+        MainCategoryID INT,
+        SubCategoryID INT
+    )
+
+    INSERT INTO #tmpCategory (
+        MainCategoryID,
+        SubCategoryID
+    )
+    SELECT ox.MainCategoryID,
+           ox.SubCategoryID
     FROM OPENXML(@iDoc, '/ROOT/Category', 1)
          WITH (MainCategoryID INT, SubCategoryID INT) AS ox
 
+    -- Gen result dataset to temp table #tmpResult
     CREATE TABLE #tmpResult (
         MainCategoryID INT,
         MainCategory   NVARCHAR(100),
@@ -78,6 +88,7 @@ BEGIN
         SubCategory    NVARCHAR(100),
         Remark         NVARCHAR(MAX)
     )
+
     INSERT INTO #tmpResult (
         MainCategoryID,
         MainCategory,
@@ -100,7 +111,8 @@ BEGIN
     ORDER BY m.SettingValue, s.SettingValue
     OFFSET @PageSize * (@PageIndex - 1) ROWS
     FETCH FIRST @PageSize ROWS ONLY
-    
+
+    -- Return result dataset
     SET @TotalRows = ISNULL((SELECT	COUNT(1) FROM #tmpResult), 0)
     
     SELECT MainCategoryID,
@@ -110,6 +122,7 @@ BEGIN
            Remark
     FROM #tmpResult
 
+    -- Drop temp tables
     DROP TABLE #tmpCategory
     DROP TABLE #tmpResult
 

@@ -29,7 +29,7 @@ AS
         @ActionType:     1-This is the action that update value column Remark
                          2-This is the action that delete value column Remark
 
-    Example
+    Example:
         DECLARE @ErrCode_out INT = 0
         DECLARE @ErrMsg_out  NVARCHAR(4000) = ''
         EXEC bodb_CRM.dbo.Acc_CRM_CategoryClassificationUpd @MainCategoryID = 86000,
@@ -79,7 +79,6 @@ BEGIN
         RETURN
     END
 
-
     -- Get old value of Remark
     DECLARE @RemarkOldValue NVARCHAR(MAX)
     SELECT  @RemarkOldValue = Remark
@@ -113,21 +112,21 @@ BEGIN
 
     DECLARE @OldValues XML
     SELECT  @OldValues = '<Acc_CRM_CategoryClassificationUpd>' +
-                         '<Category>' + @MainCategoryName + '</Category>' +
-                         '<Sub-Category>' + @SubCategoryName + '</Sub-Category>' +
-                         '<Remark>' + ISNULL(@RemarkOldValue, '') + '</Remark>' +
+                         '<Category>' + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryName),'') + '</Category>' +
+                         '<Sub-Category>' + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryName),'') + '</Sub-Category>' +
+                         '<Remark>' + ISNULL(dbo.f_EncodeXMLValue(@RemarkOldValue),'') + '</Remark>' +
                          '</Acc_CRM_CategoryClassificationUpd>'
 
     DECLARE @NewValues XML
     SELECT  @NewValues = '<Acc_CRM_CategoryClassificationUpd>' +
-                         '<Category>' + @MainCategoryName + '</Category>' +
-                         '<Sub-Category>' + @SubCategoryName + '</Sub-Category>' +
-                         '<Remark>' + ISNULL(@RemarkNewValue, '') + '</Remark>' +
+                         '<Category>' + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryName),'') + '</Category>' +
+                         '<Sub-Category>' + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryName),'') + '</Sub-Category>' +
+                         '<Remark>' + ISNULL(dbo.f_EncodeXMLValue(@RemarkNewValue),'') + '</Remark>' +
                          '</Acc_CRM_CategoryClassificationUpd>'
 
     DECLARE @ActionID INT
     IF (@ActionType = 1) BEGIN SET @ActionID = 312 END
-    ELSE                 BEGIN SET @ActionID = 313 END
+    IF (@ActionType = 2) BEGIN SET @ActionID = 313 END
 
     EXEC bodb_CRM.dbo.WriteLog_UserLog_crmLogSetting @SettingID = @SubCategoryID,
                                                      @ParentID  = @MainCategoryID,

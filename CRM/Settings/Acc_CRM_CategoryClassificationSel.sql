@@ -22,7 +22,8 @@ AS
         @MainCategoryID: MainCategoryID that need to get information
         @SubCategoryID:  SubCategoryID that need to get information
 
-    Example
+    Example:
+        -- CASE 01
         DECLARE @ErrCode_out INT = 0
         DECLARE @ErrMsg_out  NVARCHAR(4000) = ''
         EXEC bodb_CRM.dbo.Acc_CRM_CategoryClassificationSel @MainCategoryID = 86000,
@@ -31,6 +32,7 @@ AS
                                                             @ErrMsg         = @ErrMsg_out  OUTPUT
         SELECT @ErrCode_out ErrCode, @ErrMsg_out ErrMsg
 
+        -- CASE 02
         DECLARE @ErrCode_out INT = 0
         DECLARE @ErrMsg_out  NVARCHAR(4000) = ''
         EXEC bodb_CRM.dbo.Acc_CRM_CategoryClassificationSel @MainCategoryID = NULL,
@@ -39,6 +41,7 @@ AS
                                                             @ErrMsg         = @ErrMsg_out  OUTPUT
         SELECT @ErrCode_out ErrCode, @ErrMsg_out ErrMsg
 
+        -- CASE 03
         DECLARE @ErrCode_out INT = 0
         DECLARE @ErrMsg_out  NVARCHAR(4000) = ''
         EXEC bodb_CRM.dbo.Acc_CRM_CategoryClassificationSel @MainCategoryID = 86000,

@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
 	@Username		NVARCHAR(1000) = NULL,  
 	@Fromdate		DATETIME = NULL,  
@@ -24,6 +28,8 @@ Original:
 Revisions:	
 	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
 	- 20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
+    - 20231003@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+
 Param's Explanation:	
 	@RemarkTitle : All ID RemarkTitle
 	@IsHistory   0 : Search Remark , 1 : List History				 
@@ -101,6 +107,10 @@ BEGIN
 								WHERE  S.VALUE <> ''))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 
+    INSERT INTO #Customer(CustID, Username)
+    SELECT CustID, Username
+    FROM #Result
+    WHERE CustID NOT IN (SELECT CustID FROM #Customer)
 	
 	SELECT @AffectedList =  STUFF((SELECT DISTINCT ',' + cast(custid AS VARCHAR(10))
 								FROM #Customer
@@ -189,7 +199,8 @@ BEGIN
 	FROM #Result
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
 	ORDER BY CreatedDate DESC, RemarkID DESC
-	
+
+    DROP TABLE #Pic	
 	DROP TABLE #Result							
 	DROP TABLE #CustHeadline
 	DROP TABLE #Customer

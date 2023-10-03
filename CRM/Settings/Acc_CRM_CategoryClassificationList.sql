@@ -62,6 +62,14 @@ BEGIN
 
 	SET NOCOUNT ON
 
+    -- Calculate paging
+    DECLARE @RowStart INT,
+            @RowEnd INT
+
+	SELECT  @PageIndex = @PageIndex - 1,
+            @RowStart  = @PageSize * @PageIndex + 1,
+            @RowEnd    = @RowStart + @PageSize - 1 	
+
     -- Parse data from @Category to temp table #tmpCategory
     DECLARE	@iDoc INT
     EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @Category
@@ -82,6 +90,7 @@ BEGIN
 
     -- Gen result dataset to temp table #tmpResult
     CREATE TABLE #tmpResult (
+        RowNumber	   INT IDENTITY (1,1),
         MainCategoryID INT,
         MainCategory   NVARCHAR(100),
         SubCategoryID  INT,
@@ -109,8 +118,6 @@ BEGIN
           AND 1 = CASE WHEN (@Active = 1 AND m.IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
           AND 1 = CASE WHEN (@Active = 1 AND s.IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END
     ORDER BY m.SettingValue, s.SettingValue
-    OFFSET @PageSize * (@PageIndex - 1) ROWS
-    FETCH FIRST @PageSize ROWS ONLY
 
     -- Return result dataset
     SET @TotalRows = ISNULL((SELECT	COUNT(1) FROM #tmpResult), 0)
@@ -121,6 +128,8 @@ BEGIN
            SubCategory,
            Remark
     FROM #tmpResult
+    WHERE RowNumber BETWEEN @RowStart AND @RowEnd
+    ORDER BY RowNumber
 
     -- Drop temp tables
     DROP TABLE #tmpCategory

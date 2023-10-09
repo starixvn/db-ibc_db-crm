@@ -79,7 +79,7 @@ BEGIN
 	SELECT fb.FeedbackID, fb.SiteID
 	FROM dbo.crmFeedback fb WITH(NOLOCK)
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate
-		AND fb.StatusID NOT IN (11004, 11001,11019,11016)
+		AND fb.StatusID NOT IN (11004, 11019)
 	OPTION (RECOMPILE)
 
 	INSERT INTO #ProductFeedback (SettingID, FeedbackID)

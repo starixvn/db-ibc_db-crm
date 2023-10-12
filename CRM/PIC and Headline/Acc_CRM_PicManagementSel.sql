@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_PicManagementSel]
 	@Username		VARCHAR(30) = '',
 	@Role			VARCHAR(100) = '',
@@ -7,6 +11,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_PicManagementSel]
 	@PageIndex		INT = 0,
 	@TotalRows		INT = 0 OUTPUT
 AS
+
 /*
 Created: 20200506@Malcolm
 Task :  CRM - Staff/Boss Management of headline
@@ -17,9 +22,12 @@ Original:
 		- 20200506@Malcolm: CRM - Staff/Boss Management of headline [Redmine: #108739]
 		- 20200814@Malcolm: Sort Ouput by IsActive ,Username [Redmine: #137144]
 		- 20210731@Malcolm : Add alias [RedmineId : #151509] 
+        - 20231011@Ned.Le: CRM - PIC Management performance issue: it takes so long to display data when searching by group headline (HotFix #195326)
+
 	Param's Explanation:	
 		
 */
+
 BEGIN
 	SET NOCOUNT ON
 
@@ -74,20 +82,24 @@ BEGIN
 	WHERE (@Username = '' OR p.Username LIKE '%' + @Username + '%') 
 		AND (@Role = '' OR ',' + @Role + ',' LIKE '%,' + CONVERT(VARCHAR(20),p.[Role]) + ',%')
 
-	IF @HeadlineName <> ''
+    CREATE TABLE #tmpHeadline (username VARCHAR(100), PicID INT)
+
+    INSERT INTO #tmpHeadline (username, PicID)
+	SELECT c.username, h.PicID
+	FROM bodb02.dbo.Customer c WITH(NOLOCK)
+		 INNER JOIN dbo.crmPICHeadline h WITH(NOLOCK) ON h.HeadlineID = c.custid
+
+	DELETE #tmpHeadline
+	WHERE username NOT LIKE '%' + @HeadlineName + '%'
+
+	IF (@HeadlineName <> '')
 	BEGIN
 		DELETE t
 		FROM #Tmp t
-		WHERE NOT EXISTS( 
-			SELECT 1 
-			FROM dbo.crmPICHeadline h 
-				INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON h.HeadlineID = c.custid
-			WHERE c.username  LIKE '%' + @HeadlineName + '%' AND t.PicID = h.PicID)
+		WHERE t.PicID NOT IN (SELECT h.PicID FROM #tmpHeadline h)
 	END
 
 	SELECT  @TotalRows = COUNT(*)  FROM #Tmp
-
-
 
 	INSERT INTO #TmpLanguage
 	(
@@ -160,7 +172,6 @@ BEGIN
     WHERE EXISTS(SELECT 1 FROM #Tmp t WHERE t.PicID = p.PicID)
 	
 	DROP TABLE #Tmp
-
 	DROP TABLE #TmpLanguage
-
+    DROP TABLE #tmpHeadline
 END

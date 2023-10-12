@@ -21,18 +21,18 @@ Param's Explanation:
 */
 BEGIN
 
+    -- Variables
 	SELECT @CustID=b.CustID
 	FROM  crmCustomer b WITH(NOLOCK) 
 	WHERE b.CustID = @CustID
 		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
     DECLARE @totalreturn  INT = 10
-    DECLARE @totalexisted INT = 0
-    DECLARE @totalremain  INT = 0
 
-	CREATE TABLE #Feedback (FeedbackID INT)
+    -- #FeedbackBuffer
+	CREATE TABLE #FeedbackBuffer (FeedbackID INT)
 
-	INSERT INTO #Feedback
+	INSERT INTO #FeedbackBuffer (FeedbackID)
 	SELECT DISTINCT TOP (@totalreturn) f.FeedbackID	
 	FROM crmFeedback f WITH(NOLOCK)  
 	WHERE f.custid = @CustID
@@ -40,11 +40,8 @@ BEGIN
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
-    SELECT @totalexisted = COUNT(1) FROM #Feedback
-    SELECT @totalremain  = @totalreturn - @totalexisted
-
-	INSERT INTO #Feedback
-	SELECT DISTINCT TOP (@totalremain) f.FeedbackID
+	INSERT INTO #FeedbackBuffer (FeedbackID)
+	SELECT DISTINCT TOP (@totalreturn) f.FeedbackID
 	FROM crmFeedback f WITH(NOLOCK) 
 		INNER JOIN  crmFeedbackCustomer cf WITH(NOLOCK) ON cf.FeedbackID = f.FeedbackID
 	WHERE cf.CustID = @CustID AND cf.IsRelated = 1
@@ -52,6 +49,15 @@ BEGIN
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
+    -- #FeedbackFinal
+    CREATE TABLE #FeedbackFinal (FeedbackID INT)
+
+    INSERT INTO #FeedbackFinal (FeedbackID)
+    SELECT TOP(@totalreturn) FeedbackID
+    FROM #FeedbackBuffer
+    ORDER BY FeedbackID DESC
+
+    -- Return result
 	SELECT f.FeedbackID,
 	FeedbackDate,
 	f.Subject,
@@ -60,18 +66,20 @@ BEGIN
 	Creator.username HandleBy,
 	Reviewer.username ReviewBy
 	FROM crmFeedback f WITH (NOLOCK)
-		INNER JOIN #Feedback tmp ON tmp.FeedbackID = f.FeedbackID
+		INNER JOIN #FeedbackFinal tmp ON tmp.FeedbackID = f.FeedbackID
 		INNER JOIN crmStatus(NOLOCK) st ON st.StatusID = f.StatusID
 		INNER JOIN bodb02.dbo.Customer(NOLOCK) Creator ON Creator.custid = f.CreatorID
 		LEFT JOIN bodb02.dbo.Customer(NOLOCK) Reviewer ON Reviewer.custid = f.ReviewerID
 	ORDER BY f.FeedbackID DESC
 
 	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3, 'Category' AS SettingType
-	FROM #Feedback fp
+	FROM #FeedbackFinal fp
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fs.FeedbackID=fp.FeedbackID	
-		INNER JOIN crmMainCategory m ON fs.SettingID=m.MainCategoryID
+		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fs.SettingID=m.MainCategoryID
 	ORDER BY fp.FeedbackID DESC
 
-	DROP TABLE #Feedback
+    -- Drop temp tables
+    DROP TABLE #FeedbackBuffer
+	DROP TABLE #FeedbackFinal
 
 END

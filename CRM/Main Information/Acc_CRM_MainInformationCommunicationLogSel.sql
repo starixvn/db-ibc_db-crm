@@ -15,26 +15,33 @@ Original:
 Revisions:	
 	- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+    - 20230929@Ned.Le: Fix bug that return not correct the total row
+
 Param's Explanation:	
 */
 BEGIN
-	CREATE TABLE #Feedback (FeedbackID INT)
 
+    -- Variables
 	SELECT @CustID=b.CustID
 	FROM  crmCustomer b WITH(NOLOCK) 
 	WHERE b.CustID = @CustID
 		AND((@UserRole=1 AND b.SiteID=33002) OR(@UserRole=2 AND b.SiteID<>33002))
 
-	INSERT INTO #Feedback
-	SELECT DISTINCT TOP 10 f.FeedbackID	
+    DECLARE @totalreturn  INT = 10
+
+    -- #FeedbackBuffer
+	CREATE TABLE #FeedbackBuffer (FeedbackID INT)
+
+	INSERT INTO #FeedbackBuffer (FeedbackID)
+	SELECT DISTINCT TOP (@totalreturn) f.FeedbackID	
 	FROM crmFeedback f WITH(NOLOCK)  
 	WHERE f.custid = @CustID
 		AND f.StatusID <> 11004 -- exclude deleted
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
-	INSERT INTO #Feedback
-	SELECT DISTINCT TOP 10 f.FeedbackID
+	INSERT INTO #FeedbackBuffer (FeedbackID)
+	SELECT DISTINCT TOP (@totalreturn) f.FeedbackID
 	FROM crmFeedback f WITH(NOLOCK) 
 		INNER JOIN  crmFeedbackCustomer cf WITH(NOLOCK) ON cf.FeedbackID = f.FeedbackID
 	WHERE cf.CustID = @CustID AND cf.IsRelated = 1
@@ -42,7 +49,16 @@ BEGIN
 		AND f.StatusID <> 11019 -- exclude deleted
 	ORDER BY f.FeedbackID DESC
 
-	SELECT TOP 10 f.FeedbackID,
+    -- #FeedbackFinal
+    CREATE TABLE #FeedbackFinal (FeedbackID INT)
+
+    INSERT INTO #FeedbackFinal (FeedbackID)
+    SELECT TOP(@totalreturn) FeedbackID
+    FROM #FeedbackBuffer
+    ORDER BY FeedbackID DESC
+
+    -- Return result
+	SELECT f.FeedbackID,
 	FeedbackDate,
 	f.Subject,
 	st.Name Status,
@@ -50,18 +66,20 @@ BEGIN
 	Creator.username HandleBy,
 	Reviewer.username ReviewBy
 	FROM crmFeedback f WITH (NOLOCK)
-		INNER JOIN #Feedback tmp ON tmp.FeedbackID = f.FeedbackID
+		INNER JOIN #FeedbackFinal tmp ON tmp.FeedbackID = f.FeedbackID
 		INNER JOIN crmStatus(NOLOCK) st ON st.StatusID = f.StatusID
 		INNER JOIN bodb02.dbo.Customer(NOLOCK) Creator ON Creator.custid = f.CreatorID
 		LEFT JOIN bodb02.dbo.Customer(NOLOCK) Reviewer ON Reviewer.custid = f.ReviewerID
 	ORDER BY f.FeedbackID DESC
 
-	SELECT TOP 10 fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3, 'Category' AS SettingType
-	FROM #Feedback fp
+	SELECT fs.FeedbackID,fs.SettingID,fs.SubSettingID,fs.SubSettingIDLevel3, 'Category' AS SettingType
+	FROM #FeedbackFinal fp
 		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fs.FeedbackID=fp.FeedbackID	
-		INNER JOIN crmMainCategory m ON fs.SettingID=m.MainCategoryID
+		INNER JOIN crmMainCategory m WITH(NOLOCK) ON fs.SettingID=m.MainCategoryID
 	ORDER BY fp.FeedbackID DESC
 
-	DROP TABLE #Feedback
+    -- Drop temp tables
+    DROP TABLE #FeedbackBuffer
+	DROP TABLE #FeedbackFinal
 
 END

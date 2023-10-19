@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpd_New]
 (
 	@UserID						INT,
@@ -98,9 +102,12 @@ Revisions:
 	- 20170914@Winnie: Remove  'Checker' add IntroducedBy RedmineID #82040
 	- 20171011@Winnie: Move "VIP" into Headline Info RedmineID #102925
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
+    - 20231005@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+
 Param's Explanation:
-	
+
 */
+
 BEGIN	
 	SET NOCOUNT ON
 
@@ -378,7 +385,17 @@ BEGIN
 	IF ISNULL(@LanguageID_Old,'')<> ''
 	SELECT @LanguageID_Old = LEFT(@LanguageID_Old,LEN(@LanguageID_Old)-1)
 
-	IF(@IsUpdateHeadlineInfo=1)
+    DECLARE @IsDirectAcc BIT = 0
+    IF EXISTS (
+        SELECT TOP 1 1
+        FROM bodb02.dbo.CustDirectAccount WITH (NOLOCK)
+        WHERE Custid = @CustID
+    )
+    BEGIN
+	    SELECT @IsDirectAcc = 1
+    END
+
+	IF ((@IsUpdateHeadlineInfo=1) OR (@IsUpdateHeadlineInfo=0 AND @CustID < 0) OR (@IsUpdateHeadlineInfo=0 AND @IsDirectAcc=1))
 		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
 		SET 
 			FirstName					= @FirstName,

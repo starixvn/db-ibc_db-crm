@@ -30,7 +30,7 @@ BEGIN
            NameCT
     FROM crmStation WITH (NOLOCK) 
 	WHERE isactive = 1 AND siteOffer=@UserRole
-	ORDER BY Name
+	ORDER BY CASE WHEN Name = 'N/A' THEN '0' ELSE Name END
 END
 
 GO 

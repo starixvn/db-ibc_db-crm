@@ -55,7 +55,7 @@ BEGIN
 			ON	csr.SettingID = cs.SettingID
 	WHERE			
 			csr.ParentID = ISNULL(CASE WHEN @ProductID = 0 THEN NULL ELSE @ProductID END, csr.ParentID)		
-	ORDER BY csr.ParentID ASC, Name ASC;
+	ORDER BY Name ASC
 END
 GO
 

@@ -51,7 +51,8 @@ BEGIN
 		st.SettingName = @SettingName
 		AND 1 = CASE WHEN (@Active = 1 AND IsActive = 1) OR @Active = 2 THEN 1 ELSE 0 END		
 		AND ( st.SiteOffer=@UserRole)
-	ORDER BY IsSub DESC, SettingValue ASC, st.SettingID ASC
+	ORDER BY IsSub DESC,
+             CASE WHEN @SettingName = 'Station' THEN CASE WHEN SettingValue = 'N/A' THEN '0' ELSE SettingValue END ELSE SettingValue END ASC,
+             st.SettingID ASC
 END
-
 GO

@@ -191,11 +191,11 @@ BEGIN
 
 	SELECT @LogElement =       
 		'<Acc_CRM_SettingIns>' + --SP Name  
-		'<SettingName>'  + ISNULL(@SettingName,'')      + '</SettingName>'  +  
-		'<SettingValue>' + ISNULL(@SettingValue,'')      + '</SettingValue>' +  
-		'<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),@DisplayOrder),'') + '</DisplayOrder>' +  
-		'<UserRole>' + ISNULL(CONVERT(VARCHAR(10),@UserRole),'') + '</UserRole>' +  
-		'<ExtraInfo>' + ISNULL(CONVERT(VARCHAR(10),@ExtraInfo),'') + '</ExtraInfo>' +
+		'<SettingName>'  + ISNULL(dbo.f_EncodeXMLValue(@SettingName),'')      + '</SettingName>'  +  
+		'<SettingValue>' + ISNULL(dbo.f_EncodeXMLValue(@SettingValue),'')      + '</SettingValue>' +  
+		'<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),dbo.f_EncodeXMLValue(@DisplayOrder)),'') + '</DisplayOrder>' +  
+		'<UserRole>' + ISNULL(CONVERT(VARCHAR(10),dbo.f_EncodeXMLValue(@UserRole)),'') + '</UserRole>' +  
+		'<ExtraInfo>' + ISNULL(CONVERT(VARCHAR(10),dbo.f_EncodeXMLValue(@ExtraInfo)),'') + '</ExtraInfo>' +
 		'</Acc_CRM_SettingIns>'  
 
 

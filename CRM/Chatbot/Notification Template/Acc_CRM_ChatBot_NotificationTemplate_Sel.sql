@@ -1,5 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Sel]
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationTemplate_Sel]
 	@NotificationTemplateId		SMALLINT = NULL
 	,@NotificationTemplateName	NVARCHAR(1000) = NULL
 	,@NotificationTypeId		SMALLINT = NULL
@@ -15,6 +19,7 @@ AS
 	Revisions:
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 	Param's Explanation:
 		
 */
@@ -84,7 +89,8 @@ BEGIN
 	FROM #Tmp t
 		INNER JOIN dbo.crmNotificationTemplateContent tc WITH(NOLOCK) ON tc.NotificationTemplateId = t.NotificationTemplateId
 		INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON tc.LanguageId = s.SettingID
-	WHERE s.IsActive = 1	
+	WHERE s.IsActive = 1
+    ORDER BY NotificationTemplateId, Language
 
 	DROP TABLE #Tmp
 END

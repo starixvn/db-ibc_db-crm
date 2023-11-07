@@ -15,7 +15,7 @@ Original:
 
 	Revisions:
 		- 20210801@Malcolm: Initialize SP [RedmineID: #151509]
-        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+        - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 	Param's Explanation:
 */

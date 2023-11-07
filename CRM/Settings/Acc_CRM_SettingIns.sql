@@ -35,7 +35,7 @@ AS
 	 - 20200421@Johnson: add mapping setting for auto feedback [redmine:#130949]
 	 - 20230202@Tacy: Split 789y site [redmine:#182438]
 	 - 20230629@Malcolm: fix Out of range SettingID when synchronizing licensee from OIC to CRM [redmine:#190437]
-     - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+     - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 	Param's Explanation:
 	 @SettingType:

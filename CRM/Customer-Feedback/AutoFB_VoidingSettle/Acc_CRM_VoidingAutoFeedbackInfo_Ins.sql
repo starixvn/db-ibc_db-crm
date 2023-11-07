@@ -13,6 +13,7 @@ AS
 
 	Revisions:
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
+		- 20231030@Malcolm: Add Virtual Sports 3 [RedmineId: #191355]
 	
 	Parameter's Explanation:
 		- @xml = '<ROOT>
@@ -223,7 +224,7 @@ BEGIN
 				   GETDATE() AS CreatedDate
 			FROM @tmpCust a
 			OUTER APPLY(
-				SELECT STUFF(( SELECT ','+ cast(ps.TransId as VARCHAR(30))  as [text()]
+				SELECT STUFF(( SELECT ', '+ cast(ps.TransId as VARCHAR(30))  as [text()]
 					FROM @tmpCust ps  
 					WHERE ps.HeadlineID = a.HeadlineID AND ps.MessageId = a.MessageId  
 							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799)
@@ -233,7 +234,7 @@ BEGIN
 					),1,1,'')
 			)b (TransId)
 			OUTER APPLY(
-				SELECT STUFF(( SELECT ','+ cast(ps.Username as VARCHAR(max))  as [text()]
+				SELECT STUFF(( SELECT ', '+ cast(ps.Username as VARCHAR(max))  as [text()]
 					FROM @tmpCust ps  
 					WHERE ps.HeadlineID = a.HeadlineID AND ps.MessageId = a.MessageId  
 							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799)

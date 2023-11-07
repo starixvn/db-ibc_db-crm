@@ -1,35 +1,33 @@
-
-SET QUOTED_IDENTIFIER ON 
+USE bodb_CRM
 GO
-SET ANSI_NULLS ON 
-GO
-
-/****** Object:  Stored Procedure dbo.Acc_CRM_SettingRelationIns    Script Date: 3/26/2014 6:06:09 PM ******/
-
 
 CREATE PROCEDURE [dbo].[Acc_CRM_SettingRelationIns]
 (
 	@UserID			INT,
 	@SettingID		INT,
 	@ParentID		INT,
-	@DisplayOrder	INT,
+	@DisplayOrder	INT = 0,
 	@IP				VARCHAR(15),
 	@ErrCode		INT = 0 OUTPUT,
 	@ErrMsg			NVARCHAR(4000) = '' OUTPUT
 )
 AS
+
 /*
-Created: 
-Date: 
+Created:
+Date:
 Task : insert to SettingRealtion.
 DB: DB06.bodb_CRM
 Original:
 
 Revisions:
 	- 20140221@Dom: Update Log writing
+    - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
 Param's Explanation:
-	
+
 */
+
 BEGIN
 	SET NOCOUNT ON
 

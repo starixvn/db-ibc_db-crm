@@ -1,4 +1,8 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE dbo.Acc_CRM_SettingSel
 (
 	@UserRole			TINYINT = NULL,
@@ -8,6 +12,7 @@ ALTER PROCEDURE dbo.Acc_CRM_SettingSel
 	@IncludedSettingID	VARCHAR(200) = ''
 )
 AS
+
 /*
 	Created:	Khoa
 	Date:		20101020
@@ -23,9 +28,11 @@ AS
 		- 20200508@Malcolm : search by setting name  [Redmine: #108739]
 		- 20201013@Malcolm : change data type of @IsActive from TINYINT to BIT [Redmine: #130544]
 		- 20230203@Tacy: Split 789y site [RedmineID: #182438]
-	Param's Explanation:
-	
+        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
+	Param's Explanation:	
 */
+
 BEGIN
 	SET NOCOUNT ON;
 	
@@ -39,7 +46,6 @@ BEGIN
 											ELSE cs.SettingValue
 			END AS SettingValue
 		,	cs.ExtraInfo
-		,	cs.DisplayOrder
 		,	cs.IsActive
 		, 	m.SettingSource
 	FROM	dbo.crmSetting AS cs WITH(NOLOCK)
@@ -48,6 +54,6 @@ BEGIN
 		  AND (cs.SettingName = @SettingName OR @SettingName = '')
 		  AND (cs.IsActive = @IsActive OR @IsActive IS NULL)) 
 		  OR (@IncludedSettingID <> '' AND ',' + @IncludedSettingID + ',' LIKE '%,' + CONVERT(VARCHAR(20),cs.SettingID) + ',%')
-	ORDER BY cs.IsActive DESC, cs.SettingName, cs.DisplayOrder, cs.SettingID;
+	ORDER BY cs.IsActive DESC, cs.SettingName, cs.SettingValue, cs.SettingID;
 END;
 GO

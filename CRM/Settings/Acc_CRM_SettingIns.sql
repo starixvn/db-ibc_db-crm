@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingIns]  
 (  
 	 @UserID   INT,  
@@ -8,35 +12,38 @@ ALTER PROCEDURE [dbo].[Acc_CRM_SettingIns]
 	 @SettingSource VARCHAR(MAX)='',
 	 @ExtraInfo		VARCHAR(50) = NULL,
 	 @ParentID  INT,  
-	 @DisplayOrder INT,  
+	 @DisplayOrder INT = 0,  
 	 @IP    VARCHAR(15),  
 	 @ErrCode  INT = 0 OUTPUT,  
 	 @ErrMsg   NVARCHAR(4000) = '' OUTPUT ,
 	 @UserRole	INT
 )  
-AS  
-/*  
-	Created: Lukas  
-	Date: 20101020  
-	Task : Insert new setting  
-	DB: DBCRM/bodb_CRM  
-	Original:  
+AS
+
+/*
+	Created: Lukas
+	Date: 20101020
+	Task : Insert new setting
+	DB: DBCRM/bodb_CRM
+	Original:
 	  
-	Revisions:  
-	 - 20120424@Sophia: Add parameter @SettingType for @SettingName = 'Site' to indicate Licensee site or Credit Site  
-	 - 20130121@Johnson: chang linked server DB03 to DBPOLICY  
-	 - 20140114@Dom: Update Language setting  
+	Revisions:
+	 - 20120424@Sophia: Add parameter @SettingType for @SettingName = 'Site' to indicate Licensee site or Credit Site
+	 - 20130121@Johnson: chang linked server DB03 to DBPOLICY
+	 - 20140114@Dom: Update Language setting
 	 - 20190506@Winnie: CN88 Permission RedmineID: #112637
 	 - 20200421@Johnson: add mapping setting for auto feedback [redmine:#130949]
 	 - 20230202@Tacy: Split 789y site [redmine:#182438]
 	 - 20230629@Malcolm: fix Out of range SettingID when synchronizing licensee from OIC to CRM [redmine:#190437]
+     - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
-	Param's Explanation:  
-	 @SettingType:  
-	   0 : Licensee site    
-	   1 : Credit site  
-  
-*/  
+	Param's Explanation:
+	 @SettingType:
+	   0 : Licensee site
+	   1 : Credit site
+
+*/
+
 BEGIN  
 	SET NOCOUNT ON  
 
@@ -184,11 +191,11 @@ BEGIN
 
 	SELECT @LogElement =       
 		'<Acc_CRM_SettingIns>' + --SP Name  
-		'<SettingName>'  + ISNULL(@SettingName,'')      + '</SettingName>'  +  
-		'<SettingValue>' + ISNULL(@SettingValue,'')      + '</SettingValue>' +  
-		'<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),@DisplayOrder),'') + '</DisplayOrder>' +  
-		'<UserRole>' + ISNULL(CONVERT(VARCHAR(10),@UserRole),'') + '</UserRole>' +  
-		'<ExtraInfo>' + ISNULL(CONVERT(VARCHAR(10),@ExtraInfo),'') + '</ExtraInfo>' +
+		'<SettingName>'  + ISNULL(dbo.f_EncodeXMLValue(@SettingName),'')      + '</SettingName>'  +  
+		'<SettingValue>' + ISNULL(dbo.f_EncodeXMLValue(@SettingValue),'')      + '</SettingValue>' +  
+		'<DisplayOrder>' + ISNULL(CONVERT(VARCHAR(10),dbo.f_EncodeXMLValue(@DisplayOrder)),'') + '</DisplayOrder>' +  
+		'<UserRole>' + ISNULL(CONVERT(VARCHAR(10),dbo.f_EncodeXMLValue(@UserRole)),'') + '</UserRole>' +  
+		'<ExtraInfo>' + ISNULL(CONVERT(VARCHAR(10),dbo.f_EncodeXMLValue(@ExtraInfo)),'') + '</ExtraInfo>' +
 		'</Acc_CRM_SettingIns>'  
 
 

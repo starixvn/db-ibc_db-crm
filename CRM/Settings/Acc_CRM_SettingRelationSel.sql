@@ -1,7 +1,12 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_SettingRelationSel]
 	@UserRole		INT
 AS
+
 /*
 Created: Lukas
 Date: 20101104
@@ -11,15 +16,16 @@ Original:
 
 Revisions:
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-Param's Explanation:
-	
+    - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
+Param's Explanation:	
 */
+
 BEGIN
 	SET NOCOUNT ON
 	
 	SELECT	rel.SettingID, 
-			rel.ParentID, 
-			rel.DisplayOrder 
+			rel.ParentID
 	FROM 
 		crmSettingRelation rel WITH(NOLOCK) 
 				INNER JOIN crmSetting s WITH(NOLOCK) ON rel.SettingID = s.SettingID
@@ -30,7 +36,7 @@ BEGIN
 		p.IsActive = 1
 		AND s.SiteOffer=@UserRole
 	ORDER BY 
-		SettingID, ParentID, DisplayOrder
+		SettingID, ParentID
 END
 GO
 GRANT EXECUTE ON [dbo].[Acc_CRM_SettingRelationSel] TO [bodbAdminNet]

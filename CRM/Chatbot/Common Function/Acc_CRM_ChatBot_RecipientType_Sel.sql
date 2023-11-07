@@ -1,22 +1,33 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_RecipientType_Sel]
 AS
+
 /*
-Created: 20200810@Malcolm
-Task :  Get all recipient types
-DB: DBCRM/bodb_CRM
-Original:
-	Revisions:
-		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-	Param's Explanation:
-		
+    Created: 20200810@Malcolm
+    Task :  Get all recipient types
+    DB: DBCRM/bodb_CRM
+    Original:
+    Revisions:
+        - 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+
+    Param's Explanation:
+
 */
+
 BEGIN
+
 	SET NOCOUNT ON
 
 	SELECT 
 		RecipientTypeId,
 		RecipientTypeName
 	FROM dbo.crmRecipientType WITH(NOLOCK)
+    ORDER BY RecipientTypeName
+
 END
 GO

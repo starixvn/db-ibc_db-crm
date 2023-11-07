@@ -24,7 +24,7 @@ Revisions:
 	- 20120424@Sophia: Modify DisplayOrder and IsSub
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20201030@Johnson: add filter IsActive [redmine: #142194]
-    - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+    - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 Param's Explanation:
 	- @Active = 1: get active

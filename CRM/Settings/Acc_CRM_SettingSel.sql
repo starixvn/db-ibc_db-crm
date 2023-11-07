@@ -28,7 +28,7 @@ AS
 		- 20200508@Malcolm : search by setting name  [Redmine: #108739]
 		- 20201013@Malcolm : change data type of @IsActive from TINYINT to BIT [Redmine: #130544]
 		- 20230203@Tacy: Split 789y site [RedmineID: #182438]
-        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+        - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 	Param's Explanation:	
 */

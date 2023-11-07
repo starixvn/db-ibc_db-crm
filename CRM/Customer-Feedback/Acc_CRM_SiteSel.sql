@@ -20,7 +20,7 @@ AS
 		- 20160328@Billy:	Integrate Sub-Product Setting - [Redmine: #50691]
 		- 20190507@Winnie:	CN88 	[RedmineID:#112637]	
 		- 20220202@Tacy:	Split 789y site [RedmineID: #182438]
-        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+        - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 	Param's Explanation:
 		- @LicenseeType =	0: Both

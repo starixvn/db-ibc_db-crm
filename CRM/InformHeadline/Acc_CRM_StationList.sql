@@ -15,7 +15,7 @@ as
 
 	Revisions:	
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637  
-        - 20230918@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+        - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
 
 	Param's Explanation:
 */

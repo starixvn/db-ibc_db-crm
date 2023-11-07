@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20220207@Elodie: Enhance SP [RedmineId: #168524]
+		- 20231030@Malcolm: Add Virtual Sports 3 [RedmineId: #191355]
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get Voiding Settled Tickets
 		@MessageIds = '<ROOT>
@@ -93,7 +94,7 @@ BEGIN
 	CROSS APPLY ( SELECT TOP(1) EventType,RefTable,ProductID
 				 FROM dbo.SportBettypeMatrix  WITH(NOLOCK) 
 				 WHERE BetType = b.bettype  ) sb
-	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27) --NumberGame,Sportbook,
+	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27, 77) --NumberGame,Sportbook,
 		 AND s.custid IS NULL
 		 AND b.statusID = 102 AND b.status  = 'VOID'  AND c.site <> 'CN88'
 		 AND 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
@@ -112,7 +113,7 @@ BEGIN
 	CROSS APPLY ( SELECT TOP(1) EventType,RefTable,ProductID
 				 FROM dbo.SportBettypeMatrix  WITH(NOLOCK) 
 				 WHERE BetType = b.bettype  ) sb
-	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27) --NumberGame,Sportbook,
+	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27, 77) --NumberGame,Sportbook,
 		 AND s.custid IS NULL
 		 AND b.statusID = 102 AND b.status  = 'VOID' AND c.site <> 'CN88'
 		 AND 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1

@@ -14,6 +14,8 @@ AS
 		- 20210705@Winfred: Integrate Abnormal Accounts [RedmineId : #157303]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
+		- 20230731@Malcolm: Incorporate voiding duplicated bet tickets with TVS [RedmineId : #191355]
+
 	Param's Explanation:		
 		- @xml = <ROOT>
 						<r msgid="100" reqid="1" custid="1" hl="100" related="1" event="A -vs- B" IssueTypeId = "13" />
@@ -63,7 +65,7 @@ BEGIN
 	WHERE IsProcessed = 0 OR IsProcessedUAT = 0
 
 	--get all msg & custid with status = 'initial'
-	SELECT c.MessageID, c.RequestID, c.custid , b.VoidingHistoryCollectionId
+	SELECT DISTINCT c.MessageID, c.RequestID, c.custid , b.VoidingHistoryCollectionId
 	FROM crmAutoFeedbackInfo c WITH(NOLOCK)
 		LEFT JOIN crmMessageImport b WITH(NOLOCK) ON c.MessageID = b.MessageID  AND c.RequestID = b.RequestID
 		INNER JOIN @tmpCust t ON c.MessageID = t.MessageID

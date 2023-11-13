@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20210628@Malcolm: Initialize SP [RedmineID: #181906]
         - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
+        - 20231113@Ned.Le: Fix error relate to STRING_AGG
 		
 	Param's Explanation:
 		@Messages:
@@ -34,9 +35,9 @@ BEGIN
 	FROM @Messages.nodes('root/r') AS t(c)
 	CROSS APPLY
 	(
-		SELECT f.value AS Username
-		FROM STRING_SPLIT(t.c.value('@UsernameList', 'NVARCHAR(MAX)'),',') f
-		WHERE f.value <> ''
+		SELECT f.val AS Username
+		FROM bodb02.dbo.strSplit(t.c.value('@UsernameList', 'NVARCHAR(MAX)'),',') f
+		WHERE f.val <> ''
 	) AS u(Username)
 	OPTION (OPTIMIZE FOR (@Messages = NULL))
 
@@ -79,7 +80,7 @@ BEGIN
 
 	DELETE #MessageLst WHERE IsValid = 0
 
-	SELECT VoidingHistoryCollectionId, VoidingHistoryId, STRING_AGG(r.Username, ',') WITHIN GROUP (ORDER BY r.Username ASC) AS UsernameList
+	SELECT VoidingHistoryCollectionId, VoidingHistoryId, STRING_AGG(CONVERT(NVARCHAR(max),r.Username), ',') WITHIN GROUP (ORDER BY r.Username ASC) AS UsernameList
 	FROM (
 		SELECT DISTINCT VoidingHistoryCollectionId, VoidingHistoryId, Username
 		FROM #MessageLst

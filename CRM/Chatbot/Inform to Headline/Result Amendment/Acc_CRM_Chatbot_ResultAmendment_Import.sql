@@ -61,7 +61,7 @@ BEGIN
 
 	DECLARE @Submitdate DATETIME2(7) = NULL, @TicketEventId INT = NULL, @Seq INT = NULL, @SettingNameOfJobStatus VARCHAR(50) = '',@SettingNameOfSubmitDate VARCHAR(50) = '', @IncludeUUSCurrency BIT
 			,@SettingNameOfSeq VARCHAR(50) = '', @MaxGroup INT = 0, @MaxBatchOfLetstalkGroup INT = 250, @MaxBatchOfTelegramGroup INT = 100, @Settings XML, @LastRuntime DATETIME 
-			,@SettingNameOfLastRuntime VARCHAR(50) = ''
+			,@SettingNameOfLastRuntime VARCHAR(50) = '', @MaxMsgTargetId INT = 0, @SettingNameOfMaxMsgTargetId VARCHAR(50)
 	
 	DECLARE @ServerNameDB NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
 
@@ -72,6 +72,7 @@ BEGIN
 		   ,@SettingNameOfSubmitDate = CASE WHEN @Environment = 'UAT' THEN 'SubmitDateUAT' ELSE 'SubmitDate' END
 		   ,@SettingNameOfSeq = CASE WHEN @Environment = 'UAT' THEN 'SeqUAT' ELSE 'Seq' END
 		   ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
+		   ,@SettingNameOfMaxMsgTargetId = CASE WHEN @Environment = 'UAT' THEN 'MaxMsgTargetIdUAT' ELSE 'MaxMsgTargetId' END
 
 	-- IF @IncludeUUSCurrency = 1, Stop UAT Job
 	IF @IncludeUUSCurrency = 1 AND @Environment = 'UAT'
@@ -345,21 +346,12 @@ BEGIN
 		WHERE n.ReferenceId = i.TicketId AND n.DataSource = @ServerName + '.bodb02.dbo.TicketAmendment_Detail'
 	) AS c
 	WHERE i.TicketId <> 0
-
-	DELETE i
-	FROM #ImportData i
-	WHERE NOT EXISTS (
-		SELECT 1 
-		FROM #TargetMessage t 
-			INNER JOIN dbo.crmVoidingMessage m WITH(NOLOCK) ON m.MessageId = t.MessageId AND m.MsgTargetId = t.MsgTargetId
-		WHERE m.IsChatBotProcessed = 0 AND i.MessageId = t.MessageId
-	) AND i.TicketId = 0
+	
+	SELECT @MaxMsgTargetId = ISNULL(MAX(MsgTargetId), 0) FROM #TargetMessage
 
 	DELETE t
 	FROM #TargetMessage t 
 	WHERE NOT EXISTS (SELECT 1 FROM #ImportData i WHERE i.TicketId = 0 AND i.MessageId = t.MessageId )
-
-	SELECT @TargetMessage = (SELECT MessageId AS '@MessageId', MsgTargetId AS '@MsgTargetId', Type AS '@Type' FROM #TargetMessage FOR XML PATH('r'), ROOT('root'))
 
 	IF NOT EXISTS (SELECT 1 FROM #ImportData) 
 	BEGIN
@@ -371,11 +363,11 @@ BEGIN
 		   						VALUES (@SettingNameOfSubmitDate, CONVERT(VARCHAR(MAX), @Submitdate))
 		   							   ,(@SettingNameOfSeq, CONVERT(VARCHAR(MAX),@Seq))
 		   							   ,(@SettingNameOfJobStatus, 'Completed')
+									   ,(@SettingNameOfMaxMsgTargetId, CONVERT(VARCHAR(MAX), @MaxMsgTargetId))
 		   			   ) t(SettingName, [Value])
+					  WHERE SettingName = @SettingNameOfMaxMsgTargetId AND Value <> 0 OR SettingName <> @SettingNameOfMaxMsgTargetId
 		   			  FOR XML PATH('r'), ROOT('root'),TYPE,ELEMENTS XSINIL
 			   )
-
-		EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
 		EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 		RETURN
 	END
@@ -857,11 +849,12 @@ BEGIN
 		   					VALUES (@SettingNameOfSubmitDate, CONVERT(VARCHAR(MAX),@Submitdate))
 		   						   ,(@SettingNameOfSeq, CONVERT(VARCHAR(MAX),@Seq))
 		   						   ,(@SettingNameOfJobStatus, 'Completed')
+								   ,(@SettingNameOfMaxMsgTargetId, CONVERT(VARCHAR(MAX), @MaxMsgTargetId))
 		   		   ) t(SettingName, [Value])
+				  WHERE SettingName = @SettingNameOfMaxMsgTargetId AND @MaxMsgTargetId <> 0 OR SettingName <> @SettingNameOfMaxMsgTargetId
 		   		  FOR XML PATH('r'), ROOT('root'),TYPE,ELEMENTS XSINIL
 		   )
 
-	EXEC dbo.Acc_CRM_ChatBot_crmVoidingMessage_Upd @Messages = @TargetMessage
 	EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 
 	DROP TABLE #EventData

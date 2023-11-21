@@ -23,6 +23,7 @@ AS
 		- 20220110@Malcolm: Stop UAT Job when @IncludeUUSCurrency = 1 [Redmine: #164235]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		- 20231121@Malcolm: Auto Send Announcement When Refund VS [RedmineId : #195404]
 		
 	Param's Explanation:
 		. @TicketData

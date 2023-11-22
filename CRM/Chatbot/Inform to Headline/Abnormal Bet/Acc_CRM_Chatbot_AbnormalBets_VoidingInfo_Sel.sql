@@ -148,7 +148,7 @@ BEGIN
         FROM #Messages_VoidByBetID vb
              CROSS APPLY (SELECT value TransId
                           FROM STRING_SPLIT(vb.ListBetTransId, ',')) bt
-        WHERE vb.MessageId NOT IN (SELECT MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory WITH (NOLOCK))
+        WHERE NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidingHistory v WITH (NOLOCK) WHERE v.MessageId = vb.MessageId)
 
         -- Update data on support temp table with information from bettrans
         UPDATE a

@@ -56,7 +56,7 @@ BEGIN
 
     DELETE m
     FROM #Messages m
-    WHERE m.MessageId IN (SELECT MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory WITH (NOLOCK))
+    WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidingHistory v WITH (NOLOCK) WHERE v.MessageId = m.MessageId)
 
 
     --------------

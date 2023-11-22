@@ -549,7 +549,7 @@ BEGIN
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
          LEFT JOIN bodb_CRM.dbo.crmLicenseeMapping lm WITH (NOLOCK) ON h.HealineSite = lm.Site
          LEFT JOIN bodb_CRM.dbo.crmCustomer c WITH (NOLOCK) ON lm.custid = c.CustID
-         CROSS JOIN (SELECT CustID FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK) WHERE UserName = 'All licensees') a
+         CROSS JOIN (SELECT CustID FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK) WHERE UserName = 'All-licensees') a
     WHERE h.isLicensee = 1
     GROUP BY b.MessageId,
              a.CustID,

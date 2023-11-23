@@ -854,7 +854,7 @@ BEGIN
     CTE_eventinfo AS (
         SELECT MessageId,
                HeadlineId,
-               STRING_AGG('Date: ' + event_date + '<br/>' + 'Sport: '+ sport_name + '<br/>' + 'Event Start Time: ' + ko_time + '<br/>' + 'League: ' + league_name + '<br/>' + 'Match: ' + match_name, '<br/>--------------------------------------------------<br/>') EventInfo
+               STRING_AGG(CONVERT(NVARCHAR(MAX), 'Date: ' + event_date + '<br/>' + 'Sport: '+ sport_name + '<br/>' + 'Event Start Time: ' + ko_time + '<br/>' + 'League: ' + league_name + '<br/>' + 'Match: ' + match_name), '<br/>--------------------------------------------------<br/>') EventInfo
         FROM CTE_formatdata
         GROUP BY MessageId,
                  HeadlineId
@@ -923,7 +923,7 @@ BEGIN
     CTE_transidinfo AS (
         SELECT MessageId,
                HeadlineId,
-               STRING_AGG(Username + ' ' + TransidList, '<br/>') TransidInfo
+               STRING_AGG(CONVERT(NVARCHAR(MAX), Username + ' ' + TransidList), '<br/>') TransidInfo
         FROM #tmpFeedback_transid
         GROUP BY MessageId,
                  HeadlineId

@@ -668,10 +668,12 @@ BEGIN
          LEFT JOIN CTE_subproduct sp ON c.MessageId = sp.MessageId AND c.HeadlineId = sp.HeadlineId
          LEFT JOIN CTE_bettype b ON c.MessageId = b.MessageId AND c.HeadlineId = b.HeadlineId
     -- + Update CommunicationIds
+    -- + --> For Credit Model (base on setting)
     ;WITH
     CTE_Headline AS (
         SELECT HeadlineId
         FROM #tmpHeadlineData
+        WHERE isLicensee = 0
         GROUP BY HeadlineId
     ),
     CTE_Setting AS (
@@ -707,6 +709,21 @@ BEGIN
                              WHERE c.CustID = h.HeadlineId
                       ORDER BY c.Category_MappedLevel,
                                c. SubCategory_MappedLevel) df
+    WHERE isLicensee = 0
+    -- + --> For Licensee Model (hardcode Skype)
+    ;WITH
+    CTE_Data AS (
+        SELECT TOP 1 SettingID
+        FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
+        WHERE SettingName = 'Communication'
+              AND SettingValue = 'Skype'
+              AND SiteOffer = 2
+    )
+    UPDATE h
+    SET h.CommunicationIds = CAST(cte.SettingID AS VARCHAR(100))
+    FROM #tmpFeedback_base h
+         CROSS JOIN CTE_Data cte
+    WHERE h.isLicensee = 1
     -- + Update CommunicationNames
     UPDATE h
     SET h.CommunicationNames = n.CommunicationNames
@@ -735,19 +752,21 @@ BEGIN
     -- Group 03, Feedback match information > Base on spec
     --                                      > When create Feedback for Credit model
     --                                      > Field Description need info about match
-    -- + Create temp table
-    CREATE TABLE #tmpFeedback_event (
+    -- + Frist, we need to collect detail data
+    -- + --> Create temp table
+    CREATE TABLE #tmpFeedback_event_detaildata (
         MessageId      INT,
         HeadlineId     INT,
         MatchId        INT,
         EventDate      DATE,
+        SportType      INT,
         SportName      VARCHAR(200),
         GlobalShowTime DATETIME,
         LeagueName     VARCHAR(200),
         HomeTeamName   VARCHAR(200),
         AwayTeamName   VARCHAR(200)
     )
-    -- + Gen data
+    -- + --> Gen data
     ;WITH
     CTE_Data AS (
         SELECT b.MessageId,
@@ -760,11 +779,12 @@ BEGIN
                  h.HeadlineId,
                  b.MatchId
     )
-    INSERT INTO #tmpFeedback_event (
+    INSERT INTO #tmpFeedback_event_detaildata (
         MessageId,
         HeadlineId,
         MatchId,
         EventDate,
+        SportType,
         SportName,
         GlobalShowTime,
         LeagueName,
@@ -775,6 +795,7 @@ BEGIN
            cte.HeadlineId,
            cte.MatchId,
            m.eventdate EventDate,
+           s.SportType,
            s.SportName,
            m.GlobalShowTime,
            l.leaguename LeagueName,
@@ -788,8 +809,46 @@ BEGIN
          LEFT JOIN bodb02.dbo.League l WITH (NOLOCK) ON m.leagueid = l.leagueid
          LEFT JOIN bodb02.dbo.Team h WITH (NOLOCK) ON m.homeid = h.teamid
          LEFT JOIN bodb02.dbo.Team a WITH (NOLOCK) ON m.awayid = a.teamid
-    -- + Create index
-    CREATE CLUSTERED INDEX CIX_Feedback_event ON #tmpFeedback_event(MessageId, HeadlineId)
+    -- + --> Create index
+    CREATE CLUSTERED INDEX CIX_Feedback_event_detaildata ON #tmpFeedback_event_detaildata(MessageId, HeadlineId)
+    -- + Second, we need to transform data to the way that suitable to create description, remember that we need to order event information as the spec request
+    -- + --> Create temp table
+    CREATE TABLE #tmpFeedback_event_finaldata (
+        OrderID     INT IDENTITY(1,1),
+        MessageId   INT,
+        HeadlineId  INT,
+        event_date  VARCHAR(1000),
+        sport_name  VARCHAR(1000),
+        ko_time     VARCHAR(1000),
+        league_name VARCHAR(1000),
+        match_name  VARCHAR(1000),
+    )
+    -- + --> Gen data to temp table
+    INSERT INTO #tmpFeedback_event_finaldata (
+        MessageId,
+        HeadlineId,
+        event_date,
+        sport_name,
+        ko_time,
+        league_name,
+        match_name
+    )
+    SELECT MessageId,
+           HeadlineId,
+           ISNULL(FORMAT(EventDate, 'dd-MMM-yyyy'), '') event_date,
+           ISNULL(SportName, '') sport_name,
+           ISNULL(FORMAT(DATEADD(HOUR, 12, GlobalShowTime), 'hh:mm tt'), '') ko_time,
+           ISNULL(LeagueName, '') league_name,
+           ISNULL((HomeTeamName + ' -vs- '+ AwayTeamName), '') match_name
+    FROM #tmpFeedback_event_detaildata
+    ORDER BY MessageId,
+             HeadlineId,
+             EventDate DESC,
+             CAST(GlobalShowTime AS TIME) DESC,
+             SportType ASC
+    -- + --> Create index
+    CREATE CLUSTERED INDEX CIX_Feedback_event_finaldata ON #tmpFeedback_event_finaldata(MessageId, HeadlineId)
+
 
     -- Group 04, Feedback transid information > Base on spec
     --                                        > When create Feedback for Credit model
@@ -841,21 +900,11 @@ BEGIN
     )
     -- + Gen data for credit model
     ;WITH
-    CTE_formatdata AS (
-        SELECT MessageId,
-               HeadlineId,
-               FORMAT(EventDate, 'dd-MMM-yyyy') event_date,
-               SportName sport_name,
-               FORMAT(DATEADD(HOUR, 12, GlobalShowTime), 'hh:mm tt') ko_time,
-               LeagueName league_name,
-               (HomeTeamName + ' -vs- '+ AwayTeamName) match_name
-        FROM #tmpFeedback_event
-    ),
     CTE_eventinfo AS (
         SELECT MessageId,
                HeadlineId,
                STRING_AGG(CONVERT(NVARCHAR(MAX), 'Date: ' + event_date + '<br/>' + 'Sport: '+ sport_name + '<br/>' + 'Event Start Time: ' + ko_time + '<br/>' + 'League: ' + league_name + '<br/>' + 'Match: ' + match_name), '<br/>--------------------------------------------------<br/>') EventInfo
-        FROM CTE_formatdata
+        FROM #tmpFeedback_event_finaldata
         GROUP BY MessageId,
                  HeadlineId
     )
@@ -962,7 +1011,7 @@ BEGIN
          LEFT JOIN #tmpXMLData x ON b.MessageId = x.MessageId
     WHERE b.isLicensee = 1
     -- + Create index
-    CREATE CLUSTERED INDEX CIX_Feedback_solution ON #tmpFeedback_solution(MessageId, HeadlineId) 
+    CREATE CLUSTERED INDEX CIX_Feedback_solution ON #tmpFeedback_solution(MessageId, HeadlineId)
 
     -- Run the loop to process data
     WHILE EXISTS (SELECT 1 FROM #tmpFeedback_base WHERE Id = @Id)
@@ -1176,20 +1225,20 @@ BEGIN
                0                       SubSettingIdLevel3
         UNION ALL
         -- + --> Communication Tool
-        SELECT @FeedbackId       FeedbackId,
-               c.CommunicationId SettingId,
-               0                 SubSettingId,
-               0                 SubSettingIdLevel3
+        SELECT @FeedbackId                  FeedbackId,
+               ISNULL(c.CommunicationId, 0) SettingId,
+               0                            SubSettingId,
+               0                            SubSettingIdLevel3
         FROM #tmpFeedback_base b
              OUTER APPLY(SELECT CAST(c.value AS INT) CommunicationId FROM STRING_SPLIT(b.CommunicationIds, ',') c) c
         WHERE b.Id = @Id
         UNION ALL
         -- + --> Product|Sub-product|Bet Type
         SELECT DISTINCT
-               @FeedbackId         FeedbackId,
-               @Feedback_ProductId SettingId,
-               s.SubProductId      SubSettingId,
-               t.BettypeId         SubSettingIdLevel3
+               @FeedbackId               FeedbackId,
+               @Feedback_ProductId       SettingId,
+               ISNULL(s.SubProductId, 0) SubSettingId,
+               ISNULL(t.BettypeId, 0)    SubSettingIdLevel3
         FROM #tmpFeedback_base b
              OUTER APPLY(SELECT CAST(s.value AS INT) SubProductId FROM STRING_SPLIT(b.SubProductIds, ',') s) s
              OUTER APPLY(SELECT CAST(t.value AS INT) BettypeId FROM STRING_SPLIT(b.BettypeIds, ',') t) t
@@ -1245,7 +1294,8 @@ BEGIN
     DROP TABLE #tmpFeedback_base_subproduct
     DROP TABLE #tmpFeedback_base_bettype
     DROP TABLE #tmpFeedback_base
-    DROP TABLE #tmpFeedback_event
+    DROP TABLE #tmpFeedback_event_detaildata
+    DROP TABLE #tmpFeedback_event_finaldata
     DROP TABLE #tmpFeedback_transid
 
     DROP TABLE #tmpFeedback_description

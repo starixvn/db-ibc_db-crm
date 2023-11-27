@@ -1,1 +1,3 @@
-CRM\Settings\Acc_CRM_OICLicenseeIns.sql
+CRM\Chatbot\Inform to Headline\Abnormal Bet\Acc_CRM_Chatbot_AbnormalAccount_GetUsernameList.sql
+CRM\Chatbot\Inform to Headline\Abnormal Bet\Acc_CRM_Chatbot_AbnormalBets_GetMessage.sql
+CRM\Chatbot\Inform to Headline\Abnormal Bet\Acc_CRM_Chatbot_SystemSetting_Sel.sql

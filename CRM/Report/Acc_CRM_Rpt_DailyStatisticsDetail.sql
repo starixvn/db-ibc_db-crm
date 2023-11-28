@@ -16,6 +16,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 				,	@ErrorCode			INT				= 0		OUTPUT
 				,	@ErrorMsg			VARCHAR(200)	= ''	OUTPUT
                 ,   @LicenseeType       TINYINT         = 0
+                ,   @SiteLabel          VARCHAR(MAX)    = NULL
 				)
 AS
 
@@ -36,6 +37,7 @@ AS
 		- 20230517@Malcolm: Add recompile option [RedmineID : #187090]
 		- 20230517@Malcolm: order by result [RedmineID : #187090]
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 	Param's Explanation:		
 		@SiteType =	0: IBC
@@ -43,9 +45,11 @@ AS
 
         @LicenseeType = 0: Both
                         1: Credit
-                        2: Licensee	
+                        2: Licensee
 
-	Ex: EXEC Acc_CRM_Rpt_DailyStatisticsDetail @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0
+        @SiteLabel: Value depend on user's permission and maybe NULL
+
+	Ex: EXEC Acc_CRM_Rpt_DailyStatisticsDetail @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0, @SiteLabel = NULL
 */
 
 BEGIN
@@ -56,7 +60,8 @@ BEGIN
 		,	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)
 		,	@xml			XML
-		
+
+    CREATE TABLE    #tmpSiteLabel    (SiteLabel         VARCHAR(50))
 	CREATE TABLE	#Product		 (ProductID			INT PRIMARY KEY)
 	CREATE TABLE	#Category		 (CategoryID		INT PRIMARY KEY)
 	CREATE TABLE	#Communication	 (CommunicationID	INT PRIMARY KEY)
@@ -73,6 +78,10 @@ BEGIN
 	SELECT	@splitter		= ','
 		,	@string			= @ProductID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
+
+    INSERT INTO #tmpSiteLabel (SiteLabel)
+    SELECT value SiteLabel
+    FROM STRING_SPLIT(@SiteLabel, ',')
 
 	INSERT INTO	#Product(ProductID)
 	SELECT	r.value('.','INT')
@@ -118,30 +127,33 @@ BEGIN
 						
 	INSERT INTO #FBCommunication(FeedbackID,CommunicationID,SiteName)
 	SELECT fs.FeedbackID,fs.SettingID,s.SiteName
-	FROM crmFeedback fb WITH (NOLOCK) 
-		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
-			ON fs.FeedbackID=fb.FeedbackID	
-		INNER JOIN #Communication c
-			ON fs.SettingID=c.CommunicationID 
-		LEFT JOIN	crmSite s WITH (NOLOCK)
-				ON	s.SiteID = fb.SiteID 
+	FROM crmFeedback fb WITH (NOLOCK)
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fs.FeedbackID=fb.FeedbackID
+		INNER JOIN #Communication c ON fs.SettingID=c.CommunicationID
+		LEFT JOIN crmSite s WITH (NOLOCK) ON s.SiteID = fb.SiteID 
+        LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 	AND	fb.StatusID <> 11004
 	AND	fb.StatusID <> 11019
 	AND (
-         (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
-                                                     OR ISNULL(fb.SiteID,0) = 0
-                                                     OR ISNULL(s.SiteID, 0) = 0))
-                                 OR
-                                 (@SiteType = 1 AND (s.IsLicensee = 1))))
-         OR
-         (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
-                                                     OR ISNULL(fb.SiteID,0) = 0
-                                                     OR ISNULL(s.SiteID, 0) = 0))))
-         OR
-         (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
-                                                     OR ISNULL(fb.SiteID,0) = 0
-                                                     OR ISNULL(s.SiteID, 0) = 0))))
+            (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                        OR ISNULL(fb.SiteID,0) = 0
+                                                        OR ISNULL(s.SiteID, 0) = 0))
+                                    OR
+                                    (@SiteType = 1 AND (s.IsLicensee = 1))))
+            OR
+            (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                        OR ISNULL(fb.SiteID,0) = 0
+                                                        OR ISNULL(s.SiteID, 0) = 0))))
+            OR
+            (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
+                                                        OR ISNULL(fb.SiteID,0) = 0
+                                                        OR ISNULL(s.SiteID, 0) = 0))))
+        )
+	AND (
+            (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                            WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                            WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
         )
 		
 	INSERT INTO #FBStation(FeedbackID,StationID)

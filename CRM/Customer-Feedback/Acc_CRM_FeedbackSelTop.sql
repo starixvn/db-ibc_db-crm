@@ -6,7 +6,8 @@ GO
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelTop] (
 					@top          INT = 10,
 					@UserRole     TINYINT,
-                    @LicenseeType TINYINT = 0
+                    @LicenseeType TINYINT = 0,
+                    @SiteLabel    VARCHAR(MAX) = NULL
 				)
 AS
 
@@ -23,24 +24,45 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 	Param's Explanation:
         - @LicenseeType = 0: Both
                           1: Credit
                           2: Licensee
+        - @SiteLabel: Value depend on user's permission and maybe NULL
 */
 
 BEGIN
-	SET NOCOUNT ON;
+
+	SET NOCOUNT ON
+
+    -- #tmpSiteLabel
+    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+
+    INSERT INTO #tmpSiteLabel (SiteLabel)
+    SELECT value SiteLabel
+    FROM STRING_SPLIT(@SiteLabel, ',')
 
     -- #tmpSite
-    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), IsLicensee INT)
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        SiteLabel  VARCHAR(50),
+        IsLicensee INT
+    )
 
     IF (@UserRole = 2)
     BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
         SELECT s.SettingID SiteID,
                s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
                CASE WHEN sr.ParentID = 33000 THEN 1
                     WHEN sr.ParentID = 33001 THEN 0
                     ELSE -1 END IsLicensee
@@ -50,9 +72,15 @@ BEGIN
     END
     ELSE IF (@UserRole = 1)
 	BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
         SELECT s.SettingID SiteID,
                s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
                0 IsLicensee
         FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
 		WHERE s.SettingID = 33002
@@ -68,11 +96,15 @@ BEGIN
 	FROM bodb_CRM.dbo.crmFeedbackCustomer fbc WITH (NOLOCK)
 		INNER JOIN bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID = fbc.FeedbackID
         LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+        LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 	WHERE fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
 		AND ((@UserRole=1 AND fb.SiteID=33002) OR (@UserRole=2 AND fb.SiteID<>33002))
         AND (s.IsLicensee IS NULL
              OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+        AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                            WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                            WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
 	ORDER BY fb.FeedbackDate DESC
 
     -- Get data to return
@@ -175,6 +207,7 @@ BEGIN
 			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
 
     -- DROP temp tables
+    DROP TABLE #tmpSiteLabel
     DROP TABLE #tmpSite
     DROP TABLE #tmpFeedbackIDList
 END;

@@ -16,6 +16,7 @@ AS
 
     Revisions:	
         20230919@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
                           
@@ -32,11 +33,22 @@ BEGIN
     SET NOCOUNT ON
 
     -- #tmpSite
-    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), IsLicensee INT)
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        SiteLabel  VARCHAR(50),
+        IsLicensee INT
+    )
 
-    INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        SiteLabel,
+        IsLicensee
+    )
     SELECT s.SettingID SiteID,
            s.SettingValue SiteName,
+           s.ExtraInfo SiteLabel,
            CASE WHEN sr.ParentID = 33000 THEN 1
                 WHEN sr.ParentID = 33001 THEN 0
                 WHEN sr.ParentID = 33002 THEN 0
@@ -48,16 +60,27 @@ BEGIN
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
 
     -- #tmpCustInfo
-    CREATE TABLE #tmpCustInfo (CustID INT, Username NVARCHAR(200), SiteType INT)
+    CREATE TABLE #tmpCustInfo (
+        CustID    INT,
+        Username  NVARCHAR(200),
+        SiteType  INT,
+        SiteLabel VARCHAR(50)
+    )
 
     IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpCustInfo)
     BEGIN
-        INSERT INTO #tmpCustInfo (CustID, Username, SiteType)
+        INSERT INTO #tmpCustInfo (
+            CustID,
+            Username,
+            SiteType,
+            SiteLabel
+        )
         SELECT c.custid CustID,
                c.username Username,
                CASE WHEN s.IsLicensee = 0 THEN 1
                     WHEN s.IsLicensee = 1 THEN 2
-                    ELSE 0 END SiteType
+                    ELSE 0 END SiteType,
+               s.SiteLabel
         FROM bodb02.dbo.Customer c WITH (NOLOCK)
              LEFT JOIN #tmpSite s ON c.site = s.SiteName
         WHERE c.custid = @custID
@@ -65,12 +88,18 @@ BEGIN
 
     IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpCustInfo)
     BEGIN
-        INSERT INTO #tmpCustInfo (CustID, Username, SiteType)
+        INSERT INTO #tmpCustInfo (
+            CustID,
+            Username,
+            SiteType,
+            SiteLabel
+        )
         SELECT c.CustID CustID,
                c.UserName Username,
                CASE WHEN s.IsLicensee = 0 THEN 1
                     WHEN s.IsLicensee = 1 THEN 2
-                    ELSE 0 END SiteType
+                    ELSE 0 END SiteType,
+               s.SiteLabel
         FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
              LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
         WHERE c.CustID = @CustID
@@ -84,7 +113,7 @@ BEGIN
         RETURN
     END
 
-    SELECT SiteType FROM #tmpCustInfo
+    SELECT SiteType, SiteLabel FROM #tmpCustInfo
 
     -- Drop temp tables
     DROP TABLE #tmpSite

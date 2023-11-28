@@ -22,6 +22,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ManageFeedbackList] (
 				,	@HandledBy			VARCHAR(30)	    = ''
 				,	@UserRole			TINYINT
                 ,   @LicenseeType       TINYINT         = 0
+                ,   @SiteLabel          VARCHAR(MAX)    = NULL
 				)
 AS
 
@@ -53,11 +54,13 @@ AS
 							- show inactive setting [redmine: #142194]
 		- 202010315@Winfred: Related Customer displayed properly when search Username in Manage Feedback [redmine:#138771]
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
         - @LicenseeType = 0: Both
                           1: Credit
-                          2: Licensee	
+                          2: Licensee
+        - @SiteLabel: Value depend on user's permission and maybe NULL
 */
 
 BEGIN		
@@ -81,14 +84,32 @@ BEGIN
 	FROM	bodb02.dbo.Customer WITH (NOLOCK)
 	WHERE	UserName = @Reviewer;
 
+    -- #tmpSiteLabel
+    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+
+    INSERT INTO #tmpSiteLabel (SiteLabel)
+    SELECT value SiteLabel
+    FROM STRING_SPLIT(@SiteLabel, ',')
+
     -- #tmpSite
-    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), IsLicensee INT)
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        SiteLabel  VARCHAR(50),
+        IsLicensee INT
+    )
 
     IF (@UserRole = 2)
     BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
         SELECT s.SettingID SiteID,
                s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
                CASE WHEN sr.ParentID = 33000 THEN 1
                     WHEN sr.ParentID = 33001 THEN 0
                     ELSE -1 END IsLicensee
@@ -98,9 +119,15 @@ BEGIN
     END
     ELSE IF (@UserRole = 1)
 	BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
         SELECT s.SettingID SiteID,
                s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
                0 IsLicensee
         FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
 		WHERE s.SettingID = 33002
@@ -173,6 +200,7 @@ BEGIN
 					,	l.list AS relatedCustomer
 		FROM	fb
             LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+            LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK) ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)	ON	fb.CreatorID = c.custid
 			LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid	
@@ -182,6 +210,9 @@ BEGIN
 		WHERE	fb.FeedbackID = @FeedbackID AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
                 AND (s.IsLicensee IS NULL
                      OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
 		ORDER BY FeedbackDate DESC, FeedbackID DESC
         
         IF(@@ROWCOUNT > 0 )
@@ -249,6 +280,7 @@ BEGIN
 		FROM	crmFeedbackCustomer fbc WITH (NOLOCK)
 			INNER JOIN	crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID=fbc.FeedbackID
             LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+            LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 			INNER JOIN  crmCustomer ctm WITH(NOLOCK) ON fbc.CustID=ctm.CustID
 			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
 			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
@@ -267,6 +299,9 @@ BEGIN
 			AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
             AND (s.IsLicensee IS NULL
                  OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+            AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                                WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC;
 		
 	END;
@@ -280,6 +315,7 @@ BEGIN
 			SELECT 	fb.FeedbackID, 0,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
                 LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+                LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -311,6 +347,9 @@ BEGIN
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
                 AND (s.IsLicensee IS NULL
                      OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC				
 		OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -322,6 +361,7 @@ BEGIN
 			SELECT  fb.FeedbackID, 0 AS IsRelated,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
                 LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+                LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -353,6 +393,9 @@ BEGIN
 				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
                 AND (s.IsLicensee IS NULL
                      OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -363,6 +406,7 @@ BEGIN
 			SELECT fb.FeedbackID, 0 AS IsRelated,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
                 LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+                LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -393,6 +437,9 @@ BEGIN
 				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
                 AND (s.IsLicensee IS NULL
                      OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )	
 			
@@ -469,5 +516,3 @@ BEGIN
 	
 END
 GO
-
-

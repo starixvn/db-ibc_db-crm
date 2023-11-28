@@ -626,7 +626,7 @@ BEGIN
                HeadlineId,
                isLicensee,
                STRING_AGG(CAST(RelatedCustId AS VARCHAR(MAX)), ',')   RelatedCustIds,
-               STRING_AGG(CAST(RelatedUsername AS VARCHAR(MAX)), ',') RelatedUsernames
+               STRING_AGG(CAST(RelatedUsername AS VARCHAR(MAX)), ', ') RelatedUsernames
         FROM #tmpFeedback_base_cust
         GROUP BY MessageId,
                  HeadlineId,
@@ -870,7 +870,7 @@ BEGIN
     SELECT b.MessageId,
            h.HeadlineId,
            b.Username,
-           STRING_AGG(CAST(b.TransId AS VARCHAR(MAX)), ',') TransidList
+           STRING_AGG(CAST(b.TransId AS VARCHAR(MAX)), ', ') TransidList
     FROM #tmpMessageData b
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
     WHERE h.isLicensee = 0
@@ -921,7 +921,7 @@ BEGIN
          OUTER APPLY (
             SELECT (
                        'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
-                       + 'SystemID: ' + b.RelatedUsernames
+                       + 'System ID: ' + b.RelatedUsernames
                    ) AS '@AutoField'
                    ,
                    (
@@ -945,7 +945,7 @@ BEGIN
          OUTER APPLY (
             SELECT (
                        'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
-                       + 'SystemID: ' + b.RelatedUsernames
+                       + 'System ID: ' + b.RelatedUsernames
                    ) AS '@AutoField'
                    ,
                    (

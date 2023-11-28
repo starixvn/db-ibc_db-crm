@@ -39,6 +39,7 @@ Revisions:
     - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
     - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
     - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+    - 20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
 
 Param's Explanation:
     - @LicenseeType = 0: Both
@@ -192,7 +193,9 @@ BEGIN
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
-									(SELECT ag.site 
+									(SELECT CASE WHEN ag.site = 'IBO' THEN 'Kzing'
+                                                 WHEN ag.site = 'KeenOcean' THEN 'LIVV88'
+                                                 ELSE ag.site END site
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 									 WHERE c.custid = @CustID)
@@ -205,7 +208,9 @@ BEGIN
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
-									(SELECT site 
+									(SELECT CASE WHEN site = 'IBO' THEN 'Kzing'
+                                                 WHEN site = 'KeenOcean' THEN 'LIVV88'
+                                                 ELSE site END site
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
 					AND SettingName IN( 'Site','SiteCategory')		

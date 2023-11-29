@@ -191,6 +191,7 @@ BEGIN
 		) AS n
    ORDER BY e.MainCategoryID, e.SubCategoryID, e.CommunicationID, e.ProductID
 
+   DROP TABLE #tmpSiteLabel
    DROP TABLE #Product 
    DROP TABLE #MainCategory
    DROP TABLE #Communication 

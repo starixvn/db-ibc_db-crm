@@ -512,6 +512,7 @@ BEGIN
 
     -- DROP temp tables	
 	DROP TABLE #Feedback
+    DROP TABLE #tmpSiteLabel
     DROP TABLE #tmpSite
 	
 END

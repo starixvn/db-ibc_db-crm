@@ -9,6 +9,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 	@IsGuest      BIT            = 0,
 	@UserRole     TINYINT,
     @LicenseeType TINYINT        = 0,
+    @SiteLabel    VARCHAR(MAX)   = NULL,
     @ErrCode      INT            = 0  OUTPUT,
     @ErrMsg       NVARCHAR(2000) = '' OUTPUT
 )
@@ -40,11 +41,13 @@ Revisions:
     - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
     - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
     - 20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
+    - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 Param's Explanation:
     - @LicenseeType = 0: Both
                       1: Credit
                       2: Licensee
+    - @SiteLabel: Value depend on user's permission and maybe NULL
 */
 
 BEGIN
@@ -58,14 +61,32 @@ BEGIN
 			@CountryID int,
 			@IsGroupHeadLine BIT
 
+    -- #tmpSiteLabel
+    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+
+    INSERT INTO #tmpSiteLabel (SiteLabel)
+    SELECT value SiteLabel
+    FROM STRING_SPLIT(@SiteLabel, ',')
+
     -- #tmpSite
-    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), IsLicensee INT)
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        SiteLabel  VARCHAR(50),
+        IsLicensee INT
+    )
 
     IF (@UserRole = 2)
     BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
         SELECT s.SettingID SiteID,
                s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
                CASE WHEN sr.ParentID = 33000 THEN 1
                     WHEN sr.ParentID = 33001 THEN 0
                     ELSE -1 END IsLicensee
@@ -75,9 +96,15 @@ BEGIN
     END
     ELSE IF (@UserRole = 1)
 	BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
         SELECT s.SettingID SiteID,
                s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
                0 IsLicensee
         FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
 		WHERE s.SettingID = 33002
@@ -137,12 +164,22 @@ BEGIN
         
         -- Check permisstion
         BEGIN
-            CREATE TABLE #tmpCust_01 (CustID INT, isLicensee INT)
+            CREATE TABLE #tmpCust_01 (
+                CustID     INT,
+                isLicensee INT,
+                SiteLabel  VARCHAR(50)
+            )
 
             IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpCust_01)
             BEGIN
-                INSERT INTO #tmpCust_01 (CustID, isLicensee)
-                SELECT custid, s.IsLicensee
+                INSERT INTO #tmpCust_01 (
+                    CustID,
+                    isLicensee,
+                    SiteLabel
+                )
+                SELECT custid,
+                       s.IsLicensee,
+                       s.SiteLabel
                 FROM bodb02.dbo.Customer c WITH (NOLOCK)
                      LEFT JOIN #tmpSite s ON c.site = s.SiteName
                 WHERE c.custid = @custID
@@ -150,17 +187,34 @@ BEGIN
             
             IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpCust_01)
             BEGIN
-                INSERT INTO #tmpCust_01 (CustID, isLicensee)
-                SELECT custid, s.IsLicensee
+               INSERT INTO #tmpCust_01 (
+                    CustID,
+                    isLicensee,
+                    SiteLabel
+                )
+                SELECT custid,
+                       s.IsLicensee,
+                       s.SiteLabel
                 FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
                      LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
                 WHERE c.custid = @custID
             END
 
-            IF NOT EXISTS (SELECT TOP 1 1
-                           FROM #tmpCust_01
-                           WHERE (IsLicensee IS NULL
-                                  OR IsLicensee = CASE WHEN @LicenseeType = 0 THEN IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END))
+            IF NOT EXISTS (
+                              SELECT TOP 1 1
+                              FROM #tmpCust_01 c
+                                   LEFT JOIN #tmpSiteLabel sl ON c.SiteLabel = sl.SiteLabel
+                              WHERE (
+                                        c.IsLicensee IS NULL
+                                        OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+                                    )
+                                    AND
+                                    (
+                                        ISNULL(c.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN c.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(c.SiteLabel, '') END
+                                                                       WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                                       WHEN @LicenseeType = 2 THEN ISNULL(c.SiteLabel, '') END
+                                    )
+                          )
             BEGIN
                 SET @ErrCode = 101
                 SET @ErrMsg = 'You are not authorized to search this account'
@@ -454,18 +508,39 @@ BEGIN
 
         -- Check permisstion
         BEGIN
-            CREATE TABLE #tmpCust_02 (CustID INT, isLicensee INT)
+            CREATE TABLE #tmpCust_02 (
+                CustID     INT,
+                isLicensee INT,
+                SiteLabel  VARCHAR(50)
+            )
 
-            INSERT INTO #tmpCust_02 (CustID, isLicensee)
-            SELECT custid, s.IsLicensee
+            INSERT INTO #tmpCust_02 (
+                CustID,
+                isLicensee,
+                SiteLabel
+            )
+            SELECT custid,
+                   s.IsLicensee,
+                   s.SiteLabel
             FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
                  LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
             WHERE c.custid = @custID
 
-            IF NOT EXISTS (SELECT TOP 1 1
-                           FROM #tmpCust_02
-                           WHERE (IsLicensee IS NULL
-                                  OR IsLicensee = CASE WHEN @LicenseeType = 0 THEN IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END))
+            IF NOT EXISTS (
+                              SELECT TOP 1 1
+                              FROM #tmpCust_02 c
+                                   LEFT JOIN #tmpSiteLabel sl ON c.SiteLabel = sl.SiteLabel
+                              WHERE (
+                                        c.IsLicensee IS NULL
+                                        OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+                                    )
+                                    AND
+                                    (
+                                        ISNULL(c.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN c.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(c.SiteLabel, '') END
+                                                                       WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                                                       WHEN @LicenseeType = 2 THEN ISNULL(c.SiteLabel, '') END
+                                    )
+                          )
             BEGIN
                 SET @ErrCode = 101
                 SET @ErrMsg = 'You are not authorized to search this account'
@@ -553,6 +628,7 @@ BEGIN
 	SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
     
     -- DROP temp tables
+    DROP TABLE #tmpSiteLabel
     DROP TABLE #tmpSite
 END
 GO

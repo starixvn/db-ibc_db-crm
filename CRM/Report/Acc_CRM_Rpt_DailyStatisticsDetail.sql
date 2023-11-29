@@ -451,5 +451,15 @@ BEGIN
 	 from #temp AS c
 	 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)	
 	 ORDER BY c.RowNum ASC 
+
+    DROP TABLE #tmpSiteLabel
+	DROP TABLE #Product
+	DROP TABLE #Category
+	DROP TABLE #Communication
+	DROP TABLE #FBProduct
+	DROP TABLE #FBCategory
+	DROP TABLE #FBCommunication
+	DROP TABLE #FBStation
+
 END;
 GO

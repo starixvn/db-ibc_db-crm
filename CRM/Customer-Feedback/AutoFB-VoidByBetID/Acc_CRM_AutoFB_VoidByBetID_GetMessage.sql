@@ -38,7 +38,7 @@ BEGIN
     -- Get all suitable message data
     -- + We just get all data first
     -- + And we also need build a mechanism that help to limit data later
-    CREATE TABLE #tmpMessageRawData (
+    CREATE TABLE #tmpMessageData (
         MessageId      INT,
         MINMsgTargetId INT,
         RowRank        INT)
@@ -61,94 +61,39 @@ BEGIN
                ROW_NUMBER() OVER (ORDER BY MINMsgTargetId) RowRank
         FROM CTE_Data
     )
-    INSERT INTO #tmpMessageRawData (MessageId, MINMsgTargetId, RowRank)
+    INSERT INTO #tmpMessageData (MessageId, MINMsgTargetId, RowRank)
     SELECT MessageId, MINMsgTargetId, RowRank
     FROM CTE_Rank
     OPTION (RECOMPILE)
 
-    CREATE CLUSTERED INDEX CIX_MessageId ON #tmpMessageRawData(MessageId)
+    CREATE CLUSTERED INDEX CIX_MessageId ON #tmpMessageData(MessageId)
 
     -- Update value MAX(MsgTargetId) in the way to be suitable with @BatchSize
     -- + If total MessageId over the @BatchSize, get the MAX(MsgTargetId) of the 10th MessageId
     -- + If total MessageId under the @BatchSize, the MAX(MsgTargetId) will remain the same as before
-    SELECT @MaxMsgTargetId = (MINMsgTargetId - 1) FROM #tmpMessageRawData WHERE RowRank = (@BatchSize + 1)
+    SELECT @MaxMsgTargetId = (MINMsgTargetId - 1) FROM #tmpMessageData WHERE RowRank = (@BatchSize + 1)
 
 
     --------------
     -- Return data
 
-    -- Create temp table
-    CREATE TABLE #tmpMessageFinalData (
-        MessageId      INT,
-        MAXMsgTargetId INT,
-        ListBetTransId VARCHAR(MAX)
-    )
-
-    -- Get MessageId and BetTransId belong to
-    ;WITH
-    -- + First, get raw data
-    CTE_RawData AS (
-        SELECT mt.MessageId,
-               mt.MsgTargetId,
-               bt.BetTransId
-        FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)
-             CROSS APPLY (SELECT TRIM(value) AS BetTransId
-                          FROM STRING_SPLIT(mt.BetTransId, ',')) bt
-        WHERE mt.MessageId IN (SELECT MessageId FROM #tmpMessageRawData)
-              AND mt.MsgTargetId > @LastMsgTargetId
-              AND mt.MsgTargetId <= @MaxMsgTargetId
-    ),
-    -- + Second, get MAX(MsgTargetId) for each MessageId
-    CTE_MsgTargetId AS (
-        SELECT MessageId,
-               MAX(MsgTargetId) MAXMsgTargetId
-        FROM CTE_RawData
-        GROUP BY MessageId
-    ),
-    -- + Third, get all BetTransId belong to MessageId
-    CTE_BetTransId AS (
-        SELECT DISTINCT
-               MessageId,
-               BetTransId
-        FROM CTE_RawData
-    ),
-    -- + Combine data
-    CTE_CombineData AS (
-        SELECT mt.MessageId,
-               mt.MAXMsgTargetId,
-               STRING_AGG(CAST(bt.BetTransId AS VARCHAR(MAX)), ',') ListBetTransId
-        FROM CTE_MsgTargetId mt
-             LEFT JOIN CTE_BetTransId bt ON mt.MessageId = bt.MessageId
-        GROUP BY mt.MessageId,
-                 mt.MAXMsgTargetId
-    )
-    -- + Return final data
-    INSERT INTO #tmpMessageFinalData (
-        MessageId,
-        MAXMsgTargetId,
-        ListBetTransId
-    )
-    SELECT MessageId,
-           MAXMsgTargetId,
-           ListBetTransId
-    FROM CTE_CombineData
-    OPTION (RECOMPILE)
-
-    -- Return final result
-    SELECT tmp.MessageId,
-           tmp.MAXMsgTargetId,
-           tmp.ListBetTransId,
-           msg.Content_en,
-           msg.Content_cs
-    FROM #tmpMessageFinalData tmp
-         INNER JOIN bodb_Message.dbo.Msg msg ON tmp.MessageId = msg.MessageId
+    SELECT mt.MessageId,
+           mt.MsgTargetId,
+           mt.TargetId,
+           mt.BetTransId,
+           m.Content_en,
+           m.Content_cs
+    FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)
+         LEFT JOIN bodb_Message.dbo.Msg m ON mt.MessageId = m.MessageId
+    WHERE mt.MessageId IN (SELECT MessageId FROM #tmpMessageData)
+          AND mt.MsgTargetId > @LastMsgTargetId
+          AND mt.MsgTargetId <= @MaxMsgTargetId
 
 
     ------------------
     -- Drop temp table
 
-    DROP TABLE #tmpMessageRawData
-    DROP TABLE #tmpMessageFinalData
+    DROP TABLE #tmpMessageData
 
 END
 GO

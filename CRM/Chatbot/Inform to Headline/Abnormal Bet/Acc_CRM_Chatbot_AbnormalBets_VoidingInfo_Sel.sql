@@ -39,10 +39,11 @@ AS
         @Messages_VoidByBetID:
             + Data
                 <root>
-                    <r VoidingHistoryCollectionId="-1" MessageId="1807390" MAXMsgTargetId="40858531" ListBetTransId="184182641631690829,184183199977439303"/>
-                    <r VoidingHistoryCollectionId="-2" MessageId="1807391" MAXMsgTargetId="40858539" ListBetTransId="184360135450165263,184360221349511202"/>
-                    <r VoidingHistoryCollectionId="-3" MessageId="1807421" MAXMsgTargetId="40863579" ListBetTransId="180155714654699700"/>
-                    <r VoidingHistoryCollectionId="-4" MessageId="1807422" MAXMsgTargetId="40863583" ListBetTransId="180155714654699702"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423853" TargetId="43454879" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423854" TargetId="43454880" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423855" TargetId="45532870" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423856" TargetId="103465927" BetTransId="191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423857" TargetId="103757148" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608"/>
                 </root>
 */
 
@@ -65,15 +66,95 @@ BEGIN
     OPTION (OPTIMIZE FOR (@Messages = NULL))
 
     -- #Messages_VoidByBetID
-    CREATE TABLE #Messages_VoidByBetID (VoidingHistoryCollectionId INT, MessageId INT, MAXMsgTargetId INT, ListBetTransId VARCHAR(MAX))
+    CREATE TABLE #Messages_VoidByBetID (VoidingHistoryCollectionId INT, MessageId INT, MsgTargetId INT, TargetId INT, BetTransId VARCHAR(MAX))
 
-    INSERT INTO #Messages_VoidByBetID (VoidingHistoryCollectionId, MessageId, MAXMsgTargetId, ListBetTransId)
+    INSERT INTO #Messages_VoidByBetID (VoidingHistoryCollectionId, MessageId, MsgTargetId, TargetId, BetTransId)
     SELECT t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId,
            t.c.value('@MessageId', 'INT') AS MessageId,
-           t.c.value('@MAXMsgTargetId', 'INT') AS MAXMsgTargetId,
-           t.c.value('@ListBetTransId', 'VARCHAR(MAX)') AS ListBetTransId
+           t.c.value('@MsgTargetId', 'INT') AS MsgTargetId,
+           t.c.value('@TargetId', 'INT') AS TargetId,
+           t.c.value('@BetTransId', 'VARCHAR(MAX)') AS BetTransId
     FROM @Messages_VoidByBetID.nodes('root/r') AS t(c)
     OPTION (OPTIMIZE FOR (@Messages_VoidByBetID = NULL))
+
+
+    -------------------------------------------
+    -- Clean and transform data for VoidByBetID
+
+    -- Clean 01
+    -- + All MessageId in TicketVoiding_VoidingHistory be already created Feedback on AbnormalBet/AbnormalAccount auto service
+    -- + And some of them have MsgContentsType=103
+    -- + And we need to remove them from XML data at this step to avoid recreate Feedback for them again
+    DELETE m
+    FROM #Messages_VoidByBetID m
+    WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidingHistory v WITH (NOLOCK) WHERE v.MessageId = m.MessageId)
+
+    -- Clean 02
+    -- + We just keep data with TargetId is member (roleid=1)
+    -- + We need to do this to optimoize the way to get data between different data processes (to prevent duplicate data)
+    DELETE m
+    FROM #Messages_VoidByBetID m
+    WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.Customer cus WITH (NOLOCK) WHERE cus.roleid <> 1 AND cus.custid = m.TargetId)
+
+    -- Transform data to get the final suitable format for further process
+    -- + Create temp table
+    CREATE TABLE #VoidByBetIDFinal (
+        VoidingHistoryCollectionId INT,
+        MessageId INT,
+        MAXMsgTargetId INT,
+        ListBetTransId VARCHAR(MAX)
+    )
+    ;WITH
+    -- + First, get raw data
+    CTE_RawData AS (
+        SELECT mt.VoidingHistoryCollectionId,
+               mt.MessageId,
+               mt.MsgTargetId,
+               bt.BetTransId
+        FROM #Messages_VoidByBetID mt WITH (NOLOCK)
+             CROSS APPLY (SELECT TRIM(value) BetTransId FROM STRING_SPLIT(mt.BetTransId, ',')) bt
+    ),
+    -- + Second, get MAX(MsgTargetId) for each MessageId
+    CTE_MsgTargetId AS (
+        SELECT VoidingHistoryCollectionId,
+               MessageId,
+               MAX(MsgTargetId) MAXMsgTargetId
+        FROM CTE_RawData
+        GROUP BY VoidingHistoryCollectionId,
+                 MessageId
+    ),
+    -- + Third, get all BetTransId belong to MessageId
+    CTE_BetTransId AS (
+        SELECT MessageId,
+               BetTransId
+        FROM CTE_RawData
+        GROUP BY MessageId,
+                 BetTransId
+    ),
+    -- + Combine data
+    CTE_CombineData AS (
+        SELECT mt.VoidingHistoryCollectionId,
+               mt.MessageId,
+               mt.MAXMsgTargetId,
+               STRING_AGG(CAST(bt.BetTransId AS VARCHAR(MAX)), ',') ListBetTransId
+        FROM CTE_MsgTargetId mt
+             LEFT JOIN CTE_BetTransId bt ON mt.MessageId = bt.MessageId
+        GROUP BY mt.VoidingHistoryCollectionId,
+                 mt.MessageId,
+                 mt.MAXMsgTargetId
+    )
+    -- + Return final data
+    INSERT INTO #VoidByBetIDFinal (
+        VoidingHistoryCollectionId,
+        MessageId,
+        MAXMsgTargetId,
+        ListBetTransId
+    )
+    SELECT VoidingHistoryCollectionId,
+           MessageId,
+           MAXMsgTargetId,
+           ListBetTransId
+    FROM CTE_CombineData
 
 
     --------------------------------------------------
@@ -145,10 +226,9 @@ BEGIN
                bt.TransId,
                vb.MessageId,
                1 [Type]
-        FROM #Messages_VoidByBetID vb
+        FROM #VoidByBetIDFinal vb
              CROSS APPLY (SELECT value TransId
                           FROM STRING_SPLIT(vb.ListBetTransId, ',')) bt
-        WHERE NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidingHistory v WITH (NOLOCK) WHERE v.MessageId = vb.MessageId)
 
         -- Update data on support temp table with information from bettrans
         UPDATE a
@@ -316,7 +396,7 @@ BEGIN
 
     SELECT @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #Messages
 
-    SELECT @MAXMsgTargetId = MAX(MAXMsgTargetId) FROM #Messages_VoidByBetID
+    SELECT @MAXMsgTargetId = MAX(MAXMsgTargetId) FROM #VoidByBetIDFinal
 
 
     -------------------------
@@ -347,6 +427,7 @@ BEGIN
 
     DROP TABLE #Messages
     DROP TABLE #Messages_VoidByBetID
+    DROP TABLE #VoidByBetIDFinal
     DROP TABLE #Result
     DROP TABLE #AbnormalBetsInfo
     DROP TABLE #AbnormalAccountsInfo

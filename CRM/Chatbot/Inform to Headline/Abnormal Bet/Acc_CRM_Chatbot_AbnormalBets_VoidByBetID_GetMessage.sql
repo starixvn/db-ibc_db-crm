@@ -77,50 +77,15 @@ BEGIN
     --------------
     -- Return data
 
-    ;WITH
-    -- + First, get raw data
-    CTE_RawData AS (
-        SELECT mt.MessageId,
-               mt.MsgTargetId,
-               bt.BetTransId
-        FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)
-             CROSS APPLY (SELECT TRIM(value) AS BetTransId
-                          FROM STRING_SPLIT(mt.BetTransId, ',')) bt
-        WHERE mt.MessageId IN (SELECT MessageId FROM #tmpMessageData)
-              AND mt.MsgTargetId > @LastMsgTargetId
-              AND mt.MsgTargetId <= @MaxMsgTargetId
-    ),
-    -- + Second, get MAX(MsgTargetId) for each MessageId
-    CTE_MsgTargetId AS (
-        SELECT MessageId,
-               MAX(MsgTargetId) MAXMsgTargetId
-        FROM CTE_RawData
-        GROUP BY MessageId
-    ),
-    -- + Third, get all BetTransId belong to MessageId
-    CTE_BetTransId AS (
-        SELECT DISTINCT
-               MessageId,
-               BetTransId
-        FROM CTE_RawData
-    ),
-    -- + Combine data
-    CTE_CombineData AS (
-        SELECT mt.MessageId,
-               mt.MAXMsgTargetId,
-               STRING_AGG(CAST(bt.BetTransId AS VARCHAR(MAX)), ',') ListBetTransId
-        FROM CTE_MsgTargetId mt
-             LEFT JOIN CTE_BetTransId bt ON mt.MessageId = bt.MessageId
-        GROUP BY mt.MessageId,
-                 mt.MAXMsgTargetId
-    )
-    -- + Return final data
-    SELECT ((ROW_NUMBER() OVER (ORDER BY MessageId)) * -1) VoidingHistoryCollectionId,
-           MessageId,
-           MAXMsgTargetId,
-           ListBetTransId
-    FROM CTE_CombineData
-    OPTION (RECOMPILE)
+    SELECT ((DENSE_RANK() OVER (ORDER BY mt.MessageId)) * -1) VoidingHistoryCollectionId,
+           mt.MessageId,
+           mt.MsgTargetId,
+           mt.TargetId,
+           mt.BetTransId
+    FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)
+    WHERE mt.MessageId IN (SELECT MessageId FROM #tmpMessageData)
+          AND mt.MsgTargetId > @LastMsgTargetId
+          AND mt.MsgTargetId <= @MaxMsgTargetId
 
 
     ------------------

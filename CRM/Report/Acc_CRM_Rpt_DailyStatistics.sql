@@ -13,6 +13,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 	@ProductID			VARCHAR(500), 
 	@MainCategoryID		VARCHAR(500), 
 	@CommunicationID	VARCHAR(500),
+    @UserRole           TINYINT = 2,
     @LicenseeType       TINYINT = 0,
     @SiteLabel          VARCHAR(MAX) = NULL
 )
@@ -40,6 +41,8 @@ AS
 
 		@SiteType: 	0: IBC
 					1: Licensee
+
+        @UserRole: This input parameter just use as a no-meaning parameter and need it because of the permission control
 
         @LicenseeType = 0: Both
                         1: Credit

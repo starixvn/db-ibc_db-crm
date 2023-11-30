@@ -1,14 +1,18 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
-(
-	@Type			INT,
-	@FromDate		DATETIME,
-	@ToDate			DATETIME,
-	@FromDuration	VARCHAR(100),
-	@ToDuration		VARCHAR(100),
-	@UserRole		TINYINT=2
-)
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatistics @Type         INT,
+                                                   @FromDate     DATETIME,
+                                                   @ToDate       DATETIME,
+                                                   @FromDuration VARCHAR(100),
+                                                   @ToDuration   VARCHAR(100),
+                                                   @UserRole     TINYINT = 2,
+                                                   @LicenseeType TINYINT = 0,
+                                                   @SiteLabel    VARCHAR(MAX) = NULL
 AS
+
 /*
 Created: Lukas
 Date: 20101116
@@ -26,7 +30,9 @@ Revisions:
 		- 20140523@Dom: modify site condition
 		- 20180420@Winnie: FB Statistics report - There is no data when filter By Site RedmineID:#94047
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
-		- 20190506@Winnie:  CN88 Permission RedmineID: #112637      
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
 Param's Explanation:
 	@Type:	- 1		By Creator
 			- 2		By Country
@@ -38,8 +44,14 @@ Param's Explanation:
 			- 8		By Category
 			- 9		Licensees
 			- 10	Communication
+    @LicenseeType = 0: Both
+                    1: Credit
+                    2: Licensee
+    @SiteLabel: Value depend on user's permission and maybe NULL
 */
+
 BEGIN
+
 	SET NOCOUNT ON
 
 	DECLARE @cols				NVARCHAR(MAX),
@@ -75,6 +87,74 @@ BEGIN
 	BEGIN
 		SET @tDuration = 2100000000
 	END
+
+    ------------------------------
+    -- BEGIN - Apply permission --
+
+    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+    INSERT INTO  #tmpSiteLabel (SiteLabel) SELECT value SiteLabel FROM STRING_SPLIT(@SiteLabel, ',')
+
+    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), SiteLabel VARCHAR(50), IsLicensee INT)
+    IF (@UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
+        SELECT s.SettingID SiteID,
+               s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
+               CASE WHEN sr.ParentID = 33000 THEN 1
+                    WHEN sr.ParentID = 33001 THEN 0
+                    ELSE -1 END IsLicensee
+        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
+        WHERE sr.ParentID IN (33000, 33001)
+    END
+    ELSE IF (@UserRole = 1)
+	BEGIN
+        INSERT INTO #tmpSite (
+            SiteID,
+            SiteName,
+            SiteLabel,
+            IsLicensee
+        )
+        SELECT s.SettingID SiteID,
+               s.SettingValue SiteName,
+               s.ExtraInfo SiteLabel,
+               0 IsLicensee
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
+		WHERE s.SettingID = 33002
+    END
+
+    CREATE TABLE #tmpFeedbackID (FeedbackID INT)
+    INSERT INTO  #tmpFeedbackID (FeedbackID)
+    SELECT fb.FeedbackID
+    FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK)
+         LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
+        LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+    WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+          AND fb.StatusID NOT IN (11001,11004,11019,11016)
+          AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+          AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+          AND ((@UserRole=1 AND fb.SiteID=33002) OR (@UserRole=2 AND fb.SiteID<>33002))
+          AND (s.IsLicensee IS NULL
+               OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+          AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
+                                              WHEN @LicenseeType = 1 THEN sl.SiteLabel
+                                              WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+
+    DECLARE @FeedbackIDList VARCHAR(MAX)
+    SELECT  @FeedbackIDList = STRING_AGG(FeedbackID, ',') FROM #tmpFeedbackID
+
+    DROP TABLE #tmpSiteLabel
+    DROP TABLE #tmpSite
+    DROP TABLE #tmpFeedbackID
+
+    -- END - Apply permission --
+    ----------------------------
 	
 	IF @Type = 1	--- creator
 	BEGIN		
@@ -112,6 +192,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -140,6 +221,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -203,6 +285,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND ct.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -232,6 +315,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND ct.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -287,6 +371,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND r.siteOffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -316,6 +401,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND r.siteOffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -379,6 +465,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND site.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -408,6 +495,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND site.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -464,6 +552,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.Siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -493,6 +582,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.Siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -549,6 +639,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -578,6 +669,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -641,6 +733,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -672,6 +765,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -724,6 +818,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -751,6 +846,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -808,6 +904,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -838,6 +935,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -892,6 +990,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -922,6 +1021,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(

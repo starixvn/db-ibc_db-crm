@@ -15,6 +15,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 				,	@TotalRows			INT				= 0		OUTPUT
 				,	@ErrorCode			INT				= 0		OUTPUT
 				,	@ErrorMsg			VARCHAR(200)	= ''	OUTPUT
+                ,   @UserRole           TINYINT         = 2
                 ,   @LicenseeType       TINYINT         = 0
                 ,   @SiteLabel          VARCHAR(MAX)    = NULL
 				)
@@ -42,6 +43,8 @@ AS
 	Param's Explanation:		
 		@SiteType =	0: IBC
 					1: Licensee
+
+        @UserRole: This input parameter just use as a no-meaning parameter and need it because of the permission control
 
         @LicenseeType = 0: Both
                         1: Credit

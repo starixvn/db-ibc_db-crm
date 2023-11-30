@@ -5,13 +5,14 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
-	@Username     VARCHAR(50)    = '',
-	@IsGuest      BIT            = 0,
-	@UserRole     TINYINT,
-    @LicenseeType TINYINT        = 0,
-    @SiteLabel    VARCHAR(MAX)   = NULL,
-    @ErrCode      INT            = 0  OUTPUT,
-    @ErrMsg       NVARCHAR(2000) = '' OUTPUT
+	@Username          VARCHAR(50)    = '',
+	@IsGuest           BIT            = 0,
+	@UserRole          TINYINT,
+    @LicenseeType      TINYINT        = 0,
+    @SiteLabel         VARCHAR(MAX)   = NULL,
+    @IsCheckPermission BIT            = 0,
+    @ErrCode           INT            = 0  OUTPUT,
+    @ErrMsg            NVARCHAR(2000) = '' OUTPUT
 )
 AS
 
@@ -48,6 +49,8 @@ Param's Explanation:
                       1: Credit
                       2: Licensee
     - @SiteLabel: Value depend on user's permission and maybe NULL
+    - @IsCheckPermission = 1: Check permission
+                           0: No check permission
 */
 
 BEGIN
@@ -163,6 +166,7 @@ BEGIN
 		END
         
         -- Check permisstion
+        IF (@IsCheckPermission = 1)
         BEGIN
             CREATE TABLE #tmpCust_01 (
                 CustID     INT,
@@ -507,6 +511,7 @@ BEGIN
         END
 
         -- Check permisstion
+        IF (@IsCheckPermission = 1)
         BEGIN
             CREATE TABLE #tmpCust_02 (
                 CustID     INT,

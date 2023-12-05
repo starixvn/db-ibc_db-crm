@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalBets_Import]
     @XmlData                        XML
     ,@MAXVoidingHistoryCollectionId INT
+    ,@MAXMsgTargetId                INT
     ,@Environment                   VARCHAR(50) = ''
     ,@ErrCode                       INT = 0 OUTPUT
     ,@ErrMsg                        NVARCHAR(4000) = '' OUTPUT
@@ -26,6 +27,7 @@ AS
 		- 20230112@Malcolm: Scale out for CRM [RedmineID: #167358]
         - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+        - 20231110@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID [RedmineId : #196660]
 
 	Param's Explanation:
 		- @XmlData
@@ -41,9 +43,10 @@ AS
 */
 
 BEGIN
+
 	SET NOCOUNT ON
 
-	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME, @SettingNameOfVoidingHistoryCollectionId VARCHAR(50)
+	DECLARE @SettingNameOfJobStatus VARCHAR(50) = '', @SettingNameOfLastRuntime VARCHAR(50) = '', @LastRuntime DATETIME, @SettingNameOfVoidingHistoryCollectionId VARCHAR(50), @SettingNameOfMsgTargetId VARCHAR(50)
 			,@MaxGroup INT = 0, @MaxBatchOfLetstalkGroup INT = 250, @MaxBatchOfTelegramGroup INT = 100
 	
 	DECLARE @ServerName NVARCHAR(100) = @@SERVERNAME, @DBName NVARCHAR(100) = DB_NAME(), @SPName NVARCHAR(300) = OBJECT_NAME(@@PROCID)
@@ -51,6 +54,7 @@ BEGIN
 	SELECT @Environment = ISNULL(@Environment, ''), @SettingNameOfJobStatus = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
 		 ,@SettingNameOfLastRuntime = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
 		 ,@SettingNameOfVoidingHistoryCollectionId = CASE WHEN @Environment = 'UAT' THEN 'LastVoidingHistoryCollectionIdUAT' ELSE 'LastVoidingHistoryCollectionId' END
+         ,@SettingNameOfMsgTargetId = CASE WHEN @Environment = 'UAT' THEN 'LastMsgTargetIdUAT' ELSE 'LastMsgTargetId' END
 
 	-- Get Job Status
 	UPDATE dbo.SystemSetting WITH (ROWLOCK)
@@ -124,12 +128,20 @@ BEGIN
               AND SettingName = @SettingNameOfJobStatus
               AND Value = 'running'
 
-        IF (ISNULL(@MAXVoidingHistoryCollectionId, 0) <> 0)
+        IF (ISNULL(@MAXVoidingHistoryCollectionId, 0) > 0)
         BEGIN
             UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
             SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
             WHERE ServiceName = 'ChatBot - AbnormalBets'
                   AND SettingName = @SettingNameOfVoidingHistoryCollectionId
+        END
+
+        IF (ISNULL(@MAXMsgTargetId, 0) > 0)
+        BEGIN
+            UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+            SET Value = CONVERT(VARCHAR(50), @MAXMsgTargetId)
+            WHERE ServiceName = 'ChatBot - AbnormalBets'
+                  AND SettingName = @SettingNameOfMsgTargetId
         END
 
         RETURN
@@ -460,17 +472,34 @@ BEGIN
 		SELECT @Id = @Id + 1
 	END
 
-	UPDATE dbo.SystemSetting WITH (ROWLOCK, UPDLOCK)
-	SET Value = 'Completed'
-	WHERE ServiceName = 'ChatBot - AbnormalBets'
-		AND SettingName = @SettingNameOfJobStatus
-		AND Value = 'running'
+    -- Update settings
+	BEGIN
+        UPDATE dbo.SystemSetting WITH (ROWLOCK, UPDLOCK)
+        SET Value = 'Completed'
+        WHERE ServiceName = 'ChatBot - AbnormalBets'
+              AND SettingName = @SettingNameOfJobStatus
+              AND Value = 'running'
 
-	UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
-		SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
-	WHERE ServiceName = 'ChatBot - AbnormalBets'
-		AND SettingName = @SettingNameOfVoidingHistoryCollectionId
-	
+        IF (ISNULL(@MAXVoidingHistoryCollectionId, 0) > 0)
+        BEGIN
+            UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+            SET Value = CONVERT(VARCHAR(50), @MAXVoidingHistoryCollectionId)
+            WHERE ServiceName = 'ChatBot - AbnormalBets'
+                  AND SettingName = @SettingNameOfVoidingHistoryCollectionId
+        END
+
+        IF (ISNULL(@MAXMsgTargetId, 0) > 0)
+        BEGIN
+            UPDATE dbo.SystemSetting WITH(ROWLOCK, UPDLOCK)
+            SET Value = CONVERT(VARCHAR(50), @MAXMsgTargetId)
+            WHERE ServiceName = 'ChatBot - AbnormalBets'
+                  AND SettingName = @SettingNameOfMsgTargetId
+        END
+
+        RETURN
+	END
+
+    -- Drop temp tables
 	DROP TABLE #ImportMessage
     DROP TABLE #tmpSetting
 	DROP TABLE #NotificationTemplate
@@ -478,5 +507,6 @@ BEGIN
 	DROP TABLE #tmpGroup
 	DROP TABLE #tmpResult
     DROP TABLE #Result
+
 END
 GO

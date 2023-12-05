@@ -19,6 +19,7 @@ AS
 
 	Revisions:
         20230922@Ned.Le: CRM - Category Classification (Remark management) (#193383)
+        20231205@Ned.Le: Deal with case @PageIndex=0
 
 	Param's Explanation:
         @Category:     <ROOT>
@@ -128,7 +129,7 @@ BEGIN
            SubCategory,
            Remark
     FROM #tmpResult
-    WHERE RowNumber BETWEEN @RowStart AND @RowEnd
+    WHERE (RowNumber BETWEEN @RowStart AND @RowEnd) OR (@PageIndex = 0)
     ORDER BY RowNumber
 
     -- Drop temp tables

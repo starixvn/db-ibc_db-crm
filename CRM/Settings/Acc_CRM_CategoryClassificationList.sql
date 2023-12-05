@@ -64,12 +64,8 @@ BEGIN
 	SET NOCOUNT ON
 
     -- Calculate paging
-    DECLARE @RowStart INT,
-            @RowEnd INT
-
-	SELECT  @PageIndex = @PageIndex - 1,
-            @RowStart  = @PageSize * @PageIndex + 1,
-            @RowEnd    = @RowStart + @PageSize - 1 	
+    DECLARE @RowStart INT = @PageSize * (@PageIndex - 1) + 1
+    DECLARE @RowEnd   INT = @RowStart + @PageSize - 1
 
     -- Parse data from @Category to temp table #tmpCategory
     DECLARE	@iDoc INT

@@ -1,5 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Validation]
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Validation]
 	@HeadlineNameList			NVARCHAR(MAX) = ''
 	,@SiteNameList				NVARCHAR(MAX) = ''
 	,@CurrencyList				VARCHAR(MAX) = ''
@@ -13,6 +17,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Validation]
 	,@ErrCode					INT = 0 OUTPUT
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
 AS
+
 /*
 	Created: 20221213@Malcolm
 	Task :  Announcement - Annoucement list - New annoucement (Insert a new announcement)/ Edit announcement - Validation
@@ -20,6 +25,7 @@ AS
 	Original:
 		Revisions:
 			- 20221213@Malcolm: Initialize SPs [Redmine: #192158]
+            - 20231208@Ned.Le: Fix error relate to STRING_AGG function
 
 	Param's Explanation:
 
@@ -121,7 +127,7 @@ BEGIN
 				BEGIN
 					;WITH CTE AS
 					(
-						SELECT h.ErrCode, STRING_AGG(h.Username, ',') AS UsernameList
+						SELECT h.ErrCode, STRING_AGG(CONVERT(VARCHAR(MAX), h.Username), ',') AS UsernameList
 						FROM @Headline h 
 						WHERE h.ErrCode <> 0
 						GROUP BY h.ErrCode
@@ -242,7 +248,7 @@ BEGIN
 	
 	IF @ErrCode = 0
 	BEGIN
-		SELECT @DirectAccountList = STRING_AGG(c.username, ',') WITHIN GROUP (ORDER BY c.Username ASC)
+		SELECT @DirectAccountList = STRING_AGG(CONVERT(VARCHAR(MAX), c.username), ',') WITHIN GROUP (ORDER BY c.Username ASC)
 		FROM @DirectAccount d
 			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = d.CustId
 

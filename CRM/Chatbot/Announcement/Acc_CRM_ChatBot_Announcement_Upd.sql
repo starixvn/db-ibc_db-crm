@@ -1,5 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Upd]
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Upd]
 	@AnnouncementId				INT
 	,@UserId					INT
 	,@NotificationTemplateId	SMALLINT
@@ -17,6 +21,7 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Upd]
 	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
 	,@LoginIP					VARCHAR(45) = ''
 AS
+
 /*
 	Created: 20221213@Malcolm
 	Task :  Announcement - Action (when Status = Cancelled) - Edit annoucement (Edit a announcement)
@@ -26,6 +31,7 @@ AS
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
 			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 			- 20230804@Malcolm: Add Draft Status [Redmine: #192158]
+            - 20231208@Ned.Le: Fix error relate to STRING_AGG function
 			
 	Param's Explanation:
 
@@ -155,7 +161,7 @@ BEGIN
 				BEGIN
 					;WITH CTE AS
 					(
-						SELECT h.ErrCode, STRING_AGG(h.Username, ',') AS UsernameList
+						SELECT h.ErrCode, STRING_AGG(CONVERT(VARCHAR(MAX), h.Username), ',') AS UsernameList
 						FROM @Headline h 
 						WHERE h.ErrCode <> 0
 						GROUP BY h.ErrCode
@@ -258,7 +264,7 @@ BEGIN
 
 				SELECT @HeadlineNameList = 
 				(
-					SELECT STRING_AGG(c.username, ',') 
+					SELECT STRING_AGG(CONVERT(VARCHAR(MAX), c.username), ',')
 					FROM bodb02.dbo.Customer c WITH(NOLOCK)
 					WHERE EXISTS (SELECT 1 FROM @Headline h WHERE h.CustId = c.custid)
 				)

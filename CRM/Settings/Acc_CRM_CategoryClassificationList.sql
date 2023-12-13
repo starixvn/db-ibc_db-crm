@@ -19,6 +19,7 @@ AS
 
 	Revisions:
         20230922@Ned.Le: CRM - Category Classification (Remark management) (#193383)
+        20231205@Ned.Le: Deal with case @PageIndex=0
 
 	Param's Explanation:
         @Category:     <ROOT>
@@ -63,12 +64,8 @@ BEGIN
 	SET NOCOUNT ON
 
     -- Calculate paging
-    DECLARE @RowStart INT,
-            @RowEnd INT
-
-	SELECT  @PageIndex = @PageIndex - 1,
-            @RowStart  = @PageSize * @PageIndex + 1,
-            @RowEnd    = @RowStart + @PageSize - 1 	
+    DECLARE @RowStart INT = @PageSize * (@PageIndex - 1) + 1
+    DECLARE @RowEnd   INT = @RowStart + @PageSize - 1
 
     -- Parse data from @Category to temp table #tmpCategory
     DECLARE	@iDoc INT
@@ -128,7 +125,7 @@ BEGIN
            SubCategory,
            Remark
     FROM #tmpResult
-    WHERE RowNumber BETWEEN @RowStart AND @RowEnd
+    WHERE (RowNumber BETWEEN @RowStart AND @RowEnd) OR (@PageIndex = 0)
     ORDER BY RowNumber
 
     -- Drop temp tables

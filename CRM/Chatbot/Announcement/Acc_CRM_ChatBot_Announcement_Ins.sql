@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Ins]
 	@UserId						INT
 	,@NotificationTemplateId	SMALLINT
@@ -17,6 +21,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Ins]
 	,@AnnouncementId			INT = 0 OUTPUT
 	,@LoginIP					VARCHAR(45) = ''
 AS
+
 /*
 	Created: 20221213@Malcolm
 	Task :  Announcement - Annoucement list - New annoucement (Insert a new announcement)
@@ -26,6 +31,7 @@ AS
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
 			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 			- 20230804@Malcolm: Add Draft Status [Redmine: #192158]
+            - 20231208@Ned.Le: Fix error relate to STRING_AGG function
 			
 	Param's Explanation:
 
@@ -127,7 +133,7 @@ BEGIN
 				BEGIN
 					;WITH CTE AS
 					(
-						SELECT h.ErrCode, STRING_AGG(h.Username, ',') AS UsernameList
+						SELECT h.ErrCode, STRING_AGG(CONVERT(VARCHAR(MAX), h.Username), ',') AS UsernameList
 						FROM @Headline h 
 						WHERE h.ErrCode <> 0
 						GROUP BY h.ErrCode

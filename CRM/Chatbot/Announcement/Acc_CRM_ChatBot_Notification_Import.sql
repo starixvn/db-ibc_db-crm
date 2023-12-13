@@ -1,5 +1,9 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_Notification_Import]	
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Notification_Import]	
 	@AnnouncementId INT
 	,@ErrCode		INT = 0 OUTPUT
 	,@ErrMsg		NVARCHAR(MAX) = '' OUTPUT
@@ -12,6 +16,8 @@ AS
 		Revisions:
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
 			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+            - 20231208@Ned.Le: Fix error relate to STRING_AGG function
+
 	Param's Explanation:
 		
 */
@@ -130,7 +136,7 @@ BEGIN
 	FROM #ConversationGroupHeadline g
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
 		CROSS APPLY (
-			SELECT STRING_AGG(n.Id, ',') AS RelatedIds
+			SELECT STRING_AGG(CONVERT(VARCHAR(MAX), n.Id), ',') AS RelatedIds
 			FROM (
 				SELECT DISTINCT r.Id
 				FROM #ConversationGroupHeadline r

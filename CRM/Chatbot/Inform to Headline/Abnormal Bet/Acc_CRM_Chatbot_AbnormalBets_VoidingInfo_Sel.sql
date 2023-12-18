@@ -24,6 +24,7 @@ AS
         - 20220115@Malcolm: Scale out for CRM [RedmineId : #181906]
         - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
         - 20231110@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID [RedmineId : #196660]
+        - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
 
     Param's Explanation:
         @Messages:
@@ -78,6 +79,14 @@ BEGIN
     OPTION (OPTIMIZE FOR (@Messages_VoidByBetID = NULL))
 
 
+    --------------------------------
+    -- Get data for output parameter
+
+    SELECT @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #Messages
+
+    SELECT @MAXMsgTargetId = MAX(MsgTargetId) FROM #Messages_VoidByBetID
+
+
     -------------------------------------------
     -- Clean and transform data for VoidByBetID
 
@@ -101,60 +110,46 @@ BEGIN
     CREATE TABLE #VoidByBetIDFinal (
         VoidingHistoryCollectionId INT,
         MessageId INT,
-        MAXMsgTargetId INT,
         ListBetTransId VARCHAR(MAX)
     )
     ;WITH
-    -- + First, get raw data
-    CTE_RawData AS (
+    -- + First, parse BetTransId to row
+    CTE_first AS (
         SELECT mt.VoidingHistoryCollectionId,
                mt.MessageId,
-               mt.MsgTargetId,
                bt.BetTransId
         FROM #Messages_VoidByBetID mt WITH (NOLOCK)
              CROSS APPLY (SELECT TRIM(value) BetTransId FROM STRING_SPLIT(mt.BetTransId, ',')) bt
     ),
-    -- + Second, get MAX(MsgTargetId) for each MessageId
-    CTE_MsgTargetId AS (
+    -- + Second, distinct BetTransId by MessageId
+    CTE_second AS (
         SELECT VoidingHistoryCollectionId,
                MessageId,
-               MAX(MsgTargetId) MAXMsgTargetId
-        FROM CTE_RawData
-        GROUP BY VoidingHistoryCollectionId,
-                 MessageId
-    ),
-    -- + Third, get all BetTransId belong to MessageId
-    CTE_BetTransId AS (
-        SELECT MessageId,
                BetTransId
-        FROM CTE_RawData
-        GROUP BY MessageId,
+        FROM CTE_first
+        GROUP BY VoidingHistoryCollectionId,
+                 MessageId,
                  BetTransId
     ),
-    -- + Combine data
-    CTE_CombineData AS (
-        SELECT mt.VoidingHistoryCollectionId,
-               mt.MessageId,
-               mt.MAXMsgTargetId,
-               STRING_AGG(CAST(bt.BetTransId AS VARCHAR(MAX)), ',') ListBetTransId
-        FROM CTE_MsgTargetId mt
-             LEFT JOIN CTE_BetTransId bt ON mt.MessageId = bt.MessageId
-        GROUP BY mt.VoidingHistoryCollectionId,
-                 mt.MessageId,
-                 mt.MAXMsgTargetId
+    -- + Final, concat BetTransId together
+    CTE_final AS (
+        SELECT VoidingHistoryCollectionId,
+               MessageId,
+               STRING_AGG(CAST(BetTransId AS VARCHAR(MAX)), ',') ListBetTransId
+        FROM CTE_second
+        GROUP BY VoidingHistoryCollectionId,
+                 MessageId
     )
     -- + Return final data
     INSERT INTO #VoidByBetIDFinal (
         VoidingHistoryCollectionId,
         MessageId,
-        MAXMsgTargetId,
         ListBetTransId
     )
     SELECT VoidingHistoryCollectionId,
            MessageId,
-           MAXMsgTargetId,
            ListBetTransId
-    FROM CTE_CombineData
+    FROM CTE_final
 
 
     --------------------------------------------------
@@ -389,14 +384,6 @@ BEGIN
         FROM #Result r
         WHERE r.IsTest = 1
     END
-
-
-    -----------------------------------
-    -- Return data for output parameter
-
-    SELECT @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #Messages
-
-    SELECT @MAXMsgTargetId = MAX(MAXMsgTargetId) FROM #VoidByBetIDFinal
 
 
     -------------------------

@@ -3,11 +3,12 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_AutoFB_VoidByBetID_Import @Messages    XML,
-                                                      @Environment VARCHAR(50)    = '',
-                                                      @ErrCode     INT            = 0   OUTPUT,
-                                                      @ErrMsg      NVARCHAR(4000) = ''  OUTPUT,
-                                                      @IP          VARCHAR(45)    = ''
+ALTER PROCEDURE dbo.Acc_CRM_AutoFB_VoidByBetID_Import @Messages       XML,
+                                                      @MAXMsgTargetId INT,
+                                                      @Environment    VARCHAR(50)    = '',
+                                                      @ErrCode        INT            = 0   OUTPUT,
+                                                      @ErrMsg         NVARCHAR(4000) = ''  OUTPUT,
+                                                      @IP             VARCHAR(45)    = ''
 AS
 
 /*
@@ -17,12 +18,13 @@ AS
 
     Revisions:
         20231115@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID (#196660)
+        20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
 
     Param's Explanation:
         @Message:
             <root>
-                <r MessageId="1" MAXMsgTargetId="789" ListBetTransId="1,2,3,4" Content_en="" Content_cs=""/>
-                <r MessageId="2" MAXMsgTargetId="256" ListBetTransId="5,6,7,8" Content_en="" Content_cs=""/>
+                <r MessageId="1" ListBetTransId="1,2,3,4" Content_en="" Content_cs=""/>
+                <r MessageId="2" ListBetTransId="5,6,7,8" Content_en="" Content_cs=""/>
             </root>
 */
 
@@ -83,7 +85,6 @@ BEGIN
     
     DECLARE @SettingNameOfLastMsgTargetId VARCHAR(50)
     SELECT  @SettingNameOfLastMsgTargetId = CASE WHEN @Environment = 'UAT' THEN 'LastMsgTargetIdUAT' ELSE 'LastMsgTargetId' END
-    DECLARE @LastMsgTargetId              INT
 
 
     ---------------------------------------------
@@ -144,15 +145,13 @@ BEGIN
     -- Create temp table and parse XML data to temp table
     CREATE TABLE #tmpXMLData (
         MessageId      INT,
-        MAXMsgTargetId INT,
         ListBetTransId VARCHAR(MAX),
         Content_en     NVARCHAR(MAX),
         Content_cs     NVARCHAR(MAX)
     )
 
-    INSERT INTO #tmpXMLData (MessageId, MAXMsgTargetId, ListBetTransId, Content_en, Content_cs)
+    INSERT INTO #tmpXMLData (MessageId, ListBetTransId, Content_en, Content_cs)
     SELECT t.c.value('@MessageId',      'INT')           AS MessageId,
-           t.c.value('@MAXMsgTargetId', 'INT')           AS MAXMsgTargetId,
            t.c.value('@ListBetTransId', 'VARCHAR(MAX)')  AS ListBetTransId,
            t.c.value('@Content_en',     'NVARCHAR(MAX)') AS Content_en,
            t.c.value('@Content_cs',     'NVARCHAR(MAX)') AS Content_cs
@@ -162,6 +161,15 @@ BEGIN
     -- If nothing happened, need to update setting and return
     IF (@@ROWCOUNT = 0)
     BEGIN
+        IF (ISNULL(@MAXMsgTargetId, 0) > 0)
+        BEGIN
+            UPDATE s
+            SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
+            FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+                  AND s.SettingName = @SettingNameOfLastMsgTargetId
+        END
+
         UPDATE s
         SET s.Value = 'Completed'
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
@@ -174,9 +182,6 @@ BEGIN
 
     -- Create index
     CREATE CLUSTERED INDEX CIX_MessageId ON #tmpXMLData(MessageId)
-
-    -- Get the last MsgTargetId
-    SELECT  @LastMsgTargetId = MAX(MAXMsgTargetId) FROM #tmpXMLData
 
 
     --------------------------------------------------------------------------------------------------------
@@ -263,11 +268,14 @@ BEGIN
     -- + Check data existence
     IF NOT EXISTS (SELECT 1 FROM #tmpMessageData)
     BEGIN
-        UPDATE s
-        SET s.Value = CONVERT(VARCHAR(20), @LastMsgTargetId)
-        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
-              AND s.SettingName = @SettingNameOfLastMsgTargetId
+        IF (ISNULL(@MAXMsgTargetId, 0) > 0)
+        BEGIN
+            UPDATE s
+            SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
+            FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+                  AND s.SettingName = @SettingNameOfLastMsgTargetId
+        END
 
         UPDATE s
         SET s.Value = 'Completed'
@@ -1266,11 +1274,14 @@ BEGIN
     -----------------------------
     -- [08] Update job setting --
 
-    UPDATE s
-    SET s.Value = CONVERT(VARCHAR(20), @LastMsgTargetId)
-    FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
-          AND s.SettingName = @SettingNameOfLastMsgTargetId
+    IF (ISNULL(@MAXMsgTargetId, 0) > 0)
+    BEGIN
+        UPDATE s
+        SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
+        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+              AND s.SettingName = @SettingNameOfLastMsgTargetId
+    END
 
     UPDATE s
     SET s.Value = 'Completed'

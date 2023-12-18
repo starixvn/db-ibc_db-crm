@@ -28,6 +28,7 @@ AS
         - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
         - 20231110@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID [RedmineId : #196660]
+        - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
 
 	Param's Explanation:
 		- @XmlData
@@ -495,8 +496,6 @@ BEGIN
             WHERE ServiceName = 'ChatBot - AbnormalBets'
                   AND SettingName = @SettingNameOfMsgTargetId
         END
-
-        RETURN
 	END
 
     -- Drop temp tables

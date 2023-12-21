@@ -3,7 +3,8 @@
 USE bodb02
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_AutoFB_VoidByBetID_CleanMessage @Messages XML
+ALTER PROCEDURE dbo.Acc_CRM_AutoFB_VoidByBetID_CleanMessage @Messages       XML,
+                                                            @MAXMsgTargetId INT OUTPUT
 AS
 
 /*
@@ -13,6 +14,7 @@ AS
 
     Revisions:
         20231115@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID (#196660)
+        20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
 
     Param's Explanation:
         @Message:
@@ -50,6 +52,12 @@ BEGIN
     OPTION (OPTIMIZE FOR (@Messages = NULL))
 
 
+    ------------------------
+    -- Output parameter data
+
+    SELECT @MAXMsgTargetId = MAX(MsgTargetId) FROM #Messages
+
+
     -------------
     -- Clean data
 
@@ -73,56 +81,44 @@ BEGIN
     -- Return data
 
     ;WITH
-    -- + First, get raw data
-    CTE_RawData AS (
+    -- + First, parse BetTransId to row
+    CTE_first AS (
         SELECT mt.MessageId,
-               mt.MsgTargetId,
                bt.BetTransId,
                mt.Content_en,
                mt.Content_cs
         FROM #Messages mt WITH (NOLOCK)
              CROSS APPLY (SELECT TRIM(value) BetTransId FROM STRING_SPLIT(mt.BetTransId, ',')) bt
     ),
-    -- + Second, get MAX(MsgTargetId) for each MessageId
-    CTE_MsgTargetId AS (
+    -- + Second, distinct BetTransId by MessageId
+    CTE_second AS (
         SELECT MessageId,
                Content_en,
                Content_cs,
-               MAX(MsgTargetId) MAXMsgTargetId
-        FROM CTE_RawData
+               BetTransId
+        FROM CTE_first
+        GROUP BY MessageId,
+                 Content_en,
+                 Content_cs,
+                 BetTransId
+    ),
+    -- + Final, concat BetTransId together
+    CTE_final AS (
+        SELECT MessageId,
+               Content_en,
+               Content_cs,
+               STRING_AGG(CAST(BetTransId AS VARCHAR(MAX)), ',') ListBetTransId
+        FROM CTE_second
         GROUP BY MessageId,
                  Content_en,
                  Content_cs
-    ),
-    -- + Third, get all BetTransId belong to MessageId
-    CTE_BetTransId AS (
-        SELECT MessageId,
-               BetTransId
-        FROM CTE_RawData
-        GROUP BY MessageId,
-                 BetTransId
-    ),
-    -- + Combine data
-    CTE_CombineData AS (
-        SELECT mt.MessageId,
-               mt.MAXMsgTargetId,
-               STRING_AGG(CAST(bt.BetTransId AS VARCHAR(MAX)), ',') ListBetTransId,
-               mt.Content_en,
-               mt.Content_cs
-        FROM CTE_MsgTargetId mt
-             LEFT JOIN CTE_BetTransId bt ON mt.MessageId = bt.MessageId
-        GROUP BY mt.MessageId,
-                 mt.MAXMsgTargetId,
-                 mt.Content_en,
-                 mt.Content_cs
     )
     -- + Return final data
     SELECT MessageId,
-           MAXMsgTargetId,
            ListBetTransId,
            Content_en,
            Content_cs
-    FROM CTE_CombineData
+    FROM CTE_final
 
 
     -------------------

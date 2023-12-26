@@ -6,8 +6,8 @@ GO
 ALTER PROCEDURE [dbo].[Acc_CRM_ManageFeedbackList] (
 					@UserName			NVARCHAR(50)	= NULL
 				,	@IsGuest			BIT				= NULL
-				,	@FromDate			DATETIME
-				,	@ToDate				DATETIME
+				,	@FromDate			DATETIME        = NULL
+				,	@ToDate				DATETIME        = NULL
 				,	@CommunicationID	INT				= NULL
 				,	@MainCategoryID		INT				= NULL
 				,	@SubCategoryID		INT				= NULL
@@ -20,9 +20,9 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ManageFeedbackList] (
 				,	@PageIndex			INT				= 1
 				,	@ItemsPerPage		INT				= 2
 				,	@HandledBy			VARCHAR(30)	    = ''
-				,	@UserRole			TINYINT
+				,	@UserRole			TINYINT         = 2
                 ,   @LicenseeType       TINYINT         = 0
-                ,   @SiteLabel          VARCHAR(MAX)    = NULL
+                ,   @SitePermission NVARCHAR(MAX)       = NULL
 				)
 AS
 
@@ -60,7 +60,7 @@ AS
         - @LicenseeType = 0: Both
                           1: Credit
                           2: Licensee
-        - @SiteLabel: Value depend on user's permission and maybe NULL
+        - @SitePermission: Value depend on user's permission and maybe NULL
 */
 
 BEGIN		
@@ -84,56 +84,75 @@ BEGIN
 	FROM	bodb02.dbo.Customer WITH (NOLOCK)
 	WHERE	UserName = @Reviewer;
 
-    -- #tmpSiteLabel
-    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+    -- #tmpUserSitePermission
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
 
-    INSERT INTO #tmpSiteLabel (SiteLabel)
-    SELECT value SiteLabel
-    FROM STRING_SPLIT(@SiteLabel, ',')
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
 
     -- #tmpSite
     CREATE TABLE #tmpSite (
         SiteID     INT,
         SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
         SiteLabel  VARCHAR(50),
-        IsLicensee INT
+        SiteOffer  INT
     )
 
-    IF (@UserRole = 2)
-    BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               CASE WHEN sr.ParentID = 33000 THEN 1
-                    WHEN sr.ParentID = 33001 THEN 0
-                    ELSE -1 END IsLicensee
-        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
-             INNER JOIN	bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
-        WHERE sr.ParentID IN (33000, 33001)
-    END
-    ELSE IF (@UserRole = 1)
-	BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               0 IsLicensee
-        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
-		WHERE s.SettingID = 33002
-    END
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
 
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
 
     -- Get Feedback for specific FeedbackID
 	IF	ISNULL(@FeedbackID, 0) <> 0
@@ -199,20 +218,22 @@ BEGIN
 					,	st.Name Status
 					,	l.list AS relatedCustomer
 		FROM	fb
-            LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
-            LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+            LEFT JOIN   #tmpSite si ON fb.SiteID = si.SiteID
+            LEFT JOIN   #tmpSitePermission sp ON si.SiteID = sp.SiteID
+            LEFT JOIN   #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK) ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)	ON	fb.CreatorID = c.custid
 			LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid	
 			INNER JOIN	crmStatus st WITH (NOLOCK)	ON	st.StatusID = fb.StatusID
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			OUTER APPLY fb.Description2.nodes(N'//row') AS A(nr)
-		WHERE	fb.FeedbackID = @FeedbackID AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-                AND (s.IsLicensee IS NULL
-                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+		WHERE	fb.FeedbackID = @FeedbackID
+		        AND si.SiteOffer = @UserRole
+                AND (si.IsLicensee IS NULL
+                     OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 		ORDER BY FeedbackDate DESC, FeedbackID DESC
         
         IF(@@ROWCOUNT > 0 )
@@ -279,8 +300,9 @@ BEGIN
 			,	fb.FeedbackDate
 		FROM	crmFeedbackCustomer fbc WITH (NOLOCK)
 			INNER JOIN	crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID=fbc.FeedbackID
-            LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
-            LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+            LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+            LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+            LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 			INNER JOIN  crmCustomer ctm WITH(NOLOCK) ON fbc.CustID=ctm.CustID
 			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
 			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
@@ -296,12 +318,12 @@ BEGIN
 			AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 			AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 			AND	(@ResponseID IS NULL OR ResponseID = @ResponseID) 
-			AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-            AND (s.IsLicensee IS NULL
-                 OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-            AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                                WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                                WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+		    AND si.SiteOffer = @UserRole
+            AND (si.IsLicensee IS NULL
+                 OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+            AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                      WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                      WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC;
 		
 	END;
@@ -314,8 +336,9 @@ BEGIN
 			INSERT INTO #Feedback(FeedbackID, IsRelated,FeedbackDate)	
 			SELECT 	fb.FeedbackID, 0,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
-                LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
-                LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+                LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+                LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -339,17 +362,16 @@ BEGIN
 				AND	(@StatusID IS NULL OR fb.StatusID=@StatusID)
 				AND	fb.StatusID <> CASE WHEN ISNULL(@statusID, 0) <> 11004 AND @UserRole=2  THEN 11004
 							 WHEN ISNULL(@statusID, 0) <> 11019 AND @UserRole=1  THEN 11019 ELSE -1 END
-				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) ) 
-			
 				AND	(@IsReviewed IS  NULL OR IsReviewed = @IsReviewed)
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-                AND (s.IsLicensee IS NULL
-                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+		        AND si.SiteOffer = @UserRole
+                AND (si.IsLicensee IS NULL
+                     OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC				
 		OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -360,8 +382,9 @@ BEGIN
 			INSERT INTO #Feedback(FeedbackID, IsRelated,FeedbackDate)			
 			SELECT  fb.FeedbackID, 0 AS IsRelated,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
-                LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
-                LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+                LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+                LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -390,12 +413,12 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-                AND (s.IsLicensee IS NULL
-                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+		        AND si.SiteOffer = @UserRole
+                AND (si.IsLicensee IS NULL
+                     OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -405,8 +428,9 @@ BEGIN
 			INSERT INTO #Feedback(FeedbackID, IsRelated,FeedbackDate)			
 			SELECT fb.FeedbackID, 0 AS IsRelated,fb.FeedbackDate
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
-                LEFT JOIN #tmpSite s ON fb.SiteID = s.SiteID
-                LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+                LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+                LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -434,12 +458,12 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-				AND((@UserRole=1 AND ctm.SiteID=33002) OR(@UserRole=2 AND ctm.SiteID<>33002) )
-                AND (s.IsLicensee IS NULL
-                     OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                                    WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+		        AND si.SiteOffer = @UserRole
+                AND (si.IsLicensee IS NULL
+                     OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )	
 			
@@ -512,8 +536,10 @@ BEGIN
 
     -- DROP temp tables	
 	DROP TABLE #Feedback
-    DROP TABLE #tmpSiteLabel
+    DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
+    DROP TABLE #tempResult
 	
 END
 GO

@@ -13,9 +13,9 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 	@ProductID			VARCHAR(500), 
 	@MainCategoryID		VARCHAR(500), 
 	@CommunicationID	VARCHAR(500),
-    @UserRole           TINYINT = 2,
-    @LicenseeType       TINYINT = 0,
-    @SiteLabel          VARCHAR(MAX) = NULL
+    @UserRole           TINYINT       = 2,
+    @LicenseeType       TINYINT       = 0,
+    @SitePermission     NVARCHAR(MAX) = NULL
 )
 AS
 
@@ -48,15 +48,16 @@ AS
                         1: Credit
                         2: Licensee
 
-        @SiteLabel: Value depend on user's permission and maybe NULL
+        @SitePermission: Value depend on user's permission and maybe NULL
 
-	Ex: EXEC Acc_CRM_Rpt_DailyStatistics @ProductType = 0, @CategoryType = 1, @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0, @SiteLabel = NULL
+	Ex: EXEC Acc_CRM_Rpt_DailyStatistics @ProductType = 0, @CategoryType = 1, @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0, @SitePermission = NULL
 */
 
 BEGIN
 	SET NOCOUNT ON	
 
-    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+    CREATE TABLE #tmpSitePermission (SiteID INT, SiteName NVARCHAR(100), SitePermission NVARCHAR(100))
 	CREATE TABLE #Product  (ProductID INT PRIMARY KEY, Product NVARCHAR(100))	
 	CREATE TABLE #MainCategory (MainCategoryID INT PRIMARY KEY, MainCategory NVARCHAR(100))	
 	CREATE TABLE #Communication  (CommunicationID INT PRIMARY KEY, Communication NVARCHAR(100))		
@@ -65,9 +66,17 @@ BEGIN
 	CREATE TABLE #MainCategoryFeedBack (SettingID INT, SubSettingID INT,FeedbackID INT)
 	CREATE TABLE #CommunicationFeedBack (SettingID INT, FeedbackID INT)
 
-    INSERT INTO #tmpSiteLabel (SiteLabel)
-    SELECT value SiteLabel
-    FROM STRING_SPLIT(@SiteLabel, ',')
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    INSERT INTO #tmpSitePermission (SiteID, SiteName, SitePermission)
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
 
 	INSERT INTO #Product(ProductID, Product)
 	SELECT s.SettingID, s.SettingValue
@@ -128,7 +137,8 @@ BEGIN
 		INNER JOIN #CommunicationFeedBack fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
 		LEFT JOIN crmSubCategory sc ON fm.SubSettingID = sc.SubCategoryID AND fm.SettingID = sc.MainCategoryID
 		LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-        LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+        LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 	WHERE (
               (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
                                                           OR ISNULL(fb.SiteID,0) = 0
@@ -146,9 +156,9 @@ BEGIN
           )
           AND
           (
-              (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                              WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                              WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+              (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                    WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
           )
           AND
           (
@@ -194,7 +204,8 @@ BEGIN
 		) AS n
    ORDER BY e.MainCategoryID, e.SubCategoryID, e.CommunicationID, e.ProductID
 
-   DROP TABLE #tmpSiteLabel
+   DROP TABLE #tmpUserSitePermission
+   DROP TABLE #tmpSitePermission
    DROP TABLE #Product 
    DROP TABLE #MainCategory
    DROP TABLE #Communication 

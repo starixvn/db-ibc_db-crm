@@ -3,10 +3,10 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.CRM_MultipleLogs_VerifyCustomer @Username     NVARCHAR(MAX) = '',
-                                                    @UserRole     TINYINT       = 2,
-                                                    @LicenseeType TINYINT       = 0,
-                                                    @SiteLabel    VARCHAR(MAX)  = NULL
+ALTER PROCEDURE dbo.CRM_MultipleLogs_VerifyCustomer @Username       NVARCHAR(MAX) = '',
+                                                    @UserRole       TINYINT       = 2,
+                                                    @LicenseeType   TINYINT       = 0,
+                                                    @SitePermission NVARCHAR(MAX) = NULL
 AS
 
 /*
@@ -16,267 +16,265 @@ AS
     Original:
 
     Revisions:
-	    - 20200303@Tim: Support "is related customers" function in Create Multiple Logs - RedmineId: #129144
-	    - 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+        - 20200303@Tim: Support "is related customers" function in Create Multiple Logs - RedmineId: #129144
+        - 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
         - @LicenseeType = 0: Both
                           1: Credit
                           2: Licensee
-        - @SiteLabel: Value depend on user's permission and maybe NULL
+        - @SitePermission: Value depend on user's permission and maybe NULL
 */
 
 BEGIN
 
-	SET NOCOUNT ON
+    SET NOCOUNT ON
 
-    -- #tmpSiteLabel
-    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+    -- #tmpUserName
+    -- + Create temp table
+    CREATE TABLE #tmpUserName (UserName VARCHAR(50))
+    -- + Gen data to temp table
+    INSERT INTO #tmpUserName (UserName)
+    SELECT value UserName
+    FROM STRING_SPLIT(@Username,',')
+    WHERE value <> ''
 
-    INSERT INTO #tmpSiteLabel (SiteLabel)
-    SELECT value SiteLabel
-    FROM STRING_SPLIT(@SiteLabel, ',')
+    -- #tmpUserSitePermission
+    -- + Create temp table
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+    -- + Gen data to temp table
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
 
     -- #tmpSite
+    -- + Create temp table
     CREATE TABLE #tmpSite (
         SiteID     INT,
         SiteName   NVARCHAR(100),
-        SiteLabel  VARCHAR(50),
         IsLicensee INT,
-        IsActive   BIT
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
     )
-
-    IF (@UserRole = 2)
-    BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee,
-            IsActive
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               CASE WHEN sr.ParentID = 33000 THEN 1
-                    WHEN sr.ParentID = 33001 THEN 0
-                    ELSE -1 END IsLicensee,
-               s.IsActive
-        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
-             INNER JOIN bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
-        WHERE sr.ParentID IN (33000, 33001)
-    END
-    ELSE IF (@UserRole = 1)
-	BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee,
-            IsActive
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               0 IsLicensee,
-               s.IsActive
-        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
-		WHERE s.SettingID = 33002
-    END
-
+    -- + Gen data to temp table
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
+    -- + Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
 
-    -- @tblCustomer
-	DECLARE @tblCustomer TABLE (Username VARCHAR(50))
-	CREATE TABLE #tblDirectCustomer (CustId INT PRIMARY KEY)
-	CREATE TABLE #tblResult (
-		HeadlineId INT
-		,Headline VARCHAR(50)
-		,CustId INT
-		,Username VARCHAR(50)
-		,IsHeadline BIT
-		,IsDirectAccount BIT
-		,SiteID INT
-		,Site NVARCHAR(100)
-		)
+    -- #tmpSitePermission
+    -- + Create temp table
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+    -- + Gen data to temp table
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    -- + Create index for temp table
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
 
-	INSERT INTO @tblCustomer (Username)
-	SELECT ltrim(rtrim(val))
-	FROM dbo.f_CRM_strSplit(@Username, ',')
+    -- #tmpDirectCustomer
+    -- + Create temp table
+    CREATE TABLE #tmpDirectCustomer (CustId INT PRIMARY KEY)
+    -- + Gen data of super not belong to any group headline
+    INSERT INTO #tmpDirectCustomer (CustId)
+    SELECT c.custid
+    FROM bodb02.dbo.Customer c WITH (NOLOCK)
+         INNER JOIN bodb02.dbo.CustSuper cs WITH (NOLOCK) ON c.custid = cs.custid
+                                                             AND cs.IsInternal = 0
+                                                             AND c.roleid = 4
+    WHERE EXISTS (
+            SELECT 1
+            FROM #tmpUserName AS tbl
+            WHERE c.username = tbl.Username
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
+            WHERE ca.custid = c.custid AND ca.groupId <> 0
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM bodb02.dbo.Acc_CustDirect AS cd WITH (NOLOCK)
+            WHERE cd.custid = c.custid
+        )
+    -- + Gen data of direct master, agent, member
+    INSERT INTO #tmpDirectCustomer (CustId)
+    SELECT ci.custid
+    FROM bodb02.dbo.custInfo AS ci WITH (NOLOCK)
+         INNER JOIN bodb02.dbo.CustDirectAccount AS d WITH (NOLOCK) ON ci.custid = d.custid
+    WHERE EXISTS (
+            SELECT 1
+            FROM #tmpUserName AS tbl
+            WHERE ci.username = tbl.Username
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM #tmpDirectCustomer AS tbl WITH (NOLOCK)
+            WHERE ci.custid = tbl.CustId
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
+            WHERE ca.custid = ci.custid AND ca.groupId <> 0
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM bodb02.dbo.CustMaster AS cm WITH (NOLOCK)
+            WHERE ci.custid = cm.custid AND cm.IsInternal = 1
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM bodb02.dbo.CustAgent AS ca WITH (NOLOCK)
+            WHERE (ci.custid = ca.custid OR ci.recommend = ca.custid) AND ca.IsInternal = 1
+            )
 
-	-- super not belong to any group headline
-	INSERT INTO #tblDirectCustomer (CustId)
-	SELECT c.custid
-	FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.CustSuper AS cs WITH (NOLOCK) ON c.custid = cs.custid
-		AND cs.IsInternal = 0
-		AND c.roleid = 4
-	WHERE EXISTS (
-			SELECT 1
-			FROM @tblCustomer AS tbl
-			WHERE c.username = tbl.Username
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
-			WHERE ca.custid = c.custid AND ca.groupId <> 0
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM bodb02.dbo.Acc_CustDirect AS cd WITH (NOLOCK)
-			WHERE cd.custid = c.custid
-		)
+    -- #tmpResult
+    CREATE TABLE #tmpResult (
+        HeadlineId      INT,
+        Headline        VARCHAR(50),
+        CustId          INT,
+        Username        VARCHAR(50),
+        IsHeadline      BIT,
+        IsDirectAccount BIT,
+        SiteID          INT,
+        Site            NVARCHAR(100)
+    )
 
-	-- direct master, agent, member
-	INSERT INTO #tblDirectCustomer (CustId)
-	SELECT ci.custid
-	FROM bodb02.dbo.custInfo AS ci WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.CustDirectAccount AS d WITH (NOLOCK) ON ci.custid = d.custid
-	WHERE EXISTS (
-			SELECT 1
-			FROM @tblCustomer AS tbl
-			WHERE ci.username = tbl.Username
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM #tblDirectCustomer AS tbl WITH (NOLOCK)
-			WHERE ci.custid = tbl.CustId
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
-			WHERE ca.custid = ci.custid AND ca.groupId <> 0
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM bodb02.dbo.CustMaster AS cm WITH (NOLOCK)
-			WHERE ci.custid = cm.custid AND cm.IsInternal = 1
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM bodb02.dbo.CustAgent AS ca WITH (NOLOCK)
-			WHERE (ci.custid = ca.custid OR ci.recommend = ca.custid) AND ca.IsInternal = 1
-			)
+    INSERT INTO #tmpResult (
+        HeadlineId,
+        Headline,
+        CustId,
+        Username,
+        IsHeadline,
+        IsDirectAccount,
+        Site
+    )
+    SELECT gh.CustId AS HeadlineId,
+           gh.username AS Headline,
+           c.custid,
+           c.username,
+           CASE WHEN gh.custid = c.custid THEN 1 ELSE 0 END,
+           CASE WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END,
+           c.Site
+    FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
+         INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.custid = ca.custid
+         OUTER APPLY (
+            SELECT gh.custid, ghi.username
+            FROM bodb02.dbo.custAccount AS gh WITH (NOLOCK)
+                INNER JOIN bodb02.dbo.Customer AS ghi WITH (NOLOCK) ON gh.custid = ghi.custid
+            WHERE ca.groupId = gh.groupId AND gh.IsGroupHeadLine = 1
+        ) AS gh
+        LEFT JOIN #tmpDirectCustomer AS da WITH (NOLOCK) ON c.custid = da.CustId
+    WHERE ISNULL(c.[site], '') <> 'CN88'
+        AND EXISTS (
+            SELECT 1
+            FROM #tmpUserName AS tbl
+            WHERE tbl.Username = c.username
+            )
+    UNION
+    SELECT NULL AS HeadlineId,
+           NULL AS Headline,
+           c.custid,
+           c.username,
+           0,
+           CASE  WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END,
+           c.site
+    FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+        LEFT JOIN #tmpDirectCustomer AS da WITH (NOLOCK) ON c.custid = da.CustId
+    WHERE ISNULL(c.[site], '') <> 'CN88'
+        AND EXISTS (
+            SELECT 1
+            FROM #tmpUserName AS tbl
+            WHERE tbl.Username = c.username
+            )
+        AND NOT EXISTS (
+            SELECT 1
+            FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
+            WHERE c.custid = ca.custid
+            )
 
-	INSERT INTO #tblResult (
-		HeadlineId
-		,Headline
-		,CustId
-		,Username
-		,IsHeadline
-		,IsDirectAccount
-		,Site
-		)
-	SELECT gh.CustId AS HeadlineId
-		,gh.username AS Headline
-		,c.custid
-		,c.username
-		,CASE WHEN gh.custid = c.custid THEN 1 ELSE 0 END
-		,CASE WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END
-		,c.Site
-	FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
-		INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.custid = ca.custid
-		OUTER APPLY (
-			SELECT gh.custid, ghi.username
-			FROM bodb02.dbo.custAccount AS gh WITH (NOLOCK)
-				INNER JOIN bodb02.dbo.Customer AS ghi WITH (NOLOCK) ON gh.custid = ghi.custid
-			WHERE ca.groupId = gh.groupId AND gh.IsGroupHeadLine = 1
-		) AS gh
-		LEFT JOIN #tblDirectCustomer AS da WITH (NOLOCK) ON c.custid = da.CustId
-	WHERE ISNULL(c.[site], '') <> 'CN88'
-		AND EXISTS (
-			SELECT 1
-			FROM @tblCustomer AS tbl
-			WHERE tbl.Username = c.username
-			)
-	UNION
-	SELECT NULL AS HeadlineId
-		,NULL AS Headline
-		,c.custid
-		,c.username
-		,0
-		,CASE  WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END
-		,c.site
-	FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
-		LEFT JOIN #tblDirectCustomer AS da WITH (NOLOCK) ON c.custid = da.CustId
-	WHERE ISNULL(c.[site], '') <> 'CN88'
-		AND EXISTS (
-			SELECT 1
-			FROM @tblCustomer AS tbl
-			WHERE tbl.Username = c.username
-			)
-		AND NOT EXISTS (
-			SELECT 1
-			FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
-			WHERE c.custid = ca.custid
-			)
+    INSERT INTO #tmpResult (CustId, Username, siteID)
+    SELECT c.CustId, c.Username, c.SiteID
+    FROM dbo.crmCustomer AS c WITH (NOLOCK)
+    WHERE c.CustId < 0
+        AND c.SiteId <> 33002
+        AND EXISTS (
+            SELECT 1
+            FROM #tmpUserName AS tbl
+            WHERE tbl.Username = c.Username
+            )
 
-	INSERT INTO #tblResult (CustId, Username, siteID)
-	SELECT c.CustId, c.Username, c.SiteID
-	FROM dbo.crmCustomer AS c WITH (NOLOCK)
-	WHERE c.CustId < 0
-		AND c.SiteId <> 33002
-		AND EXISTS (
-			SELECT 1
-			FROM @tblCustomer AS tbl
-			WHERE tbl.Username = c.Username
-			)
-
-	INSERT INTO #tblResult (CustId, Username)
-	SELECT 0, c.Username
-	FROM @tblCustomer AS c
-	WHERE NOT EXISTS (
-			SELECT 1
-			FROM #tblResult AS tbl WITH (NOLOCK)
-			WHERE tbl.Username = c.Username
-			)
-	
-	--hardcode reset hl for ETUS
-	IF EXISTS(SELECT 1 FROM @tblCustomer 
-			WHERE username IN ('ETUS')
-			)
-	BEGIN
-		UPDATE t
-		SET IsHeadline = 0
-		FROM #tblResult	 t
-		WHERE username IN ('ETUS')
-	END	
-	
-	--Hardcode headline incase username in ('ET789','ET889','XT')	
-	IF EXISTS(SELECT 1 FROM @tblCustomer 
-			WHERE username IN ('ET789','ET889','XT')
-			)
-	BEGIN
-		UPDATE t
-		SET HeadlineID = custid,
-			Headline = 'ETUS('+username+')',
-			IsHeadline = 1
-		FROM #tblResult	 t
-		WHERE username IN ('ET789','ET889','XT')
-	END	
+    INSERT INTO #tmpResult (CustId, Username)
+    SELECT 0, c.Username
+    FROM #tmpUserName AS c
+    WHERE NOT EXISTS (
+            SELECT 1
+            FROM #tmpResult AS tbl WITH (NOLOCK)
+            WHERE tbl.Username = c.Username
+            )
+    
+    IF EXISTS(SELECT 1 FROM #tmpUserName WHERE username IN ('ETUS'))
+    BEGIN
+        UPDATE t
+        SET IsHeadline = 0
+        FROM #tmpResult t
+        WHERE username IN ('ETUS')
+    END    
+       
+    IF EXISTS(SELECT 1 FROM #tmpUserName WHERE username IN ('ET789','ET889','XT'))
+    BEGIN
+        UPDATE t
+        SET HeadlineID = custid,
+            Headline = 'ETUS('+ username +')',
+            IsHeadline = 1
+        FROM #tmpResult     t
+        WHERE username IN ('ET789','ET889','XT')
+    END    
 
     -- Return result
     ;WITH
-    CTE_HavePermission AS (
-        SELECT t.HeadlineId,
-               t.Headline,
-               t.CustId,
-               t.Username,
-               t.IsHeadline,
-               t.IsDirectAccount,
-               s.IsLicensee,
-               s.IsActive IsSiteActive
-        FROM #tblResult t WITH (NOLOCK)
-             LEFT JOIN #tmpSite s ON t.Site = s.SiteName
-             LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
-        WHERE (s.IsLicensee IS NULL
-                   OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-              AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                                  WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                                  WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
-    ),
-    CTE_NoPermission AS (
+    CTE_Username_NotExist AS (
         SELECT NULL HeadlineId,
                NULL Headline,
                0 CustId,
@@ -284,23 +282,67 @@ BEGIN
                NULL IsHeadline,
                NULL IsDirectAccount,
                NULL IsLicensee,
-               NULL IsSiteActive
-        FROM #tblResult t
-        WHERE t.Username NOT IN (SELECT Username FROM CTE_HavePermission)
+               NULL IsSiteActive,
+               NULL IsAuthorized
+        FROM #tmpUserName t
+        WHERE t.Username NOT IN (SELECT Username FROM #tmpResult)
+    ),
+    CTE_Username_HavePermission AS (
+        SELECT t.HeadlineId,
+               t.Headline,
+               t.CustId,
+               t.Username,
+               t.IsHeadline,
+               t.IsDirectAccount,
+               si.IsLicensee,
+               si.IsActive IsSiteActive,
+               1 IsAuthorized
+        FROM #tmpResult t WITH (NOLOCK)
+             LEFT JOIN #tmpSite si ON t.Site = si.SiteName
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
+        WHERE (
+                  si.IsLicensee IS NULL
+                  OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+              )
+              AND
+              (
+                  ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                       WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                       WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END
+              )
+    ),
+    CTE_Username_NoPermission AS (
+        SELECT t.HeadlineId,
+               t.Headline,
+               t.CustId,
+               t.Username,
+               t.IsHeadline,
+               t.IsDirectAccount,
+               si.IsLicensee,
+               si.IsActive IsSiteActive,
+               0 IsAuthorized
+        FROM #tmpResult t WITH (NOLOCK)
+             LEFT JOIN #tmpSite si ON t.Site = si.SiteName
+        WHERE t.Username NOT IN (SELECT Username FROM CTE_Username_HavePermission)
     ),
     CTE_UnionData AS (
-        SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive FROM CTE_HavePermission
+        SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive, IsAuthorized FROM CTE_Username_NotExist
         UNION ALL
-        SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive FROM CTE_NoPermission
+        SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive, IsAuthorized FROM CTE_Username_HavePermission
+        UNION ALL
+        SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive, IsAuthorized FROM CTE_Username_NoPermission
     )
-    SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive
+    SELECT HeadlineId, Headline, CustId, Username, IsHeadline, IsDirectAccount, IsLicensee, IsSiteActive, IsAuthorized
     FROM CTE_UnionData
-	ORDER BY Username
+    ORDER BY Username
 
     -- Drop temp table
-    DROP TABLE #tmpSiteLabel
+    DROP TABLE #tmpUserName
+    DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
-	DROP TABLE #tblResult
-	DROP TABLE #tblDirectCustomer
+    DROP TABLE #tmpSitePermission
+    DROP TABLE #tmpDirectCustomer
+    DROP TABLE #tmpResult
 END
 GO

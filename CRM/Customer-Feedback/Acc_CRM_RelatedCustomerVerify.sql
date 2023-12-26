@@ -3,10 +3,10 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_RelatedCustomerVerify @UserName     NVARCHAR(MAX) = '',
-                                                  @UserRole     TINYINT       = 2,
-                                                  @LicenseeType TINYINT       = 0,
-                                                  @SiteLabel    VARCHAR(MAX)  = NULL
+ALTER PROCEDURE dbo.Acc_CRM_RelatedCustomerVerify @UserName       NVARCHAR(MAX)  = '',
+                                                  @UserRole       TINYINT        = 2,
+                                                  @LicenseeType   TINYINT        = 0,
+                                                  @SitePermission NVARCHAR(MAX)  = NULL
 AS
 
 /*
@@ -33,7 +33,7 @@ AS
         - @LicenseeType = 0: Both
                           1: Credit
                           2: Licensee
-        - @SiteLabel: Value depend on user's permission and maybe NULL
+        - @SitePermission: Value depend on user's permission and maybe NULL
 
 */
 
@@ -49,138 +49,186 @@ BEGIN
     SELECT ltrim(rtrim(value)) UserName
     FROM STRING_SPLIT(@UserName, ',')
 
-    -- #tmpSiteLabel
+    -- #tmpUserSitePermission
     -- + Create temp table
-    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
     -- + Gen data to temp table
-    INSERT INTO #tmpSiteLabel (SiteLabel)
-    SELECT value SiteLabel
-    FROM STRING_SPLIT(@SiteLabel, ',')
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
 
     -- #tmpSite
     -- + Create temp table
     CREATE TABLE #tmpSite (
         SiteID     INT,
         SiteName   NVARCHAR(100),
-        SiteLabel  VARCHAR(50),
         IsLicensee INT,
-        IsActive   BIT
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
     )
-    -- + Gen data that not be CN88 to temp table
-    IF (@UserRole = 2)
-    BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee,
-            IsActive
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               CASE WHEN sr.ParentID = 33000 THEN 1
-                    WHEN sr.ParentID = 33001 THEN 0
-                    ELSE -1 END IsLicensee,
-               s.IsActive
-        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
-             INNER JOIN bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
-        WHERE sr.ParentID IN (33000, 33001)
-    END
-    -- + Gen data that be CN88 to temp table
-    ELSE IF (@UserRole = 1)
-    BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee,
-            IsActive
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               0 IsLicensee,
-               s.IsActive
-        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
-        WHERE s.SettingID = 33002
-    END
+    -- + Gen data to temp table
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
     -- + Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    -- + Create temp table
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+    -- + Gen data to temp table
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    -- + Create index for temp table
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
 
     -- #tmpCustomer
     -- + Create temp table
     CREATE TABLE #tmpCustomer (
-        CustID       INT,
-        UserName     VARCHAR(50),
-        IsLicensee   BIT,
-        IsSiteActive BIT
+        CustID         INT,
+        UserName       VARCHAR(50),
+        SitePermission NVARCHAR(100),
+        IsLicensee     BIT,
+        IsSiteActive   BIT,
+        IsAuthorized   BIT
     )
     -- + Gen data from MainDB to temp table
     INSERT INTO #tmpCustomer (
         CustID,
         UserName,
+        SitePermission,
         IsLicensee,
-        isSiteActive
+        IsSiteActive,
+        IsAuthorized
     )
-    SELECT c.custid     CustID,
-           c.username   UserName, 
-           s.IsLicensee IsLicensee,
-           s.isActive   isSiteActive
-    FROM bodb02.dbo.Customer c WITH (NOLOCK)        
-         LEFT JOIN #tmpSite s ON c.site = s.SiteName
-         LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+    SELECT c.custid          CustID,
+           c.username        UserName,
+           sp.SitePermission SitePermission,
+           si.IsLicensee     IsLicensee,
+           si.IsActive       IsSiteActive,
+           NULL              IsAuthorized
+    FROM bodb02.dbo.Customer c WITH (NOLOCK)
+         LEFT JOIN #tmpSite si ON c.site = si.SiteName
+         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
     WHERE c.username IN (SELECT UserName FROM #tmpUserName)
-          AND ((@UserRole = 1 AND c.site = 'CN88') OR (@UserRole = 2 AND ISNULL(c.site,'') <> 'CN88'))
-          AND (s.IsLicensee IS NULL
-               OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-          AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                              WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                              WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
-    -- + Gen data that be guest customer to temp table
+          AND si.SiteOffer = @UserRole
+    -- + Gen data from CRM to temp table
     INSERT INTO #tmpCustomer (
         CustID,
         UserName,
+        SitePermission,
         IsLicensee,
-        isSiteActive
+        IsSiteActive,
+        IsAuthorized
     )
-    SELECT c.CustID,
-           c.UserName, 
-           s.IsLicensee,
-           s.IsActive
+    SELECT c.CustID          CustID,
+           c.UserName        UserName,
+           sp.SitePermission SitePermission,
+           si.IsLicensee     IsLicensee,
+           si.IsActive       IsSiteActive,
+           NULL              IsAuthorized
     FROM bodB_CRM.dbo.crmCustomer c WITH (NOLOCK)
-         LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
-         LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
-    WHERE c.CustID < 0
-          AND c.UserName IN (SELECT UserName FROM #tmpUserName)
-          AND ((@UserRole = 1 AND c.SiteID = 33002) OR (@UserRole = 2 AND c.SiteID <> 33002))
-          AND (s.IsLicensee IS NULL
-               OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-          AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                              WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                              WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
-    -- + Gen data that not exist both from MainDB and CRM to temp table
+         LEFT JOIN #tmpSite si ON c.SiteID = si.SiteID
+         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+    WHERE c.UserName IN (SELECT UserName FROM #tmpUserName)
+          AND si.SiteOffer = @UserRole
+          AND c.CustID NOT IN (SELECT CustID FROM #tmpCustomer)
+    -- + Gen data that not exist either from MainDB and CRM to temp table
     INSERT INTO #tmpCustomer (
         CustID,
-        UserName
+        UserName,
+        SitePermission,
+        IsLicensee,
+        IsSiteActive,
+        IsAuthorized
     )
-    SELECT 0 CustID,
-           tmp.UserName 
+    SELECT 0            CustID,
+           tmp.UserName UserName,
+           NULL         SitePermission,
+           NULL         IsLicensee,
+           NULL         IsSiteActive,
+           NULL         IsAuthorized
     FROM #tmpUserName tmp 
     WHERE tmp.UserName NOT IN (SELECT UserName FROM #tmpCustomer)
+    -- + Update data for column IsAuthorized
+    -- + --> IsAuthorized=1
+    UPDATE c
+    SET c.IsAuthorized = 1
+    FROM #tmpCustomer c
+         LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
+    WHERE c.CustID <> 0
+          AND
+          (
+              c.IsLicensee IS NULL
+              OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+          )
+          AND
+          (
+              ISNULL(c.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN c.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(c.SitePermission, '') END
+                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                  WHEN @LicenseeType = 2 THEN ISNULL(c.SitePermission, '') END
+          )
+    -- + --> IsAuthorized=0
+    UPDATE c
+    SET c.IsAuthorized = 0
+    FROM #tmpCustomer c
+    WHERE c.CustID <> 0
+          AND c.IsAuthorized IS NULL
 
     -- Return data
     SELECT CustID,
            UserName val,
-           ISNULL(IsLicensee, 0) IsLicensee,
-           ISNULL(IsSiteActive, 0) IsSiteActive
+           IsLicensee,
+           IsSiteActive,
+           IsAuthorized
     FROM #tmpCustomer
     ORDER BY UserName
 
     -- DROP temp tables
     DROP TABLE #tmpUserName
-    DROP TABLE #tmpSiteLabel
+    DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
     DROP TABLE #tmpCustomer
 
 END

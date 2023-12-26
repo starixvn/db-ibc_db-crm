@@ -5,13 +5,13 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatisticsPeriod]
 (
-	@FromDate		DATETIME,
-	@ToDate			DATETIME,
-	@MainCategoryID INT = 0,
-	@SubCategoryID	INT = 0,
-	@UserRole		INT = 2,
-    @LicenseeType   TINYINT = 0,
-    @SiteLabel      VARCHAR(MAX) = NULL
+	@FromDate		DATETIME      = NULL,
+	@ToDate			DATETIME      = NULL,
+	@MainCategoryID INT           = 0,
+	@SubCategoryID	INT           = 0,
+	@UserRole		INT           = 2,
+    @LicenseeType   TINYINT       = 0,
+    @SitePermission NVARCHAR(MAX) = NULL
 )
 AS
 
@@ -31,63 +31,82 @@ AS
         - @LicenseeType = 0: Both
                           1: Credit
                           2: Licensee
-        - @SiteLabel: Value depend on user's permission and maybe NULL
+        - @SitePermission: Value depend on user's permission and maybe NULL
 */
 
 BEGIN
 
 	SET NOCOUNT ON
 
-    -- #tmpSiteLabel
-    CREATE TABLE #tmpSiteLabel (SiteLabel VARCHAR(50))
+    -- #tmpUserSitePermission
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
 
-    INSERT INTO #tmpSiteLabel (SiteLabel)
-    SELECT value SiteLabel
-    FROM STRING_SPLIT(@SiteLabel, ',')
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
 
     -- #tmpSite
     CREATE TABLE #tmpSite (
         SiteID     INT,
         SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
         SiteLabel  VARCHAR(50),
-        IsLicensee INT
+        SiteOffer  INT
     )
 
-    IF (@UserRole = 2)
-    BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               CASE WHEN sr.ParentID = 33000 THEN 1
-                    WHEN sr.ParentID = 33001 THEN 0
-                    ELSE -1 END IsLicensee
-        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
-             INNER JOIN	bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
-        WHERE sr.ParentID IN (33000, 33001)
-    END
-    ELSE IF (@UserRole = 1)
-	BEGIN
-        INSERT INTO #tmpSite (
-            SiteID,
-            SiteName,
-            SiteLabel,
-            IsLicensee
-        )
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               s.ExtraInfo SiteLabel,
-               0 IsLicensee
-        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
-		WHERE s.SettingID = 33002
-    END
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
 
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
 
     -- Return data
 	IF(@MainCategoryID<>0)
@@ -100,16 +119,18 @@ BEGIN
 		FROM crmFeedback f WITH(NOLOCK)	
 		INNER JOIN dbo.f_GetFeedbackSetting(0,@MainCategoryID,@SubCategoryID,2) fs ON f.FeedbackID=fs.FeedbackID		
 		LEFT JOIN crmCountry c WITH(NOLOCK) ON c.CountryID = f.CountryID
-        LEFT JOIN #tmpSite s ON f.SiteID = s.SiteID
-        LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+        LEFT JOIN #tmpSite si ON f.SiteID = si.SiteID
+        LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 		WHERE f.StatusID NOT IN( 11004,11019)
 		AND f.FeedbackDate BETWEEN @FromDate AND @ToDate	
 		AND c.siteoffer=@UserRole
-        AND (s.IsLicensee IS NULL
-             OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                            WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                            WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+        AND si.SiteOffer = @UserRole
+        AND (si.IsLicensee IS NULL
+             OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+        AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                  WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 		GROUP BY f.FeedbackDate,c.CountryName,f.CountryID
 		ORDER BY f.FeedbackDate DESC
 	END
@@ -122,24 +143,27 @@ BEGIN
 				COUNT(distinct f.FeedbackID) NoOfIssues 
 		FROM crmFeedback f WITH(NOLOCK)	
 		LEFT JOIN crmCountry c WITH(NOLOCK) ON c.CountryID = f.CountryID
-        LEFT JOIN #tmpSite s ON f.SiteID = s.SiteID
-        LEFT JOIN #tmpSiteLabel sl ON s.SiteLabel = sl.SiteLabel
+        LEFT JOIN #tmpSite si ON f.SiteID = si.SiteID
+        LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 		WHERE f.StatusID NOT IN( 11004,11019)
 		AND f.FeedbackDate BETWEEN @FromDate AND @ToDate	
 		AND c.siteoffer=@UserRole
-        AND (s.IsLicensee IS NULL
-             OR s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (ISNULL(s.SiteLabel, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN sl.SiteLabel ELSE ISNULL(s.SiteLabel, '') END
-                                            WHEN @LicenseeType = 1 THEN sl.SiteLabel
-                                            WHEN @LicenseeType = 2 THEN ISNULL(s.SiteLabel, '') END)
+        AND si.SiteOffer = @UserRole
+        AND (si.IsLicensee IS NULL
+             OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+        AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                  WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 		GROUP BY 
 				 f.FeedbackDate,c.CountryName,f.CountryID
 		ORDER BY f.FeedbackDate DESC
 	END
 
     -- DROP temp tables
-    DROP TABLE #tmpSiteLabel
+    DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
 
 END
 GO

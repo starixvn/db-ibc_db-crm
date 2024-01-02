@@ -1,4 +1,3 @@
-/*<info serverAlias="DBTXN-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_AbnormalAccount_GetUsernameList]
 	@Messages 		XML
 	,@SiteDBGroupID SMALLINT

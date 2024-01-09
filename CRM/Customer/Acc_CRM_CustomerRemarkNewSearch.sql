@@ -189,12 +189,11 @@ BEGIN
 								INNER JOIN #Pic p ON S.value = p.PicID
 								WHERE  S.VALUE <> ''))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
-    AND si.SiteOffer = @UserRole
+    AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
     AND (si.IsLicensee IS NULL
          OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-    AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                              WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                              WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+    AND (sp.SitePermission IS NULL
+         OR sp.SitePermission = usp.SitePermission)
     
     INSERT INTO #Customer(CustID, Username)
     SELECT CustID, Username
@@ -252,12 +251,11 @@ BEGIN
 		AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 		AND a.CustID IN (SELECT HeadlineID FROM #CustHeadline)
 		AND a.RemarkID NOT IN (SELECT RemarkID FROM #Result)
-        AND si.SiteOffer = @UserRole
+        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                  WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+        AND (sp.SitePermission IS NULL
+             OR sp.SitePermission = usp.SitePermission)
 	END
 	
 	UPDATE a

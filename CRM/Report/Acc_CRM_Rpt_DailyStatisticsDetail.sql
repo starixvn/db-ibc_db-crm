@@ -164,9 +164,8 @@ BEGIN
                                                         OR ISNULL(s.SiteID, 0) = 0))))
         )
 	AND (
-            (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN s.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                  WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+            sp.SitePermission IS NULL
+            OR sp.SitePermission = usp.SitePermission
         )
 		
 	INSERT INTO #FBStation(FeedbackID,StationID)

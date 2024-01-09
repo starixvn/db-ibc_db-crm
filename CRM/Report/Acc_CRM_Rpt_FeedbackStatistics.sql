@@ -162,12 +162,11 @@ BEGIN
           AND fb.StatusID NOT IN (11001,11004,11019,11016)
           AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
           AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-          AND si.SiteOffer = @UserRole
+          AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
           AND (si.IsLicensee IS NULL
                OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-          AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                    WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+          AND (sp.SitePermission IS NULL
+               OR sp.SitePermission = usp.SitePermission)
 
     DECLARE @FeedbackIDList VARCHAR(MAX)
     SELECT  @FeedbackIDList = STRING_AGG(FeedbackID, ',') FROM #tmpFeedbackID

@@ -236,9 +236,8 @@ BEGIN
                                     )
                                     AND
                                     (
-                                        ISNULL(c.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN c.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(c.SitePermission, '') END
-                                                                            WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                                            WHEN @LicenseeType = 2 THEN ISNULL(c.SitePermission, '') END
+                                        c.SitePermission IS NULL
+                                        OR c.SitePermission = usp.SitePermission
                                     )
                           )
             BEGIN
@@ -564,9 +563,8 @@ BEGIN
                                     )
                                     AND
                                     (
-                                        ISNULL(c.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN c.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(c.SitePermission, '') END
-                                                                            WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                                            WHEN @LicenseeType = 2 THEN ISNULL(c.SitePermission, '') END
+                                        c.SitePermission IS NULL
+                                        OR c.SitePermission = usp.SitePermission
                                     )
                           )
             BEGIN

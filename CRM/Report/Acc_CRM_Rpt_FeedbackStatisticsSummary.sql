@@ -85,9 +85,8 @@ BEGIN
 		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1)   OR (@SiteType=3 and IsLicensee IS NULL))
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                  WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+        AND (sp.SitePermission IS NULL
+             OR sp.SitePermission = usp.SitePermission)
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ),
 			LEFT( DATENAME(mm,DATEADD(hour,-@TimeSpan,f.FeedbackDate)),3 ),
 			m.MainCategoryID,

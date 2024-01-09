@@ -151,7 +151,7 @@ BEGIN
          LEFT JOIN #tmpSite si ON c.site = si.SiteName
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
     WHERE c.username IN (SELECT UserName FROM #tmpUserName)
-          AND si.SiteOffer = @UserRole
+          AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
     -- + Gen data from CRM to temp table
     INSERT INTO #tmpCustomer (
         CustID,
@@ -171,7 +171,7 @@ BEGIN
          LEFT JOIN #tmpSite si ON c.SiteID = si.SiteID
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
     WHERE c.UserName IN (SELECT UserName FROM #tmpUserName)
-          AND si.SiteOffer = @UserRole
+          AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
           AND c.CustID NOT IN (SELECT CustID FROM #tmpCustomer)
     -- + Gen data that not exist either from MainDB and CRM to temp table
     INSERT INTO #tmpCustomer (
@@ -204,9 +204,8 @@ BEGIN
           )
           AND
           (
-              ISNULL(c.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN c.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(c.SitePermission, '') END
-                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                  WHEN @LicenseeType = 2 THEN ISNULL(c.SitePermission, '') END
+              c.SitePermission IS NULL
+              OR c.SitePermission = usp.SitePermission
           )
     -- + --> IsAuthorized=0
     UPDATE c

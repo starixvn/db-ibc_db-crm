@@ -228,12 +228,11 @@ BEGIN
 			CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
 			OUTER APPLY fb.Description2.nodes(N'//row') AS A(nr)
 		WHERE	fb.FeedbackID = @FeedbackID
-		        AND si.SiteOffer = @UserRole
+		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+                AND (sp.SitePermission IS NULL
+                     OR sp.SitePermission = usp.SitePermission)
 		ORDER BY FeedbackDate DESC, FeedbackID DESC
         
         IF(@@ROWCOUNT > 0 )
@@ -318,12 +317,11 @@ BEGIN
 			AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 			AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 			AND	(@ResponseID IS NULL OR ResponseID = @ResponseID) 
-		    AND si.SiteOffer = @UserRole
+		    AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
             AND (si.IsLicensee IS NULL
                  OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-            AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                      WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                      WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+            AND (sp.SitePermission IS NULL
+                 OR sp.SitePermission = usp.SitePermission)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC;
 		
 	END;
@@ -366,12 +364,11 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-		        AND si.SiteOffer = @UserRole
+		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+                AND (sp.SitePermission IS NULL
+                     OR sp.SitePermission = usp.SitePermission)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC				
 		OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -413,12 +410,11 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-		        AND si.SiteOffer = @UserRole
+		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+                AND (sp.SitePermission IS NULL
+                     OR sp.SitePermission = usp.SitePermission)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
 			
@@ -458,12 +454,11 @@ BEGIN
 				AND	(ISNULL(@HandledBy, '') = '' OR fb.CreatorID = @HandledID)
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
-		        AND si.SiteOffer = @UserRole
+		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                          WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                          WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+                AND (sp.SitePermission IS NULL
+                     OR sp.SitePermission = usp.SitePermission)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )	
 			

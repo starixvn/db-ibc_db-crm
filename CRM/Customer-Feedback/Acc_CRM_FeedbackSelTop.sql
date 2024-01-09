@@ -119,12 +119,11 @@ BEGIN
         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 	WHERE fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
-		AND si.SiteOffer = @UserRole
+		AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (ISNULL(sp.SitePermission, '') = CASE WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                  WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                  WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+        AND (sp.SitePermission IS NULL
+             OR sp.SitePermission = usp.SitePermission)
 	ORDER BY fb.FeedbackDate DESC
 
     -- Get data to return

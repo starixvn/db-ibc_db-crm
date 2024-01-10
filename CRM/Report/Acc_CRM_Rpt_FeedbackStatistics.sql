@@ -174,14 +174,12 @@ BEGIN
     DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
     DROP TABLE #tmpSitePermission
-    DROP TABLE #tmpFeedbackID
 
     -- END - Apply permission --
     ----------------------------
 	
 	IF @Type = 1	--- creator
 	BEGIN		
-		
 		INSERT INTO @Items(Item)
 			SELECT c.custid FROM crmfeedback fb WITH(NOLOCK) 
 						INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.creatorID = c.custid
@@ -189,6 +187,7 @@ BEGIN
 					AND fb.StatusID NOT IN (11001,11004,11019,11016)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY 
 				c.UserName, c.CustID
 			ORDER BY c.UserName
@@ -256,14 +255,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 	
-		SELECT	Item
-		FROM	@Items
-		
-		RETURN
+		SELECT Item FROM @Items
 	END
 	IF @Type = 2	-- country
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 			SELECT ISNULL(ct.CountryID,0)
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -273,6 +268,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND ct.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY ct.CountryName, ct.CountryID
 			ORDER BY ct.CountryName ASC
 		--	
@@ -350,14 +346,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i 	
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 3	-- Role
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -367,6 +359,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingID ASC
 			
@@ -436,14 +429,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 4	-- Site
 	BEGIN
-
 		INSERT INTO @Items(Item)
 		SELECT ISNULL(fb.SiteID,0)
 		FROM crmfeedback fb WITH(NOLOCK) 
@@ -453,6 +442,7 @@ BEGIN
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 				AND r.siteoffer=@UserRole
+                AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 		GROUP BY r.SiteName, fb.SiteID
 		ORDER BY r.SiteName ASC
 					 
@@ -530,13 +520,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 		
-		SELECT	Item 
-		FROM	@Items i		
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 5	-- status
-	BEGIN	
+	BEGIN
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -546,6 +533,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingValue ASC
 		--
@@ -617,14 +605,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 6	-- customer response
 	BEGIN
-
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -634,6 +618,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingValue ASC
 		--
@@ -704,14 +689,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 7	-- product
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 		SELECT DISTINCT fs.SettingID
 		FROM crmfeedback fb WITH(NOLOCK) 
@@ -722,6 +703,7 @@ BEGIN
 			AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 			AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			AND r.siteoffer=@UserRole
+            AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 	
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
@@ -800,14 +782,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i		
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 8	-- Main Category
 	BEGIN
-
 		INSERT INTO @Items(Item)
 			SELECT DISTINCT fs.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -818,6 +796,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
@@ -881,14 +860,10 @@ BEGIN
 		END			
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 9	-- Licensees
 	BEGIN
-
 		INSERT INTO @Items(Item)
 			SELECT r.SiteID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -899,6 +874,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SiteName, r.SiteID
 			ORDER BY r.SiteName ASC
 		--
@@ -970,14 +946,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 10	-- communication
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 		SELECT DISTINCT fs.SettingID 
 		FROM crmfeedback fb WITH(NOLOCK) 
@@ -988,6 +960,7 @@ BEGIN
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 				AND r.siteoffer=@UserRole
+                AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 		
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
@@ -1056,12 +1029,9 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
+
+    DROP TABLE #tmpFeedbackID
 END
-
-
 GO

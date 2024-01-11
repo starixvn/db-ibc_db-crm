@@ -63,12 +63,18 @@ BEGIN
     -- Clean data
 
     -- Clean 01
-    -- + All MessageId in TicketVoiding_VoidedTransaction be already created Feedback on AbnormalBet/AbnormalAccount auto service
+    -- + All MessageId in TicketVoiding_VoidingHistory be already created Feedback on AbnormalBet/AbnormalAccount auto service
     -- + And some of them have MsgContentsType=103
     -- + And we need to remove them from XML data at this step to avoid recreate Feedback for them again
+    ;WITH
+    CTE_VoidingHistory AS (
+        SELECT ISNULL(MessageId, 0) MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+        UNION
+        SELECT ISNULL(MessageIdSpecial, 0) MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+    )
     DELETE m
     FROM #Messages m
-    WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidedTransaction v WITH (NOLOCK) WHERE v.MessageId = m.MessageId)
+    WHERE EXISTS (SELECT TOP 1 1 FROM CTE_VoidingHistory v WHERE v.MessageId = m.MessageId)
 
     -- Clean 02
     -- + We just keep data with TargetId is member (roleid=1)

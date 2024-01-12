@@ -90,7 +90,7 @@ BEGIN
            sc.IsActive IsActive,
            NULL SiteLabel,
            sc.SiteOffer SiteOffer
-    FROM bodb_CRM.dbo.crmSetting sc
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
     WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
     -- + Create index for temp table
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)

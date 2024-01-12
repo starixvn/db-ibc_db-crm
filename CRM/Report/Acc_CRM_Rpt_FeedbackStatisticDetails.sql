@@ -786,7 +786,7 @@ BEGIN
            sc.IsActive IsActive,
            NULL SiteLabel,
            sc.SiteOffer SiteOffer
-    FROM bodb_CRM.dbo.crmSetting sc
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
     WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
 
     CREATE TABLE #tmpSitePermission (

@@ -1,24 +1,35 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[CRM_MultipleLogs_VerifyRelatedCustomer] @HeadlineIds VARCHAR(MAX) = ''
-	,@Username NVARCHAR(MAX) = ''
-AS
-/*
-Created: 20200303@Tim
-Task : Support "is related customers" function in Create Multiple Logs
-DB: DBCRM/bodb_CRM
-Original:
+USE bodb_CRM
+GO
 
-Revisions:
-	20200303@Tim: Support "is related customers" function in Create Multiple Logs - RedmineId: #129144
-	20200327@Tim: fix bug get member under direct account
-Param's Explanation:
+ALTER PROCEDURE dbo.CRM_MultipleLogs_VerifyRelatedCustomer @HeadlineIds    VARCHAR(MAX)  = '',
+                                                           @Username       NVARCHAR(MAX) = '',
+                                                           @UserRole       TINYINT       = 2,
+                                                           @LicenseeType   TINYINT       = 0,
+                                                           @SitePermission NVARCHAR(MAX) = NULL
+AS
+
+/*
+    Created: 20200303@Tim
+    Task : Support "is related customers" function in Create Multiple Logs
+    DB: DBCRM/bodb_CRM
+    Original:
+
+    Revisions:
+	    20200303@Tim: Support "is related customers" function in Create Multiple Logs - RedmineId: #129144
+	    20200327@Tim: fix bug get member under direct account
+        20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
+    Param's Explanation:
 */
+
 BEGIN
+
 	SET NOCOUNT ON
 
 	CREATE TABLE #tblHeadlineId (CustId INT)
-	CREATE TABLE #tblUsername (Username VARCHAR(50))
+	CREATE TABLE #tblUsername (Username VARCHAR(50), IsAuthorized BIT DEFAULT 0)
 	CREATE TABLE #tblHeadline (CustId INT, GroupId INT)
 	CREATE TABLE #tblResult (
 		HeadlineId INT
@@ -42,6 +53,142 @@ BEGIN
 	INSERT INTO #tblUsername (Username)
 	SELECT DISTINCT ltrim(rtrim(tbl.val))
 	FROM dbo.f_CRM_strSplit(@Username, ',') AS tbl
+
+    ------------------------------
+    -- BEGIN - Check permission --
+
+    -- #tmpUserSitePermission
+    -- + Create temp table
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+    -- + Gen data to temp table
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    -- #tmpSite
+    -- + Create temp table
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
+    )
+    -- + Gen data to temp table
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
+    -- + Create index for temp table
+    CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    -- + Create temp table
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+    -- + Gen data to temp table
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    -- + Create index for temp table
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
+
+    -- Process to check permission
+    -- + Create temp table
+    CREATE TABLE #tmpData (
+        Username       VARCHAR(50),
+        isLicensee     INT,
+        SitePermission NVARCHAR(100)
+    )
+    -- + Get data from MainDB
+    INSERT INTO #tmpData (
+        Username,
+        isLicensee,
+        SitePermission
+    )
+    SELECT c.username,
+           s.IsLicensee,
+           sp.SitePermission
+    FROM bodb02.dbo.Customer c WITH (NOLOCK)
+         LEFT JOIN #tmpSite s ON CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                                      WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                                      ELSE c.site END = s.SiteName
+         LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
+    WHERE c.username IN (SELECT Username FROM #tblUsername)
+    -- + Get data from CRM
+    INSERT INTO #tmpData (
+        Username,
+        isLicensee,
+        SitePermission
+    )
+    SELECT c.UserName,
+           s.IsLicensee,
+           sp.SitePermission
+    FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
+         LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
+         LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
+    WHERE c.UserName IN (SELECT Username FROM #tblUsername)
+          AND c.UserName NOT IN (SELECT Username FROM #tmpData)
+
+    ;WITH CTE_Data AS (
+        SELECT c.Username
+        FROM #tmpData c
+             LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
+        WHERE (c.IsLicensee IS NULL
+               OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND
+              (c.SitePermission IS NULL
+               OR c.SitePermission = usp.SitePermission)
+    )
+    UPDATE t
+    SET t.IsAuthorized = 1
+    FROM #tblUsername t
+    WHERE t.Username IN (SELECT Username FROM CTE_Data)
+
+    DROP TABLE #tmpUserSitePermission
+    DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
+    DROP TABLE #tmpData
+
+    -- END - Check permission --
+    ----------------------------
 
 	INSERT INTO #tblResult (
 		CustId
@@ -281,12 +428,14 @@ BEGIN
 			AND groupID =60	
 	END	
 	
-	SELECT DISTINCT HeadlineId
-		,CustId
-		,Username
-		,ResultTypeId
-	FROM #tblResult WITH (NOLOCK)
-	ORDER BY Username
+	SELECT DISTINCT r.HeadlineId,
+                    r.CustId,
+                    r.Username,
+                    r.ResultTypeId,
+                    ISNULL(u.IsAuthorized, 0) IsAuthorized
+	FROM #tblResult r
+         LEFT JOIN #tblUsername u ON r.Username = u.Username
+	ORDER BY r.Username
 	
 	DROP TABLE #tblHeadlineId
 	DROP TABLE #tblHeadline
@@ -295,3 +444,4 @@ BEGIN
 	DROP TABLE #tblHeadlineETUS
 	DROP TABLE #GroupETUS
 END
+GO

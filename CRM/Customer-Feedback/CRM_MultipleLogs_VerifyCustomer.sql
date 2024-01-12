@@ -177,7 +177,6 @@ BEGIN
         Username        VARCHAR(50),
         IsHeadline      BIT,
         IsDirectAccount BIT,
-        SiteID          INT,
         Site            NVARCHAR(100)
     )
 
@@ -194,9 +193,11 @@ BEGIN
            gh.username AS Headline,
            c.custid,
            c.username,
-           CASE WHEN gh.custid = c.custid THEN 1 ELSE 0 END,
-           CASE WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END,
-           c.Site
+           CASE WHEN gh.custid = c.custid THEN 1 ELSE 0 END IsHeadline,
+           CASE WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END IsDirectAccount,
+           CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                     WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                     ELSE c.site END Site
     FROM bodb02.dbo.custAccount AS ca WITH (NOLOCK)
          INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.custid = ca.custid
          OUTER APPLY (
@@ -217,9 +218,11 @@ BEGIN
            NULL AS Headline,
            c.custid,
            c.username,
-           0,
-           CASE  WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END,
-           c.site
+           0 IsHeadline,
+           CASE  WHEN da.CustId IS NOT NULL THEN 1 ELSE 0 END IsDirectAccount,
+           CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                     WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                     ELSE c.site END Site
     FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
         LEFT JOIN #tmpDirectCustomer AS da WITH (NOLOCK) ON c.custid = da.CustId
     WHERE ISNULL(c.[site], '') <> 'CN88'
@@ -234,9 +237,10 @@ BEGIN
             WHERE c.custid = ca.custid
             )
 
-    INSERT INTO #tmpResult (CustId, Username, siteID)
-    SELECT c.CustId, c.Username, c.SiteID
-    FROM dbo.crmCustomer AS c WITH (NOLOCK)
+    INSERT INTO #tmpResult (CustId, Username, Site)
+    SELECT c.CustId, c.Username, si.SiteName
+    FROM bodb_CRM.dbo.crmCustomer AS c WITH (NOLOCK)
+         LEFT JOIN #tmpSite si ON c.SiteID = si.SiteID 
     WHERE c.CustId < 0
         AND c.SiteId <> 33002
         AND EXISTS (

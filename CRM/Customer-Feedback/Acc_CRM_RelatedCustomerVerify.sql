@@ -148,7 +148,9 @@ BEGIN
            si.IsActive       IsSiteActive,
            NULL              IsAuthorized
     FROM bodb02.dbo.Customer c WITH (NOLOCK)
-         LEFT JOIN #tmpSite si ON c.site = si.SiteName
+         LEFT JOIN #tmpSite si ON CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                                       WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                                       ELSE c.site END = si.SiteName
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
     WHERE c.username IN (SELECT UserName FROM #tmpUserName)
           AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)

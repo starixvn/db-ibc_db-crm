@@ -152,7 +152,7 @@ BEGIN
 	    AND	(ISNULL(@StatusID, 0) = 0 OR f.StatusID = @StatusID) 
 	    AND	(ISNULL(@RoleID, 0) = 0 OR f.RoleID = @RoleID) 	
 	    AND	(ISNULL(@HandledBy, '') = '' OR f.CreatorID = @HandledID) 
-	    AND	(ISNULL(@SiteID, 0) = 0 OR f.SiteID = @SiteID) 
+	    AND	(ISNULL(@SiteID, -1) = -1 OR f.SiteID = @SiteID) 
 	    AND	(ISNULL(@ResponseID, 0) = 0 OR f.ResponseID = @ResponseID) 	
 	    AND	(ISNULL(@ReviewedBy, '') = '' OR f.ReviewerID = @ReviewedID) 
 	    AND	(ISNULL(@Subject, '') = '' OR f.Subject LIKE '%' + @Subject + '%') 

@@ -205,7 +205,9 @@ BEGIN
                        s.IsLicensee,
                        sp.SitePermission
                 FROM bodb02.dbo.Customer c WITH (NOLOCK)
-                     LEFT JOIN #tmpSite s ON c.site = s.SiteName
+                     LEFT JOIN #tmpSite s ON CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                                                  WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                                                  ELSE c.site END = s.SiteName
                      LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
                 WHERE c.custid = @custID
             END

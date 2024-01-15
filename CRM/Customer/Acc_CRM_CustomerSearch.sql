@@ -8,7 +8,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 	@Username          VARCHAR(50)    = '',
 	@IsGuest           BIT            = 0,
 	@UserRole          TINYINT        = 2,
-    @LicenseeType      TINYINT        = 0,
+    @LicenseeType      INT            = 0,
     @SitePermission    NVARCHAR(MAX)  = NULL,
     @IsCheckPermission BIT            = 0,
     @ErrCode           INT            = 0  OUTPUT,
@@ -24,33 +24,37 @@ DB: DBCRM/bodb_CRM
 Original:
 
 Revisions:	
-	- 20110701@Lukas: support search by nickname
-	- 20110725@Lukas: Get skype, msn
-	- 20110825@Kevin: add nickname column
-	- 20120309@Elodie: call SP DB06.bodb02.dbo.Acc_UserInfoSel and add condition SettingName = 'Site'
-	- 20120319@Elodie: change DB06 to DB052
-	- 20130121@Johnson: change link server DB06 to DBACC
-	- 20140303@Dom: Modify for new structure
-	- 20141118@Dom: Return PIC Name
-	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
-	- 20180924@Winnie: Search Chinese RedmineID: #99982
-	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-	- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
-	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
-	- 20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
-    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
-    - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
-    - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
-    - 20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
-    - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+    20110701@Lukas: support search by nickname
+    20110725@Lukas: Get skype, msn
+    20110825@Kevin: add nickname column
+    20120309@Elodie: call SP DB06.bodb02.dbo.Acc_UserInfoSel and add condition SettingName = 'Site'
+    20120319@Elodie: change DB06 to DB052
+    20130121@Johnson: change link server DB06 to DBACC
+    20140303@Dom: Modify for new structure
+    20141118@Dom: Return PIC Name
+    20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+    20180924@Winnie: Search Chinese RedmineID: #99982
+    20190506@Winnie: CN88 Permission RedmineID: #112637
+    20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
+    20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
+    20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
+    20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+    20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
+    20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+    20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
+    20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 Param's Explanation:
-    - @LicenseeType = 0: Both
-                      1: Credit
-                      2: Licensee
-    - @SitePermission: Value depend on user's permission and maybe NULL
-    - @IsCheckPermission = 1: Check permission
-                           0: No check permission
+    @UserRole = 0: Manager 
+                1: CN88 staff
+                2: Company staff
+    @LicenseeType = -1: None
+                     0: Both
+                     1: Credit
+                     2: Licensee
+    @SitePermission: Value depend on user's permission and maybe NULL
+    @IsCheckPermission = 1: Check permission
+                         0: No check permission
 */
 
 BEGIN
@@ -190,7 +194,8 @@ BEGIN
         BEGIN
             CREATE TABLE #tmpCust_01 (
                 CustID         INT,
-                isLicensee     INT,
+                SiteOffer      INT,
+                IsLicensee     INT,
                 SitePermission NVARCHAR(100)
             )
 
@@ -198,10 +203,12 @@ BEGIN
             BEGIN
                 INSERT INTO #tmpCust_01 (
                     CustID,
-                    isLicensee,
+                    SiteOffer,
+                    IsLicensee,
                     SitePermission
                 )
                 SELECT custid,
+                       s.SiteOffer,
                        s.IsLicensee,
                        sp.SitePermission
                 FROM bodb02.dbo.Customer c WITH (NOLOCK)
@@ -216,10 +223,12 @@ BEGIN
             BEGIN
                INSERT INTO #tmpCust_01 (
                     CustID,
-                    isLicensee,
+                    SiteOffer,
+                    IsLicensee,
                     SitePermission
                 )
                 SELECT custid,
+                       s.SiteOffer,
                        s.IsLicensee,
                        sp.SitePermission
                 FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
@@ -232,15 +241,12 @@ BEGIN
                               SELECT TOP 1 1
                               FROM #tmpCust_01 c
                                    LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
-                              WHERE (
-                                        c.IsLicensee IS NULL
-                                        OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
-                                    )
-                                    AND
-                                    (
-                                        c.SitePermission IS NULL
-                                        OR c.SitePermission = usp.SitePermission
-                                    )
+                              WHERE (c.SiteOffer = 2 OR c.SiteOffer IS NULL)
+                                    AND @LicenseeType <> -1
+                                    AND (c.IsLicensee IS NULL
+                                         OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                                    AND ((c.SitePermission IS NULL AND ISNULL(c.IsLicensee, 1) = 1)
+                                         OR c.SitePermission = usp.SitePermission)
                           )
             BEGIN
                 SET @ErrCode = 101
@@ -538,16 +544,19 @@ BEGIN
         BEGIN
             CREATE TABLE #tmpCust_02 (
                 CustID         INT,
-                isLicensee     INT,
+                SiteOffer      INT,
+                IsLicensee     INT,
                 SitePermission NVARCHAR(100)
             )
 
             INSERT INTO #tmpCust_02 (
                 CustID,
-                isLicensee,
+                SiteOffer,
+                IsLicensee,
                 SitePermission
             )
             SELECT custid,
+                   s.SiteOffer,
                    s.IsLicensee,
                    sp.SitePermission
             FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
@@ -559,15 +568,12 @@ BEGIN
                               SELECT TOP 1 1
                               FROM #tmpCust_02 c
                                    LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
-                              WHERE (
-                                        c.IsLicensee IS NULL
-                                        OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
-                                    )
-                                    AND
-                                    (
-                                        c.SitePermission IS NULL
-                                        OR c.SitePermission = usp.SitePermission
-                                    )
+                              WHERE (c.SiteOffer = 2 OR c.SiteOffer IS NULL)
+                                    AND @LicenseeType <> -1
+                                    AND (c.IsLicensee IS NULL
+                                         OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                                    AND ((c.SitePermission IS NULL AND ISNULL(c.IsLicensee, 1) = 1)
+                                         OR c.SitePermission = usp.SitePermission)
                           )
             BEGIN
                 SET @ErrCode = 101

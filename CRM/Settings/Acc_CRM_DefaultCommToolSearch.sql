@@ -8,7 +8,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_DefaultCommToolSearch @Username       NVARCHAR(MAX) 
                                                   @SubCategory    NVARCHAR(MAX) = NULL,
                                                   @IsDisableCat   BIT           = 1,
                                                   @UserRole       TINYINT       = 2,
-                                                  @LicenseeType   TINYINT       = 0,
+                                                  @LicenseeType   INT           = 0,
                                                   @SitePermission NVARCHAR(MAX) = NULL,
                                                   @PageSize       INT           = 0,
                                                   @PageIndex      INT           = 0,
@@ -25,6 +25,16 @@ AS
 	Revisions:
 		- 20191017@Winnie:	Select Communication RedmineID: #122087
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
+	Param's Explanation:
+        - @UserRole = 0: Manager 
+                      1: CN88 staff
+                      2: Company staff
+        - @LicenseeType = -1: None
+                           0: Both
+                           1: Credit
+                           2: Licensee
+        - @SitePermission: Value depend on user's permission and maybe NULL
 	
 */
 
@@ -210,9 +220,10 @@ BEGIN
 						, '') =@SubCategory		
 		))
         AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+        AND @LicenseeType <> -1
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (sp.SitePermission IS NULL
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
              OR sp.SitePermission = usp.SitePermission)
 	UNION ALL
 	SELECT DISTINCT
@@ -287,9 +298,10 @@ BEGIN
 						, '') =@SubCategory		
 		))
         AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+        AND @LicenseeType <> -1
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (sp.SitePermission IS NULL
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
              OR sp.SitePermission = usp.SitePermission)
 
 

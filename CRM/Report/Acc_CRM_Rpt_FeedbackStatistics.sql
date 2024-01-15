@@ -9,7 +9,7 @@ ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatistics @Type           INT,
                                                    @FromDuration   VARCHAR(100),
                                                    @ToDuration     VARCHAR(100),
                                                    @UserRole       TINYINT       = 2,
-                                                   @LicenseeType   TINYINT       = 0,
+                                                   @LicenseeType   INT           = 0,
                                                    @SitePermission NVARCHAR(MAX) = NULL
 AS
 
@@ -44,9 +44,13 @@ Param's Explanation:
 			- 8		By Category
 			- 9		Licensees
 			- 10	Communication
-    @LicenseeType = 0: Both
-                    1: Credit
-                    2: Licensee
+    @UserRole = 0: Manager 
+                1: CN88 staff
+                2: Company staff
+    @LicenseeType = -1: None
+                     0: Both
+                     1: Credit
+                     2: Licensee
     @SitePermission: Value depend on user's permission and maybe NULL
 */
 
@@ -163,9 +167,10 @@ BEGIN
           AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
           AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
           AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+          AND @LicenseeType <> -1
           AND (si.IsLicensee IS NULL
                OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-          AND (sp.SitePermission IS NULL
+          AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                OR sp.SitePermission = usp.SitePermission)
 
     DECLARE @FeedbackIDList VARCHAR(MAX)

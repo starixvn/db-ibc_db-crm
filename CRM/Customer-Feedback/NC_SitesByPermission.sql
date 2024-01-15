@@ -17,8 +17,9 @@ AS
         20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
-        @UserRole = 1: CN88
-                    2: The rest
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
         @LicenseeType = -1: None
                          0: Both
                          1: Credit
@@ -124,11 +125,11 @@ BEGIN
          LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
     WHERE si.SiteOffer = @UserRole
           AND @LicenseeType <> -1
-          AND si.IsLicensee = CASE WHEN 1 = 0 THEN si.IsLicensee WHEN 1 = 1 THEN 0 ELSE 1 END
-          AND (ISNULL(sp.SitePermission, '') = CASE WHEN 2 = 1 THEN ISNULL(sp.SitePermission, '')
-                                                    WHEN 1 = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                    WHEN 1 = 1 THEN usp.SitePermission
-                                                    WHEN 1 = 2 THEN ISNULL(sp.SitePermission, '') END)
+          AND si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+          AND (ISNULL(sp.SitePermission, '') = CASE WHEN @UserRole = 1     THEN ISNULL(sp.SitePermission, '')
+                                                    WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                    WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
 
     -- Return data
     IF EXISTS (SELECT 1 FROM #tmpListSiteName)

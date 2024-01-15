@@ -3,12 +3,10 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackSelTop] (
-					@top            INT           = 10,
-					@UserRole       TINYINT       = 2,
-                    @LicenseeType   TINYINT       = 0,
-                    @SitePermission NVARCHAR(MAX) = NULL
-				)
+ALTER PROCEDURE dbo.Acc_CRM_FeedbackSelTop @top            INT           = 10,
+                                           @UserRole       TINYINT       = 2,
+                                           @LicenseeType   INT           = 0,
+                                           @SitePermission NVARCHAR(MAX) = NULL
 AS
 
 /*
@@ -16,7 +14,6 @@ AS
 	Date:		20110722
 	Task :		get top 10 feedback info
 	DB:			DB06.bodb_CRM
-	Original:
 
 	Revisions:
 		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
@@ -27,9 +24,13 @@ AS
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 	Param's Explanation:
-        - @LicenseeType = 0: Both
-                          1: Credit
-                          2: Licensee
+        - @UserRole = 0: Manager 
+                      1: CN88 staff
+                      2: Company staff
+        - @LicenseeType = -1: None
+                           0: Both
+                           1: Credit
+                           2: Licensee
         - @SitePermission: Value depend on user's permission and maybe NULL
 */
 
@@ -120,9 +121,10 @@ BEGIN
 	WHERE fb.StatusID NOT IN( 11004,11019)
 		AND	fbc.IsRelated = 0	
 		AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+        AND @LicenseeType <> -1
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (sp.SitePermission IS NULL
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
              OR sp.SitePermission = usp.SitePermission)
 	ORDER BY fb.FeedbackDate DESC
 
@@ -230,8 +232,5 @@ BEGIN
     DROP TABLE #tmpSite
     DROP TABLE #tmpSitePermission
     DROP TABLE #tmpFeedbackIDList
-END;
-GO
-
-GRANT EXECUTE ON dbo.Acc_CRM_FeedbackSelTop TO bodbAdminNet;
+END
 GO

@@ -21,7 +21,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_ManageFeedbackList] (
 				,	@ItemsPerPage		INT				= 2
 				,	@HandledBy			VARCHAR(30)	    = ''
 				,	@UserRole			TINYINT         = 2
-                ,   @LicenseeType       TINYINT         = 0
+                ,   @LicenseeType       INT             = 0
                 ,   @SitePermission NVARCHAR(MAX)       = NULL
 				)
 AS
@@ -57,9 +57,13 @@ AS
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
-        - @LicenseeType = 0: Both
-                          1: Credit
-                          2: Licensee
+        - @UserRole = 0: Manager 
+                      1: CN88 staff
+                      2: Company staff
+        - @LicenseeType = -1: None
+                           0: Both
+                           1: Credit
+                           2: Licensee
         - @SitePermission: Value depend on user's permission and maybe NULL
 */
 
@@ -229,9 +233,10 @@ BEGIN
 			OUTER APPLY fb.Description2.nodes(N'//row') AS A(nr)
 		WHERE	fb.FeedbackID = @FeedbackID
 		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+                AND @LicenseeType <> -1
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (sp.SitePermission IS NULL
+                AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                      OR sp.SitePermission = usp.SitePermission)
 		ORDER BY FeedbackDate DESC, FeedbackID DESC
         
@@ -318,9 +323,10 @@ BEGIN
 			AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 			AND	(@ResponseID IS NULL OR ResponseID = @ResponseID) 
 		    AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+            AND @LicenseeType <> -1
             AND (si.IsLicensee IS NULL
                  OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-            AND (sp.SitePermission IS NULL
+            AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                  OR sp.SitePermission = usp.SitePermission)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC;
 		
@@ -365,9 +371,10 @@ BEGIN
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+                AND @LicenseeType <> -1
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (sp.SitePermission IS NULL
+                AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                      OR sp.SitePermission = usp.SitePermission)
 		ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC				
 		OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
@@ -411,9 +418,10 @@ BEGIN
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+                AND @LicenseeType <> -1
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (sp.SitePermission IS NULL
+                AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                      OR sp.SitePermission = usp.SitePermission)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )
@@ -455,9 +463,10 @@ BEGIN
 				AND	(ISNULL(@Reviewer, '') = '' OR fb.ReviewerID = @ReviewerID)
 				AND	(@ResponseID IS NULL OR fb.ResponseID = @ResponseID) 
 		        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+                AND @LicenseeType <> -1
                 AND (si.IsLicensee IS NULL
                      OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-                AND (sp.SitePermission IS NULL
+                AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                      OR sp.SitePermission = usp.SitePermission)
 			ORDER BY fb.FeedbackDate DESC,fb.FeedbackID DESC
 			OPTION (OPTIMIZE  FOR (@FromDate = '2017-10-31 12:00:00', @ToDate = '2018-10-31 11:59:59') )	

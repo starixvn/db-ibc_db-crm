@@ -14,7 +14,7 @@ ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
 	@ShowHeadline	BIT            = 0,
 	@Lang			VARCHAR(10)    ='en-US'  ,
     @UserRole       TINYINT        = 2,
-    @LicenseeType   TINYINT        = 0,
+    @LicenseeType   INT            = 0,
     @SitePermission NVARCHAR(MAX)  = NULL,
 	@PageSize		INT            = 50,
 	@PageIndex		INT            = 0,
@@ -22,25 +22,28 @@ ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
 AS
 
 /*
-Created: Winfred
-Date: 20220315
-Task : Get remarks for main tab
-DB: DBCRM.bodb_CRM
-Original:
+    Created: Winfred
+    Date: 20220315
+    Task : Get remarks for main tab
+    DB: DBCRM.bodb_CRM
 
-Revisions:	
-	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
-	- 20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
-    - 20231003@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
-    - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+    Revisions:	
+        20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
+        20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
+        20231003@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
-Param's Explanation:
-	@RemarkTitle : All ID RemarkTitle
-	@IsHistory   0 : Search Remark , 1 : List History
-    @LicenseeType = 0: Both
-                    1: Credit
-                    2: Licensee
-    @SitePermission: Value depend on user's permission and maybe NULL
+    Param's Explanation:
+	    @RemarkTitle : All ID RemarkTitle
+	    @IsHistory   0 : Search Remark , 1 : List History
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
+        @SitePermission: Value depend on user's permission and maybe NULL
 */
 BEGIN
 	SET NOCOUNT ON
@@ -190,9 +193,10 @@ BEGIN
 								WHERE  S.VALUE <> ''))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
     AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+    AND @LicenseeType <> -1
     AND (si.IsLicensee IS NULL
          OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-    AND (sp.SitePermission IS NULL
+    AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
          OR sp.SitePermission = usp.SitePermission)
     
     INSERT INTO #Customer(CustID, Username)
@@ -252,9 +256,10 @@ BEGIN
 		AND a.CustID IN (SELECT HeadlineID FROM #CustHeadline)
 		AND a.RemarkID NOT IN (SELECT RemarkID FROM #Result)
         AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+        AND @LicenseeType <> -1
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (sp.SitePermission IS NULL
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
              OR sp.SitePermission = usp.SitePermission)
 	END
 	

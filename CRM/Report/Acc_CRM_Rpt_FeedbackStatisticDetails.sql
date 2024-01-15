@@ -12,7 +12,7 @@ ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticDetails @Type           INT,
                                                          @FromDuration   VARCHAR(100),
                                                          @ToDuration     VARCHAR(100),
                                                          @UserRole       TINYINT       = 2,
-                                                         @LicenseeType   TINYINT       = 0,
+                                                         @LicenseeType   INT           = 0,
                                                          @SitePermission NVARCHAR(MAX) = NULL
 AS
 
@@ -43,9 +43,13 @@ AS
 				- 8		Category
 				- 9		Licensee
 				- 10	Communication
-        @LicenseeType = 0: Both
-                        1: Credit
-                        2: Licensee
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
         @SitePermission: Value depend on user's permission and maybe NULL
 */
 
@@ -815,6 +819,7 @@ BEGIN
              LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
              LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
         WHERE (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
               AND
               (
                   si.IsLicensee IS NULL
@@ -822,7 +827,7 @@ BEGIN
               )
               AND
               (
-                  sp.SitePermission IS NULL
+                  (sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
                   OR sp.SitePermission = usp.SitePermission
               )
     )

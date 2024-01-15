@@ -14,7 +14,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 	@MainCategoryID		VARCHAR(500), 
 	@CommunicationID	VARCHAR(500),
     @UserRole           TINYINT       = 2,
-    @LicenseeType       TINYINT       = 0,
+    @LicenseeType       INT           = 0,
     @SitePermission     NVARCHAR(MAX) = NULL
 )
 AS
@@ -42,11 +42,14 @@ AS
 		@SiteType: 	0: IBC
 					1: Licensee
 
-        @UserRole: This input parameter just use as a no-meaning parameter and need it because of the permission control
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
 
-        @LicenseeType = 0: Both
-                        1: Credit
-                        2: Licensee
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
 
         @SitePermission: Value depend on user's permission and maybe NULL
 
@@ -139,7 +142,9 @@ BEGIN
 		LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
         LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
-	WHERE (
+	WHERE @LicenseeType <> -1
+          AND
+          (
               (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
                                                           OR ISNULL(fb.SiteID,0) = 0
                                                           OR ISNULL(s.SiteID, 0) = 0))
@@ -156,7 +161,7 @@ BEGIN
           )
           AND
           (
-              sp.SitePermission IS NULL
+              (sp.SitePermission IS NULL AND ISNULL(s.IsLicensee, 1) = 1)
               OR sp.SitePermission = usp.SitePermission
           )
           AND

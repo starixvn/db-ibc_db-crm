@@ -5,7 +5,7 @@ GO
 
 ALTER PROCEDURE dbo.Acc_CRM_RelatedCustomerVerify @UserName       NVARCHAR(MAX)  = '',
                                                   @UserRole       TINYINT        = 2,
-                                                  @LicenseeType   TINYINT        = 0,
+                                                  @LicenseeType   INT            = 0,
                                                   @SitePermission NVARCHAR(MAX)  = NULL
 AS
 
@@ -30,11 +30,14 @@ AS
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
-        - @LicenseeType = 0: Both
-                          1: Credit
-                          2: Licensee
+        - @UserRole = 0: Manager 
+                      1: CN88 staff
+                      2: Company staff
+        - @LicenseeType = -1: None
+                           0: Both
+                           1: Credit
+                           2: Licensee
         - @SitePermission: Value depend on user's permission and maybe NULL
-
 */
 
 BEGIN
@@ -199,16 +202,11 @@ BEGIN
     FROM #tmpCustomer c
          LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
     WHERE c.CustID <> 0
-          AND
-          (
-              c.IsLicensee IS NULL
-              OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
-          )
-          AND
-          (
-              c.SitePermission IS NULL
-              OR c.SitePermission = usp.SitePermission
-          )
+          AND @LicenseeType <> -1
+          AND (c.IsLicensee IS NULL
+               OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+          AND ((c.SitePermission IS NULL AND ISNULL(c.IsLicensee, 1) = 1)
+               OR c.SitePermission = usp.SitePermission)
     -- + --> IsAuthorized=0
     UPDATE c
     SET c.IsAuthorized = 0

@@ -6,7 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_CRM_CustomerRemarkNewCheck @Username       NVARCHAR(50)  = NULL,
                                                    @IsGuest        BIT           = 0,
                                                    @UserRole       TINYINT       = 2,
-                                                   @LicenseeType   TINYINT       = 0,
+                                                   @LicenseeType   INT           = 0,
                                                    @SitePermission NVARCHAR(MAX) = NULL
 AS
 
@@ -22,12 +22,13 @@ AS
     Parameter's Explanation:
         @username: the search term.
         @IsGuest: search by real customer or guest
-        @UserRole = 0 : Manager 
-                    1 : CN88 staff
-                    2 : Company staff
-        @LicenseeType = 0: Both
-                        1: Credit
-                        2: Licensee
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
         @SitePermission: Value depend on user's permission and maybe NULL
 */
 
@@ -211,16 +212,11 @@ BEGIN
     FROM #tmpCustomer c
          LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
     WHERE c.CustID <> 0
-          AND
-          (
-              c.IsCredit IS NULL
-              OR c.IsCredit = CASE WHEN @LicenseeType = 0 THEN c.IsCredit WHEN @LicenseeType = 1 THEN 1 ELSE 0 END
-          )
-          AND
-          (
-              c.SitePermission IS NULL
-              OR c.SitePermission = usp.SitePermission
-          )
+          AND @LicenseeType <> -1
+          AND (c.IsCredit IS NULL
+               OR c.IsCredit = CASE WHEN @LicenseeType = 0 THEN c.IsCredit WHEN @LicenseeType = 1 THEN 1 ELSE 0 END)
+          AND ((c.SitePermission IS NULL AND ISNULL(c.IsCredit, 0) = 0)
+               OR c.SitePermission = usp.SitePermission)
     -- + --> IsAuthorized=0
     UPDATE c
     SET c.IsAuthorized = 0

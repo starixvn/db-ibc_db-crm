@@ -7,7 +7,7 @@ ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticsSummary @Year           INT,
                                                           @SiteType       TINYINT       = 0,
                                                           @TimeSpan       INT,
                                                           @UserRole       TINYINT       = 2,
-                                                          @LicenseeType   TINYINT       = 0,
+                                                          @LicenseeType   INT           = 0,
                                                           @SitePermission NVARCHAR(MAX) = NULL
 AS
 
@@ -29,10 +29,14 @@ Param's Explanation:
 	@SiteType:	0-All,
 				1-IBC,
 				2-Licensee
-    @LicenseeType = 0: Both
-                    1: Credit
-                    2: Licensee
-    @SiteLabel: Value depend on user's permission and maybe NULL
+    @UserRole = 0: Manager 
+                1: CN88 staff
+                2: Company staff
+    @LicenseeType = -1: None
+                     0: Both
+                     1: Credit
+                     2: Licensee
+    @SitePermission: Value depend on user's permission and maybe NULL
 */
 
 BEGIN
@@ -83,9 +87,10 @@ BEGIN
 	WHERE f.StatusID NOT IN( 11004,11019)
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1)   OR (@SiteType=3 and IsLicensee IS NULL))
+        AND @LicenseeType <> -1
         AND (si.IsLicensee IS NULL
              OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-        AND (sp.SitePermission IS NULL
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
              OR sp.SitePermission = usp.SitePermission)
 	GROUP BY MONTH( DATEADD(hour,-@TimeSpan,f.FeedbackDate) ),
 			LEFT( DATENAME(mm,DATEADD(hour,-@TimeSpan,f.FeedbackDate)),3 ),

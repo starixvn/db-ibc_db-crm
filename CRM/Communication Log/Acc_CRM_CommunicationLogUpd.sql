@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 					@FeedbackID				INT
 				,	@CustID					INT
@@ -129,9 +133,12 @@ BEGIN
 									isExistsCRM BIT DEFAULT(0), 
 									isFinished BIT DEFAULT(0));
 
-	INSERT INTO @relatedCustomer(CustID)
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+    IF (ISNULL(@RelatedCustID, '') <> '')
+    BEGIN
+        INSERT INTO @relatedCustomer(CustID)
+        SELECT CONVERT(INT, val)
+        FROM dbo.f_CRM_strSplit(@RelatedCustID, ',')
+    END
 
 	DECLARE	@CustID_Old					INT
 		,	@RelatedCustID_Old			VARCHAR(MAX)

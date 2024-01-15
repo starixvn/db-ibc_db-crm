@@ -4,7 +4,7 @@ USE bodb_CRM
 GO
 
 ALTER PROCEDURE dbo.Acc_CRM_SiteSel @UserRole       TINYINT       = 2,
-                                    @LicenseeType   TINYINT       = 0,
+                                    @LicenseeType   INT           = 0,
                                     @SitePermission NVARCHAR(MAX) = NULL,
                                     @Lang           VARCHAR(10)   ='en-US'
 AS
@@ -24,18 +24,21 @@ AS
         20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
     Param's Explanation:
-         @LicenseeType = 0: Both
+        @UserRole = 1: CN88
+                    2: The rest
+        @LicenseeType = -1: None
+                         0: Both
                          1: Credit
                          2: Licensee
-         @Lang = en-US
-                 zh-TW
-                 zh-CN
         @SitePermission: Value depend on user's permission and maybe NULL
+        @Lang = en-US
+                zh-TW
+                zh-CN
 
     Example:
-        EXEC bodb_CRM.dbo.Acc_CRM_SiteSel @LicenseeType   = 1,
+        EXEC bodb_CRM.dbo.Acc_CRM_SiteSel @UserRole       = 2,
+                                          @LicenseeType   = 1,
                                           @SitePermission = '789y,MBC',
-                                          @UserRole       = 2,
                                           @Lang           = 'en-US'
 */
 
@@ -133,12 +136,13 @@ BEGIN
     FROM #tmpSite si
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
          LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
-    WHERE si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
-          AND (ISNULL(sp.SitePermission, '') = CASE WHEN @UserRole = 1     THEN ISNULL(sp.SitePermission, '')
-                                                    WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                    WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
-          AND si.SiteOffer = @UserRole
+    WHERE si.SiteOffer = @UserRole
+          AND @LicenseeType <> -1
+          AND si.IsLicensee = CASE WHEN 1 = 0 THEN si.IsLicensee WHEN 1 = 1 THEN 0 ELSE 1 END
+          AND (ISNULL(sp.SitePermission, '') = CASE WHEN 2 = 1 THEN ISNULL(sp.SitePermission, '')
+                                                    WHEN 1 = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                    WHEN 1 = 1 THEN usp.SitePermission
+                                                    WHEN 1 = 2 THEN ISNULL(sp.SitePermission, '') END)
     ORDER BY si.IsActive DESC,
              si.IsLicensee,
              si.SiteName

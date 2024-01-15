@@ -3,9 +3,9 @@
 USE bodb_CRM
 GO
 
-CREATE PROCEDURE dbo.NC_SitesByPermission @UserRole       TINYINT       = 2,
-                                          @LicenseeType   TINYINT       = 0,
-                                          @SitePermission NVARCHAR(MAX) = NULL
+ALTER PROCEDURE dbo.NC_SitesByPermission @UserRole       TINYINT       = 2,
+                                         @LicenseeType   INT           = 0,
+                                         @SitePermission NVARCHAR(MAX) = NULL
 AS
 
 /*
@@ -19,9 +19,10 @@ AS
     Param's Explanation:
         @UserRole = 1: CN88
                     2: The rest
-        @LicenseeType = 0: Both
-                        1: Credit
-                        2: Licensee
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
         @SitePermission: Value depend on user's permission and maybe NULL
 
     Example:
@@ -112,18 +113,32 @@ BEGIN
     -----------------
     -- Return data --
 
-    SELECT STRING_AGG(CAST(si.SiteName AS NVARCHAR(MAX)), ',') ListSiteName
+    -- Create temp table
+    CREATE TABLE #tmpListSiteName (SiteName NVARCHAR(100))
+
+    -- Gen data to temp table
+    INSERT INTO #tmpListSiteName (SiteName)
+    SELECT si.SiteName
     FROM #tmpSite si
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
          LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
     WHERE si.SiteOffer = @UserRole
-          AND si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee
-                               WHEN @LicenseeType = 1 THEN 0
-                               ELSE 1 END
-          AND (ISNULL(sp.SitePermission, '') = CASE WHEN @UserRole = 1     THEN ISNULL(sp.SitePermission, '')
-                                                    WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
-                                                    WHEN @LicenseeType = 1 THEN usp.SitePermission
-                                                    WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+          AND @LicenseeType <> -1
+          AND si.IsLicensee = CASE WHEN 1 = 0 THEN si.IsLicensee WHEN 1 = 1 THEN 0 ELSE 1 END
+          AND (ISNULL(sp.SitePermission, '') = CASE WHEN 2 = 1 THEN ISNULL(sp.SitePermission, '')
+                                                    WHEN 1 = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                    WHEN 1 = 1 THEN usp.SitePermission
+                                                    WHEN 1 = 2 THEN ISNULL(sp.SitePermission, '') END)
+
+    -- Return data
+    IF EXISTS (SELECT 1 FROM #tmpListSiteName)
+    BEGIN
+        SELECT STRING_AGG(CAST(SiteName AS NVARCHAR(MAX)), ',') ListSiteName FROM #tmpListSiteName
+    END
+    ELSE
+    BEGIN
+        SELECT SiteName FROM #tmpListSiteName
+    END
 
 
     ---------------

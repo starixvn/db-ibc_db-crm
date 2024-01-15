@@ -51,7 +51,9 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20201102@Johnson: - remove limit amount for related customers
 							- sync customer profile to CRM for related customers [redmine:#142194]
-		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
+		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
 	Param's Explanation:
 */
 BEGIN

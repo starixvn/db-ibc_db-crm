@@ -25,7 +25,7 @@ ALTER TABLE dbo.VoidingHistoryCollectionDetail ADD VoidBy NVARCHAR(200)
 GO
 ALTER TABLE dbo.VoidingHistoryCollectionDetail ADD MatchId INT
 GO
-ALTER TABLE dbo.VoidingHistoryCollectionDetail ADD TrasnIdList VARCHAR(MAX)
+ALTER TABLE dbo.VoidingHistoryCollectionDetail ADD TransIdList VARCHAR(MAX)
 GO
 ALTER TABLE dbo.VoidingHistoryCollectionDetail ADD UsernameList NVARCHAR(MAX)
 GO

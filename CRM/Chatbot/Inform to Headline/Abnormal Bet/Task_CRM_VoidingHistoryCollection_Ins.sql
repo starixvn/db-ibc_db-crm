@@ -434,7 +434,7 @@ BEGIN
         Using_DecidedBy            NVARCHAR(200),
         Using_VoIdBy               NVARCHAR(200),
         Using_MatchId              INT,
-        Using_TrasnIdList          VARCHAR(MAX),
+        Using_TransIdList          VARCHAR(MAX),
         Using_ReasonList           NVARCHAR(MAX),
         Using_FilterBy             TINYINT
     )
@@ -448,7 +448,7 @@ BEGIN
         GROUP BY rd.RequestId, rd.MatchId, rd.FilterBy
     ),
     CTE_VoidTransaction AS (
-        SELECT vt.VoidingHistoryId, vt.MessageId, STRING_AGG(CAST(vt.TransId AS VARCHAR(MAX)), ',') TrasnIdList
+        SELECT vt.VoidingHistoryId, vt.MessageId, STRING_AGG(CAST(vt.TransId AS VARCHAR(MAX)), ',') TransIdList
         FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK)
         GROUP BY vt.VoidingHistoryId, vt.MessageId
     )
@@ -468,7 +468,7 @@ BEGIN
         Using_DecidedBy,
         Using_VoIdBy,
         Using_MatchId,
-        Using_TrasnIdList,
+        Using_TransIdList,
         Using_ReasonList,
         Using_FilterBy
     )
@@ -487,7 +487,7 @@ BEGIN
            rq.DecidedBy          Using_DecidedBy,
            vh.VoIdBy             Using_VoIdBy,
            rd.MatchId            Using_MatchId,
-           TrasnIdList           Using_TrasnIdList,
+           TransIdList           Using_TransIdList,
            rd.ReasonList         Using_ReasonList,
            rd.FilterBy           Using_FilterBy
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
@@ -521,7 +521,7 @@ BEGIN
         Using_DecidedBy            NVARCHAR(200),
         Using_VoIdBy               NVARCHAR(200),
         Using_MatchId              INT,
-        Using_TrasnIdList          VARCHAR(MAX),
+        Using_TransIdList          VARCHAR(MAX),
         Using_UsernameList         NVARCHAR(MAX),
         Using_ReasonList           NVARCHAR(MAX),
         Using_OriginalTransId      VARCHAR(MAX),
@@ -548,7 +548,7 @@ BEGIN
         Using_DecidedBy,
         Using_VoIdBy,
         Using_MatchId,
-        Using_TrasnIdList,
+        Using_TransIdList,
         Using_UsernameList,
         Using_ReasonList,
         Using_OriginalTransId,
@@ -572,7 +572,7 @@ BEGIN
            Using_DecidedBy,
            Using_VoIdBy,
            NULL Using_MatchId,
-           NULL Using_TrasnIdList,
+           NULL Using_TransIdList,
            Using_UsernameList,
            NULL Using_ReasonList,
            NULL Using_OriginalTransId,
@@ -598,7 +598,7 @@ BEGIN
         Using_DecidedBy,
         Using_VoIdBy,
         Using_MatchId,
-        Using_TrasnIdList,
+        Using_TransIdList,
         Using_UsernameList,
         Using_ReasonList,
         Using_OriginalTransId,
@@ -622,7 +622,7 @@ BEGIN
            Using_DecidedBy,
            Using_VoIdBy,
            NULL Using_MatchId,
-           NULL Using_TrasnIdList,
+           NULL Using_TransIdList,
            NULL Using_UsernameList,
            NULL Using_ReasonList,
            Using_OriginalTransId,
@@ -648,7 +648,7 @@ BEGIN
         Using_DecidedBy,
         Using_VoIdBy,
         Using_MatchId,
-        Using_TrasnIdList,
+        Using_TransIdList,
         Using_UsernameList,
         Using_ReasonList,
         Using_OriginalTransId,
@@ -672,7 +672,7 @@ BEGIN
            Using_DecidedBy,
            Using_VoIdBy,
            Using_MatchId,
-           Using_TrasnIdList,
+           Using_TransIdList,
            NULL Using_UsernameList,
            Using_ReasonList,
            NULL Using_OriginalTransId,
@@ -746,7 +746,7 @@ BEGIN
             DecidedBy,
             VoidBy,
             MatchId,
-            TrasnIdList,
+            TransIdList,
             UsernameList,
             ReasonList,
             OriginalTransId,
@@ -764,7 +764,7 @@ BEGIN
                fi.Using_DecidedBy          DecidedBy,
                fi.Using_VoidBy             VoidBy,
                fi.Using_MatchId            MatchId,
-               fi.Using_TrasnIdList        TrasnIdList,
+               fi.Using_TransIdList        TransIdList,
                fi.Using_UsernameList       UsernameList,
                fi.Using_ReasonList         ReasonList,
                fi.Using_OriginalTransId    OriginalTransId,

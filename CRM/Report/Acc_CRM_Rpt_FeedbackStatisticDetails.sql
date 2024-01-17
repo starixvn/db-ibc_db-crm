@@ -634,6 +634,7 @@ BEGIN
 						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
 						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
 						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID	
+                        LEFT JOIN crmSite si WITH(NOLOCK) ON fb.SiteID = si.SiteID
 				WHERE					
 					fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
 					AND
@@ -647,6 +648,7 @@ BEGIN
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
 					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
+                    AND (si.IsLicensee=1 OR ISNULL(fb.SiteID, 0) = 0)
 
 	END;
 	ELSE IF @Type = 10 AND @ValueID<>-1   --- communication

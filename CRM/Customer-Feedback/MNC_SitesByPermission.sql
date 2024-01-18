@@ -3,9 +3,9 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.NC_SitesByPermission @UserRole       TINYINT       = 2,
-                                         @LicenseeType   INT           = 0,
-                                         @SitePermission NVARCHAR(MAX) = NULL
+ALTER PROCEDURE dbo.MNC_SitesByPermission @UserRole       TINYINT       = 2,
+                                          @LicenseeType   INT           = 0,
+                                          @SitePermission NVARCHAR(MAX) = NULL
 AS
 
 /*
@@ -27,9 +27,9 @@ AS
         @SitePermission: Value depend on user's permission and maybe NULL
 
     Example:
-        EXEC bodb_CRM.dbo.NC_SitesByPermission @UserRole       = 2,
-                                               @LicenseeType   = 1,
-                                               @SitePermission = '789y,MBC'
+        EXEC bodb_CRM.dbo.MNC_SitesByPermission @UserRole       = 2,
+                                                @LicenseeType   = 1,
+                                                @SitePermission = '789y,MBC'
 */
 
 BEGIN

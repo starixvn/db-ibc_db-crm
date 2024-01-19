@@ -1,31 +1,118 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE	dbo.Acc_CRM_FeedbackSelTopByCustId(
-					@CustID		INT
-				,	@top		INT		= 10
-				,	@UserRole   TINYINT
-				)	
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE dbo.Acc_CRM_FeedbackSelTopByCustId @CustID         INT,
+                                                   @top            INT           = 10,
+                                                   @UserRole       TINYINT       = 2,
+                                                   @LicenseeType   INT           = 0,
+                                                   @SitePermission NVARCHAR(MAX) = NULL
 AS
+
 /*
 	Created:	Kevin
 	Date:		20110624
 	Task :		get top 10 feedback info by custid
 	DB:			DB06.bodb_CRM
-	Original:
 
 	Revisions:
-		- 20110629@Lukas:	support get multipe related customer
-	    - 20110722@Kevin:	add @top param
-		- 20160308@Billy:	Integrate Sub-Product field - [Redmine: #52998]
-		- 20180117@Winnie:	Add Is Related Customer - [Redmine: #88774]
-		- 20180323@Winnie:	CRM - display wrong review information. - [Redmine: #92586]
-		- 20171225@Winnie:  Change for support multiple product/categories. [RedmineID: #84714]
-		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
-		- 2020816@Winfred:  CRM - enhance code to avoid timeout issue RedmineID: #112637
+        - 20110629@Lukas:  support get multipe related customer
+        - 20110722@Kevin:  add @top param
+        - 20160308@Billy:  Integrate Sub-Product field - [Redmine: #52998]
+        - 20180117@Winnie: Add Is Related Customer - [Redmine: #88774]
+        - 20180323@Winnie: CRM - display wrong review information. - [Redmine: #92586]
+        - 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+        - 20190506@Winnie: CN88 Permission RedmineID: #112637
+        - 2020816@Winfred: CRM - enhance code to avoid timeout issue RedmineID: #112637
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
 	Param's Explanation:
-	exec Acc_CRM_FeedbackSelTopByCustId @CustID=19984856,@top=10
+        - @UserRole = 0: Manager 
+                      1: CN88 staff
+                      2: Company staff
+        - @LicenseeType = -1: None
+                           0: Both
+                           1: Credit
+                           2: Licensee
+        - @SitePermission: Value depend on user's permission and maybe NULL
 */
-BEGIN		
-SET NOCOUNT ON;	
+
+BEGIN
+
+    SET NOCOUNT ON
+
+    -- #tmpUserSitePermission
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    -- #tmpSite
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
+    )
+
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
+
+    CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
+
+    -- #tempFeedback
 	DECLARE @i INT = 65000
 	CREATE TABLE #tempFeedback (FeedbackID	INT, 
 								CustID	INT, 
@@ -140,12 +227,22 @@ SET NOCOUNT ON;
 	LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK)
 			ON	fb.ReviewerID = rv.custid
 	CROSS APPLY	dbo.f_GetRelatedCustomer(fb.FeedbackID) l
+    LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+    LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+    LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 	WHERE	fbc.CustID = @CustID
 		AND	fb.StatusID <> 11004
 		AND	fb.StatusID <> 11019
 		AND ((@UserRole=1 AND ctm.SiteID=33002) OR (@UserRole=2 AND ctm.SiteID<>33002))
+        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+        AND @LicenseeType <> -1
+        AND (si.IsLicensee IS NULL
+             OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+             OR sp.SitePermission = usp.SitePermission)
 	ORDER BY FeedbackDate DESC
-	
+
+    -- Return data	
 	SELECT
 		t.FeedbackID
 		,	t.CustID
@@ -206,5 +303,12 @@ SET NOCOUNT ON;
 			ON fs.SettingID=p.SettingID AND p.SettingName='Product'
 		LEFT JOIN crmSetting c
 			ON fs.SettingID=c.SettingID AND c.SettingName='Communication'
+
+    -- Drop temp tables
+    DROP TABLE #tmpUserSitePermission
+    DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
+    DROP TABLE #tempFeedback
+
 END
 GO

@@ -25,6 +25,7 @@ AS
         - 20190506@Winnie: CN88 Permission RedmineID: #112637
         - 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]  
         - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 	Param's Explanation:
         - @UserRole = 0: Manager 

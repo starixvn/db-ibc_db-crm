@@ -1,6 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
 USE bodb_CRM
 GO 
+
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
 (
 	@CustID				INT,
@@ -8,27 +10,30 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSel_New]
 	@UserRole			TINYINT
 )
 AS
-/*
-Created: Lukas
-Date: 20101022
-Task : Get customer info
-DB: DB052.bodb_CRM
-Original:
 
-Revisions:	
-	- 20110725@Lukas: get skype, msn
-	- 20110825@Kevin: add nickname column
-	- 20120329@Elodie: change DB06 to DB052				   
-	- 20121120@Lukas: correct join condition (wrong alias)
-	- 20140120@Dom: add more information of customer
-	- 20140508@Dom: Add group headline
-	- 20141118@Dom: Return PIC Name
-	- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
-	- 20170911@Winnie: Get Introduced By RedmineID #82040
-	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-	- 20190829@Winnie: Fix issue SiteID ISNULL RedmineID: #112637
-Param's Explanation:	
+/*
+    Created: Lukas
+    Date: 20101022
+    Task : Get customer info
+    DB: DB052.bodb_CRM
+    Original:
+
+    Revisions:	
+	    - 20110725@Lukas: get skype, msn
+	    - 20110825@Kevin: add nickname column
+	    - 20120329@Elodie: change DB06 to DB052				   
+	    - 20121120@Lukas: correct join condition (wrong alias)
+	    - 20140120@Dom: add more information of customer
+	    - 20140508@Dom: Add group headline
+	    - 20141118@Dom: Return PIC Name
+	    - 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
+	    - 20170911@Winnie: Get Introduced By RedmineID #82040
+	    - 20190506@Winnie: CN88 Permission RedmineID: #112637
+	    - 20190829@Winnie: Fix issue SiteID ISNULL RedmineID: #112637
+        - 20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
+    Param's Explanation:	
 */
+
 BEGIN	
 	SET NOCOUNT ON
 
@@ -184,9 +189,11 @@ BEGIN
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
-									(SELECT s.site 
+									(SELECT CASE WHEN ag.site = 'IBO' THEN 'Kzing'
+                                                 WHEN ag.site = 'KeenOcean' THEN 'LIVV88'
+                                                 ELSE ag.site END site
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
-											INNER JOIN bodb02.dbo.customer s WITH(NOLOCK) ON c.srecommend = s.custid
+											INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 									 WHERE c.custid = @CustID)
 					AND SettingName IN( 'Site','SiteCategory')
 			END
@@ -195,7 +202,9 @@ BEGIN
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
-									(SELECT site 
+									(SELECT CASE WHEN site = 'IBO' THEN 'Kzing'
+                                                 WHEN site = 'KeenOcean' THEN 'LIVV88'
+                                                 ELSE site END site
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
 					AND SettingName IN( 'Site','SiteCategory')

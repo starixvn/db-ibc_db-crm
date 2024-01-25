@@ -233,6 +233,7 @@ BEGIN
 					c.srecommend = upline.custid
 					OR c.mrecommend = upline.custid
 					OR c.recommend = upline.custid
+                    OR c.custid = upline.custid
 					)
 				AND ISNULL(upline.groupID, 0) <> 0
 				AND NOT EXISTS (

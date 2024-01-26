@@ -1,4 +1,8 @@
 /*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoVoidingTicketSel]
 	@MessageIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,
@@ -15,6 +19,7 @@ AS
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20220207@Elodie: Enhance SP [RedmineId: #168524]
 		- 20231030@Malcolm: Add Virtual Sports 3 [RedmineId: #191355]
+        - 20240126@Ned.Le: CRM - Support auto Feedback and Notification to headlines/ Accounting PIC when having Refund and Result Amendment for VS4 product [RedmineId: #200080]
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get Voiding Settled Tickets
 		@MessageIds = '<ROOT>
@@ -84,7 +89,7 @@ BEGIN
 	UPDATE t 
 	SET t.IsCreatedFB = 1
 	OUTPUT deleted.MessageId,b.transid,b.custid,b.UserName,b.matchid , b.betcheck,b.winlostdate, b.bettype,sb.RefTable,
-	CASE WHEN b.bettype IN (9, 29, 2799) THEN 1 ELSE sb.EventType END  ,sb.ProductID
+	CASE WHEN b.bettype IN (9, 29, 2799, 10449) THEN 1 ELSE sb.EventType END  ,sb.ProductID
 	INTO #tblEventInfo (MessageId,TransId,CustID,UserName,MatchId,MatchCode,EventDate,Bettype,RefTable,EventType , ProductID
 	)
 	FROM @tblMessageNoFB t
@@ -94,7 +99,7 @@ BEGIN
 	CROSS APPLY ( SELECT TOP(1) EventType,RefTable,ProductID
 				 FROM dbo.SportBettypeMatrix  WITH(NOLOCK) 
 				 WHERE BetType = b.bettype  ) sb
-	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27, 77) --NumberGame,Sportbook,
+	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27, 77, 83) --NumberGame,Sportbook,
 		 AND s.custid IS NULL
 		 AND b.statusID = 102 AND b.status  = 'VOID'  AND c.site <> 'CN88'
 		 AND 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
@@ -104,7 +109,7 @@ BEGIN
 	UPDATE t
 	SET t.IsCreatedFB = 1
 	OUTPUT deleted.MessageId,b.transid,b.custid,b.UserName,	b.matchid, b.betcheck,b.winlostdate, b.bettype,sb.RefTable,
-	CASE WHEN b.bettype IN (9, 29, 2799) THEN 1 ELSE sb.EventType END  ,sb.ProductID
+	CASE WHEN b.bettype IN (9, 29, 2799, 10449) THEN 1 ELSE sb.EventType END  ,sb.ProductID
 	INTO #tblEventInfo (MessageId,TransId,CustID,UserName,MatchId,MatchCode,EventDate,Bettype,RefTable,EventType, ProductID )
 	FROM @tblMessageNoFB t
 	INNER JOIN dbo.bettrans14 b  WITH(NOLOCK) ON b.transid = t.TransId
@@ -113,7 +118,7 @@ BEGIN
 	CROSS APPLY ( SELECT TOP(1) EventType,RefTable,ProductID
 				 FROM dbo.SportBettypeMatrix  WITH(NOLOCK) 
 				 WHERE BetType = b.bettype  ) sb
-	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27, 77) --NumberGame,Sportbook,
+	WHERE t.IsCreatedFB = 0 AND sb.ProductID in (1,3,5,27, 77, 83) --NumberGame,Sportbook,
 		 AND s.custid IS NULL
 		 AND b.statusID = 102 AND b.status  = 'VOID' AND c.site <> 'CN88'
 		 AND 1= CASE WHEN b.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1

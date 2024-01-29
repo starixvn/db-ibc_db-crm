@@ -487,7 +487,7 @@ BEGIN
            rq.DecidedBy          Using_DecidedBy,
            vh.VoIdBy             Using_VoIdBy,
            rd.MatchId            Using_MatchId,
-           TransIdList           Using_TransIdList,
+           vt.TransIdList        Using_TransIdList,
            rd.ReasonList         Using_ReasonList,
            rd.FilterBy           Using_FilterBy
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
@@ -724,7 +724,7 @@ BEGIN
     SET fi.Support_Id = fi.rn
     FROM (
         SELECT Support_Id,
-               DENSE_RANK() OVER (ORDER BY Support_BroadcastSessionId, Support_RequestId, Support_MatchIdd, Support_MessageIdGroup) AS rn
+               DENSE_RANK() OVER (ORDER BY Support_BroadcastSessionId, Support_RequestId, Support_MatchId, Support_MessageIdGroup) AS rn
         FROM #tmpFinal
     ) fi
     -- + Run loop to insert data to main table

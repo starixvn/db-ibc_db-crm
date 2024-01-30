@@ -42,7 +42,7 @@ BEGIN
            VoidingHistoryCollectionId,
            MessageId,
            IssueTypeId,
-           TrasnIdList,
+           TransIdList,
            UsernameList,
            FilterBy
     FROM bodb02.dbo.VoidingHistoryCollectionDetail WITH (NOLOCK)

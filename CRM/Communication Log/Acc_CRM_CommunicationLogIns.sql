@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 					@CustID				INT
 				,	@RelatedCustID		VARCHAR(MAX)	= NULL
@@ -26,6 +30,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogIns
 				,	@ErrCode			INT				= 0		OUTPUT
 				,	@ErrMsg				NVARCHAR(4000)	= ''	OUTPUT
 AS
+
 /*
 	Created:	20140121@Dom
 	Task :		Insert new customer log
@@ -43,8 +48,11 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]		
 		- 20230116@Winfred: CRM - Prevent duplicated feedback creation within a short of time [redmine:#182911]	
+        - 20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
+
 	Param's Explanation:
 */
+
 BEGIN
 	IF	ISNULL(@CommunicationID, '') = ''
 	OR	ISNULL(@Product, '') = ''
@@ -60,6 +68,124 @@ BEGIN
 
 		RETURN;
 	END;
+
+
+    ------------------------------------------------------
+	-- BEGIN: Sync profile for related customers to CRM --
+
+	DECLARE	@relatedCustomer_Sync TABLE(CustID INT, 								
+								        username VARCHAR(50),
+								        FirstName NVARCHAR(100),
+								        LastName NVARCHAR(100),
+								        phone NVARCHAR(100),
+								        MobilePhone NVARCHAR(100),
+								        Fax NVARCHAR(100),
+								        Email NVARCHAR(100),
+								        Birthday SMALLDATETIME,
+								        CountryID INT,
+								        SiteID INT,
+								        isExistsCRM BIT DEFAULT(0), 
+								        isFinished BIT DEFAULT(0));
+	
+	IF ISNULL(@RelatedCustID,'') <> ''
+	BEGIN
+		INSERT INTO	@relatedCustomer_Sync(custid)
+		SELECT	CONVERT(INT, val)
+		FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+		
+		UPDATE t
+		SET isExistsCRM = 1 
+		FROM @relatedCustomer_Sync t
+			INNER JOIN crmCustomer cm WITH(NOLOCK) ON t.custid = cm.custid
+	END 
+	
+	IF EXISTS (SELECT 1 FROM @relatedCustomer_Sync WHERE isExistsCRM = 0)
+	BEGIN
+		DECLARE @r_CustID INT,
+				@r_username VARCHAR(50),
+				@r_FirstName NVARCHAR(100),
+				@r_LastName NVARCHAR(100),
+				@r_phone NVARCHAR(100),
+				@r_MobilePhone NVARCHAR(100),
+				@r_Fax NVARCHAR(100),
+				@r_Email NVARCHAR(100),
+				@r_Birthday SMALLDATETIME,
+				@r_CountryID INT,
+				@r_SiteID INT
+			
+		UPDATE t
+		SET t.custid = c.custid,
+			t.username = c.username,
+			t.FirstName = c.FirstName,
+			t.LastName = c.LastName, 
+			t.phone = c.phone,
+			t.MobilePhone = c.MobilePhone,
+			t.Fax = c.Fax,
+			t.Email = c.Email,
+			t.Birthday = c.Birthday,
+			t.CountryID = ct.CountryID,
+			t.SiteID = (SELECT SettingID 
+						FROM crmSetting WITH(NOLOCK) 
+						WHERE SettingValue = ISNULL(c.site,ag.site)
+							AND SettingName IN( 'Site','SiteCategory')
+						)
+		FROM @relatedCustomer_Sync t
+			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.custid = c.custid
+			LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
+			LEFT JOIN crmCountry ct ON c.country = ct.CountryName
+		WHERE isExistsCRM = 0	
+		
+		WHILE (1=1)
+		BEGIN 
+			UPDATE TOP (1) t
+			SET isFinished = 1,
+				@r_Custid = custid,
+				@r_username = username,
+				@r_FirstName = FirstName,
+				@r_LastName = LastName, 
+				@r_phone = phone,
+				@r_MobilePhone = MobilePhone,
+				@r_Fax = Fax,
+				@r_Email = Email,
+				@r_Birthday = Birthday,
+				@r_CountryID = CountryID,
+				@r_SiteID = siteID
+			FROM @relatedCustomer_Sync t
+			WHERE isFinished = 0
+				AND isExistsCRM = 0
+				
+			IF @@ROWCOUNT = 0
+				BREAK;
+				
+			EXECUTE	dbo.Acc_CRM_CustomerIns_New
+					@UserID					= @UserID
+				,	@CustID					= @r_CustID
+				,	@UserName				= @r_UserName
+				,	@FirstName				= @r_FirstName
+				,	@LastName				= @r_LastName			
+				,	@Birthday				= @r_Birthday				
+				,	@Phone					= @r_Phone	
+				,	@MobilePhone			= @r_MobilePhone				
+				,	@Fax					= @r_Fax				
+				,	@Email					= @r_Email				
+				,	@CountryID				= @r_CountryID				
+				,	@SiteID					= @r_SiteID
+				,	@CreatorID				= @UserID
+				
+				,	@IP						= @IP
+				,	@ErrCode				= @ErrCode OUTPUT
+				,	@ErrMsg					= @ErrMsg OUTPUT;
+			IF @ErrCode <> 0
+			BEGIN
+				--SELECT @ErrCode = 100
+				RETURN;
+			END;	
+		END
+	END
+
+	-- END: Sync profile for related customers to CRM --
+    ----------------------------------------------------
+
 
 	DECLARE	@relatedCustomer TABLE(CustID INT);
 

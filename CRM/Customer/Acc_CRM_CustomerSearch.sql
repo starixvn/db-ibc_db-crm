@@ -5,12 +5,14 @@ GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSearch]
 (
-	@Username     VARCHAR(50)    = '',
-	@IsGuest      BIT            = 0,
-	@UserRole     TINYINT,
-    @LicenseeType TINYINT        = 0,
-    @ErrCode      INT            = 0  OUTPUT,
-    @ErrMsg       NVARCHAR(2000) = '' OUTPUT
+	@Username          VARCHAR(50)    = '',
+	@IsGuest           BIT            = 0,
+	@UserRole          TINYINT        = 2,
+    @LicenseeType      INT            = 0,
+    @SitePermission    NVARCHAR(MAX)  = NULL,
+    @IsCheckPermission BIT            = 0,
+    @ErrCode           INT            = 0  OUTPUT,
+    @ErrMsg            NVARCHAR(2000) = '' OUTPUT
 )
 AS
 
@@ -22,31 +24,41 @@ DB: DBCRM/bodb_CRM
 Original:
 
 Revisions:	
-	- 20110701@Lukas: support search by nickname
-	- 20110725@Lukas: Get skype, msn
-	- 20110825@Kevin: add nickname column
-	- 20120309@Elodie: call SP DB06.bodb02.dbo.Acc_UserInfoSel and add condition SettingName = 'Site'
-	- 20120319@Elodie: change DB06 to DB052
-	- 20130121@Johnson: change link server DB06 to DBACC
-	- 20140303@Dom: Modify for new structure
-	- 20141118@Dom: Return PIC Name
-	- 20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
-	- 20180924@Winnie: Search Chinese RedmineID: #99982
-	- 20190506@Winnie: CN88 Permission RedmineID: #112637
-	- 20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
-	- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
-	- 20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
-    - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
-    - 20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
-    - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+    20110701@Lukas: support search by nickname
+    20110725@Lukas: Get skype, msn
+    20110825@Kevin: add nickname column
+    20120309@Elodie: call SP DB06.bodb02.dbo.Acc_UserInfoSel and add condition SettingName = 'Site'
+    20120319@Elodie: change DB06 to DB052
+    20130121@Johnson: change link server DB06 to DBACC
+    20140303@Dom: Modify for new structure
+    20141118@Dom: Return PIC Name
+    20160916@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+    20180924@Winnie: Search Chinese RedmineID: #99982
+    20190506@Winnie: CN88 Permission RedmineID: #112637
+    20190705@Elodie: Get CN88 customer status [RedmineID: #112637]
+    20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
+    20210614@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
+    20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
+    20230711@Ned.Le: CRM - Enhance performance for search customer function (#191076)
+    20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+    20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
+    20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 Param's Explanation:
-    - @LicenseeType = 0: Both
-                      1: Credit
-                      2: Licensee
+    @UserRole = 0: Manager 
+                1: CN88 staff
+                2: Company staff
+    @LicenseeType = -1: None
+                     0: Both
+                     1: Credit
+                     2: Licensee
+    @SitePermission: Value depend on user's permission and maybe NULL
+    @IsCheckPermission = 1: Check permission
+                         0: No check permission
 */
 
 BEGIN
+
 	SET NOCOUNT ON
 
     -- Declare variables	
@@ -57,32 +69,75 @@ BEGIN
 			@CountryID int,
 			@IsGroupHeadLine BIT
 
-    -- #tmpSite
-    CREATE TABLE #tmpSite (SiteID INT, SiteName NVARCHAR(100), IsLicensee INT)
+    -- #tmpUserSitePermission
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
 
-    IF (@UserRole = 2)
-    BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               CASE WHEN sr.ParentID = 33000 THEN 1
-                    WHEN sr.ParentID = 33001 THEN 0
-                    ELSE -1 END IsLicensee
-        FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
-             INNER JOIN	bodb_CRM.dbo.crmSetting s WITH(NOLOCK) ON sr.SettingID = s.SettingID AND s.SettingName = 'Site'
-        WHERE sr.ParentID IN (33000, 33001)
-    END
-    ELSE IF (@UserRole = 1)
-	BEGIN
-        INSERT INTO #tmpSite (SiteID, SiteName, IsLicensee)
-        SELECT s.SettingID SiteID,
-               s.SettingValue SiteName,
-               0 IsLicensee
-        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
-		WHERE s.SettingID = 33002
-    END
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    -- #tmpSite
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
+    )
+
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
 
     CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
 
     -- Process and return data
 	IF @IsGuest = 0
@@ -135,31 +190,64 @@ BEGIN
 		END
         
         -- Check permisstion
+        IF (@IsCheckPermission = 1)
         BEGIN
-            CREATE TABLE #tmpCust_01 (CustID INT, isLicensee INT)
+            CREATE TABLE #tmpCust_01 (
+                CustID         INT,
+                SiteOffer      INT,
+                IsLicensee     INT,
+                SitePermission NVARCHAR(100)
+            )
 
             IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpCust_01)
             BEGIN
-                INSERT INTO #tmpCust_01 (CustID, isLicensee)
-                SELECT custid, s.IsLicensee
+                INSERT INTO #tmpCust_01 (
+                    CustID,
+                    SiteOffer,
+                    IsLicensee,
+                    SitePermission
+                )
+                SELECT custid,
+                       s.SiteOffer,
+                       s.IsLicensee,
+                       sp.SitePermission
                 FROM bodb02.dbo.Customer c WITH (NOLOCK)
-                     LEFT JOIN #tmpSite s ON c.site = s.SiteName
+                     LEFT JOIN #tmpSite s ON CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                                                  WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                                                  ELSE c.site END = s.SiteName
+                     LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
                 WHERE c.custid = @custID
             END
             
             IF NOT EXISTS (SELECT TOP 1 1 FROM #tmpCust_01)
             BEGIN
-                INSERT INTO #tmpCust_01 (CustID, isLicensee)
-                SELECT custid, s.IsLicensee
+               INSERT INTO #tmpCust_01 (
+                    CustID,
+                    SiteOffer,
+                    IsLicensee,
+                    SitePermission
+                )
+                SELECT custid,
+                       s.SiteOffer,
+                       s.IsLicensee,
+                       sp.SitePermission
                 FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
                      LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
+                     LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
                 WHERE c.custid = @custID
             END
 
-            IF NOT EXISTS (SELECT TOP 1 1
-                           FROM #tmpCust_01
-                           WHERE (IsLicensee IS NULL
-                                  OR IsLicensee = CASE WHEN @LicenseeType = 0 THEN IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END))
+            IF NOT EXISTS (
+                              SELECT TOP 1 1
+                              FROM #tmpCust_01 c
+                                   LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
+                              WHERE (c.SiteOffer = 2 OR c.SiteOffer IS NULL)
+                                    AND @LicenseeType <> -1
+                                    AND (c.IsLicensee IS NULL
+                                         OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                                    AND ((c.SitePermission IS NULL AND ISNULL(c.IsLicensee, 1) = 1)
+                                         OR c.SitePermission = usp.SitePermission)
+                          )
             BEGIN
                 SET @ErrCode = 101
                 SET @ErrMsg = 'You are not authorized to search this account'
@@ -192,7 +280,9 @@ BEGIN
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
-									(SELECT ag.site 
+									(SELECT CASE WHEN ag.site = 'IBO' THEN 'Kzing'
+                                                 WHEN ag.site = 'KeenOcean' THEN 'LIVV88'
+                                                 ELSE ag.site END site
 									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
 											INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 									 WHERE c.custid = @CustID)
@@ -205,7 +295,9 @@ BEGIN
 				SELECT @SiteID = SettingID 
 				FROM crmSetting WITH(NOLOCK) 
 				WHERE SettingValue = 
-									(SELECT site 
+									(SELECT CASE WHEN site = 'IBO' THEN 'Kzing'
+                                                 WHEN site = 'KeenOcean' THEN 'LIVV88'
+                                                 ELSE site END site
 									 FROM bodb02.dbo.customer c WITH(NOLOCK)
 									 WHERE c.custid = @CustID)
 					AND SettingName IN( 'Site','SiteCategory')		
@@ -448,19 +540,41 @@ BEGIN
         END
 
         -- Check permisstion
+        IF (@IsCheckPermission = 1)
         BEGIN
-            CREATE TABLE #tmpCust_02 (CustID INT, isLicensee INT)
+            CREATE TABLE #tmpCust_02 (
+                CustID         INT,
+                SiteOffer      INT,
+                IsLicensee     INT,
+                SitePermission NVARCHAR(100)
+            )
 
-            INSERT INTO #tmpCust_02 (CustID, isLicensee)
-            SELECT custid, s.IsLicensee
+            INSERT INTO #tmpCust_02 (
+                CustID,
+                SiteOffer,
+                IsLicensee,
+                SitePermission
+            )
+            SELECT custid,
+                   s.SiteOffer,
+                   s.IsLicensee,
+                   sp.SitePermission
             FROM bodb_CRM.dbo.crmCustomer c WITH (NOLOCK)
                  LEFT JOIN #tmpSite s ON c.SiteID = s.SiteID
+                 LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
             WHERE c.custid = @custID
 
-            IF NOT EXISTS (SELECT TOP 1 1
-                           FROM #tmpCust_02
-                           WHERE (IsLicensee IS NULL
-                                  OR IsLicensee = CASE WHEN @LicenseeType = 0 THEN IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END))
+            IF NOT EXISTS (
+                              SELECT TOP 1 1
+                              FROM #tmpCust_02 c
+                                   LEFT JOIN #tmpUserSitePermission usp ON c.SitePermission = usp.SitePermission
+                              WHERE (c.SiteOffer = 2 OR c.SiteOffer IS NULL)
+                                    AND @LicenseeType <> -1
+                                    AND (c.IsLicensee IS NULL
+                                         OR c.IsLicensee = CASE WHEN @LicenseeType = 0 THEN c.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+                                    AND ((c.SitePermission IS NULL AND ISNULL(c.IsLicensee, 1) = 1)
+                                         OR c.SitePermission = usp.SitePermission)
+                          )
             BEGIN
                 SET @ErrCode = 101
                 SET @ErrMsg = 'You are not authorized to search this account'
@@ -548,6 +662,9 @@ BEGIN
 	SELECT cl.LanguageID FROM crmCustomerLanguage cl WITH (NOLOCK) WHERE CustID = @custID
     
     -- DROP temp tables
+    DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
+
 END
 GO

@@ -13,7 +13,9 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatistics]
 	@ProductID			VARCHAR(500), 
 	@MainCategoryID		VARCHAR(500), 
 	@CommunicationID	VARCHAR(500),
-    @LicenseeType       TINYINT = 0
+    @UserRole           TINYINT       = 2,
+    @LicenseeType       INT           = 0,
+    @SitePermission     NVARCHAR(MAX) = NULL
 )
 AS
 
@@ -28,6 +30,7 @@ AS
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
 		- 20230424@Malcolm:  Enhance Performance: #112637
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 	Param's Explanation:
 		@ProductType:	0: Summary
@@ -39,16 +42,25 @@ AS
 		@SiteType: 	0: IBC
 					1: Licensee
 
-        @LicenseeType = 0: Both
-                        1: Credit
-                        2: Licensee	
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
 
-	Ex: EXEC Acc_CRM_Rpt_DailyStatistics @ProductType = 0, @CategoryType = 1, @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
+
+        @SitePermission: Value depend on user's permission and maybe NULL
+
+	Ex: EXEC Acc_CRM_Rpt_DailyStatistics @ProductType = 0, @CategoryType = 1, @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0, @SitePermission = NULL
 */
 
 BEGIN
 	SET NOCOUNT ON	
 
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+    CREATE TABLE #tmpSitePermission (SiteID INT, SiteName NVARCHAR(100), SitePermission NVARCHAR(100))
 	CREATE TABLE #Product  (ProductID INT PRIMARY KEY, Product NVARCHAR(100))	
 	CREATE TABLE #MainCategory (MainCategoryID INT PRIMARY KEY, MainCategory NVARCHAR(100))	
 	CREATE TABLE #Communication  (CommunicationID INT PRIMARY KEY, Communication NVARCHAR(100))		
@@ -56,6 +68,18 @@ BEGIN
 	CREATE TABLE #ProductFeedback (SettingID INT, FeedbackID INT)
 	CREATE TABLE #MainCategoryFeedBack (SettingID INT, SubSettingID INT,FeedbackID INT)
 	CREATE TABLE #CommunicationFeedBack (SettingID INT, FeedbackID INT)
+
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    INSERT INTO #tmpSitePermission (SiteID, SiteName, SitePermission)
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
 
 	INSERT INTO #Product(ProductID, Product)
 	SELECT s.SettingID, s.SettingValue
@@ -116,24 +140,33 @@ BEGIN
 		INNER JOIN #CommunicationFeedBack fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
 		LEFT JOIN crmSubCategory sc ON fm.SubSettingID = sc.SubCategoryID AND fm.SettingID = sc.MainCategoryID
 		LEFT JOIN crmSite s WITH(NOLOCK) ON s.SiteID = fb.SiteID
-	WHERE (
-           (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
-                                                       OR ISNULL(fb.SiteID,0) = 0
-                                                       OR ISNULL(s.SiteID, 0) = 0))
-                                   OR
-                                   (@SiteType = 1 AND (s.IsLicensee = 1))))
-           OR
-           (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
-                                                       OR ISNULL(fb.SiteID,0) = 0
-                                                       OR ISNULL(s.SiteID, 0) = 0))))
-           OR
-           (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
-                                                       OR ISNULL(fb.SiteID,0) = 0
-                                                       OR ISNULL(s.SiteID, 0) = 0))))
+        LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+	WHERE @LicenseeType <> -1
+          AND
+          (
+              (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                          OR ISNULL(fb.SiteID,0) = 0
+                                                          OR ISNULL(s.SiteID, 0) = 0))
+                                      OR
+                                      (@SiteType = 1 AND (s.IsLicensee = 1))))
+              OR
+              (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                          OR ISNULL(fb.SiteID,0) = 0
+                                                          OR ISNULL(s.SiteID, 0) = 0))))
+              OR
+              (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
+                                                          OR ISNULL(fb.SiteID,0) = 0
+                                                          OR ISNULL(s.SiteID, 0) = 0))))
           )
           AND
           (
-           @CategoryType = 0 OR sc.MainCategoryID IS NOT NULL
+              (sp.SitePermission IS NULL AND ISNULL(s.IsLicensee, 1) = 1)
+              OR sp.SitePermission = usp.SitePermission
+          )
+          AND
+          (
+              @CategoryType = 0 OR sc.MainCategoryID IS NOT NULL
           )
 	GROUP BY 
 		fm.SettingID
@@ -175,6 +208,8 @@ BEGIN
 		) AS n
    ORDER BY e.MainCategoryID, e.SubCategoryID, e.CommunicationID, e.ProductID
 
+   DROP TABLE #tmpUserSitePermission
+   DROP TABLE #tmpSitePermission
    DROP TABLE #Product 
    DROP TABLE #MainCategory
    DROP TABLE #Communication 

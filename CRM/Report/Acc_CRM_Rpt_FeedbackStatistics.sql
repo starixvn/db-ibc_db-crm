@@ -1,14 +1,18 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_FeedbackStatistics]
-(
-	@Type			INT,
-	@FromDate		DATETIME,
-	@ToDate			DATETIME,
-	@FromDuration	VARCHAR(100),
-	@ToDuration		VARCHAR(100),
-	@UserRole		TINYINT=2
-)
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatistics @Type           INT,
+                                                   @FromDate       DATETIME,
+                                                   @ToDate         DATETIME,
+                                                   @FromDuration   VARCHAR(100),
+                                                   @ToDuration     VARCHAR(100),
+                                                   @UserRole       TINYINT       = 2,
+                                                   @LicenseeType   INT           = 0,
+                                                   @SitePermission NVARCHAR(MAX) = NULL
 AS
+
 /*
 Created: Lukas
 Date: 20101116
@@ -26,7 +30,9 @@ Revisions:
 		- 20140523@Dom: modify site condition
 		- 20180420@Winnie: FB Statistics report - There is no data when filter By Site RedmineID:#94047
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
-		- 20190506@Winnie:  CN88 Permission RedmineID: #112637      
+		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
 Param's Explanation:
 	@Type:	- 1		By Creator
 			- 2		By Country
@@ -38,8 +44,18 @@ Param's Explanation:
 			- 8		By Category
 			- 9		Licensees
 			- 10	Communication
+    @UserRole = 0: Manager 
+                1: CN88 staff
+                2: Company staff
+    @LicenseeType = -1: None
+                     0: Both
+                     1: Credit
+                     2: Licensee
+    @SitePermission: Value depend on user's permission and maybe NULL
 */
+
 BEGIN
+
 	SET NOCOUNT ON
 
 	DECLARE @cols				NVARCHAR(MAX),
@@ -75,10 +91,100 @@ BEGIN
 	BEGIN
 		SET @tDuration = 2100000000
 	END
+
+    ------------------------------
+    -- BEGIN - Apply permission --
+
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
+    )
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
+
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE TABLE #tmpFeedbackID (FeedbackID INT)
+    INSERT INTO  #tmpFeedbackID (FeedbackID)
+    SELECT fb.FeedbackID
+    FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK)
+         LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+    WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+          AND fb.StatusID NOT IN (11001,11004,11019,11016)
+          AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+          AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+          AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+          AND @LicenseeType <> -1
+          AND (si.IsLicensee IS NULL
+               OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+          AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+               OR sp.SitePermission = usp.SitePermission)
+
+    DECLARE @FeedbackIDList VARCHAR(MAX)
+    SELECT  @FeedbackIDList = STRING_AGG(CAST(FeedbackID AS VARCHAR(MAX)), ',') FROM #tmpFeedbackID
+
+    DROP TABLE #tmpUserSitePermission
+    DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
+
+    -- END - Apply permission --
+    ----------------------------
 	
 	IF @Type = 1	--- creator
 	BEGIN		
-		
 		INSERT INTO @Items(Item)
 			SELECT c.custid FROM crmfeedback fb WITH(NOLOCK) 
 						INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.creatorID = c.custid
@@ -86,6 +192,7 @@ BEGIN
 					AND fb.StatusID NOT IN (11001,11004,11019,11016)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY 
 				c.UserName, c.CustID
 			ORDER BY c.UserName
@@ -112,6 +219,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -140,6 +248,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -151,14 +260,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 	
-		SELECT	Item
-		FROM	@Items
-		
-		RETURN
+		SELECT Item FROM @Items
 	END
 	IF @Type = 2	-- country
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 			SELECT ISNULL(ct.CountryID,0)
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -167,7 +272,8 @@ BEGIN
 					AND fb.StatusID NOT IN (11001,11004,11019,11016)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND ct.siteoffer=@UserRole
+					AND (ct.siteoffer=@UserRole OR ct.SiteOffer IS NULL)
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY ct.CountryName, ct.CountryID
 			ORDER BY ct.CountryName ASC
 		--	
@@ -202,7 +308,8 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND ct.siteoffer=2
+											AND (ct.siteoffer=2 OR ct.siteoffer IS NULL)
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -232,6 +339,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND ct.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -243,14 +351,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i 	
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 3	-- Role
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -260,6 +364,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingID ASC
 			
@@ -287,6 +392,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND r.siteOffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -316,6 +422,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND r.siteOffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -327,14 +434,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 4	-- Site
 	BEGIN
-
 		INSERT INTO @Items(Item)
 		SELECT ISNULL(fb.SiteID,0)
 		FROM crmfeedback fb WITH(NOLOCK) 
@@ -343,7 +446,8 @@ BEGIN
 				AND fb.StatusID NOT IN (11001,11004,11019,11016)
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-				AND r.siteoffer=@UserRole
+				AND (r.siteoffer=@UserRole OR r.SiteOffer IS NULL)
+                AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 		GROUP BY r.SiteName, fb.SiteID
 		ORDER BY r.SiteName ASC
 					 
@@ -378,7 +482,8 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND site.siteoffer=2
+											AND (site.siteoffer=2 OR site.siteoffer IS NULL)
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -408,6 +513,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND site.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -419,13 +525,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 		
-		SELECT	Item 
-		FROM	@Items i		
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 5	-- status
-	BEGIN	
+	BEGIN
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -435,6 +538,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingValue ASC
 		--
@@ -464,6 +568,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.Siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -493,6 +598,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.Siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -504,14 +610,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 6	-- customer response
 	BEGIN
-
 		INSERT INTO @Items(Item)
 			SELECT r.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -521,6 +623,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SettingValue, r.SettingID
 			ORDER BY r.SettingValue ASC
 		--
@@ -549,6 +652,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -578,6 +682,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -589,14 +694,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 7	-- product
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 		SELECT DISTINCT fs.SettingID
 		FROM crmfeedback fb WITH(NOLOCK) 
@@ -607,6 +708,7 @@ BEGIN
 			AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 			AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 			AND r.siteoffer=@UserRole
+            AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 	
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
@@ -641,6 +743,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -672,6 +775,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -683,14 +787,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i		
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 8	-- Main Category
 	BEGIN
-
 		INSERT INTO @Items(Item)
 			SELECT DISTINCT fs.SettingID 
 			FROM crmfeedback fb WITH(NOLOCK) 
@@ -701,6 +801,7 @@ BEGIN
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 					AND r.siteoffer=@UserRole
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
@@ -724,6 +825,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -751,6 +853,7 @@ BEGIN
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -762,31 +865,34 @@ BEGIN
 		END			
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 9	-- Licensees
 	BEGIN
-
 		INSERT INTO @Items(Item)
-			SELECT r.SiteID 
+			SELECT ISNULL(r.SiteID, 0)
 			FROM crmfeedback fb WITH(NOLOCK) 
-					INNER JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
+					LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
 			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND r.IsLicensee=1--r.SettingID >= 6200				
+					AND (r.IsLicensee=1 OR ISNULL(fb.SiteID, 0) = 0) --r.SettingID >= 6200				
 					AND fb.StatusID NOT IN (11001,11004,11019,11016)
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND r.siteoffer=@UserRole
+					AND (r.siteoffer=@UserRole OR r.siteoffer IS NULL)
+                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 			GROUP BY r.SiteName, r.SiteID
 			ORDER BY r.SiteName ASC
 		--
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
 		--ORDER BY r.SettingValue ASC
-	
+
+		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
+		BEGIN
+			DELETE FROM @Items WHERE Item = 0
+			SET @cols = COALESCE(@cols + ',[N/A]','[N/A]')
+			INSERT INTO @Items VALUES(0)
+		END
 		IF @UserRole=2
 		BEGIN
 			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
@@ -796,18 +902,19 @@ BEGIN
 											m.SettingValue AS MainCategory, 
 											fs.SubSettingID as ''SubCategoryID'',
 											s.SettingValue AS SubCategory ,
-											st.SiteName As Site
+											ISNULL(st.SiteName,''N/A'') As Site
 									FROM crmFeedback fb WITH(NOLOCK) 
 											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
 											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
 											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
 											LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
 									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND st.IsLicensee = 1
+											AND (st.IsLicensee = 1 OR ISNULL(fb.SiteID, 0) = 0)
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND st.siteoffer=2
+											AND (st.siteoffer=2 OR st.siteoffer IS NULL)
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -826,18 +933,19 @@ BEGIN
 											m.SettingValue AS MainCategory, 
 											fs.SubSettingID as ''SubCategoryID'',
 											s.SettingValue AS SubCategory ,
-											st.SiteName As Site
+											ISNULL(st.SiteName,''N/A'') As Site
 									FROM crmFeedback fb WITH(NOLOCK) 
 											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
 											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
 											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
 											LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
 									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND st.IsLicensee = 1
+											AND (st.IsLicensee = 1 OR ISNULL(fb.SiteID, 0) = 0)
 											AND fb.StatusID NOT IN (11001,11004,11019,11016)
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND st.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -849,14 +957,10 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
 	IF @Type = 10	-- communication
 	BEGIN
-		
 		INSERT INTO @Items(Item)
 		SELECT DISTINCT fs.SettingID 
 		FROM crmfeedback fb WITH(NOLOCK) 
@@ -867,6 +971,7 @@ BEGIN
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 				AND r.siteoffer=@UserRole
+                AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
 		
 		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
 		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
@@ -892,6 +997,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=2
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -922,6 +1028,7 @@ BEGIN
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
 											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
 											AND p.siteoffer=1
+                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
 								 ) p
 								PIVOT
 								(
@@ -933,12 +1040,9 @@ BEGIN
 		END
 		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
 
-		SELECT	Item
-		FROM	@Items i
-
-		RETURN
+		SELECT Item FROM @Items i
 	END
+
+    DROP TABLE #tmpFeedbackID
 END
-
-
 GO

@@ -15,7 +15,9 @@ ALTER PROCEDURE [dbo].[Acc_CRM_Rpt_DailyStatisticsDetail] (
 				,	@TotalRows			INT				= 0		OUTPUT
 				,	@ErrorCode			INT				= 0		OUTPUT
 				,	@ErrorMsg			VARCHAR(200)	= ''	OUTPUT
-                ,   @LicenseeType       TINYINT         = 0
+                ,   @UserRole           TINYINT         = 2
+                ,   @LicenseeType       INT             = 0
+                ,   @SitePermission     NVARCHAR(MAX)   = NULL
 				)
 AS
 
@@ -36,16 +38,24 @@ AS
 		- 20230517@Malcolm: Add recompile option [RedmineID : #187090]
 		- 20230517@Malcolm: order by result [RedmineID : #187090]
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
 	Param's Explanation:		
 		@SiteType =	0: IBC
 					1: Licensee
 
-        @LicenseeType = 0: Both
-                        1: Credit
-                        2: Licensee	
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
 
-	Ex: EXEC Acc_CRM_Rpt_DailyStatisticsDetail @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
+
+        @SitePermission: Value depend on user's permission and maybe NULL
+
+	Ex: EXEC Acc_CRM_Rpt_DailyStatisticsDetail @SiteType = 0, @FromDate = '20151001', @ToDate = '20151118', @ProductID = '8000,8001,8003,8009,8010,8013,8014', @MainCategoryID = '3000,3001,3003,3008,3009', @CommunicationID = '1000,1001,1003,1006,1007', @LicenseeType = 0, @SitePermission = NULL
 */
 
 BEGIN
@@ -56,14 +66,16 @@ BEGIN
 		,	@string			VARCHAR(MAX)
 		,	@splitter		CHAR(1)
 		,	@xml			XML
-		
-	CREATE TABLE	#Product		 (ProductID			INT PRIMARY KEY)
-	CREATE TABLE	#Category		 (CategoryID		INT PRIMARY KEY)
-	CREATE TABLE	#Communication	 (CommunicationID	INT PRIMARY KEY)
-	CREATE TABLE	#FBProduct		 (ProductID			INT ,SubProductID	INT ,FeedbackID		INT,PRIMARY KEY(FeedbackID,ProductID,SubProductID))
-	CREATE TABLE	#FBCategory		 (CategoryID		INT ,SubCategoryID	INT	,FeedbackID		INT,PRIMARY KEY(FeedbackID,CategoryID,SubCategoryID))
-	CREATE TABLE	#FBCommunication (CommunicationID	INT ,FeedbackID		INT,SiteName NVARCHAR(100),Description XML,PRIMARY KEY(FeedbackID,CommunicationID))
-	CREATE TABLE	#FBStation		 (StationID			INT ,FeedbackID		INT,SiteName NVARCHAR(100),PRIMARY KEY(FeedbackID,StationID))
+
+    CREATE TABLE    #tmpUserSitePermission (SitePermission  NVARCHAR(100))
+    CREATE TABLE    #tmpSitePermission     (SiteID          INT, SiteName NVARCHAR(100), SitePermission NVARCHAR(100))
+	CREATE TABLE	#Product		       (ProductID       INT PRIMARY KEY)
+	CREATE TABLE	#Category		       (CategoryID      INT PRIMARY KEY)
+	CREATE TABLE	#Communication	       (CommunicationID INT PRIMARY KEY)
+	CREATE TABLE	#FBProduct		       (ProductID       INT ,SubProductID	INT ,FeedbackID		INT,PRIMARY KEY(FeedbackID,ProductID,SubProductID))
+	CREATE TABLE	#FBCategory		       (CategoryID      INT ,SubCategoryID	INT	,FeedbackID		INT,PRIMARY KEY(FeedbackID,CategoryID,SubCategoryID))
+	CREATE TABLE	#FBCommunication       (CommunicationID INT ,FeedbackID		INT,SiteName NVARCHAR(100),Description XML,PRIMARY KEY(FeedbackID,CommunicationID))
+	CREATE TABLE	#FBStation		       (StationID       INT ,FeedbackID		INT,SiteName NVARCHAR(100),PRIMARY KEY(FeedbackID,StationID))
 	
 	SELECT	@TotalRows		= 0;	
 	SELECT	@PageIndex		= @PageIndex - 1
@@ -73,6 +85,18 @@ BEGIN
 	SELECT	@splitter		= ','
 		,	@string			= @ProductID
 		,	@XML			= N'<root><r>' + REPLACE(@string, @splitter, '</r><r>') + '</r></root>';
+
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    INSERT INTO #tmpSitePermission (SiteID, SiteName, SitePermission)
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
 
 	INSERT INTO	#Product(ProductID)
 	SELECT	r.value('.','INT')
@@ -118,30 +142,34 @@ BEGIN
 						
 	INSERT INTO #FBCommunication(FeedbackID,CommunicationID,SiteName)
 	SELECT fs.FeedbackID,fs.SettingID,s.SiteName
-	FROM crmFeedback fb WITH (NOLOCK) 
-		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) 
-			ON fs.FeedbackID=fb.FeedbackID	
-		INNER JOIN #Communication c
-			ON fs.SettingID=c.CommunicationID 
-		LEFT JOIN	crmSite s WITH (NOLOCK)
-				ON	s.SiteID = fb.SiteID 
+	FROM crmFeedback fb WITH (NOLOCK)
+		INNER JOIN crmFeedbackSetting fs WITH(NOLOCK) ON fs.FeedbackID=fb.FeedbackID
+		INNER JOIN #Communication c ON fs.SettingID=c.CommunicationID
+		LEFT JOIN crmSite s WITH (NOLOCK) ON s.SiteID = fb.SiteID 
+        LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 	AND	fb.StatusID <> 11004
 	AND	fb.StatusID <> 11019
+    AND @LicenseeType <> -1
 	AND (
-         (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
-                                                     OR ISNULL(fb.SiteID,0) = 0
-                                                     OR ISNULL(s.SiteID, 0) = 0))
-                                 OR
-                                 (@SiteType = 1 AND (s.IsLicensee = 1))))
-         OR
-         (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
-                                                     OR ISNULL(fb.SiteID,0) = 0
-                                                     OR ISNULL(s.SiteID, 0) = 0))))
-         OR
-         (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
-                                                     OR ISNULL(fb.SiteID,0) = 0
-                                                     OR ISNULL(s.SiteID, 0) = 0))))
+            (@LicenseeType = 0 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                        OR ISNULL(fb.SiteID,0) = 0
+                                                        OR ISNULL(s.SiteID, 0) = 0))
+                                    OR
+                                    (@SiteType = 1 AND (s.IsLicensee = 1))))
+            OR
+            (@LicenseeType = 1 AND ((@SiteType = 0 AND (s.IsLicensee = 0
+                                                        OR ISNULL(fb.SiteID,0) = 0
+                                                        OR ISNULL(s.SiteID, 0) = 0))))
+            OR
+            (@LicenseeType = 2 AND ((@SiteType = 1 AND (s.IsLicensee = 1
+                                                        OR ISNULL(fb.SiteID,0) = 0
+                                                        OR ISNULL(s.SiteID, 0) = 0))))
+        )
+	AND (
+            (sp.SitePermission IS NULL AND ISNULL(s.IsLicensee, 1) = 1)
+            OR sp.SitePermission = usp.SitePermission
         )
 		
 	INSERT INTO #FBStation(FeedbackID,StationID)
@@ -439,5 +467,16 @@ BEGIN
 	 from #temp AS c
 	 OUTER APPLY c.Description.nodes(N'//row') AS A(nr)	
 	 ORDER BY c.RowNum ASC 
+
+    DROP TABLE #tmpUserSitePermission
+    DROP TABLE #tmpSitePermission
+	DROP TABLE #Product
+	DROP TABLE #Category
+	DROP TABLE #Communication
+	DROP TABLE #FBProduct
+	DROP TABLE #FBCategory
+	DROP TABLE #FBCommunication
+	DROP TABLE #FBStation
+
 END;
 GO

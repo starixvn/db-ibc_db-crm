@@ -3,72 +3,158 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE	[dbo].[Acc_CRM_SiteSel]
-					@LicenseeType	TINYINT = 0,
-					@UserRole		TINYINT,
-					@Lang			VARCHAR(10)='en-US'
+ALTER PROCEDURE dbo.Acc_CRM_SiteSel @UserRole       TINYINT       = 2,
+                                    @LicenseeType   INT           = 0,
+                                    @SitePermission NVARCHAR(MAX) = NULL,
+                                    @Lang           VARCHAR(10)   ='en-US'
 AS
 
 /*
-	Created:	20140522@Dom
-	Task:		Get all site
-	DB:			DBCRM/bodb_CRM
-	Original:
+    Created:  20140522@Dom
+    Task:     Get all site
+    DB:       DBCRM/bodb_CRM
+    Original:
 
-	Revisions:
-		- 20150403@Elodie:	Filter by licensee type		
-		- 20160328@Billy:	Integrate Sub-Product Setting - [Redmine: #50691]
-		- 20190507@Winnie:	CN88 	[RedmineID:#112637]	
-		- 20220202@Tacy:	Split 789y site [RedmineID: #182438]
-        - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+    Revisions:
+        20150403@Elodie: Filter by licensee type
+        20160328@Billy:  Integrate Sub-Product Setting - [Redmine: #50691]
+        20190507@Winnie: CN88     [RedmineID:#112637]
+        20220202@Tacy:   Split 789y site [RedmineID: #182438]
+        20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+        20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
-	Param's Explanation:
-		- @LicenseeType =	0: Both
-							1: Credit
-							2: Licensee
-		- @Lang	=	en-US
-					zh-TW
-					zh-CN
+    Param's Explanation:
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
+        @SitePermission: Value depend on user's permission and maybe NULL
+        @Lang = en-US
+                zh-TW
+                zh-CN
 
-	Example: EXEC Acc_CRM_SiteSel_UAT3 @LicenseeType = 1, @UserRole=2
+    Example:
+        EXEC bodb_CRM.dbo.Acc_CRM_SiteSel @UserRole       = 2,
+                                          @LicenseeType   = 1,
+                                          @SitePermission = '789y,MBC',
+                                          @Lang           = 'en-US'
 */
 
 BEGIN
-	SET NOCOUNT ON
-	IF @UserRole=2
-	BEGIN
-	SELECT s.SiteLabel, s.SiteID, s.SiteName, s.IsLicensee, s.IsActive
-	FROM (
-		SELECT	SiteLabel		=	s.ExtraInfo
-			,	SiteID			=	s.SettingID
-			,	SiteName		=	CASE	WHEN @Lang='zh-TW' THEN ISNULL(s.SettingValueCT,s.SettingValue)
-											WHEN @Lang='zh-CN' THEN ISNULL(s.SettingValueCS,s.SettingValue)
-											ELSE s.SettingValue
-									END
-			,	IsLicensee		=	CASE sr.ParentID	WHEN 33000 THEN 1
-													WHEN 33001 THEN 0
-													ELSE -1 
-									END
-			,	IsActive		=	s.IsActive			
-		FROM		crmSettingRelation sr WITH(NOLOCK) 
-		INNER JOIN	crmSetting s WITH(NOLOCK)
-				ON	sr.SettingID = s.SettingID
-				AND	s.SettingName = 'Site'
-		WHERE	ParentID IN (33000, 33001) 
-	) s
-	WHERE	s.IsLicensee = CASE WHEN @LicenseeType = 0 THEN s.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END	
-	ORDER BY s.IsActive DESC, s.IsLicensee, s.SiteName
-	END
-	ELSE IF @UserRole=1
-	BEGIN
-		SELECT	s.SettingID AS SiteID, CASE	WHEN @Lang='zh-TW' THEN ISNULL(s.SettingValueCT,s.SettingValue)
-											WHEN @Lang='zh-CN' THEN ISNULL(s.SettingValueCS,s.SettingValue)
-											ELSE s.SettingValue
-									END AS SiteName, 
-				0 IsLicensee, s.IsActive
-		FROM crmSetting s WITH(NOLOCK)
-		WHERE s.SettingID=33002
-        ORDER BY SiteName
-	END
+
+    SET NOCOUNT ON
+
+
+    ------------------
+    -- Prepare data --
+
+    -- #tmpUserSitePermission
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    -- #tmpSite
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
+    )
+
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           CASE WHEN @Lang='zh-TW' THEN ISNULL(si.SettingValueCT, si.SettingValue)
+                WHEN @Lang='zh-CN' THEN ISNULL(si.SettingValueCS, si.SettingValue)
+                ELSE si.SettingValue END SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           CASE WHEN @Lang='zh-TW' THEN ISNULL(sc.SettingValueCT, sc.SettingValue)
+                WHEN @Lang='zh-CN' THEN ISNULL(sc.SettingValueCS, sc.SettingValue)
+                ELSE sc.SettingValue END SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
+
+    CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
+
+
+    -----------------
+    -- Return data --
+
+    SELECT si.SiteLabel,
+           si.SiteID,
+           si.SiteName,
+           si.IsLicensee,
+           si.IsActive
+    FROM #tmpSite si
+         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+    WHERE si.SiteOffer = @UserRole
+          AND @LicenseeType <> -1
+          AND si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END
+          AND (ISNULL(sp.SitePermission, '') = CASE WHEN @UserRole = 1     THEN ISNULL(sp.SitePermission, '')
+                                                    WHEN @LicenseeType = 0 THEN CASE WHEN si.IsLicensee = 0 THEN usp.SitePermission ELSE ISNULL(sp.SitePermission, '') END
+                                                    WHEN @LicenseeType = 1 THEN usp.SitePermission
+                                                    WHEN @LicenseeType = 2 THEN ISNULL(sp.SitePermission, '') END)
+    ORDER BY si.IsActive DESC,
+             si.IsLicensee,
+             si.SiteName
+
+
+    ---------------
+    -- Drop data --
+
+    DROP TABLE #tmpUserSitePermission
+    DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
+
 END
 GO

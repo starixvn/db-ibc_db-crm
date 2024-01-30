@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 					@FeedbackID				INT
 				,	@CustID					INT
@@ -47,7 +51,9 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20201102@Johnson: - remove limit amount for related customers
 							- sync customer profile to CRM for related customers [redmine:#142194]
-		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]					
+		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+
 	Param's Explanation:
 */
 BEGIN
@@ -129,9 +135,12 @@ BEGIN
 									isExistsCRM BIT DEFAULT(0), 
 									isFinished BIT DEFAULT(0));
 
-	INSERT INTO @relatedCustomer(CustID)
-	SELECT	CONVERT(INT, val)
-	FROM	dbo.f_CRM_strSplit(@RelatedCustID, ',');
+    IF (ISNULL(@RelatedCustID, '') <> '')
+    BEGIN
+        INSERT INTO @relatedCustomer(CustID)
+        SELECT CONVERT(INT, val)
+        FROM dbo.f_CRM_strSplit(@RelatedCustID, ',')
+    END
 
 	DECLARE	@CustID_Old					INT
 		,	@RelatedCustID_Old			VARCHAR(MAX)

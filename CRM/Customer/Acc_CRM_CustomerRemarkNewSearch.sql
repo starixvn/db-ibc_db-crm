@@ -4,42 +4,124 @@ USE bodb_CRM
 GO
 
 ALTER PROC [dbo].[Acc_CRM_CustomerRemarkNewSearch]
-	@Username		NVARCHAR(1000) = NULL,  
-	@Fromdate		DATETIME = NULL,  
-	@Todate			DATETIME = NULL, 
-	@Remark			NVARCHAR(MAX)	= '',
-	@RemarkTitle	VARCHAR(MAX)= '',
-	@IsGuest		BIT = 0,
-	@RelatedPICs	NVARCHAR(MAX)	= '',
-	@ShowHeadline	BIT = 0,
-	@Lang			VARCHAR(10)='en-US'  ,
-	@PageSize		INT	=	50,
-	@PageIndex		INT	=	0,
-	@TotalRows 		INT	=	0 OUTPUT
+	@Username		NVARCHAR(1000) = NULL,
+	@Fromdate		DATETIME       = NULL,
+	@Todate			DATETIME       = NULL,
+	@Remark			NVARCHAR(MAX)  = '',
+	@RemarkTitle	VARCHAR(MAX)   = '',
+	@IsGuest		BIT            = 0,
+	@RelatedPICs	NVARCHAR(MAX)  = '',
+	@ShowHeadline	BIT            = 0,
+	@Lang			VARCHAR(10)    ='en-US'  ,
+    @UserRole       TINYINT        = 2,
+    @LicenseeType   INT            = 0,
+    @SitePermission NVARCHAR(MAX)  = NULL,
+	@PageSize		INT            = 50,
+	@PageIndex		INT            = 0,
+	@TotalRows 		INT            = 0 OUTPUT
 AS
 
 /*
-Created: Winfred
-Date: 20220315
-Task : Get remarks for main tab
-DB: DBCRM.bodb_CRM
-Original:
+    Created: Winfred
+    Date: 20220315
+    Task : Get remarks for main tab
+    DB: DBCRM.bodb_CRM
 
-Revisions:	
-	- 20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
-	- 20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
-    - 20231003@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+    Revisions:	
+        20220315@Winfred: Special remarks renovation  [RedmineID:#167941]   
+        20220603@Winfred: HF CRM - Remark - Not show sufficient data  [RedmineID:#173703] 
+        20231003@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
+        20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 
-Param's Explanation:	
-	@RemarkTitle : All ID RemarkTitle
-	@IsHistory   0 : Search Remark , 1 : List History				 
+    Param's Explanation:
+	    @RemarkTitle : All ID RemarkTitle
+	    @IsHistory   0 : Search Remark , 1 : List History
+        @UserRole = 0: Manager 
+                    1: CN88 staff
+                    2: Company staff
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
+        @SitePermission: Value depend on user's permission and maybe NULL
 */
 BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @RowStart INT,@RowEnd INT ,@AffectedList VARCHAR(MAX) = ''
-	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1 	
-	
+	SELECT @PageIndex = @PageIndex - 1,@RowStart = @PageSize * @PageIndex + 1, @RowEnd = @RowStart + @PageSize - 1
+
+    -- #tmpUserSitePermission
+    CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
+
+    INSERT INTO #tmpUserSitePermission (SitePermission)
+    SELECT value SitePermission
+    FROM STRING_SPLIT(@SitePermission, ',')
+
+    -- #tmpSite
+    CREATE TABLE #tmpSite (
+        SiteID     INT,
+        SiteName   NVARCHAR(100),
+        IsLicensee INT,
+        IsActive   BIT,
+        SiteLabel  VARCHAR(50),
+        SiteOffer  INT
+    )
+
+    INSERT INTO #tmpSite (
+        SiteID,
+        SiteName,
+        IsLicensee,
+        IsActive,
+        SiteLabel,
+        SiteOffer
+    )
+    SELECT si.SettingID SiteID,
+           si.SettingValue SiteName,
+           CASE WHEN sr.ParentID = 33000 THEN 1
+                WHEN sr.ParentID = 33001 THEN 0
+                ELSE -1 END IsLicensee,
+           si.IsActive IsActive,
+           si.ExtraInfo SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+    WHERE sr.ParentID IN (33000, 33001)
+    UNION ALL
+    SELECT sc.SettingID SiteID,
+           sc.SettingValue SiteName,
+           0 IsLicensee,
+           sc.IsActive IsActive,
+           NULL SiteLabel,
+           sc.SiteOffer SiteOffer
+    FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
+    WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
+
+    CREATE CLUSTERED INDEX CIX_tmpSite ON #tmpSite(SiteID)
+
+    -- #tmpSitePermission
+    CREATE TABLE #tmpSitePermission (
+        SiteID         INT,
+        SiteName       NVARCHAR(100),
+        SitePermission NVARCHAR(100)
+    )
+
+    INSERT INTO #tmpSitePermission (
+        SiteID,
+        SiteName,
+        SitePermission
+    )
+    SELECT sr.SettingID    SiteID,
+           si.SettingValue SiteName,
+           sp.SettingValue SitePermission
+    FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+         INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+
+    CREATE CLUSTERED INDEX CIX_tmpSitePermission ON #tmpSitePermission(SiteID)
+
+    -- #Pic
 	CREATE TABLE #Pic(PicID	INT PRIMARY KEY CLUSTERED,Username	NVARCHAR(200))
 	CREATE TABLE #Result (RowNumber	INT,
 						RemarkID INT,HeadlineID INT ,HeadlineName NVARCHAR(50), 
@@ -73,7 +155,8 @@ BEGIN
 	FROM crmCustomer p  WITH(NOLOCK)
 	OUTER APPLY ( SELECT VALUE FROM STRING_SPLIT(@Username,',') WHERE VALUE <> '' ) tmp
 	WHERE  p.Username = tmp.value 
-	
+
+    -- #Result
 	INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
 		, RemarkName, ExtStation, Remark, RelatedPICs, HandlerID, ModifierID, Requester, ApproverID
 		, AcknowledgerID, LastUpdate, Creator, Handler, Approver,  Acknowledger, Updater )
@@ -97,6 +180,9 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
 		LEFT JOIN bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
 		LEFT JOIN bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
+        LEFT JOIN #tmpSite si ON b.SiteID = si.SiteID
+        LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 	WHERE  (@Username = '' OR b.CustID IN (SELECT CustID FROM #Customer))
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
@@ -106,7 +192,13 @@ BEGIN
 								INNER JOIN #Pic p ON S.value = p.PicID
 								WHERE  S.VALUE <> ''))) 
 	AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
-
+    AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+    AND @LicenseeType <> -1
+    AND (si.IsLicensee IS NULL
+         OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+    AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+         OR sp.SitePermission = usp.SitePermission)
+    
     INSERT INTO #Customer(CustID, Username)
     SELECT CustID, Username
     FROM #Result
@@ -124,6 +216,7 @@ BEGIN
 	FROM #Result a
 		INNER JOIN #CustHeadline c WITH(NOLOCK) ON a.custid = c.custid
 
+    -- #Result
 	IF @ShowHeadline = 1
 	BEGIN
 		INSERT INTO #Result(RemarkID, CreatedDate, CreatorID, CustID, UserName, RemarkTitle, Ext
@@ -149,6 +242,9 @@ BEGIN
 			LEFT JOIN bodb02.dbo.Custinfo app WITH(NOLOCK) ON a.ApproverID = app.CustID
 			LEFT JOIN bodb02.dbo.Custinfo ack WITH(NOLOCK) ON a.AcknowledgerID = ack.CustID
 			LEFT JOIN bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
+            LEFT JOIN #tmpSite si ON b.SiteID = si.SiteID
+            LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+            LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
 		WHERE  a.Remark LIKE '%' + @Remark + '%' 
 		AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 		AND ((@IsGuest = 0 AND a.CustID > 0)OR (@IsGuest = 1 AND a.CustID < 0))
@@ -159,6 +255,12 @@ BEGIN
 		AND (a.CreatedDate IS NULL OR a.CreatedDate BETWEEN @Fromdate AND @Todate )
 		AND a.CustID IN (SELECT HeadlineID FROM #CustHeadline)
 		AND a.RemarkID NOT IN (SELECT RemarkID FROM #Result)
+        AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+        AND @LicenseeType <> -1
+        AND (si.IsLicensee IS NULL
+             OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+        AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+             OR sp.SitePermission = usp.SitePermission)
 	END
 	
 	UPDATE a
@@ -200,6 +302,9 @@ BEGIN
 	WHERE RowNumber BETWEEN @RowStart AND @RowEnd
 	ORDER BY CreatedDate DESC, RemarkID DESC
 
+    DROP TABLE #tmpUserSitePermission
+    DROP TABLE #tmpSite
+    DROP TABLE #tmpSitePermission
     DROP TABLE #Pic	
 	DROP TABLE #Result							
 	DROP TABLE #CustHeadline

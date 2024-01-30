@@ -14,92 +14,98 @@ ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatistics @Type           INT,
 AS
 
 /*
-Created: Lukas
-Date: 20101116
-Task : feedback statistics report
-DB: DB052.bodb_CRM
-Original:
+    Created: Lukas
+    Date:    20101116
+    Task:    feedback statistics report
+    DB:      DBCRM.bodb_CRM
 
-Revisions:
-		- 20110818@Kevin: add new filter: Communication
-		- 20110622@Kevin: add new filter: Status, Response, Product, Category
-		- 20110628@Lukas: add filter Licensee & remove licensees from 'site' filter
-		- 20111011@Lukas: Add filter duration
-		- 20120425@Sophia: remove converting @FromDate, @Todate
-		- 20120103@Lukas: exclude Pending feedback (statusID = 11001)
-		- 20140523@Dom: modify site condition
-		- 20180420@Winnie: FB Statistics report - There is no data when filter By Site RedmineID:#94047
-		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
-		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
-        - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+    Revisions:
+        20110818@Kevin:  add new filter: Communication
+        20110622@Kevin:  add new filter: Status, Response, Product, Category
+        20110628@Lukas:  add filter Licensee & remove licensees from 'site' filter
+        20111011@Lukas:  Add filter duration
+        20120425@Sophia: remove converting @FromDate, @Todate
+        20120103@Lukas:  exclude Pending feedback (statusID = 11001)
+        20140523@Dom:    modify site condition
+        20180420@Winnie: FB Statistics report - There is no data when filter By Site RedmineID:#94047
+        20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]
+        20190506@Winnie: CN88 Permission RedmineID: #112637
+        20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        20240130@Ned.Le: Fix bug at dynamic query
 
-Param's Explanation:
-	@Type:	- 1		By Creator
-			- 2		By Country
-			- 3		By Role
-			- 4		By Site
-			- 5		By Status
-			- 6		By Customer Response
-			- 7		By Product
-			- 8		By Category
-			- 9		Licensees
-			- 10	Communication
-    @UserRole = 0: Manager 
-                1: CN88 staff
-                2: Company staff
-    @LicenseeType = -1: None
-                     0: Both
-                     1: Credit
-                     2: Licensee
-    @SitePermission: Value depend on user's permission and maybe NULL
+    Param's Explanation:
+        @Type = 1:  By Creator
+                2:  By Country
+                3:  By Role
+                4:  By Site
+                5:  By Status
+                6:  By Customer Response
+                7:  By Product
+                8:  By Category
+                9:  By Licensee
+                10: By Communication Tool
+        @UserRole = 0: Manager
+                    1: CN88 staff
+                    2: Company staff
+        @LicenseeType = -1: None
+                         0: Both
+                         1: Credit
+                         2: Licensee
+        @SitePermission: Value depend on user's permission and maybe NULL
+
+    Example:
+        EXEC bodb_CRM.dbo.Acc_CRM_Rpt_FeedbackStatistics @Type           = 1,
+                                                         @FromDate       = '2023-01-01 12:00:00',
+                                                         @ToDate         = '2023-01-31 12:00:00',
+                                                         @FromDuration   = '0:0:0:0',
+                                                         @ToDuration     = '0:0:0:0',
+                                                         @UserRole       = 2,
+                                                         @LicenseeType   = 0,
+                                                         @SitePermission = '789y,MBC,IBC'
 */
 
 BEGIN
 
-	SET NOCOUNT ON
+    SET NOCOUNT ON
 
-	DECLARE @cols				NVARCHAR(MAX),
-			@sql				NVARCHAR(MAX),
-			@ParamDefinition	NVARCHAR(500),
-			@fDuration			INT,
-			@tDuration			INT
 
-	--DECLARE @Items TABLE(ID INT PRIMARY KEY, Item INT)
-	DECLARE @Items TABLE(ID INT IDENTITY PRIMARY KEY, Item INT)
+    ---------------------
+    -- Deal with duration
 
-	SELECT	@ParamDefinition = N'@f DATETIME, @t DATETIME, @fDuration INT, @tDuration INT'
+    DECLARE @tmp TABLE (ID INT IDENTITY PRIMARY KEY, val INT)
+    INSERT INTO @tmp(val) SELECT CONVERT(INT, val) FROM dbo.f_split(@FromDuration,':')
+    INSERT INTO @tmp(val) SELECT CONVERT(INT, val) FROM dbo.f_split(@ToDuration,':')
 
-	DECLARE @tmp TABLE (ID INT IDENTITY PRIMARY KEY, val INT)
-	INSERT INTO @tmp(val) SELECT CONVERT(INT,val) FROM dbo.f_split(@FromDuration,':')
-	INSERT INTO @tmp(val) SELECT CONVERT(INT,val) FROM dbo.f_split(@ToDuration,':')
+    DECLARE @fDuration INT,
+            @tDuration INT
+    SELECT @fDuration = SUM(CASE WHEN ID = 1 THEN val*24*60*60 
+                                 WHEN ID = 2 THEN val*60*60 
+                                 WHEN ID = 3 THEN val*60 
+                                 WHEN ID = 4 THEN val
+                                 ELSE 0 END),
+           @tDuration = SUM(CASE WHEN ID = 5 THEN val*24*60*60 
+                                 WHEN ID = 6 THEN val*60*60 
+                                 WHEN ID = 7 THEN val*60 
+                                 WHEN ID = 8 THEN val
+                                 ELSE 0 END)
+    FROM @tmp
 
-	SELECT @fDuration = SUM(CASE WHEN ID = 1 THEN val*24*60*60 
-								WHEN ID = 2 THEN val*60*60 
-								WHEN ID = 3 THEN val*60 
-								WHEN ID = 4 THEN val
-								ELSE 0
-							END),
-		   @tDuration = SUM(CASE WHEN ID = 5 THEN val*24*60*60 
-								WHEN ID = 6 THEN val*60*60 
-								WHEN ID = 7 THEN val*60 
-								WHEN ID = 8 THEN val
-								ELSE 0
-							END)
-	FROM @tmp
+    IF (@fDuration = 0 AND @tDuration = 0)
+    BEGIN
+        SET @tDuration = 2100000000
+    END
 
-	IF @fDuration = 0 AND @tDuration = 0
-	BEGIN
-		SET @tDuration = 2100000000
-	END
 
-    ------------------------------
-    -- BEGIN - Apply permission --
+    -----------------------
+    -- Deal with permission
 
+    -- #tmpUserSitePermission
     CREATE TABLE #tmpUserSitePermission (SitePermission NVARCHAR(100))
-    INSERT INTO #tmpUserSitePermission (SitePermission)
+    INSERT INTO  #tmpUserSitePermission (SitePermission)
     SELECT value SitePermission
     FROM STRING_SPLIT(@SitePermission, ',')
 
+    -- #tmpSite
     CREATE TABLE #tmpSite (
         SiteID     INT,
         SiteName   NVARCHAR(100),
@@ -126,7 +132,7 @@ BEGIN
            sc.SiteOffer SiteOffer
     FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
          INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
-         INNER JOIN	bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
     WHERE sr.ParentID IN (33000, 33001)
     UNION ALL
     SELECT sc.SettingID SiteID,
@@ -138,6 +144,7 @@ BEGIN
     FROM bodb_CRM.dbo.crmSetting sc WITH (NOLOCK)
     WHERE sc.SettingName = 'SiteCategory' AND sc.SettingID = 33002
 
+    -- #tmpSitePermission
     CREATE TABLE #tmpSitePermission (
         SiteID         INT,
         SiteName       NVARCHAR(100),
@@ -155,894 +162,484 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmSetting sp WITH (NOLOCK) ON sp.SettingName = 'SitePermission' AND sr.ParentID = sp.SettingID
          INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
 
-    CREATE TABLE #tmpFeedbackID (FeedbackID INT)
-    INSERT INTO  #tmpFeedbackID (FeedbackID)
-    SELECT fb.FeedbackID
-    FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK)
-         LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
-         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
-    WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-          AND fb.StatusID NOT IN (11001,11004,11019,11016)
-          AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-          AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-          AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
-          AND @LicenseeType <> -1
-          AND (si.IsLicensee IS NULL
-               OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
-          AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
-               OR sp.SitePermission = usp.SitePermission)
 
-    DECLARE @FeedbackIDList VARCHAR(MAX)
-    SELECT  @FeedbackIDList = STRING_AGG(CAST(FeedbackID AS VARCHAR(MAX)), ',') FROM #tmpFeedbackID
+    ---------------
+    -- Process data
+
+    -- Create temp table
+    CREATE TABLE #tmpFeedbackData (
+        FeedbackID     INT,
+        MainCategoryID INT,
+        MainCategory   NVARCHAR(1000),
+        SubCategoryID  INT,
+        SubCategory    NVARCHAR(1000),
+        ShowColumnID   INT,
+        ShowColumnName NVARCHAR(1000)
+    )
+
+    -- @Type=1 - By Creator
+    IF (@Type = 1 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID   FeedbackID, 
+                        fs.SettingID    MainCategoryID,
+                        m.SettingValue  MainCategory, 
+                        fs.SubSettingID SubCategoryID,
+                        s.SettingValue  SubCategory,
+                        c.custid        ShowColumnID,
+                        c.username      ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb02.dbo.customer c WITH (NOLOCK) ON fb.CreatorID = c.CustID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=2 - By Country
+    IF (@Type = 2 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID                 FeedbackID, 
+                        fs.SettingID                  MainCategoryID,
+                        m.SettingValue                MainCategory, 
+                        fs.SubSettingID               SubCategoryID,
+                        s.SettingValue                SubCategory,
+                        ISNULL(ct.CountryID, 0)       ShowColumnID,
+                        ISNULL(ct.CountryName, 'N/A') ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb_CRM.dbo.crmCountry ct WITH(NOLOCK) ON fb.CountryId = ct.CountryID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=3 - By Role
+    IF (@Type = 3 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID   FeedbackID, 
+                        fs.SettingID    MainCategoryID,
+                        m.SettingValue  MainCategory, 
+                        fs.SubSettingID SubCategoryID,
+                        s.SettingValue  SubCategory,
+                        r.SettingID     ShowColumnID,
+                        r.SettingValue  ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb_CRM.dbo.crmSetting r WITH (NOLOCK) ON fb.RoleID = r.SettingID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=4 - By Site
+    IF (@Type = 4 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID                FeedbackID, 
+                        fs.SettingID                 MainCategoryID,
+                        m.SettingValue               MainCategory, 
+                        fs.SubSettingID              SubCategoryID,
+                        s.SettingValue               SubCategory,
+                        ISNULL(site.SiteID, 0)       ShowColumnID,
+                        ISNULL(site.SiteName, 'N/A') ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb_CRM.dbo.crmSite site WITH (NOLOCK) ON fb.SiteID = site.SiteID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=5 - By Status
+    IF (@Type = 5 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID   FeedbackID, 
+                        fs.SettingID    MainCategoryID,
+                        m.SettingValue  MainCategory, 
+                        fs.SubSettingID SubCategoryID,
+                        s.SettingValue  SubCategory,
+                        st.SettingID    ShowColumnID,
+                        st.SettingValue ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb_CRM.dbo.crmSetting st WITH(NOLOCK) ON fb.StatusID = st.SettingID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=6 - By Customer Response
+    IF (@Type = 6 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID   FeedbackID, 
+                        fs.SettingID    MainCategoryID,
+                        m.SettingValue  MainCategory, 
+                        fs.SubSettingID SubCategoryID,
+                        s.SettingValue  SubCategory,
+                        st.SettingID    ShowColumnID,
+                        st.SettingValue ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb_CRM.dbo.crmSetting st WITH(NOLOCK) ON fb.ResponseID = st.SettingID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=7 - By Product
+    IF (@Type = 7 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID                 FeedbackID, 
+                        fs.SettingID                  MainCategoryID,
+                        m.SettingValue                MainCategory, 
+                        fs.SubSettingID               SubCategoryID,
+                        s.SettingValue                SubCategory,
+                        ISNULL(p.SettingID, 0)        ShowColumnID,
+                        ISNULL(p.SettingValue, 'N/A') ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting st WITH (NOLOCK) ON fs.FeedbackID = st.FeedbackID
+             INNER JOIN bodb_CRM.dbo.crmSetting p WITH(NOLOCK) ON st.SettingID = p.SettingID AND p.SettingName='Product'
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=8 - By Category
+    IF (@Type = 8 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID   FeedbackID, 
+                        fs.SettingID    MainCategoryID,
+                        m.SettingValue  MainCategory, 
+                        fs.SubSettingID SubCategoryID,
+                        s.SettingValue  SubCategory,
+                        m.SettingID     ShowColumnID,
+                        m.SettingValue  ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=9 - By Licensee
+    IF (@Type = 9 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID              FeedbackID, 
+                        fs.SettingID               MainCategoryID,
+                        m.SettingValue             MainCategory, 
+                        fs.SubSettingID            SubCategoryID,
+                        s.SettingValue             SubCategory,
+                        ISNULL(st.SiteID, 0)       ShowColumnID,
+                        ISNULL(st.SiteName, 'N/A') ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN bodb_CRM.dbo.crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (st.IsLicensee = 1 OR ISNULL(fb.SiteID, 0) = 0)
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+    -- @Type=10 - By Communication Tool
+    IF (@Type = 10 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID                 FeedbackID, 
+                        fs.SettingID                  MainCategoryID,
+                        m.SettingValue                MainCategory, 
+                        fs.SubSettingID               SubCategoryID,
+                        s.SettingValue                SubCategory,
+                        ISNULL(p.SettingID, 0)        ShowColumnID,
+                        ISNULL(p.SettingValue, 'N/A') ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting st WITH (NOLOCK) ON fs.FeedbackID = st.FeedbackID
+             INNER JOIN bodb_CRM.dbo.crmSetting p WITH (NOLOCK) ON st.SettingID = p.SettingID AND p.SettingName = 'communication'
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
+
+
+    --------------
+    -- Return data
+
+    CREATE TABLE #tmpShowColumnName (
+        ID             INT IDENTITY PRIMARY KEY,
+        ShowColumnID   INT,
+        ShowColumnName NVARCHAR(1000)
+    )
+
+    IF (@type IN (3, 10))
+    BEGIN
+        INSERT INTO #tmpShowColumnName (
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT ShowColumnID,
+               ShowColumnName
+        FROM #tmpFeedbackData
+        GROUP BY ShowColumnID, ShowColumnName
+        ORDER BY ShowColumnID
+    END
+    ELSE
+    BEGIN
+        INSERT INTO #tmpShowColumnName (
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT ShowColumnID,
+               ShowColumnName
+        FROM #tmpFeedbackData
+        GROUP BY ShowColumnID, ShowColumnName
+        ORDER BY CASE WHEN ShowColumnName IN ('N/A', 'N/A.') THEN 'ZZZ' ELSE ShowColumnName END
+    END           
+
+    DECLARE @cols NVARCHAR(MAX)
+    SELECT  @cols = COALESCE(@cols + ',[' + ShowColumnName + ']','[' + ShowColumnName + ']')
+    FROM #tmpShowColumnName
+
+    DECLARE @sql  NVARCHAR(MAX)
+    SELECT  @sql =
+    '
+    SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
+    FROM (
+            SELECT FeedbackID,
+                   MainCategoryID,
+                   MainCategory,
+                   SubCategoryID,
+                   SubCategory,
+                   ShowColumnName
+            FROM #tmpFeedbackData
+         ) p
+        PIVOT
+        (
+            COUNT(FeedbackID)
+            FOR ShowColumnName IN (' + @cols + ')
+        ) AS pvt
+        ORDER BY MainCategory, SubCategory
+    '
+    EXECUTE (@sql)
+    SELECT ShowColumnID Item FROM #tmpShowColumnName WHERE ShowColumnID IS NOT NULL
+
+    -------------------
+    -- Drop temp tables
 
     DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSite
     DROP TABLE #tmpSitePermission
 
-    -- END - Apply permission --
-    ----------------------------
-	
-	IF @Type = 1	--- creator
-	BEGIN		
-		INSERT INTO @Items(Item)
-			SELECT c.custid FROM crmfeedback fb WITH(NOLOCK) 
-						INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.creatorID = c.custid
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-			GROUP BY 
-				c.UserName, c.CustID
-			ORDER BY c.UserName
-		--
-		SELECT @cols = COALESCE(@cols + ',[' + c.UserName + ']','[' + c.UserName + ']')
-		FROM	@Items i INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON i.item = c.CustId
-		ORDER BY c.UserName ASC
-		IF(@UserRole=2)
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT DISTINCT	fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											c.username AS CreatorName
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteOffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteOffer=2
-											LEFT JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.CreatorID = c.CustID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR CreatorName IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-				SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT DISTINCT	fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											c.username AS CreatorName
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteOffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteOffer=1
-											LEFT JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fb.CreatorID = c.CustID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR CreatorName IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-	
-		SELECT Item FROM @Items
-	END
-	IF @Type = 2	-- country
-	BEGIN
-		INSERT INTO @Items(Item)
-			SELECT ISNULL(ct.CountryID,0)
-			FROM crmfeedback fb WITH(NOLOCK) 
-					LEFT JOIN crmCountry ct WITH(NOLOCK) ON fb.CountryID = ct.CountryID
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND (ct.siteoffer=@UserRole OR ct.SiteOffer IS NULL)
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-			GROUP BY ct.CountryName, ct.CountryID
-			ORDER BY ct.CountryName ASC
-		--	
+    DROP TABLE #tmpFeedbackData
+    DROP TABLE #tmpShowColumnName
 
-		SELECT @cols = COALESCE(@cols + ',[' + ct.CountryName + ']','[' + ct.CountryName + ']')
-		FROM	@Items i INNER JOIN crmCountry ct WITH(NOLOCK) ON i.Item = ct.CountryID WHERE ct.siteOffer=@UserRole
-		--ORDER BY ct.CountryName ASC
-		
-		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
-		BEGIN
-			--- modify to push N/A at the end of line
-			DELETE FROM @Items WHERE Item = 0		
-			SET @cols = COALESCE(@cols + ',[N/A]','[N/A]')
-			INSERT INTO @Items VALUES(0)
-		END
-		IF @UserRole=2
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT DISTINCT	fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											ISNULL(ct.CountryName,''N/A'') AS CountryName
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											LEFT JOIN crmCountry ct WITH(NOLOCK) ON fb.CountryId = ct.CountryID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND (ct.siteoffer=2 OR ct.siteoffer IS NULL)
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR CountryName IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT DISTINCT	fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											ISNULL(ct.CountryName,''N/A'') AS CountryName
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											LEFT JOIN crmCountry ct WITH(NOLOCK) ON fb.CountryId = ct.CountryID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND ct.siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR CountryName IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 3	-- Role
-	BEGIN
-		INSERT INTO @Items(Item)
-			SELECT r.SettingID 
-			FROM crmfeedback fb WITH(NOLOCK) 
-					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.RoleID = r.SettingID
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND r.siteoffer=@UserRole
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-			GROUP BY r.SettingValue, r.SettingID
-			ORDER BY r.SettingID ASC
-			
-		--
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID  WHERE r.siteOffer=@UserRole
-		--ORDER BY r.SettingID ASC
-		IF(@UserRole=2)
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '	
-							FROM (	
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											r.SettingValue AS Role	
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											LEFT JOIN crmSetting r WITH(NOLOCK) ON fb.RoleID = r.SettingID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND r.siteOffer=2
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Role IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '	
-							FROM (	
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											r.SettingValue AS Role	
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											LEFT JOIN crmSetting r WITH(NOLOCK) ON fb.RoleID = r.SettingID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND r.siteOffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Role IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 4	-- Site
-	BEGIN
-		INSERT INTO @Items(Item)
-		SELECT ISNULL(fb.SiteID,0)
-		FROM crmfeedback fb WITH(NOLOCK) 
-				LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
-		WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate				
-				AND fb.StatusID NOT IN (11001,11004,11019,11016)
-				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-				AND (r.siteoffer=@UserRole OR r.SiteOffer IS NULL)
-                AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-		GROUP BY r.SiteName, fb.SiteID
-		ORDER BY r.SiteName ASC
-					 
-		--
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-			WHERE r.siteoffer=@UserRole
-		--ORDER BY r.SettingValue ASC
-	
-		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
-		BEGIN
-			DELETE FROM @Items WHERE Item = 0
-			SET @cols = COALESCE(@cols + ',[N/A]','[N/A]')
-			INSERT INTO @Items VALUES(0)
-		END
-		IF(@UserRole=2)
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											ISNULL(site.SiteName,''N/A'') As Site
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											LEFT JOIN crmSite site WITH(NOLOCK) ON fb.SiteID = site.SiteID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t										
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND (site.siteoffer=2 OR site.siteoffer IS NULL)
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Site IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											ISNULL(site.SiteName,''N/A'') As Site
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											LEFT JOIN crmSite site WITH(NOLOCK) ON fb.SiteID = site.SiteID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t										
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND site.siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Site IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-		
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 5	-- status
-	BEGIN
-		INSERT INTO @Items(Item)
-			SELECT r.SettingID 
-			FROM crmfeedback fb WITH(NOLOCK) 
-					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.StatusID = r.SettingID
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND r.siteoffer=@UserRole
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-			GROUP BY r.SettingValue, r.SettingID
-			ORDER BY r.SettingValue ASC
-		--
-	
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-			WHERE r.siteoffer=@UserRole
-			
-		--ORDER BY r.SettingValue ASC
-		IF @UserRole=2
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											st.SettingValue As [status]
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											INNER JOIN crmSetting st WITH(NOLOCK) ON fb.StatusID = st.SettingID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND st.Siteoffer=2
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR [status] IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'						
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											st.SettingValue As [status]
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											INNER JOIN crmSetting st WITH(NOLOCK) ON fb.StatusID = st.SettingID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND st.Siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR [status] IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 6	-- customer response
-	BEGIN
-		INSERT INTO @Items(Item)
-			SELECT r.SettingID 
-			FROM crmfeedback fb WITH(NOLOCK) 
-					INNER JOIN crmSetting r WITH(NOLOCK) ON fb.ResponseID = r.SettingID
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND r.siteoffer=@UserRole
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-			GROUP BY r.SettingValue, r.SettingID
-			ORDER BY r.SettingValue ASC
-		--
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID
-			WHERE r.siteoffer=@UserRole
-		--ORDER BY r.SettingValue ASC
-
-		IF @UserRole=2
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											st.SettingValue As Response
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.ResponseID = st.SettingID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND st.siteoffer=2
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Response IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											st.SettingValue As Response
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											LEFT JOIN crmSetting st WITH(NOLOCK) ON fb.ResponseID = st.SettingID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND st.siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Response IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 7	-- product
-	BEGIN
-		INSERT INTO @Items(Item)
-		SELECT DISTINCT fs.SettingID
-		FROM crmfeedback fb WITH(NOLOCK) 
-			INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-			INNER JOIN crmSetting r WITH(NOLOCK) ON fs.SettingID = r.SettingID AND r.SettingName='Product'
-		WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-			AND fb.StatusID NOT IN (11001,11004,11019,11016)
-			AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-			AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-			AND r.siteoffer=@UserRole
-            AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-	
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
-		--ORDER BY r.SettingValue ASC
-		
-		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
-		BEGIN
-			DELETE FROM @Items WHERE Item = 0
-			SET @cols = COALESCE(@cols + ',[N/A]','[N/A]')
-			INSERT INTO @Items VALUES(0)	
-				
-		END
-		IF(@UserRole=2)
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT DISTINCT
-											fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											p.SettingValue As Product
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											INNER JOIN crmFeedbackSetting st WITH(NOLOCK) ON fs.FeedbackID = st.FeedbackID
-											INNER JOIN crmSetting p WITH(NOLOCK) ON st.SettingID = p.SettingID AND p.SettingName=''Product''
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND p.siteoffer=2
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Product IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT DISTINCT
-											fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											p.SettingValue As Product
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											INNER JOIN crmFeedbackSetting st WITH(NOLOCK) ON fs.FeedbackID = st.FeedbackID
-											INNER JOIN crmSetting p WITH(NOLOCK) ON st.SettingID = p.SettingID AND p.SettingName=''Product''
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND p.siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Product IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 8	-- Main Category
-	BEGIN
-		INSERT INTO @Items(Item)
-			SELECT DISTINCT fs.SettingID 
-			FROM crmfeedback fb WITH(NOLOCK) 
-				INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID					
-				INNER JOIN crmSetting r WITH(NOLOCK) ON fs.SettingID = r.SettingID AND r.SettingName='MainCategory'
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND r.siteoffer=@UserRole
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
-		--ORDER BY r.SettingValue ASC
-
-		IF @UserRole=2
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											m.SettingValue As Category
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Category IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END			
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											m.SettingValue As Category
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Category IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END			
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 9	-- Licensees
-	BEGIN
-		INSERT INTO @Items(Item)
-			SELECT ISNULL(r.SiteID, 0)
-			FROM crmfeedback fb WITH(NOLOCK) 
-					LEFT JOIN crmSite r WITH(NOLOCK) ON fb.SiteID = r.SiteID
-			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-					AND (r.IsLicensee=1 OR ISNULL(fb.SiteID, 0) = 0) --r.SettingID >= 6200				
-					AND fb.StatusID NOT IN (11001,11004,11019,11016)
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-					AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-					AND (r.siteoffer=@UserRole OR r.siteoffer IS NULL)
-                    AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-			GROUP BY r.SiteName, r.SiteID
-			ORDER BY r.SiteName ASC
-		--
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
-		--ORDER BY r.SettingValue ASC
-
-		IF EXISTS (SELECT 1 FROM @Items WHERE Item = 0)
-		BEGIN
-			DELETE FROM @Items WHERE Item = 0
-			SET @cols = COALESCE(@cols + ',[N/A]','[N/A]')
-			INSERT INTO @Items VALUES(0)
-		END
-		IF @UserRole=2
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											ISNULL(st.SiteName,''N/A'') As Site
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND (st.IsLicensee = 1 OR ISNULL(fb.SiteID, 0) = 0)
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND (st.siteoffer=2 OR st.siteoffer IS NULL)
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR site IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											ISNULL(st.SiteName,''N/A'') As Site
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											LEFT JOIN crmSite st WITH(NOLOCK) ON fb.SiteID = st.SiteID
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND (st.IsLicensee = 1 OR ISNULL(fb.SiteID, 0) = 0)
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND st.siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR site IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-	IF @Type = 10	-- communication
-	BEGIN
-		INSERT INTO @Items(Item)
-		SELECT DISTINCT fs.SettingID 
-		FROM crmfeedback fb WITH(NOLOCK) 
-			INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID					
-			INNER JOIN crmSetting r WITH(NOLOCK) ON fs.SettingID = r.SettingID AND r.SettingName='communication'				
-		WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
-				AND fb.StatusID NOT IN (11001,11004,11019,11016)
-				AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-				AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-				AND r.siteoffer=@UserRole
-                AND fb.FeedbackID IN (SELECT FeedbackID FROM #tmpFeedbackID)
-		
-		SELECT @cols = COALESCE(@cols + ',[' + r.SettingValue + ']','[' + r.SettingValue + ']')
-		FROM	@Items i INNER JOIN crmSetting r WITH(NOLOCK) ON i.Item = r.SettingID WHERE r.siteoffer=@UserRole
-		--ORDER BY r.SettingValue ASC
-		IF @UserRole=2
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											p.SettingValue As Communication
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=2
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=2
-											INNER JOIN crmFeedbackSetting st WITH(NOLOCK) ON fs.FeedbackID = st.FeedbackID
-											INNER JOIN crmSetting p WITH(NOLOCK) ON st.SettingID = p.SettingID AND p.SettingName=''communication''
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND p.siteoffer=2
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Communication IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		ELSE
-		BEGIN
-			SELECT @sql = '	SELECT MainCategoryID, SubCategoryID, MainCategory, SubCategory, ' + @cols + '
-							FROM (
-					  				SELECT	DISTINCT fb.FeedbackID, 
-											fs.SettingID as ''MainCategoryID'',
-											m.SettingValue AS MainCategory, 
-											fs.SubSettingID as ''SubCategoryID'',
-											s.SettingValue AS SubCategory ,
-											p.SettingValue As Communication
-									FROM crmFeedback fb WITH(NOLOCK) 
-											INNER JOIN crmFeedbackSetting fs  WITH(NOLOCK)	ON fb.FeedbackID=fs.FeedbackID	
-											INNER JOIN crmSetting m WITH(NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName=''MainCategory'' AND m.siteoffer=1
-											INNER JOIN crmSetting s WITH(NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName=''SubCategory'' AND s.siteoffer=1
-											INNER JOIN crmFeedbackSetting st WITH(NOLOCK) ON fs.FeedbackID = st.FeedbackID
-											INNER JOIN crmSetting p WITH(NOLOCK) ON st.SettingID = p.SettingID AND p.SettingName=''communication''
-									WHERE fb.FeedbackDate BETWEEN @f AND @t
-											AND fb.StatusID NOT IN (11001,11004,11019,11016)
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
-											AND DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
-											AND p.siteoffer=1
-                                            AND fb.FeedbackID IN (' + @FeedbackIDList + ')
-								 ) p
-								PIVOT
-								(
-									COUNT(FeedbackID)
-									FOR Communication IN (' + @cols + ')
-								) AS pvt
-							ORDER BY MainCategory, SubCategory
-							'
-		END
-		EXECUTE sp_executesql @sql, @ParamDefinition, @f = @FromDate, @t = @ToDate, @fDuration = @fDuration, @tDuration = @tDuration
-
-		SELECT Item FROM @Items i
-	END
-
-    DROP TABLE #tmpFeedbackID
 END
 GO

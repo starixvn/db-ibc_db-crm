@@ -12,9 +12,12 @@ AS
     DB: DBACC/bodb02
 
     Revisions:
-        - 20230104@Malcolm: Initialize SPs [Redmine: #181906]
-        - 20230802@Malcolm: Incorporate voiding duplicated bet tickets with TVS [Redmine: #191355]
-        - 20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [Redmine: #198905]
+        20230104@Malcolm: Initialize SPs [Redmine: #181906]
+        20230802@Malcolm: Incorporate voiding duplicated bet tickets with TVS [Redmine: #191355]
+        20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [Redmine: #198905]
+
+    Example:
+        EXEC bodb02.dbo.Task_CRM_VoidingHistoryCollection_Ins
 */
 
 BEGIN
@@ -285,7 +288,7 @@ BEGIN
                c.mrecommend,
                c.srecommend
         FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK)
-             LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON vt.CustID = c.username
+             LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON vt.CustID = c.custid
         WHERE EXISTS (SELECT TOP 1 1
                       FROM CTE_sourcedata s
                       WHERE s.VoidingHistoryId = vt.VoidingHistoryId AND s.MessageId = vt.MessageId)

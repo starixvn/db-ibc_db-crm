@@ -31,6 +31,7 @@ AS
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]		
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        - 20240131@Ned.Le: Turning performance
 
 	Param's Explanation:
 		@Type:	- 1		Creator
@@ -876,32 +877,44 @@ BEGIN
 	ELSE
 	BEGIN
 		
-		INSERT INTO #tempRelated 
-			(
-				FeedbackID
-			)		
-		SELECT DISTINCT t.FeedbackID
-		FROM #tempFeedback t 
-			INNER JOIN crmFeedbackCustomer fc WITH(NOLOCK)  ON t.FeedbackID=fc.FeedbackID
-		WHERE fc.IsRelated = 1
-		
-		UPDATE #tempRelated
-			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))
+        -- Dataset 01
+        CREATE TABLE #tmpcrmFeedbackCustomer (FeedbackID INT, CustID INT)
+        INSERT INTO  #tmpcrmFeedbackCustomer (FeedbackID, CustID)
+        SELECT FeedbackID, CustID
+        FROM bodb_CRM.dbo.crmFeedbackCustomer WITH (NOLOCK)
+        WHERE FeedbackID IN (SELECT FeedbackID FROM #tempFeedback)
+              AND IsRelated = 1
+        CREATE CLUSTERED INDEX CIX_FeedbackID ON #tmpcrmFeedbackCustomer(FeedbackID)
+
+        INSERT INTO #tempRelated (FeedbackID, RelatedCustomer)
+        SELECT FeedbackID, STRING_AGG(CAST(ISNULL(c.Username,d.UserName) AS NVARCHAR(MAX)), ',') RelatedCustomer
+        FROM #tmpcrmFeedbackCustomer fc WITH(NOLOCK)
+             LEFT JOIN bodb02.dbo.customer c WITH(NOLOCK) ON fc.CustID = c.CustID
+		     LEFT JOIN DBLIC.bodb_CRM.dbo.crmcustomer d WITH(NOLOCK) ON fc.CustID = d.CustID
+        GROUP BY FeedbackID
 		
 		SELECT DISTINCT t.*,r.RelatedCustomer
 		FROM #tempFeedback t 		
-			LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 		
+			 LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 		
 		ORDER BY t.FeedbackDate	DESC
-		
+
+        DROP TABLE #tmpcrmFeedbackCustomer
+
+        -- Dataset 02
+        CREATE TABLE #tmpcrmFeedbackSetting (FeedbackID INT, SettingID INT, SubSettingID INT)
+        INSERT INTO  #tmpcrmFeedbackSetting (FeedbackID, SettingID, SubSettingID)
+        SELECT FeedbackID, SettingID, SubSettingID
+        FROM bodb_CRM.dbo.crmFeedbackSetting WITH (NOLOCK)
+        WHERE FeedbackID IN (SELECT FeedbackID FROM #tempFeedback)
+        CREATE CLUSTERED INDEX CIX_FeedbackID ON #tmpcrmFeedbackSetting(FeedbackID)
+
 		SELECT t.FeedbackID,fm.SettingID AS MainCategory,fm.SubSettingID AS SubCategory
 		FROM #tempFeedback t
-			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON t.FeedbackID=fm.FeedbackID
-			INNER JOIN crmMainCategory mc WITH(NOLOCK) ON fm.SettingID=mc.MainCategoryID	
+			INNER JOIN #tmpcrmFeedbackSetting fm WITH(NOLOCK) ON t.FeedbackID=fm.FeedbackID
+			INNER JOIN crmMainCategory mc WITH(NOLOCK) ON fm.SettingID=mc.MainCategoryID
+
+        DROP TABLE #tmpcrmFeedbackSetting
 		
 	END
-END;
-
-GO 
-
- GRANT EXECUTE ON dbo.Acc_CRM_Rpt_FeedbackStatisticDetails TO bodbAdminNet;
-GO 
+END
+GO

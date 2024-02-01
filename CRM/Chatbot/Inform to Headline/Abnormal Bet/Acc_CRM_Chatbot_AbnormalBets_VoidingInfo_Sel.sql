@@ -31,10 +31,10 @@ AS
         @Messages:
             + Data
                 <root>
-                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TrasnIdList="1,2,3,4" UsernameList="" FilterBy="1"/>
-                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TrasnIdList="5,6,7,8" UsernameList="" FilterBy="-1"/>
-                    <r VoidingHistoryCollectionId="2" MessageId="2" IssueTypeId="15" TrasnIdList="9,10,11,12" UsernameList="" FilterBy="-1"/>
-                    <r VoidingHistoryCollectionId="3" MessageId="3" IssueTypeId="13" TrasnIdList="" UsernameList="a1,a2,a3,a4" FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="1,2,3,4" UsernameList="" FilterBy="1"/>
+                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="5,6,7,8" UsernameList="" FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="2" MessageId="2" IssueTypeId="15" TransIdList="9,10,11,12" UsernameList="" FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="3" MessageId="3" IssueTypeId="13" TransIdList="" UsernameList="a1,a2,a3,a4" FilterBy="-1"/>
                 </root>
             + Description
                 * UsernameList: SMA list enter to void tickets
@@ -58,15 +58,15 @@ BEGIN
     -- Parse XML data to temp table
 
     -- #Messages
-    CREATE TABLE #tmpInput_Messages (VoidingHistoryCollectionId INT, MessageId INT, IssueTypeId INT, TrasnIdList VARCHAR(MAX), UsernameList NVARCHAR(MAX), FilterBy INT)
+    CREATE TABLE #tmpInput_Messages (VoidingHistoryCollectionId INT, MessageId INT, IssueTypeId INT, TransIdList VARCHAR(MAX), UsernameList NVARCHAR(MAX), FilterBy INT)
 
-    INSERT INTO #tmpInput_Messages (VoidingHistoryCollectionId, MessageId, IssueTypeId, TrasnIdList, UsernameList, FilterBy)
+    INSERT INTO #tmpInput_Messages (VoidingHistoryCollectionId, MessageId, IssueTypeId, TransIdList, UsernameList, FilterBy)
     SELECT t.c.value('@VoidingHistoryCollectionId', 'INT')           AS VoidingHistoryCollectionId,
            t.c.value('@MessageId',                  'INT')           AS MessageId,
            t.c.value('@IssueTypeId',                'INT')           AS IssueTypeId,
-           t.c.value('@TrasnIdList',                'VARCHAR(MAX)')  AS TrasnIdList,
+           t.c.value('@TransIdList',                'VARCHAR(MAX)')  AS TransIdList,
            t.c.value('@UsernameList',               'NVARCHAR(MAX)') AS UsernameList,
-           t.c.value('@UsernameList',               'INT')           AS FilterBy
+           t.c.value('@FilterBy',                   'INT')           AS FilterBy
     FROM @Messages.nodes('root/r') AS t(c)
     OPTION (OPTIMIZE FOR (@Messages = NULL))
 
@@ -193,7 +193,7 @@ BEGIN
            t.TransId,
            CASE WHEN ab.IssueTypeId = 11 AND ab.FilterBy = 1 THEN 3 ELSE 1 END [Type]
     FROM #tmpInput_Messages ab
-         CROSS APPLY (SELECT value TransId FROM STRING_SPLIT(ab.TrasnIdList, ',')) t
+         CROSS APPLY (SELECT value TransId FROM STRING_SPLIT(ab.TransIdList, ',')) t
     WHERE ab.IssueTypeId IN (11, 15)
 
     -- Insert base data of VoidByBetID (MsgContentsType=103) to support temp table

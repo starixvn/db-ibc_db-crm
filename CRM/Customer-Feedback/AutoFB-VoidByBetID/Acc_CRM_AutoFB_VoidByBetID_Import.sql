@@ -630,15 +630,17 @@ BEGIN
     -- + --> Gen data to temp table
     ;WITH
     CTE_cust AS (
-        SELECT MessageId,
-               HeadlineId,
-               isLicensee,
-               STRING_AGG(CAST(RelatedCustId AS VARCHAR(MAX)), ',')   RelatedCustIds,
-               STRING_AGG(CAST(RelatedUsername AS VARCHAR(MAX)), ', ') RelatedUsernames
-        FROM #tmpFeedback_base_cust
-        GROUP BY MessageId,
-                 HeadlineId,
-                 isLicensee
+        SELECT c.MessageId,
+               c.HeadlineId,
+               c.isLicensee,
+               STRING_AGG(CAST(c.RelatedCustId AS VARCHAR(MAX)), ',')   RelatedCustIds,
+               STRING_AGG(CAST(c.RelatedUsername AS VARCHAR(MAX)), ', ') RelatedUsernames
+        FROM (SELECT MessageId, HeadlineId, isLicensee, RelatedCustId, RelatedUsername
+              FROM #tmpFeedback_base_cust
+              GROUP BY MessageId, HeadlineId, isLicensee, RelatedCustId, RelatedUsername) c
+        GROUP BY c.MessageId,
+                 c.HeadlineId,
+                 c.isLicensee
     ),
     CTE_subproduct AS (
         SELECT MessageId,

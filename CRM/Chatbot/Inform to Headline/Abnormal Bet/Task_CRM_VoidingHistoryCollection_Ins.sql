@@ -367,6 +367,7 @@ BEGIN
         Using_RequestBy            NVARCHAR(200),
         Using_DecidedBy            NVARCHAR(200),
         Using_VoIdBy               NVARCHAR(200),
+        Using_MatchId              INT,
         Using_OriginalTransId      VARCHAR(MAX)
     )
 
@@ -376,6 +377,11 @@ BEGIN
         SELECT rd.RequestId, rd.TransIds
         FROM bodb02.dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK)
         GROUP BY rd.RequestId, rd.TransIds
+    ),
+    CTE_VoidTransaction AS (
+        SELECT vt.VoidingHistoryId, vt.MessageId, vt.MatchId
+        FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK)
+        GROUP BY vt.VoidingHistoryId, vt.MessageId, vt.MatchId
     )
     INSERT INTO #tmpDuplicateTicket (
         Support_BroadcastSessionId,
@@ -392,6 +398,7 @@ BEGIN
         Using_RequestBy,
         Using_DecidedBy,
         Using_VoIdBy,
+        Using_MatchId,
         Using_OriginalTransId
     )
     SELECT vh.BroadcastSessionId Support_BroadcastSessionId,
@@ -408,11 +415,13 @@ BEGIN
            crb.username          Using_RequestBy,
            rq.DecidedBy          Using_DecidedBy,
            vh.VoIdBy             Using_VoIdBy,
+           vt.MatchId            Using_MatchId,
            rd.TransIds           Using_OriginalTransId
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
          LEFT JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
          LEFT JOIN CTE_RequestDetail rd ON rq.RequestId = rd.RequestId
          INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
+         LEFT JOIN CTE_VoidTransaction vt WITH (NOLOCK) ON vh.VoidingHistoryId = vt.VoidingHistoryId AND vh.MessageId = vt.MessageId
     WHERE rq.IssueTypeId IN (20)
 
 
@@ -624,7 +633,7 @@ BEGIN
            Using_RequestBy,
            Using_DecidedBy,
            Using_VoIdBy,
-           NULL Using_MatchId,
+           Using_MatchId,
            NULL Using_TransIdList,
            NULL Using_UsernameList,
            NULL Using_ReasonList,

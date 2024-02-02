@@ -8,8 +8,8 @@ AS
 
 /*
     Created: 20230104@Malcolm
-    Task : Collect message 
-    DB: DBACC/bodb02
+    Task:    Synthesize, classify and group messages
+    DB:      DBACC/bodb02
 
     Revisions:
         20230104@Malcolm: Initialize SPs [Redmine: #181906]
@@ -110,6 +110,7 @@ BEGIN
     )
 
     ;WITH
+    -- + Get all data base on CreatedDate and data must be not exist on table VoidingHistoryCollectionDetail
     CTE_initial AS (
         SELECT vh.BroadcastSessionId,
                vh.RequestId,
@@ -125,6 +126,7 @@ BEGIN
         WHERE vh.CreatedDate >= DATEADD(DAY, -1, @CurrentDate) AND vh.CreatedDate < DATEADD(SECOND, -5, @CurrentDate)
               AND NOT EXISTS (SELECT 1 FROM bodb02.dbo.VoidingHistoryCollectionDetail d WITH (NOLOCK) WHERE d.VoidingHistoryId = vh.VoidingHistoryId)
     ),
+    -- + Just get data of normal message
     CTE_normal AS (
         SELECT BroadcastSessionId,
                RequestId,
@@ -138,6 +140,7 @@ BEGIN
         FROM CTE_initial
         WHERE ISNULL(MessageId, 0) <> 0
     ),
+    -- + Just get data of special message
     CTE_special AS (
         SELECT BroadcastSessionId,
                RequestId,
@@ -151,6 +154,7 @@ BEGIN
         FROM CTE_initial
         WHERE ISNULL(MessageIdSpecial, 0) <> 0
     ),
+    -- + Union data of normal message and special message
     CTE_union AS (
         SELECT BroadcastSessionId,
                RequestId,
@@ -174,6 +178,7 @@ BEGIN
                ModifiedDate
         FROM CTE_special
     )
+    -- + Finalize to insert data to temp table
     INSERT INTO #tmpTicketVoiding_VoidingHistory (
         BroadcastSessionId,
         RequestId,
@@ -224,6 +229,7 @@ BEGIN
 
     -- Gen data to temp table
     ;WITH
+    -- + Data on table TicketVoiding_RequestDetail maybe exist on multiple rows and we need to care about the duplicate data
     CTE_RequestDetail AS (
         SELECT rd.RequestId, rd.Usernames
         FROM bodb02.dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK)
@@ -262,9 +268,9 @@ BEGIN
            vh.VoIdBy             Using_VoIdBy,
            rd.Usernames          Using_UsernameList
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
+         INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
          LEFT JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
          LEFT JOIN CTE_RequestDetail rd ON rq.RequestId = rd.RequestId
-         INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
     WHERE rq.IssueTypeId IN (13)
 
     -- Transform temp table (check UsernameList to just keep Username that have void ticket)
@@ -373,16 +379,69 @@ BEGIN
 
     -- Gen data to temp table
     ;WITH
-    CTE_RequestDetail AS (
-        SELECT rd.RequestId, rd.TransIds
+    -- + Just get necessary data and convert column TransIds to XML datatype
+    CTE_RawData_RequestDetail_01 AS (
+        SELECT rd.RequestId,
+               CAST(rd.TransIds AS XML) TransIds
         FROM bodb02.dbo.TicketVoiding_RequestDetail rd WITH (NOLOCK)
+        WHERE TransIds IS NOT NULL
+              AND EXISTS (SELECT TOP 1 1
+                          FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
+                          WHERE rq.IssueTypeId = 20
+                                AND rq.RequestId = rd.RequestId)
         GROUP BY rd.RequestId, rd.TransIds
     ),
-    CTE_VoidTransaction AS (
-        SELECT vt.VoidingHistoryId, vt.MessageId, vt.MatchId
+    -- + Parse XML data to column
+    CTE_RawData_RequestDetail_02 AS (
+        SELECT RequestId                                    RequestId,
+               t.c.value('@OrgTransIds',    'BIGINT')       OrgTransIds,
+               t.c.value('@VoidedTransIds', 'VARCHAR(MAX)') VoidedTransIds
+        FROM CTE_RawData_RequestDetail_01
+             CROSS APPLY TransIds.nodes('root/r') AS t(c)
+    ),
+    -- + Split data to column to use in mapping later
+    CTE_RawData_RequestDetail AS (
+        SELECT r.RequestId,
+               r.OrgTransIds,
+               v.VoidedTransIds
+        FROM CTE_RawData_RequestDetail_02 r
+             CROSS APPLY (SELECT CAST(value AS BIGINT) VoidedTransIds
+                          FROM STRING_SPLIT(r.VoidedTransIds, ',')) v
+    ),
+    -- + Get data from TicketVoiding_VoidedTransaction
+    CTE_RawData_VoidTransaction AS (
+        SELECT vt.VoidingHistoryId,
+               vt.MessageId,
+               vt.MatchId,
+               vt.TransId
         FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK)
-        GROUP BY vt.VoidingHistoryId, vt.MessageId, vt.MatchId
+        GROUP BY vt.VoidingHistoryId, vt.MessageId, vt.MatchId, vt.TransId
+    ),
+    -- + Mapping and union data
+    CTE_UnionData AS (
+        SELECT rd.RequestId,
+               vt.VoidingHistoryId,
+               vt.MessageId,
+               vt.MatchId,
+               rd.OrgTransIds,
+               STRING_AGG(CAST(rd.VoidedTransIds AS VARCHAR(MAX)), ',') VoidedTransIds
+        FROM CTE_RawData_RequestDetail rd
+             LEFT JOIN CTE_RawData_VoidTransaction vt ON rd.VoidedTransIds = vt.TransId
+        GROUP BY rd.RequestId, vt.VoidingHistoryId, vt.MessageId, vt.MatchId, rd.OrgTransIds
+    ),
+    -- + Finalize to convert data to the expected format
+    CTE_FinalData AS (
+        SELECT u.RequestId,
+               u.VoidingHistoryId,
+               u.MessageId,
+               u.MatchId,
+               n.TransIds
+        FROM CTE_UnionData u
+             CROSS APPLY (SELECT(SELECT u.OrgTransIds    AS '@OrgTransIds',
+                                        u.VoidedTransIds AS '@VoidedTransIds'
+                                 FOR XML PATH ('r'), ROOT ('root')) AS TransIds) AS n
     )
+    -- + Insert data to temp table
     INSERT INTO #tmpDuplicateTicket (
         Support_BroadcastSessionId,
         Support_RequestId,
@@ -415,13 +474,12 @@ BEGIN
            crb.username          Using_RequestBy,
            rq.DecidedBy          Using_DecidedBy,
            vh.VoIdBy             Using_VoIdBy,
-           vt.MatchId            Using_MatchId,
-           rd.TransIds           Using_OriginalTransId
+           fd.MatchId            Using_MatchId,
+           fd.TransIds           Using_OriginalTransId
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
-         LEFT JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
-         LEFT JOIN CTE_RequestDetail rd ON rq.RequestId = rd.RequestId
          INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
-         LEFT JOIN CTE_VoidTransaction vt WITH (NOLOCK) ON vh.VoidingHistoryId = vt.VoidingHistoryId AND vh.MessageId = vt.MessageId
+         LEFT JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
+         LEFT JOIN CTE_FinalData fd ON rq.RequestId = fd.RequestId AND vh.VoidingHistoryId = fd.VoidingHistoryId AND vh.MessageId = fd.MessageId
     WHERE rq.IssueTypeId IN (20)
 
 
@@ -503,9 +561,9 @@ BEGIN
            rd.ReasonList         Using_ReasonList,
            rd.FilterBy           Using_FilterBy
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
+         INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
          LEFT JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
          LEFT JOIN CTE_RequestDetail rd WITH (NOLOCK) ON rq.RequestId = rd.RequestId
-         INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
          LEFT JOIN CTE_VoidTransaction vt WITH (NOLOCK) ON vh.VoidingHistoryId = vt.VoidingHistoryId AND vh.MessageId = vt.MessageId
     WHERE rq.IssueTypeId IN (11, 15)
 

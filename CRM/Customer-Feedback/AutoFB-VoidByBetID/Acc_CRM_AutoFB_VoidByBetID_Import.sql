@@ -19,6 +19,7 @@ AS
     Revisions:
         20231115@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID (#196660)
         20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
+        20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 
     Param's Explanation:
         @Message:
@@ -931,13 +932,13 @@ BEGIN
          OUTER APPLY (
             SELECT (
                        'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
-                       + 'System ID: ' + b.RelatedUsernames
+                       + 'System ID: ' + ISNULL(b.RelatedUsernames, '')
                    ) AS '@AutoField'
                    ,
                    (
                        '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
                        + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/>'
-                       + e.EventInfo
+                       + ISNULL(e.EventInfo, '')
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
         ) AS d(Description)
@@ -955,7 +956,7 @@ BEGIN
          OUTER APPLY (
             SELECT (
                        'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
-                       + 'System ID: ' + b.RelatedUsernames
+                       + 'System ID: ' + ISNULL(b.RelatedUsernames, '')
                    ) AS '@AutoField'
                    ,
                    (

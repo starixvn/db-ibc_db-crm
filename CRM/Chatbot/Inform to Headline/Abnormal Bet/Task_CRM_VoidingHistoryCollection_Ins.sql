@@ -119,8 +119,8 @@ BEGIN
         SELECT vh.BroadcastSessionId,
                vh.RequestId,
                vh.VoidingHistoryId,
-               vh.MessageId,
-               vh.MessageIdSpecial,
+               ISNULL(vh.MessageId, 0) MessageId,
+               ISNULL(vh.MessageIdSpecial, 0) MessageIdSpecial,
                vh.SiteDBGroupID,
                vh.StatusId,
                cvb.username VoIdBy,
@@ -147,7 +147,6 @@ BEGIN
                VoIdBy,
                ModifiedDate
         FROM CTE_initial
-        WHERE ISNULL(MessageId, 0) <> 0
     ),
     -- + Just get data of special message
     CTE_special AS (
@@ -161,7 +160,6 @@ BEGIN
                VoIdBy,
                ModifiedDate
         FROM CTE_initial
-        WHERE ISNULL(MessageIdSpecial, 0) <> 0
     ),
     -- + Union data of normal message and special message
     CTE_union AS (
@@ -806,7 +804,7 @@ BEGIN
                                                AND fi.Support_MessageIdGroup = sc.Support_MessageIdGroup
     WHERE sc.Support_BroadcastSessionId IS NULL
     -- + Delete data
-    DELETE FROM #tmpFinal WHERE Support_StatusId <> 2 OR Support_IsCollect = 0
+    DELETE FROM #tmpFinal WHERE Support_StatusId <> 2 OR Support_IsCollect = 0 OR Using_MessageId = 0
 
     -- Insert data to main table
     -- + Update Id

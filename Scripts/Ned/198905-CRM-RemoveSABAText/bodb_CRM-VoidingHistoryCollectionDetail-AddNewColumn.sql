@@ -2,7 +2,7 @@
 
 /*
 Created: 20231228@Ned.Le
-DB: DBCRM.bodb_CRM
+DB: DBACC.bodb02
 Task: Add some new columns to table VoidingHistoryCollectionDetail
 */
 

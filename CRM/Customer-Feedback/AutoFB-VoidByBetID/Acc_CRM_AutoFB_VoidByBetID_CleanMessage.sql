@@ -15,6 +15,7 @@ AS
     Revisions:
         20231115@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID (#196660)
         20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
+        20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 
     Param's Explanation:
         @Message:
@@ -65,9 +66,15 @@ BEGIN
     -- + All MessageId in TicketVoiding_VoidingHistory be already created Feedback on AbnormalBet/AbnormalAccount auto service
     -- + And some of them have MsgContentsType=103
     -- + And we need to remove them from XML data at this step to avoid recreate Feedback for them again
+    ;WITH
+    CTE_VoidingHistory AS (
+        SELECT ISNULL(MessageId, 0) MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+        UNION
+        SELECT ISNULL(MessageIdSpecial, 0) MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+    )
     DELETE m
     FROM #Messages m
-    WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidingHistory v WITH (NOLOCK) WHERE v.MessageId = m.MessageId)
+    WHERE EXISTS (SELECT TOP 1 1 FROM CTE_VoidingHistory v WHERE v.MessageId = m.MessageId)
 
     -- Clean 02
     -- + We just keep data with TargetId is member (roleid=1)

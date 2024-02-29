@@ -25,15 +25,16 @@ AS
         - 20230330@Ned.Le: CRM - Enhance for Displaying Relevant MessageIDs [RedmineId : #186119]
         - 20231110@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID [RedmineId : #196660]
         - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
+        - 20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 
     Param's Explanation:
         @Messages:
             + Data
                 <root>
-                    <r VoidingHistoryCollectionId = "1" VoidingHistoryID = "" UsernameList=""/>
-                    <r VoidingHistoryCollectionId = "2" VoidingHistoryID = "456" UsernameList="xxx,u1"/>
-                    <r VoidingHistoryCollectionId = "3" VoidingHistoryID = "789" UsernameList="xxx,u1"/>
-                    <r VoidingHistoryCollectionId = "4" VoidingHistoryID = "234" UsernameList="xxx,u1"/>
+                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="1,2,3,4" UsernameList="" FilterBy="1"/>
+                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="5,6,7,8" UsernameList="" FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="2" MessageId="2" IssueTypeId="15" TransIdList="9,10,11,12" UsernameList="" FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="3" MessageId="3" IssueTypeId="13" TransIdList="" UsernameList="a1,a2,a3,a4" FilterBy="-1"/>
                 </root>
             + Description
                 * UsernameList: SMA list enter to void tickets
@@ -57,24 +58,27 @@ BEGIN
     -- Parse XML data to temp table
 
     -- #Messages
-    CREATE TABLE #Messages (VoidingHistoryCollectionId INT, VoidingHistoryID INT, UsernameList NVARCHAR(MAX))
+    CREATE TABLE #tmpInput_Messages (VoidingHistoryCollectionId INT, MessageId INT, IssueTypeId INT, TransIdList VARCHAR(MAX), UsernameList NVARCHAR(MAX), FilterBy INT)
 
-    INSERT INTO #Messages (VoidingHistoryCollectionId, VoidingHistoryID, UsernameList)
-    SELECT t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId,
-           t.c.value('@VoidingHistoryID', 'INT') AS VoidingHistoryID,
-           t.c.value('@UsernameList', 'NVARCHAR(MAX)') AS UsernameList
+    INSERT INTO #tmpInput_Messages (VoidingHistoryCollectionId, MessageId, IssueTypeId, TransIdList, UsernameList, FilterBy)
+    SELECT t.c.value('@VoidingHistoryCollectionId', 'INT')           AS VoidingHistoryCollectionId,
+           t.c.value('@MessageId',                  'INT')           AS MessageId,
+           t.c.value('@IssueTypeId',                'INT')           AS IssueTypeId,
+           t.c.value('@TransIdList',                'VARCHAR(MAX)')  AS TransIdList,
+           t.c.value('@UsernameList',               'NVARCHAR(MAX)') AS UsernameList,
+           t.c.value('@FilterBy',                   'INT')           AS FilterBy
     FROM @Messages.nodes('root/r') AS t(c)
     OPTION (OPTIMIZE FOR (@Messages = NULL))
 
     -- #Messages_VoidByBetID
-    CREATE TABLE #Messages_VoidByBetID (VoidingHistoryCollectionId INT, MessageId INT, MsgTargetId INT, TargetId INT, BetTransId VARCHAR(MAX))
+    CREATE TABLE #tmpInput_Messages_VoidByBetID (VoidingHistoryCollectionId INT, MessageId INT, MsgTargetId INT, TargetId INT, BetTransId VARCHAR(MAX))
 
-    INSERT INTO #Messages_VoidByBetID (VoidingHistoryCollectionId, MessageId, MsgTargetId, TargetId, BetTransId)
-    SELECT t.c.value('@VoidingHistoryCollectionId', 'INT') AS VoidingHistoryCollectionId,
-           t.c.value('@MessageId', 'INT') AS MessageId,
-           t.c.value('@MsgTargetId', 'INT') AS MsgTargetId,
-           t.c.value('@TargetId', 'INT') AS TargetId,
-           t.c.value('@BetTransId', 'VARCHAR(MAX)') AS BetTransId
+    INSERT INTO #tmpInput_Messages_VoidByBetID (VoidingHistoryCollectionId, MessageId, MsgTargetId, TargetId, BetTransId)
+    SELECT t.c.value('@VoidingHistoryCollectionId', 'INT')          AS VoidingHistoryCollectionId,
+           t.c.value('@MessageId',                  'INT')          AS MessageId,
+           t.c.value('@MsgTargetId',                'INT')          AS MsgTargetId,
+           t.c.value('@TargetId',                   'INT')          AS TargetId,
+           t.c.value('@BetTransId',                 'VARCHAR(MAX)') AS BetTransId
     FROM @Messages_VoidByBetID.nodes('root/r') AS t(c)
     OPTION (OPTIMIZE FOR (@Messages_VoidByBetID = NULL))
 
@@ -82,9 +86,9 @@ BEGIN
     --------------------------------
     -- Get data for output parameter
 
-    SELECT @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #Messages
+    SELECT @MAXVoidingHistoryCollectionId = MAX(VoidingHistoryCollectionId) FROM #tmpInput_Messages
 
-    SELECT @MAXMsgTargetId = MAX(MsgTargetId) FROM #Messages_VoidByBetID
+    SELECT @MAXMsgTargetId = MAX(MsgTargetId) FROM #tmpInput_Messages_VoidByBetID
 
 
     -------------------------------------------
@@ -94,20 +98,26 @@ BEGIN
     -- + All MessageId in TicketVoiding_VoidingHistory be already created Feedback on AbnormalBet/AbnormalAccount auto service
     -- + And some of them have MsgContentsType=103
     -- + And we need to remove them from XML data at this step to avoid recreate Feedback for them again
+    ;WITH
+    CTE_VoidingHistory AS (
+        SELECT ISNULL(MessageId, 0) MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+        UNION
+        SELECT ISNULL(MessageIdSpecial, 0) MessageId FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH(NOLOCK)
+    )
     DELETE m
-    FROM #Messages_VoidByBetID m
-    WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidingHistory v WITH (NOLOCK) WHERE v.MessageId = m.MessageId)
+    FROM #tmpInput_Messages_VoidByBetID m
+    WHERE EXISTS (SELECT TOP 1 1 FROM CTE_VoidingHistory v WHERE v.MessageId = m.MessageId)
 
     -- Clean 02
     -- + We just keep data with TargetId is member (roleid=1)
     -- + We need to do this to optimoize the way to get data between different data processes (to prevent duplicate data)
     DELETE m
-    FROM #Messages_VoidByBetID m
+    FROM #tmpInput_Messages_VoidByBetID m
     WHERE EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.Customer cus WITH (NOLOCK) WHERE cus.roleid <> 1 AND cus.custid = m.TargetId)
 
     -- Transform data to get the final suitable format for further process
     -- + Create temp table
-    CREATE TABLE #VoidByBetIDFinal (
+    CREATE TABLE #tmpData_VoidByBetID (
         VoidingHistoryCollectionId INT,
         MessageId INT,
         ListBetTransId VARCHAR(MAX)
@@ -118,8 +128,8 @@ BEGIN
         SELECT mt.VoidingHistoryCollectionId,
                mt.MessageId,
                bt.BetTransId
-        FROM #Messages_VoidByBetID mt WITH (NOLOCK)
-             CROSS APPLY (SELECT TRIM(value) BetTransId FROM STRING_SPLIT(mt.BetTransId, ',')) bt
+        FROM #tmpInput_Messages_VoidByBetID mt WITH (NOLOCK)
+             CROSS APPLY (SELECT value BetTransId FROM STRING_SPLIT(mt.BetTransId, ',')) bt
     ),
     -- + Second, distinct BetTransId by MessageId
     CTE_second AS (
@@ -141,7 +151,7 @@ BEGIN
                  MessageId
     )
     -- + Return final data
-    INSERT INTO #VoidByBetIDFinal (
+    INSERT INTO #tmpData_VoidByBetID (
         VoidingHistoryCollectionId,
         MessageId,
         ListBetTransId
@@ -152,272 +162,253 @@ BEGIN
     FROM CTE_final
 
 
-    --------------------------------------------------
-    -- Centralize data from many different source data
+    -----------------------------------------------------------------------------------------
+    -- Clean and transform data for Abnormal Bet Group | Abnormal Bet   (IssueTypeId=11)
+    --                                                 | AB Real Member (IssueTypeId=15)
+    --                                                 | VoidByBetID    (MsgContentsType=103)
 
-    -- Create final temp table to centralize data
-    CREATE TABLE #Result (
+    -- Create support temp table
+    CREATE TABLE #tmpData_AbnormalBet (
         VoidingHistoryCollectionId INT,
         MessageId                  INT,
+        TransId                    BIGINT,
         CustId                     INT,
-        UsernameList               NVARCHAR(MAX),
-        Recommend                  INT,
-        Mrecommend                 INT,
+        Username                   NVARCHAR(100),
         Srecommend                 INT,
+        Mrecommend                 INT,
+        Recommend                  INT,
         IsTest                     BIT,
         [Type]                     TINYINT
     )
 
-    CREATE CLUSTERED INDEX CIX_VoidingHistoryCollectionId ON #Result(VoidingHistoryCollectionId)
+    -- Insert base data of Abnormal Bets (IssueTypeId=11) and AB (IssueTypeId=15) to support temp table
+    INSERT INTO #tmpData_AbnormalBet (
+        VoidingHistoryCollectionId,
+        MessageId,
+        TransId,
+        [Type]
+    )
+    SELECT ab.VoidingHistoryCollectionId,
+           ab.MessageId,
+           t.TransId,
+           CASE WHEN ab.IssueTypeId = 11 AND ab.FilterBy = 1 THEN 3 ELSE 1 END [Type]
+    FROM #tmpInput_Messages ab
+         CROSS APPLY (SELECT value TransId FROM STRING_SPLIT(ab.TransIdList, ',')) t
+    WHERE ab.IssueTypeId IN (11, 15)
 
-    -- Get data for Abnormal Bets (IssueTypeId=11)
-    --              AB            (IssueTypeId=15)
-    --              VoidByBetID   (MsgContentsType=103)
-    BEGIN
-        -- Create support temp table
-        CREATE TABLE #AbnormalBetsInfo (
-            VoidingHistoryCollectionId INT,
-            TransId                    BIGINT,
-            MessageId                  INT,
-            Username                   VARCHAR(30),
-            CustId                     INT,
-            Recommend                  INT,
-            Mrecommend                 INT,
-            Srecommend                 INT,
-            IsTest                     BIT,
-            [Type]                     TINYINT
-        )
+    -- Insert base data of VoidByBetID (MsgContentsType=103) to support temp table
+    INSERT INTO #tmpData_AbnormalBet (
+        VoidingHistoryCollectionId,
+        MessageId,
+        TransId,
+        [Type]
+    )
+    SELECT vb.VoidingHistoryCollectionId,
+           vb.MessageId,
+           t.TransId,
+           1 [Type]
+    FROM #tmpData_VoidByBetID vb
+         CROSS APPLY (SELECT value TransId FROM STRING_SPLIT(vb.ListBetTransId, ',')) t
 
-        -- Insert base data of Abnormal Bets (IssueTypeId=11) and AB (IssueTypeId=15) to support temp table
-        INSERT INTO #AbnormalBetsInfo (
-            VoidingHistoryCollectionId,
-            TransId,
-            MessageId,
-            [Type]
-        )
-        SELECT vc.VoidingHistoryCollectionId,
-               t.TransId,
-               vh.MessageId,
-               CASE WHEN rq.IssueTypeId = 11 AND ISNULL(f.FilterBy, 0) = 1 THEN 3 ELSE 1 END AS [Type]
-        FROM bodb02.dbo.VoidingHistoryCollection vc WITH (NOLOCK)
-             INNER JOIN bodb02.dbo.VoidingHistoryCollectionDetail vcd WITH (NOLOCK) ON vcd.VoidingHistoryCollectionId = vc.VoidingHistoryCollectionId
-             INNER JOIN bodb02.dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK) ON vh.VoidingHistoryId = vcd.VoidingHistoryId
-             INNER JOIN bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK) ON rq.RequestId = vh.RequestId AND rq.IssueTypeId IN (11, 15)
-             OUTER APPLY (SELECT TOP(1) rd.FilterBy 
-                          FROM bodb02.dbo.TicketVoiding_RequestDetail rd WITH(NOLOCK) 
-                          WHERE rd.RequestId = vh.RequestId) f(FilterBy)
-             CROSS APPLY (SELECT value AS TransId 
-                          FROM STRING_SPLIT(vh.TransIds, ',')) t
-        WHERE EXISTS (SELECT 1 FROM #Messages m WHERE m.VoidingHistoryCollectionId = vc.VoidingHistoryCollectionId)
+    -- Update data on support temp table with information from bettrans
+    UPDATE ab
+    SET ab.CustId     = b.custid,
+        ab.Username   = b.Username,
+        ab.Srecommend = b.srecommend,
+        ab.Mrecommend = b.mrecommend,
+        ab.Recommend  = b.recommend,
+        ab.IsTest     = b.IsTest
+    FROM #tmpData_AbnormalBet ab
+         CROSS APPLY (SELECT TOP 1 b.custid, b.Username, b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
+                      FROM bodb02.dbo.bettrans b WITH (NOLOCK)
+                      WHERE b.transid = ab.TransId) b
 
-        -- Insert base data of VoidByBetID (MsgContentsType=103) to support temp table
-        INSERT INTO #AbnormalBetsInfo (
-            VoidingHistoryCollectionId,
-            TransId,
-            MessageId,
-            [Type]
-        )
-        SELECT vb.VoidingHistoryCollectionId,
-               bt.TransId,
-               vb.MessageId,
-               1 [Type]
-        FROM #VoidByBetIDFinal vb
-             CROSS APPLY (SELECT value TransId
-                          FROM STRING_SPLIT(vb.ListBetTransId, ',')) bt
-
-        -- Update data on support temp table with information from bettrans
-        UPDATE a
-        SET a.CustId     = b.CustId,
-            a.Username   = b.Username,
-            a.Srecommend = b.Srecommend,
-            a.Mrecommend = b.Mrecommend,
-            a.Recommend  = b.Recommend,
-            a.IsTest     = b.IsTest
-        FROM #AbnormalBetsInfo a
-             CROSS APPLY (SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest
-                          FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-                          WHERE b.transid = a.TransId) b
-
-        -- Update data on support temp table with information from bettrans14
-        UPDATE a
-        SET a.CustId     = b.CustId,
-            a.Username   = b.Username,
-            a.Srecommend = b.Srecommend,
-            a.Mrecommend = b.Mrecommend,
-            a.Recommend  = b.Recommend,
-            a.IsTest     = b.IsTest
-        FROM #AbnormalBetsInfo a
-             CROSS APPLY (SELECT TOP 1 b.CustId, b.Username, b.Srecommend, b.Mrecommend, b.Recommend, CASE WHEN b.Currency = 20 THEN 1 ELSE 0 END AS IsTest
-                          FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
-                          WHERE b.transid = a.TransId) b
-
-        -- Gen data to final temp table
-        INSERT INTO #Result (
-            VoidingHistoryCollectionId,
-            MessageId,
-            CustId,
-            UsernameList,
-            Recommend,
-            Mrecommend,
-            Srecommend,
-            IsTest,
-            [Type]
-        )
-        SELECT a.VoidingHistoryCollectionId,
-               a.MessageId,
-               a.CustId,
-               a.Username,
-               a.Recommend,
-               a.Mrecommend,
-               a.Srecommend,
-               MIN(CONVERT(TINYINT, a.IsTest)) AS IsTest,
-               MAX(a.[Type]) AS [Type]
-        FROM #AbnormalBetsInfo a
-        GROUP BY a.VoidingHistoryCollectionId,
-                 a.MessageId,
-                 a.CustId,
-                 a.Username,
-                 a.Srecommend,
-                 a.Mrecommend,
-                 a.Recommend
-    END
-
-    -- Get data for Abnormal Accounts (IssueTypeId=13)
-    --                                (only get direct account of member who have tickets voided)
-    BEGIN
-        -- Create support temp table
-        CREATE TABLE #AbnormalAccountsInfo (
-            VoidingHistoryCollectionId INT,
-            MessageId                  INT,
-            Username                   VARCHAR(30),
-            CustId                     INT,
-            Recommend                  INT,
-            Mrecommend                 INT,
-            Srecommned                 INT,
-            IsTest                     BIT,
-            DirectAccount              INT
-        )
-
-        -- Gen data to support temp table
-        INSERT INTO #AbnormalAccountsInfo (
-            VoidingHistoryCollectionId,
-            MessageId,
-            Username,
-            CustId,
-            Recommend,
-            Mrecommend,
-            Srecommned,
-            DirectAccount,
-            IsTest
-        )
-        SELECT m.VoidingHistoryCollectionId,
-               vh.MessageId,
-               f.Username,
-               c.custid,
-               c.recommend,
-               c.mrecommend,
-               c.srecommend,
-               cda.CustID DirectAccount,
-               CASE WHEN c.Currency = 20 THEN 1 ELSE 0 END AS IsTest
-        FROM #Messages m
-             INNER JOIN bodb02.dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK) ON m.VoidingHistoryID = vh.VoidingHistoryId
-             CROSS APPLY (SELECT CONVERT(VARCHAR(30), f.value) AS Username
-                          FROM STRING_SPLIT(m.UsernameList, ',') f
-                          WHERE f.value <> '') AS f(Username)
-             INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.username = f.Username
-             LEFT JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustID IN (c.custid, c.recommend, c.mrecommend, c.srecommend)
-        WHERE m.UsernameList <> ''
-              AND cda.CustID IS NOT NULL
-
-        CREATE INDEX ix_MessageId ON #AbnormalAccountsInfo (VoidingHistoryCollectionId, MessageId, DirectAccount)
-
-        -- Gen data to final temp table
-        ;WITH CTE AS (
-            SELECT ai.VoidingHistoryCollectionId,
-                   ai.MessageId,
-                   ai.DirectAccount,
-                   MIN(CONVERT(TINYINT, ai.IsTest)) AS IsTest,
-                   STRING_AGG(CAST(ai.Username AS VARCHAR(MAX)), ',') AS UsernameList
-            FROM #AbnormalAccountsInfo ai
-            GROUP BY ai.VoidingHistoryCollectionId,
-                     ai.MessageId,
-                     ai.DirectAccount
-        )
-        INSERT INTO #Result (
-            VoidingHistoryCollectionId,
-            MessageId,
-            CustId,
-            UsernameList,
-            Recommend,
-            Mrecommend,
-            Srecommend,
-            IsTest,
-            [Type]
-        )
-        SELECT e.VoidingHistoryCollectionId,
-               e.MessageId,
-               e.DirectAccount,
-               e.UsernameList,
-               c.Recommend,
-               c.Mrecommend,
-               c.Srecommend,
-               e.IsTest,
-               2 AS [Type]
-        FROM CTE e
-             INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.custid = e.DirectAccount
-    END
+    -- Update data on support temp table with information from bettrans14
+    UPDATE ab
+    SET ab.CustId     = b.custid,
+        ab.Username   = b.Username,
+        ab.Srecommend = b.srecommend,
+        ab.Mrecommend = b.mrecommend,
+        ab.Recommend  = b.recommend,
+        ab.IsTest     = b.IsTest
+    FROM #tmpData_AbnormalBet ab
+         CROSS APPLY (SELECT TOP 1 b.custid, b.Username, b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
+                      FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
+                      WHERE b.transid = ab.TransId) b
 
 
-    ---------------------------
-    -- Keep data by environment
+    -----------------------------------------------------------------------------------------------------------------------------
+    -- Clean and transform data for Abnormal Account (IssueTypeId=13) | Only get direct account of member who have tickets voided
 
+    -- Create support temp table
+    CREATE TABLE #tmpData_AbnormalAccount (
+        VoidingHistoryCollectionId INT,
+        MessageId                  INT,
+        CustId                     INT,
+        Username                   NVARCHAR(100),
+        Srecommned                 INT,
+        Mrecommend                 INT,
+        Recommend                  INT,
+        IsTest                     BIT,
+        DirectAccount              INT
+    )
+
+    -- Gen data to support temp table
+    INSERT INTO #tmpData_AbnormalAccount (
+        VoidingHistoryCollectionId,
+        MessageId,
+        CustId,
+        Username,
+        Srecommned,
+        Mrecommend,
+        Recommend,
+        IsTest,
+        DirectAccount
+    )
+    SELECT ac.VoidingHistoryCollectionId               VoidingHistoryCollectionId,
+           ac.MessageId                                MessageId,
+           c.custid                                    CustId,
+           u.Username                                  Username,
+           c.srecommend                                Srecommned,
+           c.mrecommend                                Mrecommend,
+           c.recommend                                 Recommend,
+           CASE WHEN c.currency = 20 THEN 1 ELSE 0 END IsTest,
+           cda.CustID                                  DirectAccount
+    FROM #tmpInput_Messages ac
+         CROSS APPLY (SELECT value Username FROM STRING_SPLIT(ac.UsernameList, ',')) u
+         INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.username = u.Username
+         LEFT JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustID IN (c.custid, c.srecommend, c.mrecommend, c.recommend)
+    WHERE ac.IssueTypeId IN (13)
+          AND cda.CustID IS NOT NULL
+
+
+    --------------------------------------------------
+    -- Centralize data from many different source data
+
+    -- Create final temp table to centralize data
+    CREATE TABLE #tmpData_Final (
+        VoidingHistoryCollectionId INT,
+        MessageId                  INT,
+        CustId                     INT,
+        UsernameList               NVARCHAR(MAX),
+        Srecommend                 INT,
+        Mrecommend                 INT,
+        Recommend                  INT,
+        IsTest                     BIT,
+        [Type]                     TINYINT
+    )
+
+    -- Gen data from Abnormal Bet
+    INSERT INTO #tmpData_Final (
+        VoidingHistoryCollectionId,
+        MessageId,
+        CustId,
+        UsernameList,
+        Srecommend,
+        Mrecommend,
+        Recommend,        
+        IsTest,
+        [Type]
+    )
+    SELECT ab.VoidingHistoryCollectionId    VoidingHistoryCollectionId,
+           ab.MessageId                     MessageId,
+           ab.CustId                        CustId,
+           ab.Username                      UsernameList,
+           ab.Srecommend                    Srecommend,
+           ab.Mrecommend                    Mrecommend,
+           ab.Recommend                     Recommend,
+           MIN(CONVERT(TINYINT, ab.IsTest)) IsTest,
+           MAX(ab.[Type])                   [Type]
+    FROM #tmpData_AbnormalBet ab
+    GROUP BY ab.VoidingHistoryCollectionId,
+             ab.MessageId,
+             ab.CustId,
+             ab.Username,
+             ab.Srecommend,
+             ab.Mrecommend,
+             ab.Recommend
+
+    -- Gen data from Abnormal Account
+    ;WITH CTE AS (
+        SELECT ac.VoidingHistoryCollectionId,
+               ac.MessageId,
+               ac.DirectAccount,
+               MIN(CONVERT(TINYINT, ac.IsTest)) IsTest,
+               STRING_AGG(CAST(ac.Username AS NVARCHAR(MAX)), ',') UsernameList
+        FROM #tmpData_AbnormalAccount ac
+        GROUP BY ac.VoidingHistoryCollectionId,
+                 ac.MessageId,
+                 ac.DirectAccount
+    )
+    INSERT INTO #tmpData_Final (
+        VoidingHistoryCollectionId,
+        MessageId,
+        CustId,
+        UsernameList,
+        Recommend,
+        Mrecommend,
+        Srecommend,
+        IsTest,
+        [Type]
+    )
+    SELECT e.VoidingHistoryCollectionId,
+           e.MessageId,
+           e.DirectAccount,
+           e.UsernameList,
+           c.Recommend,
+           c.Mrecommend,
+           c.Srecommend,
+           e.IsTest,
+           2 AS [Type]
+    FROM CTE e
+         INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.custid = e.DirectAccount
+
+    -- Update data by environment
     IF (@Environment = 'UAT')
     BEGIN
         DELETE r
-        FROM #Result r
+        FROM #tmpData_Final r
         WHERE r.IsTest = 0
     END
-
     IF (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
     BEGIN
         DELETE r
-        FROM #Result r
+        FROM #tmpData_Final r
         WHERE r.IsTest = 1
     END
 
 
-    -------------------------
-    -- Return result data set
+    -------------------------------
+    -- Return final result data set
 
     -- The dataset that contain data relate to Headline
-    SELECT VoidingHistoryCollectionId,
-           MessageId,
-           ISNULL(CustId, 0) AS CustId ,
-           ISNULL(UsernameList, '') AS UsernameList,
-           ISNULL(Recommend, 0) AS Recommend,
-           ISNULL(Mrecommend, 0) AS Mrecommend,
-           ISNULL(Srecommend, 0) AS Srecommend,
-           ISNULL(IsTest, 1) AS IsTest,
-           [Type]
-    FROM #Result
+    SELECT VoidingHistoryCollectionId   VoidingHistoryCollectionId,
+           MessageId                    MessageId,
+           ISNULL(CustId, 0)            CustId ,
+           ISNULL(UsernameList, '')     UsernameList,
+           ISNULL(Srecommend, 0)        Srecommend,
+           ISNULL(Mrecommend, 0)        Mrecommend,
+           ISNULL(Recommend, 0)         Recommend,
+           ISNULL(IsTest, 1)            IsTest,
+           [Type]                       [Type]
+    FROM #tmpData_Final
 
     -- The dataset that contain data to be used to get message content
     SELECT DISTINCT
            VoidingHistoryCollectionId,
-           MessageId,
-           -1 RequestId
-    FROM #Result
+           MessageId
+    FROM #tmpData_Final
 
 
     -------------------
     -- Drop temp tables
 
-    DROP TABLE #Messages
-    DROP TABLE #Messages_VoidByBetID
-    DROP TABLE #VoidByBetIDFinal
-    DROP TABLE #Result
-    DROP TABLE #AbnormalBetsInfo
-    DROP TABLE #AbnormalAccountsInfo
+    DROP TABLE #tmpInput_Messages
+    DROP TABLE #tmpInput_Messages_VoidByBetID
+    DROP TABLE #tmpData_VoidByBetID
+    DROP TABLE #tmpData_AbnormalBet
+    DROP TABLE #tmpData_AbnormalAccount
+    DROP TABLE #tmpData_Final
 
 END
 GO

@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_VoidingAutoFeedbackInfo_Sel] 
 	@BatchSize INT = 10
 AS
@@ -13,6 +17,7 @@ AS
 		- 20211124@Winfred: fix site column for Voiding Settled Tickets [RedmineId : #164235]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
+        - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 
 	Parameter's Explanation:
 		
@@ -29,6 +34,7 @@ BEGIN
 							EventDate DATETIME,
 							Sporttype TINYINT,
 							leagueid	INT,
+                            leaguegroupid INT,
 							leaguenametc NVARCHAR(100),
 							homeid	INT,
 							awayid	INT,
@@ -79,11 +85,13 @@ BEGIN
 		,r.homeid = m.homeid
 		,r.awayid = m.awayid
 		,r.leagueid = m.leagueid
+        ,r.leaguegroupid = l.LeagueGroupID
 		,r.KO_time = m.GlobalShowTime
 		,r.eventdate = m.eventdate
 		,r.MatchCode = m.MatchCode
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.match m WITH(NOLOCK) ON r.MatchId = m.matchid
+        INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON m.leagueid = l.leagueid
 	WHERE 	r.EventType = 1
 	
 	Update r
@@ -91,30 +99,36 @@ BEGIN
 		,r.homeid = m.homeid
 		,r.awayid = m.awayid
 		,r.leagueid = m.leagueid
+        ,r.leaguegroupid = l.LeagueGroupID
 		,r.KO_time = m.GlobalShowTime
 		,r.eventdate = m.eventdate
 		,r.MatchCode = m.MatchCode
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.match14 m WITH(NOLOCK) ON r.MatchId = m.matchid
+        INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON m.leagueid = l.leagueid
 	WHERE 	r.EventType = 1 AND r.Sporttype IS NULL
 	
 	-- Get data from Match when EventType = 3
 	Update r
 	SET r.sporttype = vi.sporttype
 		,r.leagueid = vi.leagueid
+        ,r.leaguegroupid = l.LeagueGroupID
 		,r.eventdate = vi.EventTime
 		,r.race_time = vi.EventTime
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.VSRaceInfo vi WITH(NOLOCK) ON r.MatchId = vi.EventID
+        INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON vi.leagueid = l.leagueid
 	WHERE 	r.EventType = 3
 	
 	Update r
 	SET r.sporttype = vi.sporttype
 		,r.leagueid = vi.leagueid
+        ,r.leaguegroupid = l.LeagueGroupID
 		,r.eventdate = vi.EventTime
 		,r.race_time = vi.EventTime
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.VSRaceInfo14 vi WITH(NOLOCK) ON r.MatchId = vi.EventID
+        INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON vi.leagueid = l.leagueid
 	WHERE 	r.EventType = 3  AND r.Sporttype IS NULL
 
 	-- Get data from Match when EventType = 0
@@ -126,6 +140,7 @@ BEGIN
 	Update r
 	SET r.homeid = m.teamid
 		,r.leagueid = m.leagueid
+        ,r.leaguegroupid = t.LeagueGroupID
 		,r.leaguenametc = t.leaguenametc
 		,r.KO_time = m.kickofftime
 	FROM #ResultDetail r
@@ -165,6 +180,7 @@ BEGIN
 		EventType,
 		Sporttype ,
 		leagueid ,
+        leaguegroupid,
 		leaguenametc,
 		homeid	,
 		awayid	,

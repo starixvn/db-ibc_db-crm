@@ -20,6 +20,7 @@ AS
         20231115@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID (#196660)
         20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
         20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
+        20240207@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
 
     Param's Explanation:
         @Message:
@@ -297,7 +298,7 @@ BEGIN
         CustId       INT,
         HeadlineId   INT,
         HeadlineName NVARCHAR(50),
-        HealineSite  NVARCHAR(50),
+        HeadlineSite NVARCHAR(50),
         isLicensee   BIT
     )
     -- + Get list of custid
@@ -312,9 +313,10 @@ BEGIN
     -- + Update value for temp table
     UPDATE h
     SET h.isLicensee  = CASE WHEN d.custid IS NOT NULL THEN 1 ELSE 0 END,
-        h.HealineSite = d.site
+        h.HeadlineSite = c.site
     FROM #tmpHeadlineData h
          LEFT JOIN bodb02.dbo.Dep_CustSuper d WITH (NOLOCK) ON h.HeadlineId = d.custid
+         LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON h.CustId = c.custid
     -- + Delete ignored data
     -- + --> for #tmpBasedData
     DELETE d
@@ -556,7 +558,7 @@ BEGIN
            b.CustId    MappingCustId
     FROM #tmpMessageData b
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
-         LEFT JOIN bodb_CRM.dbo.crmLicenseeMapping lm WITH (NOLOCK) ON h.HealineSite = lm.Site
+         LEFT JOIN bodb_CRM.dbo.crmLicenseeMapping lm WITH (NOLOCK) ON h.HeadlineSite = lm.Site
          LEFT JOIN bodb_CRM.dbo.crmCustomer c WITH (NOLOCK) ON lm.custid = c.CustID
          CROSS JOIN (SELECT CustID FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK) WHERE UserName = 'All-licensees') a
     WHERE h.isLicensee = 1
@@ -763,6 +765,11 @@ BEGIN
     -- Group 03, Feedback match information > Base on spec
     --                                      > When create Feedback for Credit model
     --                                      > Field Description need info about match
+    -- + Get data about SABA LeagueGroupID
+    CREATE TABLE #tmpFeedback_event_SABALeagueGroupID (LeagueGroupID INT)
+    INSERT INTO  #tmpFeedback_event_SABALeagueGroupID (LeagueGroupID)
+    SELECT LeagueGroupID
+    FROM bodb02.dbo.f_LeagueGroupConfig()
     -- + Frist, we need to collect detail data
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_event_detaildata (
@@ -782,12 +789,14 @@ BEGIN
     CTE_Data AS (
         SELECT b.MessageId,
                h.HeadlineId,
+               h.HeadlineSite,
                b.MatchId
         FROM #tmpMessageData b
              LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
         WHERE h.isLicensee = 0
         GROUP BY b.MessageId,
                  h.HeadlineId,
+                 h.HeadlineSite,
                  b.MatchId
     )
     INSERT INTO #tmpFeedback_event_detaildata (
@@ -809,7 +818,7 @@ BEGIN
            s.SportType,
            s.SportName,
            m.GlobalShowTime,
-           l.leaguename LeagueName,
+           CASE WHEN (cte.HeadlineSite = '777777' AND lg.LeagueGroupID IS NOT NULL) THEN REPLACE(l.leaguename, 'SABA', '') ELSE l.leaguename END LeagueName,
            h.teamname HomeTeamName,
            a.teamname AwayTeamName
     FROM CTE_Data cte
@@ -818,6 +827,7 @@ BEGIN
                     SELECT matchid, eventdate, sporttype, GlobalShowTime, leagueid, homeid, awayid FROM bodb02.dbo.match14 WITH (NOLOCK)) m ON cte.MatchId = m.matchid
          LEFT JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON m.sporttype = s.SportType
          LEFT JOIN bodb02.dbo.League l WITH (NOLOCK) ON m.leagueid = l.leagueid
+         LEFT JOIN #tmpFeedback_event_SABALeagueGroupID lg ON l.LeagueGroupID = lg.LeagueGroupID
          LEFT JOIN bodb02.dbo.Team h WITH (NOLOCK) ON m.homeid = h.teamid
          LEFT JOIN bodb02.dbo.Team a WITH (NOLOCK) ON m.awayid = a.teamid
     -- + --> Create index
@@ -1308,6 +1318,7 @@ BEGIN
     DROP TABLE #tmpFeedback_base_subproduct
     DROP TABLE #tmpFeedback_base_bettype
     DROP TABLE #tmpFeedback_base
+    DROP TABLE #tmpFeedback_event_SABALeagueGroupID
     DROP TABLE #tmpFeedback_event_detaildata
     DROP TABLE #tmpFeedback_event_finaldata
     DROP TABLE #tmpFeedback_transid

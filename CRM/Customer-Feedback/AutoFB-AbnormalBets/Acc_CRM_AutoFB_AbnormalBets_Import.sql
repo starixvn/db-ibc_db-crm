@@ -21,6 +21,7 @@ AS
 	Revisions:
 		- 20240109@Malcolm: Initialize SPs [RedmineId: #198905]
         - 20240304@Ned.Le: CRM | Missing info in feedback -> Special Notification of abnormal bet incase affected licensee list too long. (HotFix #201768)
+        - 20240305@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
 		
 	Param's Explanation:
 		. @Message = 
@@ -930,6 +931,11 @@ BEGIN
 	BEGIN
 		/*Description*/
 		/*Credit- Single - Abnormal Bets, Ab real member*/
+        CREATE TABLE #tmpSABALeagueGroupID (LeagueGroupID INT)
+        INSERT INTO  #tmpSABALeagueGroupID (LeagueGroupID)
+        SELECT LeagueGroupID
+        FROM bodb02.dbo.f_LeagueGroupConfig()
+
 		CREATE TABLE #Remark (HeadlinId INT, VoidingHistoryCollectionId INT, IsDeposit BIT, IssueTypeId TINYINT, IsParlay BIT, Remark NVARCHAR(MAX))
 		;WITH CTE_DescriptionTemplate AS (
 			SELECT 
@@ -954,7 +960,7 @@ BEGIN
 									'Date: ' + FORMAT(mt.eventdate, 'dd-MMM-yyyy') + '<br/>'
 								+	'Sport: ' + s.SportName + '<br/>'
 								+	'Event Start Time: ' + FORMAT(mt.GlobalShowTime, 'hh:mm tt') + '<br/>'	
-								+	'League: ' + l.leaguename + '<br/>'
+								+	'League: ' + CASE WHEN (c.site = '777777' AND lg.LeagueGroupID IS NOT NULL) THEN REPLACE(l.leaguename, 'SABA', '') ELSE l.leaguename END + '<br/>'
 								+	'Match: ' + h.teamname + ' -vs- ' + a.teamname + '<br/>'
 							),  '--------------------------------------------------<br/>'
 						) 
@@ -968,7 +974,9 @@ BEGIN
 				INNER JOIN bodb02.dbo.Team h WITH(NOLOCK) ON h.teamId = mt.homeId
 				INNER JOIN bodb02.dbo.Team a WITH(NOLOCK) ON a.teamId = mt.awayId
 				LEFT JOIN bodb02.dbo.League l WITH(NOLOCK) ON l.leagueid = mt.leagueid
+                LEFT JOIN #tmpSABALeagueGroupID lg ON l.LeagueGroupID = lg.LeagueGroupID
 				LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
+                LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON m.HeadlineId = c.custid
 			GROUP BY VoidingHistoryCollectionId, HeadlineId, IssueTypeId, IsParlay, IsDeposit
 		)
 		INSERT INTO #Remark (HeadlinId, VoidingHistoryCollectionId, IsDeposit, IssueTypeId, IsParlay, Remark)
@@ -1568,6 +1576,7 @@ BEGIN
 	DROP TABLE #CustHeadline
 	DROP TABLE #Headline
 	DROP TABLE #Message
+    DROP TABLE #tmpSABALeagueGroupID
 	DROP TABLE #Remark
 	DROP TABLE #Solution
 	DROP TABLE #VoidedCollectionInfo

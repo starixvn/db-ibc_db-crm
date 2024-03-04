@@ -1,4 +1,8 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoFB_AbnormalBets_Import]
 	@Message						XML
 	,@VoidedCollectionInfo 			XML
@@ -16,6 +20,7 @@ AS
 
 	Revisions:
 		- 20240109@Malcolm: Initialize SPs [RedmineId: #198905]
+        - 20240304@Ned.Le: CRM | Missing info in feedback -> Special Notification of abnormal bet incase affected licensee list too long. (HotFix #201768)
 		
 	Param's Explanation:
 		. @Message = 
@@ -1260,7 +1265,7 @@ BEGIN
 				,k.AfftectedInfo
 			FROM @Result r
 			CROSS APPLY (
-				SELECT STRING_AGG (n.Username + ' ' + CONVERT(VARCHAR(50), n.TransId), '<br/>') AS AfftectedInfo
+				SELECT STRING_AGG (CONVERT(NVARCHAR(MAX), n.Username + ' ' + CONVERT(VARCHAR(50), n.TransId)), '<br/>') AS AfftectedInfo
 				FROM 
 				(
 					SELECT DISTINCT m.HeadlineId, m.VoidingHistoryCollectionId, m.IsDeposit, m.IsParlay, CASE WHEN r.IsParlay = 1 THEN '- ' ELSE '' END + m.Username AS Username, m.TransId

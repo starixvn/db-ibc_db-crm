@@ -18,6 +18,7 @@ AS
 
     Revisions:
         - 20220325@Winfred: CRM - insert special remarks renovation [RedmineId : #167941]
+        - 20240305@Ned.Le: [CRM] Create feedback and related 1 user but show 2 same user (HotFix #201863)
     
     Parameter's Explanation:
         @username: the search term.
@@ -149,6 +150,8 @@ BEGIN
           AND @IsGuest = 0
           AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
     -- + Gen data that not be guest customer from CRM to temp table
+    /*
+    --Comment code to not get archived account
     INSERT INTO #tmpCustomer (
         CustID,
         UserName,
@@ -169,6 +172,7 @@ BEGIN
           AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
           AND c.CustID > 0
           AND c.CustID NOT IN (SELECT CustID FROM #tmpCustomer)
+    */
     -- + Gen data that be guest customer from CRM to temp table
     INSERT INTO #tmpCustomer (
         CustID,

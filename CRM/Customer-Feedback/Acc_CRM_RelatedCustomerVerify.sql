@@ -28,6 +28,7 @@ AS
         - 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708]
         - 20210528@Johnson: get site status for list related customers [Redmine: #154840]
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        - 20240305@Ned.Le: [CRM] Create feedback and related 1 user but show 2 same user (HotFix #201863)
 
     Param's Explanation:
         - @UserRole = 0: Manager 
@@ -178,6 +179,7 @@ BEGIN
     WHERE c.UserName IN (SELECT UserName FROM #tmpUserName)
           AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
           AND c.CustID NOT IN (SELECT CustID FROM #tmpCustomer)
+          AND c.CustID < 0 --just get guest account and not get archived account
     -- + Gen data that not exist either from MainDB and CRM to temp table
     INSERT INTO #tmpCustomer (
         CustID,

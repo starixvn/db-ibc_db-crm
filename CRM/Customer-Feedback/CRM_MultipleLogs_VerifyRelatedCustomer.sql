@@ -20,6 +20,7 @@ AS
 	    20200303@Tim: Support "is related customers" function in Create Multiple Logs - RedmineId: #129144
 	    20200327@Tim: fix bug get member under direct account
         20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        20240305@Ned.Le: [CRM] Create feedback and related 1 user but show 2 same user (HotFix #201863)
 
     Param's Explanation:
         @UserRole = 0: Manager 
@@ -174,6 +175,7 @@ BEGIN
          LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
     WHERE c.UserName IN (SELECT Username FROM #tblUsername)
           AND c.UserName NOT IN (SELECT Username FROM #tmpData)
+          AND c.CustID < 0 --just get guest account and not get archived account
 
     ;WITH CTE_Data AS (
         SELECT c.Username

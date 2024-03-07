@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 CREATE PROCEDURE [dbo].[Acc_CRM_PicUpdValidation]
 	@PicID					INT,
 	@CommunicationTools	    NVARCHAR(MAX)
@@ -12,6 +16,7 @@ AS
 	Revisions:
 		- 20200921@Malcolm:	Warn when updating letstalk of Personal [Redmine: #130544]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+        - 20240305@Ned.Le: [CRM] Updating PIC and Headline > PIC management got error (HotFix #201830)
 
 	Param's Explanation:
 	- @CommunicationTools:		
@@ -43,8 +48,8 @@ BEGIN
 											  SettingValue	NVARCHAR(200))
 	EXEC sp_xml_removedocument @iDoc
 
-	DECLARE @UsedConversation TABLE (ConversationId VARCHAR(200), Username VARCHAR(32), ChannelId TINYINT)
-	DECLARE @NewConversation TABLE (ConversationId VARCHAR(200), Username VARCHAR(32), ChannelId TINYINT)
+	DECLARE @UsedConversation TABLE (ConversationId VARCHAR(200), Username VARCHAR(200), ChannelId TINYINT)
+	DECLARE @NewConversation TABLE (ConversationId VARCHAR(200), Username VARCHAR(200), ChannelId TINYINT)
 
 	INSERT INTO @NewConversation (ConversationId, Username, ChannelId)
 	SELECT 

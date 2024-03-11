@@ -41,9 +41,9 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @LogUserID INT
-		,@LogActionID TINYINT
-		,@StsRetrieved TINYINT
-		,@StsGenerating TINYINT
+		,@LogActionID SMALLINT
+		,@StsRetrieved INT
+		,@StsGenerating INT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ProcessID INT
@@ -113,10 +113,10 @@ BEGIN
 	*/
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
-		SELECT '' AS SettlementLogIDs
-			,'' GroupName
-			,'' RefId1
-			,'' RefId2
+		SELECT NULL AS SettlementLogIDs
+			,NULL AS GroupName
+			,NULL AS RefId1
+			,NULL AS RefId2
 		WHERE 1 = 0
 		
 		INSERT INTO [Log] (
@@ -146,12 +146,10 @@ BEGIN
 	--check current status of generate message process
 	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_GenerateMessage
 	BEGIN
-		RAISERROR ('Error - Another Generate Message Process is still active.', 16, 1)
-		
-		SELECT '' AS SettlementLogIDs
-			,'' AS GroupName
-			,'' AS RefId1
-			,'' AS RefId2
+		SELECT NULL AS SettlementLogIDs
+			,NULL AS GroupName
+			,NULL AS RefId1
+			,NULL AS RefId2
 		WHERE 1 = 0
 		
 		INSERT INTO [Log] (
@@ -239,7 +237,7 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Changed Status from [Successfully Retrieved] to [Generating]'
+		,@InfLogPrefix + 'Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]'
 	FROM #tmpUpdatedRH AS rh
 	ORDER BY SettlementLogID
 	
@@ -252,6 +250,7 @@ BEGIN
 	
 	EXEC MNC_ResultAmendment_JSParseResult
 		@SettlementLogIDs = @SettlIDs
+		,@ParseTo = 'RemotingRef'
 		,@OutJSResource = @JSResource OUTPUT
 	
 	INSERT INTO #tmpRemotingRef (

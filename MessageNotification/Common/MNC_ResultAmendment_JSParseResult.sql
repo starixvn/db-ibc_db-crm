@@ -4,6 +4,8 @@ ALTER PROCEDURE MNC_ResultAmendment_JSParseResult
 	,@ParseAmendInfo VARCHAR(50) = 'ALL'
 	,@ParseTo VARCHAR(50) = 'RemotingRef'
 	,@OutJSResource NVARCHAR(MAX) OUTPUT
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
 /*
 	Created: 20231213@Roy
@@ -29,7 +31,7 @@ AS
 	Example:
 		EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
 */
-BEGIN
+BEGIN TRY
 	SET NOCOUNT ON
 	
 	SELECT @OutJSResource = ''
@@ -279,11 +281,6 @@ BEGIN
 		
 		default @ParseTo = RemotingRef
 	*/
-	IF @ParseTo = 'RawData'
-		SET @ParseTo = 'RawData'
-	ELSE
-		SET @ParseTo = 'RemotingRef'
-	
 	IF @ParseTo = 'RawData'
 	BEGIN
 		SELECT @OutJSResource =
@@ -546,4 +543,17 @@ BEGIN
 	DROP TABLE #tmpRemotingRef
 	DROP TABLE #tmpEventInfo
 	DROP TABLE #tmpResultInfo
-END
+END TRY
+BEGIN CATCH
+	SELECT @ErrCode = @@ERROR --output for web
+		,@ErrMsg = ERROR_MESSAGE() --output for web
+	
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT (SELECT ActionID FROM LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
+		,(SELECT TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
+		,'Error - FAILED parse JSON data @SettlementLogIDs=(' + ISNULL(@SettlementLogIDs,'NULL') + '); @ParseAmendInfo=(' + ISNULL(@ParseAmendInfo,'NULL') + '); @ParseTo=(' + ISNULL(@ParseTo,'NULL') + ') - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')' AS LogBef
+END CATCH

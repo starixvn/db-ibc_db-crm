@@ -3,6 +3,8 @@ ALTER PROCEDURE MNC_ResultAmendment_GetSettlementLogIDs
 	@Environment VARCHAR(5)
 	,@JSRemotingRef NVARCHAR(MAX)
 	,@ValidSettlementLogIDs VARCHAR(MAX) OUTPUT
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
 /*
 	Created: 20231213@Roy
@@ -56,7 +58,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @LogUserID INT
-		,@LogActionID TINYINT
+		,@LogActionID SMALLINT
 		,@StsGenerating TINYINT
 		,@StsGenerated TINYINT
 		,@StsGenFailed TINYINT
@@ -134,11 +136,7 @@ BEGIN
 		SET @IsTestFlag = NULL
 	END
 	
-	---create temp tables---
-	CREATE TABLE #tmpLogChangedRH (
-		SettlementLogID INT
-	)
-	
+	---create temp tables---	
 	CREATE TABLE #tmpResourceRef (
 		SettlementLogID INT
 		,GroupName VARCHAR(50)
@@ -158,7 +156,7 @@ BEGIN
 		ID INT IDENTITY(1, 1) PRIMARY KEY
 		,SettlementLogID INT
 		,StatusID TINYINT
-		,RHLog NVARCHAR(MAX)
+		,RHLog NVARCHAR(MAX) DEFAULT ''
 	)
 	
 	CREATE TABLE #tmpRemotingRefData (
@@ -171,40 +169,39 @@ BEGIN
 		,RefValueCS NVARCHAR(500)
 	)
 	
-	INSERT INTO #tmpRemotingRefData (
-		SettlementLogID
-		,GroupName
-		,RefId1
-		,RefId2
-		,RefValueEN
-		,RefValueCH
-		,RefValueCS
-	)
-	SELECT DISTINCT value AS SettlementLogID
-		,NULLIF(TRIM(GroupName), '') AS GroupName
-		,NULLIF(TRIM(RefId1), '') AS RefId1
-		,NULLIF(TRIM(RefId2), '') AS RefId2
-		,NULLIF(TRIM(RefValueEN), '') AS RefValueEN
-		,NULLIF(TRIM(RefValueCH), '') AS RefValueCH
-		,NULLIF(TRIM(RefValueCS), '') AS RefValueCS
-	FROM OPENJSON(@JSRemotingRef) WITH (
-			SettlementLogIDs VARCHAR(MAX) '$.SettlementLogIDs'
-			,GroupName VARCHAR(50) '$.GroupName'
-			,RefId1 VARCHAR(50) '$.RefId1'
-			,RefId2 VARCHAR(50) '$.RefId2'
-			,RefValueEN NVARCHAR(500) '$.RefValueEN'
-			,RefValueCH NVARCHAR(500) '$.RefValueCH'
-			,RefValueCS NVARCHAR(500) '$.RefValueCS'
-		)--OPENJSON case-sensitive
-	CROSS APPLY STRING_SPLIT(SettlementLogIDs, ',')
-	
-	/*
-		Start to verfy info before generate message
-	*/
-	IF NOT EXISTS (SELECT 1 FROM #tmpRemotingRefData)
-		OR EXISTS (SELECT 1 FROM #tmpRemotingRefData WHERE SettlementLogID IS NULL)
-	BEGIN
-		SELECT @ValidSettlementLogIDs = ''
+	BEGIN TRY
+		INSERT INTO #tmpRemotingRefData (
+			SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+			,RefValueEN
+			,RefValueCH
+			,RefValueCS
+		)
+		SELECT DISTINCT value AS SettlementLogID
+			,NULLIF(TRIM(GroupName), '') AS GroupName
+			,NULLIF(TRIM(RefId1), '') AS RefId1
+			,NULLIF(TRIM(RefId2), '') AS RefId2
+			,NULLIF(TRIM(RefValueEN), '') AS RefValueEN
+			,NULLIF(TRIM(RefValueCH), '') AS RefValueCH
+			,NULLIF(TRIM(RefValueCS), '') AS RefValueCS
+		FROM OPENJSON(@JSRemotingRef) WITH (
+				SettlementLogIDs VARCHAR(MAX) '$.SettlementLogIDs'
+				,GroupName VARCHAR(50) '$.GroupName'
+				,RefId1 VARCHAR(50) '$.RefId1'
+				,RefId2 VARCHAR(50) '$.RefId2'
+				,RefValueEN NVARCHAR(500) '$.RefValueEN'
+				,RefValueCH NVARCHAR(500) '$.RefValueCH'
+				,RefValueCS NVARCHAR(500) '$.RefValueCS'
+			)--OPENJSON case-sensitive
+		CROSS APPLY STRING_SPLIT(SettlementLogIDs, ',')
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
+		
+		SELECT @ValidSettlementLogIDs = '' --output
 		
 		INSERT INTO [Log] (
 			ActionID
@@ -213,7 +210,31 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Invalid @JSRemotingRef (' + ISNULL(@JSRemotingRef,'NULL') + ')'
+			,@ErrLogPrefix + 'FAILED to Parse JSON Data - ERROR_MESSAGE('
+								+ ISNULL(@ErrMsg,'NULL')
+								+ ') with @JSRemotingRef = ('
+								+ ISNULL(@JSRemotingRef,'NULL')
+								+ ')'
+		
+	END CATCH
+	/*
+		Start to verfy info before generate message
+	*/
+	IF NOT EXISTS (SELECT 1 FROM #tmpRemotingRefData)
+		OR EXISTS (SELECT 1 FROM #tmpRemotingRefData WHERE SettlementLogID IS NULL)
+	BEGIN
+		SELECT @ValidSettlementLogIDs = ''
+			,@ErrCode = 1 --output for web
+			,@ErrMsg = 'Invalid data @JSRemotingRef (' + ISNULL(@JSRemotingRef,'NULL') + ')' --output for web
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'Invalid data @JSRemotingRef (' + ISNULL(@JSRemotingRef,'NULL') + ')'
 	END
 	
 	;WITH CTE_SettleID AS (
@@ -233,7 +254,7 @@ BEGIN
 		,@SettleID INT
 	
 	WHILE (1=1)
-	BEGIN
+	BEGIN TRY
 		SELECT @SettleID = SettlementLogID
 		FROM #tmpVerifyInfo
 		WHERE ID = @iLoop
@@ -259,7 +280,7 @@ BEGIN
 		BEGIN
 			UPDATE v
 			SET StatusID = 0
-				,v.RHLog = COALESCE(v.RHLog + ' / ','') + '@IsTestFlag('+ ISNULL(CONVERT(VARCHAR,@IsTestFlag),'NULL') +' - By Environment('+@Environment+')/UATMode('+@UATMode+')) NOT match with IsTest('+ ISNULL(CONVERT(VARCHAR,sh.IsTest),'NULL') +')'
+				,v.RHLog = v.RHLog + '@IsTestFlag('+ ISNULL(CONVERT(VARCHAR,@IsTestFlag),'NULL') +' - By Environment('+@Environment+')/UATMode('+@UATMode+')) NOT match with IsTest('+ ISNULL(CONVERT(VARCHAR,sh.IsTest),'NULL') +')'
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN SettlementResultHist AS sh WITH (NOLOCK) ON v.SettlementLogID = sh.SettlementLogID
 			WHERE v.ID = @iLoop
@@ -274,7 +295,7 @@ BEGIN
 		BEGIN
 			UPDATE v
 			SET StatusID = 0
-				,v.RHLog = COALESCE(v.RHLog + ' / ','') + 'SettlementLogID is Generated - EXISTS in NotiMapping'
+				,v.RHLog = v.RHLog + 'SettlementLogID is Generated - EXISTS in NotiMapping'
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON v.SettlementLogID = nm.SettlementLogID
 			WHERE v.ID = @iLoop
@@ -289,7 +310,7 @@ BEGIN
 		BEGIN
 			UPDATE #tmpVerifyInfo
 			SET StatusID = 0
-				,RHLog = COALESCE(RHLog + ' / ','') + 'StatusID ('+ ISNULL(CONVERT(NVARCHAR,StatusID),'NULL') + ') - NOT Generating'
+				,RHLog = RHLog + 'StatusID ('+ ISNULL(CONVERT(NVARCHAR,StatusID),'NULL') + ') - NOT Generating'
 			WHERE ID = @iLoop
 			
 			SELECT @iLoop = @iLoop + 1
@@ -318,8 +339,8 @@ BEGIN
 			;WITH CTE_LogTxt AS (
 				SELECT @iLoop AS ID
 					,(CASE WHEN ISNULL(m.MatchID, m14.MatchID) IS NULL THEN 'MatchID(' + CONVERT(VARCHAR,sh.MatchID) + ') NOT exits IN match/match14'
-							WHEN h.TeamID IS NULL THEN 'HomeID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.HomeID,m14.HomeID,h.TeamID)),'NULL') + ') NOT exits IN team'
-							WHEN a.TeamID IS NULL THEN 'AwayID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.AwayID,m14.AwayID,h.TeamID)),'NULL') + ') NOT exits IN team'
+							WHEN h.TeamID IS NULL THEN 'HomeID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.HomeID,m14.HomeID)),'NULL') + ') NOT exits IN team'
+							WHEN a.TeamID IS NULL THEN 'AwayID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.AwayID,m14.AwayID)),'NULL') + ') NOT exits IN team'
 							WHEN l.LeagueID IS NULL THEN 'LeagueID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.LeagueID, m14.LeagueID)),'NULL') + ') NOT exits IN league'
 					END
 					) AS LTxt
@@ -338,7 +359,7 @@ BEGIN
 					)
 			)
 			UPDATE v
-			SET v.RHLog = COALESCE(v.RHLog + ' / ','') + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
+			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN CTE_LogTxt AS l ON v.ID = l.ID
@@ -353,7 +374,7 @@ BEGIN
 		BEGIN
 			UPDATE #tmpVerifyInfo
 			SET StatusID = @StsGenerated
-				,RHLog = COALESCE(RHLog + ' / ','') + 'have NO affected TransID'
+				,RHLog = RHLog + 'have NO affected TransID'
 			WHERE ID = @iLoop
 			
 			SELECT @iLoop = @iLoop + 1
@@ -382,7 +403,7 @@ BEGIN
 				) AS t
 			)
 			UPDATE v
-			SET v.RHLog = COALESCE(v.RHLog + ' / ','') + 'Invalid CustID(' + c.FText + ')'
+			SET v.RHLog = v.RHLog + 'Invalid CustID(' + c.FText + ')'
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN CTE_IC AS c ON v.ID = c.ID
@@ -401,7 +422,7 @@ BEGIN
 		)
 		BEGIN
 			UPDATE #tmpVerifyInfo
-			SET RHLog = COALESCE(RHLog + ' / ','') + 'ActionType NOT IN (1,2,3)'
+			SET RHLog = RHLog + 'ActionType NOT IN (1,2,3)'
 				,StatusID = @StsGenFailed
 			WHERE ID = @iLoop
 			
@@ -427,7 +448,7 @@ BEGIN
 		)
 		BEGIN
 			UPDATE #tmpVerifyInfo
-			SET RHLog = COALESCE(RHLog + ' / ','') + 'Failed to convert ActualResult/WrongResult to XML'
+			SET RHLog = RHLog + 'Failed to convert ActualResult/WrongResult to XML'
 				,StatusID = @StsGenFailed
 			WHERE ID = @iLoop
 			
@@ -447,6 +468,23 @@ BEGIN
 			,@ParseAmendInfo = 'ALL'
 			,@ParseTo = 'RemotingRef'
 			,@OutJSResource = @JSResource OUTPUT
+			,@ErrCode = @ErrCode OUTPUT
+			,@ErrMsg = @ErrMsg OUTPUT
+		
+		--ParseResult Error
+		IF @ErrCode <> 0
+		BEGIN
+			
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'FAILED parse SettlementLogID(' + CONVERT(VARCHAR,@SettleID) + ') to RemotingRef format before verify ResourceData'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpVerifyInfo AS v
+			WHERE v.ID = @iLoop
+			
+			SELECT @iLoop = @iLoop + 1
+			
+			CONTINUE
+		END
 		
 		INSERT INTO #tmpResourceRef (
 			SettlementLogID
@@ -508,7 +546,7 @@ BEGIN
 					)) AS ResTxt
 			)
 			UPDATE v
-			SET v.RHLog = COALESCE(v.RHLog + ' / ','') + 'ResourceData NOT EXISTS in RemotingRef; ResourceData('+ ISNULL(l.ResTxt,'') + '); RemotingRef('+ ISNULL(l.RefTxt,'') +')'
+			SET v.RHLog = v.RHLog + 'ResourceData NOT EXISTS in RemotingRef; ResourceData('+ ISNULL(l.ResTxt,'') + '); RemotingRef('+ ISNULL(l.RefTxt,'') +')'
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN CTE_LogTxt AS l ON v.ID = l.ID
@@ -521,7 +559,7 @@ BEGIN
 		/*
 			Parse ActualResult / WrongResult as RawData
 		*/
-		TRUNCATE TABLE #tmpResourceRawData		
+		TRUNCATE TABLE #tmpResourceRawData
 		SET @JSResource = ''
 		
 		EXEC MNC_ResultAmendment_JSParseResult
@@ -529,7 +567,24 @@ BEGIN
 			,@ParseAmendInfo = 'ActualResult,WrongResult'
 			,@ParseTo = 'RawData'
 			,@OutJSResource = @JSResource OUTPUT
-	
+			,@ErrCode = @ErrCode OUTPUT
+			,@ErrMsg = @ErrMsg OUTPUT
+		
+		--ParseResult Error
+		IF @ErrCode <> 0
+		BEGIN
+			
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'FAILED parse SettlementLogID(' + CONVERT(VARCHAR,@SettleID) + ') to RawData format before verify ActualResult/WrongResult'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpVerifyInfo AS v
+			WHERE v.ID = @iLoop
+			
+			SELECT @iLoop = @iLoop + 1
+			
+			CONTINUE
+		END
+		
 		INSERT INTO #tmpResourceRawData (
 			SettlementLogID
 			,AmendInfo
@@ -585,7 +640,7 @@ BEGIN
 					)) AS LTxt
 			)
 			UPDATE v
-			SET v.RHLog = COALESCE(v.RHLog + ' / ','') + 'Invalid [CAL to Refund], WrongResult NULL (' + ISNULL(c.LTxt,'') + ')'
+			SET v.RHLog = v.RHLog + 'Invalid [CAL to Refund], WrongResult NULL (' + ISNULL(c.LTxt,'') + ')'
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN CTE_C2R AS c ON v.ID = c.ID
@@ -623,7 +678,7 @@ BEGIN
 					)) AS LTxt
 			)
 			UPDATE v
-			SET v.RHLog = COALESCE(v.RHLog + ' / ','') + 'Invalid [Refund to CAL], ActualResult NULL (' + ISNULL(c.LTxt,'') + ')'
+			SET v.RHLog = v.RHLog + 'Invalid [Refund to CAL], ActualResult NULL (' + ISNULL(c.LTxt,'') + ')'
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN CTE_R2C AS c ON v.ID = c.ID
@@ -679,7 +734,7 @@ BEGIN
 					OR w.HomeValue IS NULL
 			)
 			UPDATE v
-			SET v.RHLog = COALESCE(v.RHLog + ' / ','') + 'Invalid [CAL to CAL], NOT match ResourceID 1:1 between ActualResult and WrongResult (' + ISNULL(c.LTxt,'') + ')'
+			SET v.RHLog = v.RHLog + 'Invalid [CAL to CAL], NOT match ResourceID 1:1 between ActualResult and WrongResult (' + ISNULL(c.LTxt,'') + ')'
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyInfo AS v
 				INNER JOIN CTE_C2C AS c ON v.ID = c.ID
@@ -700,7 +755,7 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM #tmpRemotingRefData WHERE SettlementLogID = @SettleID AND (RefId2 IS NULL OR RefValueEN IS NULL) AND @UATMode = 'ON') 
 		BEGIN
 			UPDATE #tmpVerifyInfo
-			SET RHLog = COALESCE(RHLog + ' / ','') + 'RemotingRef Returned NULL value ('
+			SET RHLog = RHLog + 'RemotingRef Returned NULL value ('
 							+ (SELECT CONVERT(NVARCHAR(MAX)
 									,(SELECT ISNULL(GroupName,'NULL') AS GroupName
 										,ISNULL(RefId1,'NULL') AS RefId1
@@ -719,7 +774,20 @@ BEGIN
 		
 		----reset for loop------
 		SELECT @iLoop = @iLoop + 1
-	END
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
+		
+		--update Failed
+		UPDATE #tmpVerifyInfo
+		SET StatusID = @StsGenFailed
+			,RHLog = RHLog + 'FAILED while Verifing SettlementResultHist - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+		WHERE ID = @iLoop
+		
+		----reset for loop------
+		SELECT @iLoop = @iLoop + 1
+	END CATCH
 	
 	--return Valid as list
 	SELECT @ValidSettlementLogIDs = ''
@@ -735,10 +803,6 @@ BEGIN
 	UPDATE sh
 	SET sh.StatusID = rh.StatusID
 		,sh.LastModifiedTime = GETDATE()
-	OUTPUT INSERTED.SettlementLogID
-	INTO #tmpLogChangedRH (
-		SettlementLogID
-	)
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 		INNER JOIN #tmpVerifyInfo AS rh ON rh.SettlementLogID = sh.SettlementLogID
 	WHERE sh.StatusID = @StsGenerating
@@ -750,23 +814,6 @@ BEGIN
 			0 --ingore update status some case
 			,@StsGenerating
 		)
-	
-	--write log--
-	IF @UATMode = 'ON'
-	BEGIN
-		INSERT INTO [Log] (
-			RefID
-			,ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT TRY_CONVERT(INT, value) AS SettlementLogID
-			,@LogActionID
-			,@LogUserID
-			,@InfLogPrefix + 'Verify without error and start to generate message'
-		FROM STRING_SPLIT(@ValidSettlementLogIDs, ',')
-		ORDER BY 1
-	END
 	
 	/*
 		write log for Changed [Successfully Generated] / [Failed to Generate] Status
@@ -780,17 +827,16 @@ BEGIN
 	SELECT rh.SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + 'Changed Status from [Generating] to [Failed to Generate] - ' + ISNULL(rh.RHLog,'')
-			WHEN rh.StatusID = @StsGenerated THEN @InfLogPrefix + 'Changed Status from [Generating] to [Successfully Generated] - ' + ISNULL(rh.RHLog,'')
-			ELSE @InfLogPrefix + ISNULL(rh.RHLog,'') END
+		,CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Failed to Generate] - ' + rh.RHLog
+			WHEN rh.StatusID = @StsGenerated THEN @InfLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Successfully Generated] - ' + rh.RHLog
+			ELSE @InfLogPrefix + 'Verify without error and start to generate message' + rh.RHLog END
 	FROM #tmpVerifyInfo AS rh
 	WHERE rh.SettlementLogID NOT IN (
 			SELECT TRY_CONVERT(INT, value) AS SettlementLogID
 			FROM STRING_SPLIT(@ValidSettlementLogIDs, ',')
 		)
-	ORDER BY 1
+	ORDER BY rh.SettlementLogID
 	
-	DROP TABLE #tmpLogChangedRH
 	DROP TABLE #tmpResourceRef
 	DROP TABLE #tmpResourceRawData
 	DROP TABLE #tmpVerifyInfo

@@ -2,6 +2,8 @@
 ALTER PROCEDURE MNC_SettlResultHist_DataLoad
 	@Environment VARCHAR(5)
 	,@JSSettlResultHist NVARCHAR(MAX)
+	,@ErrCode INT = 0 OUTPUT
+	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
 /*
 	Created: 20231213@Roy
@@ -21,7 +23,8 @@ AS
 		@JSSettlResultHist: data from SiteDBs (output of MNC_SettlResultHist_GetSessionByDate)
 		
 		Steps
-			- Transform JSON data and insert into tables
+			- Load setting
+			- Load data from web (Parse JSON data)
 			- Insert into SettlementResultHist with Status = Retrieving
 				+ Insert if NOT EXISTS
 				+ The UNIQUE KEY of SettlementResultHist (SessionID,MatchID,SeqNo,Environment)
@@ -39,7 +42,7 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @LogUserID INT
-		,@LogActionID TINYINT
+		,@LogActionID SMALLINT
 		,@ProcessID INT
 		,@UATMode VARCHAR(5) = 'OFF'
 		,@IsTestFlag BIT
@@ -47,9 +50,11 @@ BEGIN
 		,@StsRetrieved TINYINT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
+		-- ,@RHE_Msg NVARCHAR(MAX)
+		-- ,@IsError BIT = 0
 	
 	/*
-		Load setting
+		**************************************************Load setting**************************************************
 	*/
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -95,6 +100,9 @@ BEGIN
 	*/
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
+		SELECT @ErrCode = 1
+			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
+		
 		INSERT INTO [Log] (
 			ActionID
 			,UserID
@@ -172,90 +180,122 @@ BEGIN
 		,CustID INT
 	)
 	
-	INSERT INTO #tmpJSData(
-		ObjectName
-		,JSONData
-	)
-	SELECT ObjectName
-		,JSONData
-	FROM OPENJSON(@JSSettlResultHist) WITH (
-			ObjectName NVARCHAR(150) '$.ObjectName'
-			,JSONData NVARCHAR(MAX) '$.JSONData'
-		)--OPENJSON case-sensitive
-	
-	INSERT INTO #tmpResultHist (
-		SiteDBGroupID
-		,SessionID
-		,MatchID
-		,IsTest
-		,SeqNo
-		,SettlementStatusID
-		,ActualResult
-		,WrongResult
-		,ActionType
-		,ResultType
-		,SportType
-		,CreatedTime
-		,ExtraInfo
-	)
-	SELECT SiteDBGroupID
-		,SessionID
-		,MatchID
-		,IsTest
-		,SeqNo
-		,StatusID
-		,ActualResult
-		,WrongResult
-		,ActionType
-		,ResultType
-		,SportType
-		,CreatedDate
-		,ExtraInfo
-	FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory')) WITH (
-			SiteDBGroupID SMALLINT '$.SiteDBGroupID'
-			,SessionID VARCHAR(50) '$.SessionID'
-			,MatchID INT '$.MatchID'
-			,IsTest BIT '$.IsTest'
-			,SeqNo SMALLINT '$.SeqNo'
-			,StatusID TINYINT '$.StatusID'
-			,ActualResult VARCHAR(MAX) '$.ActualResult'
-			,WrongResult VARCHAR(MAX) '$.WrongResult'
-			,ActionType TINYINT '$.ActionType'
-			,ResultType TINYINT '$.ResultType'
-			,SportType INT '$.SportType'
-			,CreatedDate DATETIME '$.CreatedDate'
-			,ExtraInfo VARCHAR(MAX) '$.ExtraInfo'
-		)--OPENJSON case-sensitive
-	WHERE IsTest = ISNULL(@IsTestFlag,IsTest)
-	
-	INSERT INTO #tmpResultHistDetail (
-		SessionID
-		,SeqNo
-		,Transid
-		,CustID
-		,ExtraInfo_Before
-		,ExtraInfo_After
-	)
-	SELECT SessionID
-		,SeqNo
-		,Transid
-		,CustID
-		,ExtraInfo_Before
-		,ExtraInfo_After
-	FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory_TicketDetails')) WITH (
-			SessionID VARCHAR(50) '$.SessionID'
-			,SeqNo SMALLINT '$.SeqNo'
-			,Transid BIGINT '$.Transid'
-			,CustID INT '$.CustID'
-			,ExtraInfo_Before VARCHAR(MAX) '$.ExtraInfo_Before'
-			,ExtraInfo_After VARCHAR(MAX) '$.ExtraInfo_After'
-		)--OPENJSON case-sensitive
+	/*
+		**************************************************Load data from web**************************************************
+	*/
+	BEGIN TRY
+		INSERT INTO #tmpJSData(
+			ObjectName
+			,JSONData
+		)
+		SELECT ObjectName
+			,JSONData
+		FROM OPENJSON(@JSSettlResultHist) WITH (
+				ObjectName NVARCHAR(150) '$.ObjectName'
+				,JSONData NVARCHAR(MAX) '$.JSONData'
+			)--OPENJSON case-sensitive
+		
+		INSERT INTO #tmpResultHist (
+			SiteDBGroupID
+			,SessionID
+			,MatchID
+			,IsTest
+			,SeqNo
+			,SettlementStatusID
+			,ActualResult
+			,WrongResult
+			,ActionType
+			,ResultType
+			,SportType
+			,CreatedTime
+			,ExtraInfo
+		)
+		SELECT SiteDBGroupID
+			,SessionID
+			,MatchID
+			,IsTest
+			,SeqNo
+			,StatusID
+			,ActualResult
+			,WrongResult
+			,ActionType
+			,ResultType
+			,SportType
+			,CreatedDate
+			,ExtraInfo
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory')) WITH (
+				SiteDBGroupID SMALLINT '$.SiteDBGroupID'
+				,SessionID VARCHAR(50) '$.SessionID'
+				,MatchID INT '$.MatchID'
+				,IsTest BIT '$.IsTest'
+				,SeqNo SMALLINT '$.SeqNo'
+				,StatusID TINYINT '$.StatusID'
+				,ActualResult VARCHAR(MAX) '$.ActualResult'
+				,WrongResult VARCHAR(MAX) '$.WrongResult'
+				,ActionType TINYINT '$.ActionType'
+				,ResultType TINYINT '$.ResultType'
+				,SportType INT '$.SportType'
+				,CreatedDate DATETIME '$.CreatedDate'
+				,ExtraInfo VARCHAR(MAX) '$.ExtraInfo'
+			)--OPENJSON case-sensitive
+		WHERE IsTest = ISNULL(@IsTestFlag,IsTest)
+		
+		INSERT INTO #tmpResultHistDetail (
+			SessionID
+			,SeqNo
+			,Transid
+			,CustID
+			,ExtraInfo_Before
+			,ExtraInfo_After
+		)
+		SELECT SessionID
+			,SeqNo
+			,Transid
+			,CustID
+			,ExtraInfo_Before
+			,ExtraInfo_After
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory_TicketDetails')) WITH (
+				SessionID VARCHAR(50) '$.SessionID'
+				,SeqNo SMALLINT '$.SeqNo'
+				,Transid BIGINT '$.Transid'
+				,CustID INT '$.CustID'
+				,ExtraInfo_Before VARCHAR(MAX) '$.ExtraInfo_Before'
+				,ExtraInfo_After VARCHAR(MAX) '$.ExtraInfo_After'
+			)--OPENJSON case-sensitive
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FAILED to Parse JSON Data - ERROR_MESSAGE('
+								+ ISNULL(@ErrMsg,'NULL')
+								+ ') with @JSSettlResultHist = ('
+								+ ISNULL(@JSSettlResultHist,'NULL')
+								+ ')'
+	END CATCH
 	
 	/*
-		start to insert SettlementResultHist
+		**************************************************Start to insert SettlementResultHist**************************************************
 		
 		Only Insert if SettlementStatusID = 2 (Completed)
+		
+		SettlementStatusID = [SITEDB1,2,3].SettlementResultHistory.StatusID
+								NULL: Init
+								0: Done Settlement (SP version)
+								1: Done Settlement  (SP orgi - QueueDb)
+								2: Complete to insert affected tickets  & negative balance if any (Sitedb1,2) for result amendment -> Ready to use data (insert Msg/MsgTarget) for notification
+								3. after 30minutes, if still = 1 then notification to sas, pontus, update statusid failed = 3
+								4: complete to process in case having settlement queue failed
+								99: settlement queue failed
 	*/
+	IF @ErrCode = 0
 	BEGIN TRY
 		INSERT INTO SettlementResultHist (
 			StatusID
@@ -332,18 +372,18 @@ BEGIN
 			WHERE @UATMode = 'ON'
 	END TRY
 	BEGIN CATCH
-		DECLARE @RHEMessage NVARCHAR(MAX)
-		DECLARE @RHESeverity INT
-		DECLARE @RHEState INT
-
-		SELECT @RHEMessage = ERROR_MESSAGE()
-			,@RHESeverity = ERROR_SEVERITY()
-			,@RHEState = ERROR_STATE()
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
 		
-		RAISERROR (@RHEMessage, @RHESeverity, @RHEState)
-		
-		SELECT @RHEMessage = 'FAILED INSERT INTO SettlementResultHist with ErrorMessage ('
-								+ @RHEMessage
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FAILED INSERT INTO SettlementResultHist - ERROR_MESSAGE('
+								+ ISNULL(@ErrCode,'NULL')
 								+ '); tmp data ('
 								+ ( SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -352,21 +392,14 @@ BEGIN
 										))
 									)
 								+ ')'
-		INSERT INTO [Log] (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,@ErrLogPrefix + @RHEMessage AS LogBef
+		
 	END CATCH
 	
 	/*
-		Start to insert SettlementResultHistDetail
+		**************************************************Start to insert SettlementResultHistDetail**************************************************
 		+ For new SettlementLogID
 	*/
-	IF EXISTS (SELECT 1 FROM #tmpInsertedRH)
+	IF @ErrCode = 0 AND EXISTS (SELECT 1 FROM #tmpInsertedRH)
 	BEGIN TRY
 		INSERT INTO SettlementResultHistDetail (
 			SettlementLogID
@@ -431,18 +464,18 @@ BEGIN
 		
 	END TRY
 	BEGIN CATCH
-		DECLARE @RHD_EMsg NVARCHAR(MAX)
-		DECLARE @RHD_Severity INT
-		DECLARE @RHD_State INT
-
-		SELECT @RHD_EMsg = ERROR_MESSAGE()
-			,@RHD_Severity = ERROR_SEVERITY()
-			,@RHD_State = ERROR_STATE()
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
 		
-		RAISERROR (@RHD_EMsg, @RHD_Severity, @RHD_State)
-		
-		SELECT @RHD_EMsg = 'FAILED INSERT INTO SettlementResultHistDetail with ErrorMessage ('
-								+ @RHD_EMsg
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FAILED INSERT INTO SettlementResultHistDetail - ERROR_MESSAGE('
+								+ ISNULL(@ErrCode,'NULL')
 								+ '); tmp data ('
 								+ ( SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -451,14 +484,6 @@ BEGIN
 										))
 									)
 								+ ')'
-		INSERT INTO [Log] (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,@ErrLogPrefix + @RHD_EMsg AS LogBef
 		
 		--Remove Inserted SettlementLogID
 		DELETE sh
@@ -477,19 +502,31 @@ BEGIN
 			,@ErrLogPrefix + 'Removed due to Failed insert SettlementResultHistDetail'
 		FROM #tmpInsertedRH
 		ORDER BY SettlementLogID
+		
 	END CATCH
 	
 	/*
-		SettlementResultHist.Status = Successfully Retrieved
+		**************************************************SettlementResultHist.Status = Successfully Retrieved**************************************************
+		
+		SettlementStatusID = [SITEDB1,2,3].SettlementResultHistory.StatusID
+								NULL: Init
+								0: Done Settlement (SP version)
+								1: Done Settlement  (SP orgi - QueueDb)
+								2: Complete to insert affected tickets  & negative balance if any (Sitedb1,2) for result amendment -> Ready to use data (insert Msg/MsgTarget) for notification
+								3. after 30minutes, if still = 1 then notification to sas, pontus, update statusid failed = 3
+								4: complete to process in case having settlement queue failed
+								99: settlement queue failed
+		
 			CASE #1: Count of SiteDBGroupID By [SessionID] = Count of SiteDBConfig (UPD only for StatusID = Retrieving)
 			CASE #2: SessionID inserted too long (over configuration time in SystemSetting)
-	*/	
-	DECLARE @SiteDBCnt INT = 0
-	SELECT @SiteDBCnt = COUNT(DISTINCT SiteDBGroupID)
-	FROM bodb02.dbo.SiteDBConfig WITH (NOLOCK)
-	WHERE SiteDBGroupID <> 0
-	
+	*/
+	IF @ErrCode = 0
 	BEGIN TRY
+		DECLARE @SiteDBCnt INT = 0
+		SELECT @SiteDBCnt = COUNT(DISTINCT SiteDBGroupID)
+		FROM bodb02.dbo.SiteDBConfig WITH (NOLOCK)
+		WHERE SiteDBGroupID <> 0
+		
 		BEGIN TRANSACTION --lock Retrieving SettlementResultHist for UPD Status
 			
 			--Update for CASE #1
@@ -501,7 +538,7 @@ BEGIN
 					,sh.SeqNo
 					,sh.SiteDBGroupID
 				FROM #tmpResultHist AS rh
-					INNER JOIN SettlementResultHist AS sh ON rh.SessionID = sh.SessionID
+					INNER JOIN SettlementResultHist AS sh ON rh.SessionID = sh.SessionID --case SettlementStatusID=2
 				WHERE sh.IsTest = ISNULL(@IsTestFlag,sh.IsTest)
 				
 				UNION ALL
@@ -584,17 +621,11 @@ BEGIN
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
-		DECLARE @STS_EMsg NVARCHAR(MAX)
-		DECLARE @STS_Severity INT
-		DECLARE @STS_State INT
-
-		SELECT @STS_EMsg = ERROR_MESSAGE()
-			,@STS_Severity = ERROR_SEVERITY()
-			,@STS_State = ERROR_STATE()
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
 		
-		RAISERROR (@STS_EMsg, @STS_Severity, @STS_State)
+		ROLLBACK TRANSACTION
 		
-		SELECT @STS_EMsg = 'FAILED UPDATE SettlementResultHist.Status with ErrorMessage (' + @STS_EMsg + ')'
 		INSERT INTO [Log] (
 			ActionID
 			,UserID
@@ -602,10 +633,10 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + @STS_EMsg AS LogBef
+			,@ErrLogPrefix + 'FAILED UPDATE SettlementResultHist.Status - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 	END CATCH
 	
-	--Mark Capture process DONE
+	/**************************************************Mark Capture process DONE**************************************************/
 	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
 	SET VValue = 'Done'
 	WHERE VID = @ProcessID

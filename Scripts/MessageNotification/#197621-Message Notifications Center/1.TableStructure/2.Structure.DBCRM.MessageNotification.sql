@@ -8,28 +8,6 @@
 		2. Create tables & clustered index
 */
 
-/***** Create new Database ****/
--- USE master
--- GO
-
--- DROP DATABASE IF EXISTS MessageNotification
--- GO
-
-CREATE DATABASE MessageNotification
-	ON (
-		NAME = N'MessageNotification'
-		,FILENAME = N'G:\SQLSERVER2019_DEVDB053\IBC_DB\MessageNotification.mdf'
-		,SIZE = 1024 MB
-		,FILEGROWTH = 32 MB
-	)
-	LOG ON (
-		NAME = N'MessageNotification_log'
-		,FILENAME = N'G:\SQLSERVER2019_DEVDB053\IBC_DB\MessageNotification_log.ldf'
-		,SIZE = 512 MB
-		,FILEGROWTH = 125 MB
-	)
-GO
-
 /***** Create tables & clustered index ****/
 
 USE MessageNotification
@@ -59,7 +37,7 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_RHSessionID] ON dbo.SettlementResultHist (
 	SessionID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** SettlementResultHistDetail ****/
@@ -76,7 +54,7 @@ GO
 
 CREATE CLUSTERED INDEX [CIX_NotifDetail] ON dbo.SettlementResultHistDetail (
 	SettlementLogID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** NotiMapping ****/
@@ -90,7 +68,7 @@ GO
 
 CREATE CLUSTERED INDEX [CIX_NotiMapping] ON dbo.NotiMapping (
 	SettlementLogID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** Notification ****/
@@ -112,12 +90,12 @@ GO
 
 CREATE NONCLUSTERED INDEX [IX_NotiStatusID] ON dbo.Notification (
 	StatusID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 CREATE NONCLUSTERED INDEX [IX_NotiRefID] ON dbo.Notification (
 	RefID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** NotificationTarget ****/
@@ -134,7 +112,7 @@ GO
 
 CREATE CLUSTERED INDEX [CIX_NotiTarget] ON dbo.NotificationTarget (
 	NotificationID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** NotificationExtra ****/
@@ -149,7 +127,7 @@ GO
 
 CREATE CLUSTERED INDEX [CIX_NotiExtra] ON dbo.NotificationExtra (
 	EventDate
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** AlertRule ****/
@@ -215,12 +193,12 @@ GO
 
 CREATE CLUSTERED INDEX [CIX_LogTime] ON dbo.Log (
 	LogTime
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 CREATE NONCLUSTERED INDEX [IX_LogRefID] ON dbo.Log (
 	RefID
-) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** NotiTemplate ****/

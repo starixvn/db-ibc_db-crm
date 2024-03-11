@@ -54,6 +54,7 @@ VALUES (1, 'ScanBackHour', '24', 'scan back from current to pull SettlementResul
 	
 	,(10,'UATMode', 'OFF', 'Turn ON/OFF UATMode; If UATMode = OFF, 1.PRD handle all data 2.Write error log only; If UATMode = ON, 1.PRD handle REAL data only 2.UAT handle REAL TEST (test matches) 3.Write detail log')
 	,(11,'Retrieving_WaitSec', '30', 'Change Status [Retrieving] -> [Successfully Retrieved] IF the SessionID keep Retrieving over this configuration')
+	,(12,'NeedReviewContent', '1', '1=Yes; 0=No; Need review message content before push to DBMSG')
 
 /***** NotiTemplate ****/
 TRUNCATE TABLE NotiTemplate

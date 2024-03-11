@@ -12,20 +12,15 @@ AS
 		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
-		@Environment
-			If UATMode = OFF
-			  + @Environment = PRD => handle all data
-			  + @Environment = UAT => return
-			If UATMode = ON
-			  + @Environment = PRD => handle REAL data
-			  + @Environment = UAT => handle TEST data
-		@FDTime: get from NC_SettlResultHist_Initial
-		@SiteDBGroupID: get from DBACC.bodb02.dbo.Acc_SiteDBConfigSel
+		@Environment <> PROD, get only TEST Match
+		@FDTime: timepoint to pull data
+		@SiteDBGroupID: get from bodb02.dbo.SiteDBConfig
 		
 		Steps
 			- Exec this SP foreach SiteDB
-			- Parse data to JSON
-				+ If @Environment <> PROD, get only TEST Match
+			- Parse SettlementResultHistory data to JSON
+				+ Get all StatusID >= 2
+			- Parse SettlementResultHistory_TicketDetails data to JSON
 		
 	Example:
 		EXEC bodb02.dbo.MNC_SettlResultHist_GetSessionByDate @FDTime = '2024-01-04 08:46:00'

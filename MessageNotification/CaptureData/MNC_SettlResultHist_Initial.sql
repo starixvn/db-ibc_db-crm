@@ -20,6 +20,7 @@ AS
 		
 		Steps
 			- Based on @Environment => turn on PRD / UAT.. service
+			- Based on SiteDBConfig => define how many SiteDB need to pull data
 			- Based on SystemSetting.ScanBackHour => define timepoint to pull data from SiteDBs
 	
 	Example:
@@ -30,7 +31,7 @@ BEGIN
 	
 	DECLARE @FDTime DATETIME
 		,@LogUserID INT
-		,@LogActionID TINYINT
+		,@LogActionID SMALLINT
 		,@ProcessID INT
 		,@ScanBackHour INT
 		,@UATMode VARCHAR(5) = 'OFF'
@@ -88,7 +89,11 @@ BEGIN
 	
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
-		SELECT @FDTime AS FDTime
+		SELECT NULL AS Environment
+			,NULL AS FDTime
+			,NULL AS SiteDBGroupID
+			,NULL AS ClientAccessName
+			,NULL AS AGIP
 		WHERE 1 = 0
 			
 		INSERT INTO [Log] (
@@ -108,9 +113,12 @@ BEGIN
 	--check current status of Capture process
 	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_CaptureData
 	BEGIN
-		RAISERROR ('Error - Another Capture Settlement ResultHistory Process is still active.', 16, 1)
 		
-		SELECT @FDTime AS FDTime
+		SELECT NULL AS Environment
+			,NULL AS FDTime
+			,NULL AS SiteDBGroupID
+			,NULL AS ClientAccessName
+			,NULL AS AGIP
 		WHERE 1 = 0
 		
 		INSERT INTO [Log] (

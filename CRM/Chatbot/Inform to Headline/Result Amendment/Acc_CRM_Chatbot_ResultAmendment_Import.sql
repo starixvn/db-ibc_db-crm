@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ResultAmendment_Import]
 	@TicketData				XML
 	,@EventData				XML
@@ -24,6 +28,7 @@ AS
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 		- 20231121@Malcolm: Auto Send Announcement When Refund VS [RedmineId : #195404]
+        - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 		
 	Param's Explanation:
 		. @TicketData
@@ -32,7 +37,7 @@ AS
 			</root>
 		. @EventData
 			<root>
-				<r TicketEventId="" ProductId="1" EventDate="2023-01-01" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type=""
+				<r TicketEventId="" ProductId="1" EventDate="2023-01-01" SubmitDate="" EventType="1" ActualResult="1" WrongResult="1" MessageId="1"  SportNameEN="SB"  SportNameSC="SB"  SportNameTH="SB"  SportNameYN="SB" HomeNameEN="SB"  HomeNameSC="SB"  HomeNameTH="SB"  HomeNameYN="SB" AwayNameEN="SB"  AwayNameSC="SB"  AwayNameTH="SB"  AwayNameYN="SB" LeagueNameEN="SB"  LeagueNameSC="SB"  LeagueNameTH="SB"  LeagueNameYN="SB" MatchCode ="" MatchInfoEN=""  MatchInfoSC=""  MatchInfoTH=""  MatchInfoYN="" Type="" LeagueGroupID=""
 				/>
 			</root>
 		. @MessageData
@@ -119,6 +124,11 @@ BEGIN
 	WHERE ServiceName = 'ChatBot - ResultAmendment'
 		AND SettingName = @SettingNameOfLastRuntime
 
+    CREATE TABLE #tmpSABALeagueGroupID (LeagueGroupID INT)
+    INSERT INTO  #tmpSABALeagueGroupID (LeagueGroupID)
+    SELECT LeagueGroupID
+    FROM bodb02.dbo.f_LeagueGroupConfig()
+
 	CREATE TABLE #EventData
 	(
 		TicketEventId	INT
@@ -151,6 +161,7 @@ BEGIN
 		,MatchInfoTH	NVARCHAR(1000)
 		,MatchInfoYN	NVARCHAR(1000)
 		,[Type]			TINYINT
+        ,LeagueGroupID  INT
 	)
 	-- Get Imported Data
 	INSERT INTO #EventData
@@ -184,7 +195,8 @@ BEGIN
 		,MatchInfoSC
 		,MatchInfoTH
 		,MatchInfoYN
-		,Type 
+		,Type
+        ,LeagueGroupID
 	)
 	SELECT
 		t.c.value('@TicketEventId ', 'INT') AS TicketEventId
@@ -217,6 +229,7 @@ BEGIN
 		,t.c.value('@MatchInfoTH', 'NVARCHAR(1000)') AS MatchInfoTH
 		,t.c.value('@MatchInfoYN', 'NVARCHAR(1000)') AS MatchInfoYN
 		,t.c.value('@Type', 'TINYINT') AS Type
+        ,t.c.value('@LeagueGroupID', 'INT') AS LeagueGroupID
 	FROM @EventData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@EventData = NULL))
 
@@ -374,13 +387,14 @@ BEGIN
 	END
 
 	-- Get Recipient
-	CREATE TABLE #LogRecipient (MessageId INT, TicketId INT,TicketEventId INT,Username VARCHAR(30),DirectAccount INT,HeadlineId INT,RecipientId INT,IsTest BIT)
-	INSERT INTO #LogRecipient (MessageId, TicketId, TicketEventId, Username, DirectAccount, HeadlineId, RecipientId, IsTest)
-	SELECT m.MessageId, m.TicketId, m.TicketEventId, m.Username, pm.CustId, pm.HeadlineId, r.RecipientId, m.IsTest
+	CREATE TABLE #LogRecipient (MessageId INT, TicketId INT,TicketEventId INT,Username VARCHAR(30),DirectAccount INT,HeadlineId INT,RecipientId INT,IsTest BIT, IsSpecialSite BIT)
+	INSERT INTO #LogRecipient (MessageId, TicketId, TicketEventId, Username, DirectAccount, HeadlineId, RecipientId, IsTest, IsSpecialSite)
+	SELECT m.MessageId, m.TicketId, m.TicketEventId, m.Username, pm.CustId, pm.HeadlineId, r.RecipientId, m.IsTest, CASE WHEN ISNULL(c.site, '') = '777777' THEN 1 ELSE 0 END IsSpecialSite
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+        INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON cda.CustID = c.custid
 	
 	-- Get group to receive message
 	CREATE TABLE #tmpGroup (MessageId INT, TicketId INT, TicketEventId INT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
@@ -430,9 +444,10 @@ BEGIN
 		,RelatedIds				NVARCHAR(MAX)
 		,IsTest					BIT
 		,RecipientTypeId		TINYINT
+        ,IsSpecialSite          BIT
 	)
-	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest)
-	SELECT m.MessageId, m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChannelId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest
+	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, RecipientTypeId, IsTest, IsSpecialSite)
+	SELECT m.MessageId, m.TicketId, m.TicketEventId, g.ConversationGroupId, g.ChannelId, g.ChatTypeId, g.LanguageId, m.Username, m.HeadlineId, 0, r.RecipientTypeId, m.IsTest, m.IsSpecialSite
 	FROM #LogRecipient m
 		INNER JOIN #tmpGroup g ON m.MessageId = g.MessageId AND m.TicketId = g.TicketId AND m.DirectAccount = g.DirectAccount
 		INNER JOIN dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId 
@@ -464,8 +479,8 @@ BEGIN
 		FROM #ImportData
 		GROUP BY MessageId, TicketEventId
 	)
-	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId)
-	SELECT t.MessageId, t.TicketId, t.TicketEventId, g.ConversationGroupId, G.ChannelId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId
+	INSERT INTO #tmpResult (MessageId, TicketId, TicketEventId, ConversationGroupId, ChannelId, ChatTypeId, LanguageId, Username, HeadlineId, IsDuplicated, IsTest, RecipientTypeId, IsSpecialSite)
+	SELECT t.MessageId, t.TicketId, t.TicketEventId, g.ConversationGroupId, G.ChannelId, g.ChatTypeId, g.LanguageId, '', ISNULL(cgh.CustID, 0) AS HeadlineId, 0, t.IsTest, g.RecipientTypeId, 0 IsSpecialSite
 	FROM @Group g 
 		INNER JOIN CTE e ON e.IsTest = g.IsTest
 		INNER JOIN #ImportData t ON t.MessageId = e.MessageId AND t.TicketEventId = e.TicketEventId
@@ -631,6 +646,7 @@ BEGIN
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), HeadlineId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS HeadlineIdLst
 			   ,STUFF ((SELECT DISTINCT ',' + CONVERT(VARCHAR(30), TicketId) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS TicketIdLst
 			   ,STUFF ((SELECT DISTINCT ', ' + CONVERT(VARCHAR(30), Username) FROM #tmpResult t WHERE t.Id = r.Id FOR XML PATH('')), 1, 1, '') AS UsernameLst
+               ,MAX(CAST(r.IsSpecialSite AS INT)) IsSpecialSite
 		FROM #tmpResult r
 		GROUP BY r.Id, r.MessageId, r.ticketEventId, r.RecipientTypeId, r.ConversationGroupId, r.ChannelId, r.ChatTypeId, r.LanguageId
 	)
@@ -701,10 +717,10 @@ BEGIN
 		,ISNULL(ev.AwayNameSC,'')
 		,ISNULL(ev.AwayNameTH,'')
 		,ISNULL(ev.AwayNameYN,'')
-		,ISNULL(ev.LeagueNameEN,'')
-		,ISNULL(ev.LeagueNameSC,'')
-		,ISNULL(ev.LeagueNameTH,'')
-		,ISNULL(ev.LeagueNameYN,'')
+		,CASE WHEN (g.IsSpecialSite = 1 AND lg.LeagueGroupID IS NOT NULL) THEN REPLACE(REPLACE(ISNULL(ev.LeagueNameEN,''), 'SABA', ''), N'沙巴', '') ELSE ISNULL(ev.LeagueNameEN,'') END
+		,CASE WHEN (g.IsSpecialSite = 1 AND lg.LeagueGroupID IS NOT NULL) THEN REPLACE(REPLACE(ISNULL(ev.LeagueNameSC,''), 'SABA', ''), N'沙巴', '') ELSE ISNULL(ev.LeagueNameSC,'') END
+		,CASE WHEN (g.IsSpecialSite = 1 AND lg.LeagueGroupID IS NOT NULL) THEN REPLACE(REPLACE(ISNULL(ev.LeagueNameTH,''), 'SABA', ''), N'沙巴', '') ELSE ISNULL(ev.LeagueNameTH,'') END
+		,CASE WHEN (g.IsSpecialSite = 1 AND lg.LeagueGroupID IS NOT NULL) THEN REPLACE(REPLACE(ISNULL(ev.LeagueNameYN,''), 'SABA', ''), N'沙巴', '') ELSE ISNULL(ev.LeagueNameYN,'') END
 		,ISNULL(ev.MatchCode,'')
 		,ISNULL(ev.MatchInfoEN,'')
 		,ISNULL(ev.MatchInfoSC,'')
@@ -714,6 +730,7 @@ BEGIN
 		,ev.[Type]
 	FROM CTE_Group g
 		LEFT JOIN #EventData ev ON ev.TicketEventId = g.TicketEventId
+        LEFT JOIN #tmpSABALeagueGroupID lg ON ev.LeagueGroupID = lg.LeagueGroupID
 
 	UPDATE r
 		SET r.ContentEN = ISNULL(m.Content_en, '')
@@ -858,6 +875,7 @@ BEGIN
 
 	EXEC dbo.Acc_CRM_SystemSetting_Upd @ServiceName = 'ChatBot - ResultAmendment', @Settings = @Settings, @Environment = @Environment
 
+    DROP TABLE #tmpSABALeagueGroupID
 	DROP TABLE #EventData
 	DROP TABLE #MessageData
 	DROP TABLE #LogRecipient

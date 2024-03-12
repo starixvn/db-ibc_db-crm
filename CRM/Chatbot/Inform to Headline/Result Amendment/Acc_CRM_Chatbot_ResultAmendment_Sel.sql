@@ -1,4 +1,8 @@
 /*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ResultAmendment_Sel]
 	@BatchSize INT = 3000
 	,@SubmitDate DATETIME2(7) 
@@ -14,6 +18,7 @@ AS
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
 		- 20210922@Malcolm: notify for Settled Ticket to Refund/Running and Missing Actual/Wrong Result [RedmineID: #161524]
+        - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 
 	Param's Explanation:
 		Type = 1: Result Amendment Template - Sportsbook	
@@ -73,6 +78,7 @@ BEGIN
 			,'' AS HomeId			
 			,'' AS AwayId			
 			,'' AS LeagueId	
+            ,'' AS LeagueGroupID
 			,'' AS Type
 
 		SELECT TOP(0) '' AS MessageId
@@ -96,6 +102,7 @@ BEGIN
 		,HomeId			INT
 		,AwayId			INT
 		,LeagueId		INT
+        ,LeagueGroupID  INT
 		,Type			TINYINT
 	)
 
@@ -131,15 +138,17 @@ BEGIN
 	IF EXISTS (SELECT 1 FROM #TicketEvent WHERE EventType = 1)
 	BEGIN
 		UPDATE e
-			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.LeagueId, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
+			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.LeagueId, e.LeagueGroupID = l.LeagueGroupID, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
 		FROM #TicketEvent e
 			INNER JOIN dbo.match m WITH(NOLOCK) ON m.matchid = e.MatchId
+            INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE e.EventType = 1
 
 		UPDATE e
-			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.LeagueId, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
+			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.LeagueId, e.LeagueGroupID = l.LeagueGroupID, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
 		FROM #TicketEvent e
 			INNER JOIN dbo.match14 m WITH(NOLOCK) ON m.matchid = e.MatchId
+            INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE e.EventType = 1
 	END
 	-- VS
@@ -201,7 +210,8 @@ BEGIN
 		,Sporttype	    
 		,HomeId			
 		,AwayId			
-		,LeagueId	
+		,LeagueId
+        ,LeagueGroupID
 		,Type
 	FROM #TicketEvent
 

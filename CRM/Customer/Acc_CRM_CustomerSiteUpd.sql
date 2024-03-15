@@ -1,4 +1,8 @@
 /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerSiteUpd]  
 (	
 	@CustID		INT,  
@@ -16,7 +20,7 @@ AS
 	  
 	Revisions:  
 		- 20200915@Johnson: initial sp [redmine:#141257]
-		
+		- 20240315@NedLe: CRM - Migrate internal accounts to new 2 new sites - Hedging & Special [redmine:#202208]
 	
 	DECLARE @ErrCode  INT = 0 ,  
 		@ErrMsg   NVARCHAR(4000) = '' 
@@ -82,6 +86,14 @@ BEGIN
 		FROM crmCustomer c WITH(UPDLOCK,ROWLOCK)
 			INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON c.custid = ci.custid
 		WHERE ci.recommend = @custid
+	END
+	ELSE IF @roleid = 1
+	BEGIN
+		UPDATE c
+		SET siteID = @siteID
+		FROM crmCustomer c WITH(UPDLOCK,ROWLOCK)
+			INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON c.custid = ci.custid
+		WHERE ci.custid = @custid
 	END
 	
 	-- write log

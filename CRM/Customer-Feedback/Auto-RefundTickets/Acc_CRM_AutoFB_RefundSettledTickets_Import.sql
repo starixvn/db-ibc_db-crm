@@ -1,4 +1,8 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoFB_RefundSettledTickets_Import]
 	@Message			XML
 	,@MessageContent 	XML
@@ -15,6 +19,7 @@ AS
 
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineId: #195404]
+        - 20240318@Ned.Le: Fix bug relate to table crmSettingMapping
 		
 	Param's Explanation:
 		. @MessageContent = 
@@ -309,6 +314,7 @@ BEGIN
 		FROM #Message m		
 			INNER JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = m.MainDBSportTypeId
 			INNER JOIN dbo.crmSettingMapping mp WITH(NOLOCK) ON mp.SettingSource = s.SportName
+            INNER JOIN dbo.crmSetting st WITH(NOLOCK) ON st.SettingName = 'SubProduct' AND st.SettingID = mp.SettingID
 		GROUP BY m.MainDBSportTypeId, mp.SettingId
 	),/*Bet Type*/ 
 	CTE_Bettype AS (
@@ -316,6 +322,7 @@ BEGIN
 		FROM #Message m		
 			INNER JOIN bodb02.dbo.bettype b WITH(NOLOCK) ON b.typeId = m.MainDBBettypeId
 			INNER JOIN dbo.crmSettingMapping mp WITH(NOLOCK) ON mp.SettingSource = b.typenamee
+            INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingName = 'BetType' AND s.SettingID = mp.SettingID
 		GROUP BY m.MainDBBettypeId, mp.SettingId 
 	)
 	UPDATE m

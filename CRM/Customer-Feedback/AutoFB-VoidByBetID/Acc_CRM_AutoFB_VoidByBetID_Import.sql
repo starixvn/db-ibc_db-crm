@@ -21,6 +21,7 @@ AS
         20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
         20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
         20240207@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
+        20240318@Ned.Le: Fix bug relate to table crmSettingMapping
 
     Param's Explanation:
         @Message:
@@ -587,6 +588,7 @@ BEGIN
          INNER JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
          INNER JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON b.Sporttype = s.SportType
          INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON s.SportName = mp.SettingSource
+         INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'SubProduct' AND mp.SettingID = st.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
              mp.SettingID
@@ -610,6 +612,7 @@ BEGIN
          LEFT JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
          INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
          INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON bt.typenamee = mp.SettingSource
+         INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'BetType' AND mp.SettingID = st.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
              mp.SettingID

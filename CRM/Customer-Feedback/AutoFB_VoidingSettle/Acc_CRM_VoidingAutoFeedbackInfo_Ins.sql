@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_VoidingAutoFeedbackInfo_Ins] 
 	@Message XML 
 	,@Environment VARCHAR(20) = 'LIVE'	
@@ -14,6 +18,7 @@ AS
 	Revisions:
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20231030@Malcolm: Add Virtual Sports 3 [RedmineId: #191355]
+        - 20240126@Ned.Le: CRM - Support auto Feedback and Notification to headlines/ Accounting PIC when having Refund and Result Amendment for VS4 product [RedmineId: #200080]
 	
 	Parameter's Explanation:
 		- @xml = '<ROOT>
@@ -203,7 +208,7 @@ BEGIN
 				   A.ProductID,
 				   GETDATE() AS CreatedDate
 			FROM @tmpCust a
-			WHERE a.MessageId = @MessageId AND a.HeadlineID = @HeadlineID AND a.Bettype NOT IN (9,29,2799)
+			WHERE a.MessageId = @MessageId AND a.HeadlineID = @HeadlineID AND a.Bettype NOT IN (9,29,2799,10449)
 			
 			--  get main ticket
 			
@@ -227,7 +232,7 @@ BEGIN
 				SELECT STUFF(( SELECT ', '+ cast(ps.TransId as VARCHAR(30))  as [text()]
 					FROM @tmpCust ps  
 					WHERE ps.HeadlineID = a.HeadlineID AND ps.MessageId = a.MessageId  
-							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799)
+							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799,10449)
 					GROUP BY ps.TransId
 					ORDER by MAX(ps.TransId)
 					FOR XML PATH('')
@@ -237,13 +242,13 @@ BEGIN
 				SELECT STUFF(( SELECT ', '+ cast(ps.Username as VARCHAR(max))  as [text()]
 					FROM @tmpCust ps  
 					WHERE ps.HeadlineID = a.HeadlineID AND ps.MessageId = a.MessageId  
-							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799)
+							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799,10449)
 					GROUP BY ps.Username
 					ORDER by MAX(ps.Username)
 					FOR XML PATH('')
 					),1,1,'')
 			)c (Username)
-			WHERE a.MessageId = @MessageId AND a.HeadlineID = @HeadlineID AND a.Bettype IN (9,29,2799)
+			WHERE a.MessageId = @MessageId AND a.HeadlineID = @HeadlineID AND a.Bettype IN (9,29,2799,10449)
 		END	
 	  END TRY  
 	  BEGIN CATCH  

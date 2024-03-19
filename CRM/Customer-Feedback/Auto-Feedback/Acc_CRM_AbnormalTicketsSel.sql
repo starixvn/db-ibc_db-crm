@@ -1,5 +1,9 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb02
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsSel]
 	@MessageIDs VARCHAR(MAX),
 	@TranIDs VARCHAR(MAX) = '' OUTPUT,
 	@ConfigUAT BIT = 0,
@@ -21,6 +25,7 @@ AS
 		- 20220803@Winfred: CRM - Scale out DBTRANS [RedmineId : #175877]	
 		- 20230131@Winfred: Scale Out for CRM [RedmineId : #181906]
 		- 20230731@Malcolm: Incorporate voiding duplicated bet tickets with TVS [RedmineId : #191355]
+        - 20240126@Ned.Le: CRM - Support auto Feedback and Notification to headlines/ Accounting PIC when having Refund and Result Amendment for VS4 product [RedmineId: #200080]
 
 	Param's Explanation:
 		- @MessageIDs: batch msg need to get abnormal tickets
@@ -443,7 +448,7 @@ BEGIN
 		UPDATE d
 			SET d.SporttypeId = d.matchId
 		FROM #DuplicatedTickets d
-		WHERE d.EventType = 0 AND d.bettype NOT IN (9, 29, 2799)
+		WHERE d.EventType = 0 AND d.bettype NOT IN (9, 29, 2799, 10449)
 
 		UPDATE d
 			SET d.SporttypeId = m.sporttype

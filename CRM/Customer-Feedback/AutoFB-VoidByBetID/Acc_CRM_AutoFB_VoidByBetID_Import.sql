@@ -613,6 +613,7 @@ BEGIN
          INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
          INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON bt.typenamee = mp.SettingSource
          INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'BetType' AND mp.SettingID = st.SettingID
+         INNER JOIN bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK) ON sr.ParentID IN (SELECT SubProductId FROM #tmpFeedback_base_subproduct) AND st.SettingID = sr.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
              mp.SettingID

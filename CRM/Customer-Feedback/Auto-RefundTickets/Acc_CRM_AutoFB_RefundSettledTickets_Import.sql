@@ -323,6 +323,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.bettype b WITH(NOLOCK) ON b.typeId = m.MainDBBettypeId
 			INNER JOIN dbo.crmSettingMapping mp WITH(NOLOCK) ON mp.SettingSource = b.typenamee
             INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingName = 'BetType' AND s.SettingID = mp.SettingID
+            INNER JOIN dbo.crmSettingRelation sr WITH(NOLOCK) ON sr.ParentID IN (SELECT SettingId FROM CTE_Sporttype) AND s.SettingID = sr.SettingID
 		GROUP BY m.MainDBBettypeId, mp.SettingId 
 	)
 	UPDATE m

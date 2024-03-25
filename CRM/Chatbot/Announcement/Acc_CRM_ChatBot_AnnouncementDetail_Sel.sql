@@ -1,17 +1,19 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_AnnouncementDetail_Sel]
-	@AnnouncementId INT
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_AnnouncementDetail_Sel] @AnnouncementId INT
 AS
+
 /*
 	Created: 20221213@Malcolm
 	Task :  Annoucement - Annoucement list - View detail or edit/clone annoucement
 	DB: DBCRM/bodb_CRM
 	Original:
-		Revisions:
-			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
-	Param's Explanation:
-
-		
+	Revisions:
+        - 20221213@Malcolm: Initialize SPs [Redmine: #179118]
+        - 20240327@Ned.Le: CRM - Headline Announcement - Enhancement - Allow to attach separate screenshots for a specific language AND Allow to push Notifications with empty content [Redmine: #201042]
 */
 
 BEGIN
@@ -34,7 +36,6 @@ BEGIN
 		,a.HeadlineType
 		,a.SendImmediately
 		,a.SendDate
-		,a.FileName
 		,d.DirectAccounts
 	FROM dbo.crmAnnouncement a WITH(NOLOCK)
 		LEFT JOIN dbo.crmNotificationTemplate nt WITH(NOLOCK) ON nt.NotificationTemplateId = a.NotificationTemplateId
@@ -45,6 +46,7 @@ BEGIN
 		SettingID AS LanguageId
 		,SettingValue AS LanguageCode
 		,ac.Content 
+        ,ac.FileName
 	FROM dbo.crmSetting l WITH(NOLOCK)
 		LEFT JOIN dbo.crmAnnouncementContent ac WITH(NOLOCK) ON ac.AnnouncementId = @AnnouncementId AND ac.LanguageId = l.SettingID
 	WHERE SettingID BETWEEN 50000 AND 50004	

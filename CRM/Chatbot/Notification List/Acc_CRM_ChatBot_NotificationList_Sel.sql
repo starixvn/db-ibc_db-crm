@@ -1,5 +1,9 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
 	@NotificationTypeIds	VARCHAR(MAX) = ''
 	,@FromDate				DATETIME = NULL
 	,@ToDate				DATETIME = NULL
@@ -17,22 +21,21 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ChatBot_NotificationList_Sel]
 	,@PageIndex				INT = 0
 	,@TotalRows				INT = 0 OUTPUT
 AS
+
 /*
 	Created: 20200810@Malcolm
 	Task : CRM - Headline Notification - Notification List - Submit
 	DB: DBCRM/bodb_CRM
 	Original:
-		Revisions:
-			- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
-			- 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
-			- 20210731@Malcolm : Add alias [RedmineId : #151509] 
-			- 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
-	        - 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
-			- 20221222@Malcolm : Add filter by AnnouncementId [RedmineId : #179118]
-			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
-			
-		Param's Explanation:
-		
+	Revisions:
+        - 20200810@Malcolm: Initialize SPs [Redmine: #130544]
+        - 20201116@Malcolm: Only filter notifications following MessageId [Redmine: #144265]
+        - 20210731@Malcolm : Add alias [RedmineId : #151509] 
+        - 20210731@Malcolm : Avoid page splits [RedmineId : #176977] 
+        - 20220113@Malcolm : Scale out for CRM [RedmineId : #181906] 
+        - 20221222@Malcolm : Add filter by AnnouncementId [RedmineId : #179118]
+        - 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+        - 20240327@Ned.Le: CRM - Headline Announcement - Enhancement - Allow to attach separate screenshots for a specific language AND Allow to push Notifications with empty content [Redmine: #201042]
 */
 
 BEGIN
@@ -280,12 +283,15 @@ BEGIN
 		,cg.ConversationGroupName AS [DisplayName]
 		,t.RelatedNotificationIds
 		,t.ChannelId
+        ,ac.FileName
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationGroup nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = nr.ConversationGroupId
 		LEFT JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = t.Sender
 		LEFT JOIN bodb02.dbo.Customer o WITH(NOLOCK) ON o.custid = t.ResolvedBy
 		LEFT JOIN CTE e ON e.NotificationId = t.NotificationId
+        LEFT JOIN bodb_CRM.dbo.crmAnnouncementNotification an (NOLOCK) ON t.NotificationId = an.NotificationId
+        LEFT JOIN bodb_CRM.dbo.crmAnnouncementContent ac (NOLOCK) ON an.AnnouncementId = ac.AnnouncementId AND cg.LanguageId = ac.LanguageId
 	ORDER BY t.NotificationId DESC
 
 	SELECT 

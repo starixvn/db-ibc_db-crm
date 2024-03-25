@@ -169,6 +169,8 @@ BEGIN
     IF (@count = 0) BREAK
 
     -- + Get batch of data
+    TRUNCATE TABLE #tmpCustomerBatch
+    
     INSERT INTO #tmpCustomerBatch (
         CustID,
         UserName,

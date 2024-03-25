@@ -240,22 +240,31 @@ BEGIN
     --       MobilePhone
     --       MobilePhoneCountryCode
     --       MobilePhoneAreaCode
+    ;WITH
+    CTE_phone AS (
+        SELECT CustID,
+               (ISNULL(Phone,'')       + ISNULL(PhoneCountryCode,'')       + ISNULL(PhoneAreaCode,''))       Phone,
+               (ISNULL(Phone2,'')      + ISNULL(Phone2CountryCode,'')      + ISNULL(Phone2AreaCode,''))      Phone2,
+               (ISNULL(Phone3,'')      + ISNULL(Phone3CountryCode,'')      + ISNULL(Phone3AreaCode,''))      Phone3,
+               (ISNULL(MobilePhone,'') + ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'')) MobilePhone
+        FROM #tmpCustomerBatch
+        WHERE (ISNULL(Phone,'')       + ISNULL(PhoneCountryCode,'')       + ISNULL(PhoneAreaCode,''))       <> '' OR
+              (ISNULL(Phone2,'')      + ISNULL(Phone2CountryCode,'')      + ISNULL(Phone2AreaCode,''))      <> '' OR
+              (ISNULL(Phone3,'')      + ISNULL(Phone3CountryCode,'')      + ISNULL(Phone3AreaCode,''))      <> '' OR
+              (ISNULL(MobilePhone,'') + ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'')) <> ''
+    )
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49001  CommunicationID,
-           (ISNULL(Phone,'')+ISNULL(PhoneCountryCode,'')+ISNULL(PhoneAreaCode,'')    + ',' +
-            ISNULL(Phone2,'')+ISNULL(Phone2CountryCode,'')+ISNULL(Phone2AreaCode,'') + ',' +
-            ISNULL(Phone3,'')+ISNULL(Phone3CountryCode,'')+ISNULL(Phone3AreaCode,'') + ',' +
-            ISNULL(MobilePhone,'')+ISNULL(MobilePhoneCountryCode,'')+ISNULL(MobilePhoneAreaCode,'')) CommunicationValue
-    FROM #tmpCustomerBatch
-    WHERE (ISNULL(Phone,'')+ISNULL(PhoneCountryCode,'')+ISNULL(PhoneAreaCode,'')    + ',' +
-           ISNULL(Phone2,'')+ISNULL(Phone2CountryCode,'')+ISNULL(Phone2AreaCode,'') + ',' +
-           ISNULL(Phone3,'')+ISNULL(Phone3CountryCode,'')+ISNULL(Phone3AreaCode,'') + ',' +
-           ISNULL(MobilePhone,'')+ISNULL(MobilePhoneCountryCode,'')+ISNULL(MobilePhoneAreaCode,'')) <> ''
+    SELECT CustID,
+           49001 CommunicationID,
+           (Phone  + CASE WHEN (Phone  <> '' AND Phone2 <> '')      THEN ',' ELSE '' END +
+            Phone2 + CASE WHEN (Phone2 <> '' AND Phone3 <> '')      THEN ',' ELSE '' END +
+            Phone3 + CASE WHEN (Phone3 <> '' AND MobilePhone <> '') THEN ',' ELSE '' END +
+            MobilePhone) CommunicationValue
+    FROM CTE_phone
     --   --> Email >> SettingID=49002 [Email]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,

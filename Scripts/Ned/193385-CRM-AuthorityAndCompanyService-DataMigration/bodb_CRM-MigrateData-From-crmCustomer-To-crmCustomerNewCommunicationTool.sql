@@ -260,17 +260,35 @@ BEGIN
     --       MobilePhoneCountryCode
     --       MobilePhoneAreaCode
     ;WITH
-    CTE_phone AS (
+    CTE_phone_initial AS (
         SELECT CustID,
-               (ISNULL(Phone,'')       + ISNULL(PhoneCountryCode,'')       + ISNULL(PhoneAreaCode,''))       Phone,
-               (ISNULL(Phone2,'')      + ISNULL(Phone2CountryCode,'')      + ISNULL(Phone2AreaCode,''))      Phone2,
-               (ISNULL(Phone3,'')      + ISNULL(Phone3CountryCode,'')      + ISNULL(Phone3AreaCode,''))      Phone3,
-               (ISNULL(MobilePhone,'') + ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'')) MobilePhone
+               (ISNULL(PhoneCountryCode,'')       + ISNULL(PhoneAreaCode,'')       + ISNULL(Phone,''))       Phone,
+               (ISNULL(Phone2CountryCode,'')      + ISNULL(Phone2AreaCode,'')      + ISNULL(Phone2,''))      Phone2,
+               (ISNULL(Phone3CountryCode,'')      + ISNULL(Phone3AreaCode,'')      + ISNULL(Phone3,''))      Phone3,
+               (ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'') + ISNULL(MobilePhone,'')) MobilePhone
         FROM #tmpCustomerBatch
-        WHERE (ISNULL(Phone,'')       + ISNULL(PhoneCountryCode,'')       + ISNULL(PhoneAreaCode,''))       <> '' OR
-              (ISNULL(Phone2,'')      + ISNULL(Phone2CountryCode,'')      + ISNULL(Phone2AreaCode,''))      <> '' OR
-              (ISNULL(Phone3,'')      + ISNULL(Phone3CountryCode,'')      + ISNULL(Phone3AreaCode,''))      <> '' OR
-              (ISNULL(MobilePhone,'') + ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'')) <> ''
+        WHERE (ISNULL(PhoneCountryCode,'')       + ISNULL(PhoneAreaCode,'')       + ISNULL(Phone,''))       <> '' OR
+              (ISNULL(Phone2CountryCode,'')      + ISNULL(Phone2AreaCode,'')      + ISNULL(Phone2,''))      <> '' OR
+              (ISNULL(Phone3CountryCode,'')      + ISNULL(Phone3AreaCode,'')      + ISNULL(Phone3,''))      <> '' OR
+              (ISNULL(MobilePhoneCountryCode,'') + ISNULL(MobilePhoneAreaCode,'') + ISNULL(MobilePhone,'')) <> ''
+    ),
+    CTE_phone_connect0102 AS (
+        SELECT CustID,
+               (Phone + CASE WHEN Phone<>'' AND Phone2<>'' THEN ',' ELSE '' END + Phone2) Connect_Phone_0102,
+               Phone3,
+               MobilePhone
+        FROM CTE_phone_initial
+    ),
+    CTE_phone_connect010203 AS (
+        SELECT CustID,
+               (Connect_Phone_0102 + CASE WHEN Connect_Phone_0102<>'' AND Phone3<>'' THEN ',' ELSE '' END + Phone3) Connect_Phone_010203,
+               MobilePhone
+        FROM CTE_phone_connect0102
+    ),
+    CTE_phone_final AS (
+        SELECT CustID,
+               (Connect_Phone_010203 + CASE WHEN Connect_Phone_010203<>'' AND MobilePhone<>'' THEN ',' ELSE '' END + MobilePhone) Connect_Phone_010203mobile
+        FROM CTE_phone_connect010203
     )
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
@@ -279,11 +297,8 @@ BEGIN
     )
     SELECT CustID,
            @SettingID_Phone CommunicationID,
-           (Phone  + CASE WHEN (Phone  <> '' AND Phone2 <> '')      THEN ',' ELSE '' END +
-            Phone2 + CASE WHEN (Phone2 <> '' AND Phone3 <> '')      THEN ',' ELSE '' END +
-            Phone3 + CASE WHEN (Phone3 <> '' AND MobilePhone <> '') THEN ',' ELSE '' END +
-            MobilePhone) CommunicationValue
-    FROM CTE_phone
+           Connect_Phone_010203mobile CommunicationValue
+    FROM CTE_phone_final
     --   --> Email >> [SettingValue=Email]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,

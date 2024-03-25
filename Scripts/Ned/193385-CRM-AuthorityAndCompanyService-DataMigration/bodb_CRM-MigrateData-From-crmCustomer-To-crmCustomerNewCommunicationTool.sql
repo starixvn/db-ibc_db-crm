@@ -96,35 +96,35 @@ CREATE CLUSTERED INDEX CIX_CustID ON #tmpCustomerFull(CustID)
 -------
 -- 2 --
 -- Process to migrate data
--- Rule to migrate | ------------------------------------------------------- |
---                 | >> Phone                  >> SettingID=49001    [Phone] |
---                 |    PhoneCountryCode                                     |
---                 |    PhoneAreaCode                                        |
---                 |    Phone2                                               |
---                 |    Phone2CountryCode                                    |
---                 |    Phone2AreaCode                                       |
---                 |    Phone3                                               |
---                 |    Phone3CountryCode                                    |
---                 |    Phone3AreaCode                                       |
---                 |    MobilePhone                                          |
---                 |    MobilePhoneCountryCode                               |
---                 |    MobilePhoneAreaCode                                  |
---                 | ------------------------------------------------------- |
---                 | >> Email                  >> SettingID=49002    [Email] |
---                 | ------------------------------------------------------- |
---                 | >> Skype                  >> SettingID=49003    [Skype] |
---                 | ------------------------------------------------------- |
---                 | >> MSN                    >> SettingID=49007 [Telegram] |
---                 | ------------------------------------------------------- |
---                 | >> WhatsApp               >> SettingID=49006 [WhatsApp] |
---                 | ------------------------------------------------------- |
---                 | >> Line                   >> SettingID=49005     [Line] |
---                 | ------------------------------------------------------- |
---                 | >> WeChat                 >> SettingID=49004   [WeChat] |
---                 | ------------------------------------------------------- |
---                 | >> Yahoo                  >> SettingID=49000 [Letstalk] |
---                 | ------------------------------------------------------- |
---                 | >> BBM                    >> SettingID=49008     [Zalo] |
+-- Rule to migrate | ------------------------------------------------- |
+--                 | >> Phone                     [SettingValue=Phone] |
+--                 |    PhoneCountryCode                               |
+--                 |    PhoneAreaCode                                  |
+--                 |    Phone2                                         |
+--                 |    Phone2CountryCode                              |
+--                 |    Phone2AreaCode                                 |
+--                 |    Phone3                                         |
+--                 |    Phone3CountryCode                              |
+--                 |    Phone3AreaCode                                 |
+--                 |    MobilePhone                                    |
+--                 |    MobilePhoneCountryCode                         |
+--                 |    MobilePhoneAreaCode                            |
+--                 | ------------------------------------------------- |
+--                 | >> Email                     [SettingValue=Email] |
+--                 | ------------------------------------------------- |
+--                 | >> Skype                     [SettingValue=Skype] |
+--                 | ------------------------------------------------- |
+--                 | >> MSN                    [SettingValue=Telegram] |
+--                 | ------------------------------------------------- |
+--                 | >> WhatsApp               [SettingValue=WhatsApp] |
+--                 | ------------------------------------------------- |
+--                 | >> Line                       [SettingValue=Line] |
+--                 | ------------------------------------------------- |
+--                 | >> WeChat                   [SettingValue=WeChat] |
+--                 | ------------------------------------------------- |
+--                 | >> Yahoo                  [SettingValue=Letstalk] |
+--                 | ------------------------------------------------- |
+--                 | >> BBM                        [SettingValue=Zalo] |
 
 -- Create temp table
 CREATE TABLE #tmpCustomerBatch (
@@ -157,6 +157,25 @@ CREATE CLUSTERED INDEX CIX_CustID ON #tmpCustomerBatch(CustID)
 -- Declare variables
 DECLARE @count INT = 0
 DECLARE @batch INT = 1000
+
+DECLARE @SettingID_Phone INT
+SELECT  @SettingID_Phone = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Phone'
+DECLARE @SettingID_Email INT
+SELECT  @SettingID_Email = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Email'
+DECLARE @SettingID_Skype INT
+SELECT  @SettingID_Skype = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Skype'
+DECLARE @SettingID_Telegram INT
+SELECT  @SettingID_Telegram = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Telegram'
+DECLARE @SettingID_WhatsApp INT
+SELECT  @SettingID_WhatsApp = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'WhatsApp'
+DECLARE @SettingID_Line INT
+SELECT  @SettingID_Line = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Line'
+DECLARE @SettingID_WeChat   INT
+SELECT  @SettingID_WeChat = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'WeChat'
+DECLARE @SettingID_Letstalk INT
+SELECT  @SettingID_Letstalk = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Letstalk'
+DECLARE @SettingID_Zalo INT
+SELECT  @SettingID_Zalo = SettingID FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) WHERE SettingName = 'PICCommunicationTool' AND SettingValue = 'Zalo'
 
 -- Run the loop to process data
 WHILE (1=1)
@@ -228,7 +247,7 @@ BEGIN
     WHERE c.CustID IN (SELECT CustID FROM #tmpCustomerBatch)
 
     -- + Migrate data
-    --   --> Phone                  >> SettingID=49001 [Phone]
+    --   --> Phone                  >> [SettingValue=Phone]
     --       PhoneCountryCode
     --       PhoneAreaCode
     --       Phone2
@@ -259,98 +278,98 @@ BEGIN
         CommunicationValue
     )
     SELECT CustID,
-           49001 CommunicationID,
+           @SettingID_Phone CommunicationID,
            (Phone  + CASE WHEN (Phone  <> '' AND Phone2 <> '')      THEN ',' ELSE '' END +
             Phone2 + CASE WHEN (Phone2 <> '' AND Phone3 <> '')      THEN ',' ELSE '' END +
             Phone3 + CASE WHEN (Phone3 <> '' AND MobilePhone <> '') THEN ',' ELSE '' END +
             MobilePhone) CommunicationValue
     FROM CTE_phone
-    --   --> Email >> SettingID=49002 [Email]
+    --   --> Email >> [SettingValue=Email]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49002  CommunicationID,
-           Email  CommunicationValue
+    SELECT CustID           CustID,
+           @SettingID_Email CommunicationID,
+           Email            CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(Email, '') <> ''
-    --   --> Skype >> SettingID=49003 [Skype]
+    --   --> Skype >> [SettingValue=Skype]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49003  CommunicationID,
-           Skype  CommunicationValue
+    SELECT CustID           CustID,
+           @SettingID_Skype CommunicationID,
+           Skype            CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(Skype, '') <> ''
-    --   --> MSN >> SettingID=49007 [Telegram]
+    --   --> MSN >> [SettingValue=Telegram]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49007  CommunicationID,
-           MSN    CommunicationValue
+    SELECT CustID              CustID,
+           @SettingID_Telegram CommunicationID,
+           MSN                 CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(MSN, '') <> ''
-    --   --> WhatsApp >> SettingID=49006 [WhatsApp]
+    --   --> WhatsApp >> [SettingValue=WhatsApp]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID   CustID,
-           49006    CommunicationID,
-           WhatsApp CommunicationValue
+    SELECT CustID              CustID,
+           @SettingID_WhatsApp CommunicationID,
+           WhatsApp            CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(WhatsApp, '') <> ''
-    --   --> Line >> SettingID=49005 [Line]
+    --   --> Line >> [SettingValue=Line]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49005  CommunicationID,
-           Line   CommunicationValue
+    SELECT CustID          CustID,
+           @SettingID_Line CommunicationID,
+           Line            CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(Line, '') <> ''
-    --   --> WeChat >> SettingID=49004 [WeChat]
+    --   --> WeChat >> [SettingValue=WeChat]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49004  CommunicationID,
-           WeChat CommunicationValue
+    SELECT CustID            CustID,
+           @SettingID_WeChat CommunicationID,
+           WeChat            CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(WeChat, '') <> ''
-    --   --> Yahoo >> SettingID=49000 [Letstalk]
+    --   --> Yahoo >> [SettingValue=Letstalk]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49000  CommunicationID,
-           Yahoo  CommunicationValue
+    SELECT CustID              CustID,
+           @SettingID_Letstalk CommunicationID,
+           Yahoo               CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(Yahoo, '') <> ''
-    --   --> BBM >> SettingID=49008 [Zalo]
+    --   --> BBM >> [SettingValue=Zalo]
     INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (
         CustID,
         CommunicationID,
         CommunicationValue
     )
-    SELECT CustID CustID,
-           49008  CommunicationID,
-           BBM    CommunicationValue
+    SELECT CustID          CustID,
+           @SettingID_Zalo CommunicationID,
+           BBM             CommunicationValue
     FROM #tmpCustomerBatch
     WHERE ISNULL(BBM, '') <> ''
 

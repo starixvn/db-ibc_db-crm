@@ -181,6 +181,7 @@ BEGIN
 	CREATE TABLE #tmpUpdatedRH (
 		SettlementLogID INT NOT NULL
 		,StatusID TINYINT NOT NULL
+		,SportType SMALLINT NOT NULL
 		,ActualResult VARCHAR(MAX)
 		,ActualResultXML XML
 		,WrongResult VARCHAR(MAX)
@@ -215,6 +216,7 @@ BEGIN
 		,sh.LastModifiedTime = GETDATE()
 	OUTPUT INSERTED.SettlementLogID
 		,INSERTED.StatusID
+		,INSERTED.SportType
 		,INSERTED.ActualResult
 		,INSERTED.WrongResult
 	INTO #tmpUpdatedRH (
@@ -226,6 +228,7 @@ BEGIN
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 	WHERE sh.StatusID = @StsRetrieved --Captured
 		AND ISNULL(@IsTestFlag,sh.IsTest) = sh.IsTest --filter by Environment/UATMode
+		AND sh.SportType = 50 --Cricket, need modify for others sport
 	
 	--write log
 	INSERT INTO [Log] (

@@ -79,7 +79,7 @@ CREATE TABLE dbo.Notification (
 	,RefID INT
 	,StatusID TINYINT NOT NULL
 	,NotificationType TINYINT NOT NULL
-	,Subject NVARCHAR(300)
+	,Subject NVARCHAR(1000)
 	,Content_en NVARCHAR(4000)
 	,Content_ch NVARCHAR(4000)
 	,Content_cs NVARCHAR(4000)

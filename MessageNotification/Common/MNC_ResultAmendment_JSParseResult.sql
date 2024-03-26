@@ -16,6 +16,7 @@ AS
 	
 	Param's Explanation:
 		@SettlementLogIDs: List of SettlementLogID
+		@SportType: default 50 - Cricket
 		@ParseAmendInfo: Specific data want to parse to JSON
 						- ActualResult
 						- WrongResult
@@ -66,6 +67,11 @@ BEGIN TRY
 		,Y VARCHAR(50)
 	)
 	
+	CREATE TABLE #tmpInputIDs (
+		SettlementLogID INT
+	)
+	CREATE CLUSTERED INDEX CIX_tmpInputID ON #tmpInputIDs (SettlementLogID)
+	
 	/*
 		Start to get data to Parse
 		default @ParseAmendInfo = ALL
@@ -76,6 +82,13 @@ BEGIN TRY
 	BEGIN
 		SET @ParseAmendInfo = 'SettleMatch,ActualResult,WrongResult'
 	END
+	
+	--Parse data only for Cricket
+	INSERT INTO #tmpInputIDs (SettlementLogID)
+	SELECT DISTINCT sh.SettlementLogID
+	FROM SettlementResultHist AS sh WITH (NOLOCK)
+	WHERE sh.SettlementLogID IN (SELECT TRY_CONVERT(INT,value) FROM STRING_SPLIT(@SettlementLogIDs, ','))
+		AND sh.SportType = 50 --Cricket, need modify for others sport
 	
 	/*
 		Insert #tmpResultInfo with format
@@ -93,16 +106,6 @@ BEGIN TRY
 			| 134			| WrongResult		| 96711			| 96711		 | 06		| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)
 		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|--------
 	*/
-	;WITH CTE_ResultHist AS (
-		SELECT sh.SettlementLogID
-			,sh.SportType
-			,sh.MatchID
-		FROM SettlementResultHist AS sh WITH (NOLOCK)
-		WHERE sh.SettlementLogID IN (
-			SELECT TRY_CONVERT(INT,value)
-			FROM STRING_SPLIT(@SettlementLogIDs, ',')
-		)
-	)
 	INSERT INTO #tmpEventInfo (
 		SettlementLogID
 		,MatchID
@@ -117,7 +120,8 @@ BEGIN TRY
 		,ISNULL(m.HomeID, m14.HomeID) AS HomeID
 		,ISNULL(m.AwayID, m14.AwayID) AS AwayID
 		,ISNULL(m.LeagueID, m14.LeagueID) AS LeagueID
-	FROM CTE_ResultHist AS sh
+	FROM SettlementResultHist AS sh WITH (NOLOCK)
+		INNER JOIN #tmpInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
 		LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
 		LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
 	WHERE ISNULL(CHARINDEX('SettleMatch',@ParseAmendInfo),0) > 0
@@ -194,14 +198,11 @@ BEGIN TRY
 	
 	--ActualResult / WrongResult
 	;WITH CTE_XML AS (
-		SELECT SettlementLogID
-			,TRY_CONVERT(XML, ActualResult) AS ActualResultXML
-			,TRY_CONVERT(XML, WrongResult) AS WrongResultXML
-		FROM SettlementResultHist WITH (NOLOCK)
-		WHERE SettlementLogID IN (
-			SELECT TRY_CONVERT(INT,value)
-			FROM STRING_SPLIT(@SettlementLogIDs, ',')
-		)
+		SELECT sh.SettlementLogID
+			,TRY_CONVERT(XML, sh.ActualResult) AS ActualResultXML
+			,TRY_CONVERT(XML, sh.WrongResult) AS WrongResultXML
+		FROM SettlementResultHist AS sh WITH (NOLOCK)
+			INNER JOIN #tmpInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
 	)
 	,CTE_Actual AS (
 		SELECT DISTINCT SettlementLogID

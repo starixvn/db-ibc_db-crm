@@ -22,7 +22,9 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @StsNew TINYINT
+	DECLARE @LogActionID TINYINT
+		,@LogUserID INT
+		,@StsNew TINYINT
 		,@RuleID INT
 		,@ITRuleID INT = 1 --this RuleID config to receive all message
 		,@SQLStatement NVARCHAR(MAX)

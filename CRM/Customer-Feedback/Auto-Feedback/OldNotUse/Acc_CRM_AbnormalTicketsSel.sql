@@ -1,5 +1,3 @@
-/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0"></info>*/
-
 USE bodb02
 GO
 

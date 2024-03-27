@@ -1,4 +1,3 @@
-/*<info serverAlias="DBTXN-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_AbnormalTicketsCheck]
 	@TranIDs VARCHAR(MAX),
 	@ConfigUAT BIT = 0,

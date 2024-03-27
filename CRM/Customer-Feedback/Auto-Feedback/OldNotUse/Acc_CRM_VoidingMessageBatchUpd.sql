@@ -1,4 +1,3 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_VoidingMessageBatchUpd]	
 	@MessageIds VARCHAR(MAX) ,
 	@Environment	VARCHAR(10) = 'LIVE'	

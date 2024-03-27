@@ -1,4 +1,3 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_VoidingMessageSel]	
 	@MaxVoidingHistoryCollectionId	INT
 AS

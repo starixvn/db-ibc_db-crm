@@ -15,10 +15,10 @@ AS
 	Explanation:
 		@Environment
 			If UATMode = OFF
-			  + @Environment = PRD => handle all data
+			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
 			If UATMode = ON
-			  + @Environment = PRD => handle REAL data
+			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 		@JSSettlResultHist: data from SiteDBs (output of MNC_SettlResultHist_GetSessionByDate)
 		
@@ -61,7 +61,7 @@ BEGIN
 	WHERE VID = 2 --ID of StarixIT
 	
 	SELECT @ProcessID = (
-					CASE WHEN @Environment = 'PRD' THEN 4 --Process_CaptureData
+					CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
 					ELSE 7 END --ProcessUAT_CaptureData
 				)
 	
@@ -92,10 +92,10 @@ BEGIN
 	/*
 		Filter data by UATMode
 			If UATMode = OFF
-			  + @Environment = PRD => handle all data
+			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
 			If UATMode = ON
-			  + @Environment = PRD => handle REAL data
+			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
@@ -114,7 +114,7 @@ BEGIN
 		
 		RETURN
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'PRD' --REAL data only
+	ELSE IF @UATMode = 'ON' AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END

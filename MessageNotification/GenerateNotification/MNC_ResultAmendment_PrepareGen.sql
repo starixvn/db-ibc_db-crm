@@ -12,10 +12,10 @@ AS
 	Explanation:
 		@Environment
 			If UATMode = OFF
-			  + @Environment = PRD => handle all data
+			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
 			If UATMode = ON
-			  + @Environment = PRD => handle REAL data
+			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 		
 		Steps
@@ -66,7 +66,7 @@ BEGIN
 	WHERE Status = 'Generating'
 	
 	SELECT @ProcessID = (
-					CASE WHEN @Environment = 'PRD' THEN 5 --Process_GenerateNoti
+					CASE WHEN @Environment = 'LIVE' THEN 5 --Process_GenerateNoti
 					ELSE 8 END --ProcessUAT_GenerateNoti
 				)
 	
@@ -105,10 +105,10 @@ BEGIN
 	/*
 		Filter data by UATMode
 			If UATMode = OFF
-			  + @Environment = PRD => handle all data
+			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
 			If UATMode = ON
-			  + @Environment = PRD => handle REAL data
+			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
@@ -130,7 +130,7 @@ BEGIN
 		
 		RETURN
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'PRD' --REAL data only
+	ELSE IF @UATMode = 'ON' AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END

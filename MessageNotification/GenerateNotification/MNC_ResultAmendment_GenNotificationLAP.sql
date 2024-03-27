@@ -14,10 +14,10 @@ AS
 	Explanation:
 		@Environment
 			If UATMode = OFF
-				+ @Environment = PRD => handle all data
+				+ @Environment = LIVE => handle all data
 				+ @Environment = UAT => return
 			If UATMode = ON
-				+ @Environment = PRD => handle REAL data
+				+ @Environment = LIVE => handle REAL data
 				+ @Environment = UAT => handle TEST data
 		
 		Input

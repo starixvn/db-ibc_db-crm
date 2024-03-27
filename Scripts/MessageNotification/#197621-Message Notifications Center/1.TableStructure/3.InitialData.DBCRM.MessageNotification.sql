@@ -134,3 +134,14 @@ VALUES (
 		,@StarixIT
 		,'Generate Notification for LAP with HTML format - {cal_time} can be multi rows'
 	)
+
+/***** AlertRule ****/
+-- TRUNCATE TABLE AlertRule
+-- INSERT INTO AlertRule (
+	-- RuleName
+	-- ,SQLStatement
+	-- ,ChatGroupID
+	-- ,BotID
+	-- ,Chanel
+-- )
+-- VALUES ('Deafult Group', NULL, 'ChatGroupID', 'BotID','Chanel')

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-MessageNotification" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_GenNotification
 	@Environment VARCHAR(5)
 	,@JSRemotingRef NVARCHAR(MAX)

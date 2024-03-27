@@ -1,4 +1,4 @@
-/*<info serverAlias="DBMSG-bodb_Message" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBMSG-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Alert_Ins
 	@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
@@ -6,7 +6,7 @@ AS
 /*
 	Created: 20231213@Roy
 	Task: Insert Alert based on AlertRule
-	DB: DBMSG.bodb_Message
+	DB: DBMSG.MessageNotification
 	Revisions:
 		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
@@ -17,7 +17,7 @@ AS
 			@ErrMsg
 	
 	Example:
-		EXEC bodb_Message.dbo.MNC_Alert_Ins
+		EXEC MessageNotification.dbo.MNC_Alert_Ins
 */
 BEGIN
 	SET NOCOUNT ON

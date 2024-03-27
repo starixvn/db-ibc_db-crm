@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -26,6 +26,7 @@ AS
         - 20231110@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID [RedmineId : #196660]
         - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
         - 20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
+        - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
 
     Param's Explanation:
         @Messages:
@@ -162,10 +163,12 @@ BEGIN
     FROM CTE_final
 
 
-    -----------------------------------------------------------------------------------------
-    -- Clean and transform data for Abnormal Bet Group | Abnormal Bet   (IssueTypeId=11)
-    --                                                 | AB Real Member (IssueTypeId=15)
-    --                                                 | VoidByBetID    (MsgContentsType=103)
+    ------------------------------------------------------------------------------------------
+    -- Clean and transform data for Abnormal Bet Group | Abnormal Bet    (IssueTypeId=11)
+    --                                                 | * Mix Parlay    (FilterBy=1)
+    --                                                 | * System Parlay (FilterBy=2)
+    --                                                 | AB Real Member  (IssueTypeId=15)
+    --                                                 | VoidByBetID     (MsgContentsType=103)
 
     -- Create support temp table
     CREATE TABLE #tmpData_AbnormalBet (
@@ -191,7 +194,7 @@ BEGIN
     SELECT ab.VoidingHistoryCollectionId,
            ab.MessageId,
            t.TransId,
-           CASE WHEN ab.IssueTypeId = 11 AND ab.FilterBy = 1 THEN 3 ELSE 1 END [Type]
+           CASE WHEN ab.IssueTypeId = 11 AND ab.FilterBy IN (1, 2) THEN 3 ELSE 1 END [Type]
     FROM #tmpInput_Messages ab
          CROSS APPLY (SELECT value TransId FROM STRING_SPLIT(ab.TransIdList, ',')) t
     WHERE ab.IssueTypeId IN (11, 15)

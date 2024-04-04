@@ -1,4 +1,8 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb02
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_AutoFB_AbnormalBets_GetVoidedInfo]	
 	@LastVoidingHistoryCollectionId	INT
 	,@MaxVoidingHistoryCollectionId INT OUTPUT
@@ -12,6 +16,7 @@ AS
 
 	Revisions:
 		- 20240109@Malcolm: Initial SPs [redmine:#198905]
+        - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
 		
 	Param's Explanation:
 		
@@ -132,7 +137,7 @@ BEGIN
 		,RequestId
 		,MessageId
 		,IssueTypeId				
-		,CASE WHEN IssueTypeId IN (11, 20) AND ISNULL(FilterBy, 0) = 1 THEN 1 ELSE 0 END AS IsParlay
+		,CASE WHEN IssueTypeId IN (11, 20) AND ISNULL(FilterBy, 0) IN (1, 2) THEN 1 ELSE 0 END AS IsParlay
 		,RequestBy
 		,DecidedBy
 		,VoidBy

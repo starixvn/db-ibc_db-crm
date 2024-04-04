@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -22,6 +22,7 @@ AS
 		- 20240109@Malcolm: Initialize SPs [RedmineId: #198905]
         - 20240304@Ned.Le: CRM | Missing info in feedback -> Special Notification of abnormal bet incase affected licensee list too long. (HotFix #201768)
         - 20240305@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
+        - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
 		
 	Param's Explanation:
 		. @Message = 
@@ -499,10 +500,15 @@ BEGIN
 	WHERE IsDeposit = 1
 	
 	/*Get Sub - Product, Bettype*/
+    ;WITH CTE_match AS (
+        SELECT matchid, sporttype FROM bodb02.dbo.match WITH (NOLOCK)
+        UNION
+        SELECT matchid, sporttype FROM bodb02.dbo.match14 WITH (NOLOCK)
+    )
 	UPDATE m
 		SET m.MainDBSportTypeId = mt.sporttype
 	FROM #VoidedCollectionInfo m		
-		INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
+		INNER JOIN CTE_match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
 
 	UPDATE m
 		SET m.MainDBProductId = n.ProductID
@@ -937,14 +943,21 @@ BEGIN
         FROM bodb02.dbo.f_LeagueGroupConfig()
 
 		CREATE TABLE #Remark (HeadlinId INT, VoidingHistoryCollectionId INT, IsDeposit BIT, IssueTypeId TINYINT, IsParlay BIT, Remark NVARCHAR(MAX))
-		;WITH CTE_DescriptionTemplate AS (
+		;WITH
+        CTE_DescriptionTemplate AS (
 			SELECT 
 				CONVERT(NVARCHAR(MAX),
 					N'<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br /><span style="color: rgb(255, 0, 0);">'
 					+ N'Msg ID: {MessageList}, Request No.: {RequestList}'+ N'</span><br /><br />'
 					+ N'{EventInfo}'
 			) AS Remark
-		), CTE_EventInfo AS (
+		),
+        CTE_match AS (
+            SELECT matchid, sporttype, leagueid, homeId, awayId, eventdate, GlobalShowTime FROM bodb02.dbo.match WITH (NOLOCK)
+            UNION
+            SELECT matchid, sporttype, leagueid, homeId, awayId, eventdate, GlobalShowTime FROM bodb02.dbo.match14 WITH (NOLOCK)
+        ),
+        CTE_EventInfo AS (
 			-- For IsParlay = 0, Credit only
 			SELECT 
 					VoidingHistoryCollectionId
@@ -970,7 +983,7 @@ BEGIN
 				FROM  #VoidedCollectionInfo v
 				WHERE IsDeposit = 0 AND IssueTypeId IN (11, 15) AND IsParlay = 0
 			)m	
-				INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
+				INNER JOIN CTE_match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
 				INNER JOIN bodb02.dbo.Team h WITH(NOLOCK) ON h.teamId = mt.homeId
 				INNER JOIN bodb02.dbo.Team a WITH(NOLOCK) ON a.teamId = mt.awayId
 				LEFT JOIN bodb02.dbo.League l WITH(NOLOCK) ON l.leagueid = mt.leagueid

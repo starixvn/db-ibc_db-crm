@@ -1,6 +1,6 @@
 /*<info serverAlias="DBACC-bodb02,DBSIG-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_SettlResultHist_GetSessionByDate
-	@Environment VARCHAR(5)
+	@Environment VARCHAR(20)
 	,@FDTime DATETIME
 	,@SiteDBGroupID SMALLINT
 AS
@@ -9,7 +9,7 @@ AS
 	Task: Get data from Settlement ResultHistory
 	DB: DBSIG.bodb02
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		@Environment <> PROD, get only TEST Match

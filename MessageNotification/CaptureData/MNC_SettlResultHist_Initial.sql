@@ -1,13 +1,13 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_SettlResultHist_Initial
-	@Environment VARCHAR(5)
+	@Environment VARCHAR(20)
 AS
 /*
 	Created: 20231213@Roy
 	Task: Initial load setting
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		@Environment
@@ -92,7 +92,7 @@ BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime
 			,NULL AS SiteDBGroupID
-			,NULL AS ClientAccessName
+			,NULL AS LinkedServerName
 			,NULL AS AGIP
 		WHERE 1 = 0
 			
@@ -117,7 +117,7 @@ BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime
 			,NULL AS SiteDBGroupID
-			,NULL AS ClientAccessName
+			,NULL AS LinkedServerName
 			,NULL AS AGIP
 		WHERE 1 = 0
 		
@@ -149,20 +149,21 @@ BEGIN
 	SELECT @Environment AS Environment
 		,CONVERT(VARCHAR, @FDTime, 120) AS FDTime
 		,sc.SiteDBGroupID
-		,sc.ClientAccessName
+		,sc.LinkedServerName
 		,sc.AGIP
 	FROM bodb02.dbo.SiteDBConfig AS sc WITH (NOLOCK)
 	WHERE SiteDBGroupID <> 0
 	
-	--write more info both PROD/UAT if enable UATMode
+	--write more info both PROD/UAT if LogMode = Debug
 	;WITH CTE_Log AS (
 		SELECT CONVERT(NVARCHAR(MAX),(
 					SELECT @Environment AS Environment
 						,CONVERT(VARCHAR, @FDTime, 120) AS FDTime
 						,sc.SiteDBGroupID
-						,sc.ClientAccessName
+						,sc.LinkedServerName
 						,sc.AGIP
 					FROM bodb02.dbo.SiteDBConfig AS sc WITH (NOLOCK)
+					WHERE SiteDBGroupID <> 0
 					FOR JSON AUTO
 				)) AS LTxt
 	)
@@ -175,5 +176,10 @@ BEGIN
 		,@LogUserID
 		,@InfLogPrefix + 'Start to capture Settlement ResultHistory (' +  LTxt + ')' AS LogBef
 	FROM CTE_Log
-	WHERE @UATMode = 'ON'
+	WHERE EXISTS (
+		SELECT 1
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 13 --LogMode
+			AND VValue = 'Debug'
+	)
 END

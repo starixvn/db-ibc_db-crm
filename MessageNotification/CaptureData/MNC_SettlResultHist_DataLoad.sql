@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_SettlResultHist_DataLoad
-	@Environment VARCHAR(5)
+	@Environment VARCHAR(20)
 	,@JSSettlResultHist NVARCHAR(MAX)
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
@@ -10,7 +10,7 @@ AS
 	Task: Data loading from all SiteDBs
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		@Environment
@@ -127,7 +127,7 @@ BEGIN
 		SET @IsTestFlag = NULL
 	END
 	
-	--write more info both PROD/UAT if enable UATMode
+	--write more info if LogMode = Debug
 	INSERT INTO [Log] (
 		ActionID
 		,UserID
@@ -136,7 +136,9 @@ BEGIN
 	SELECT @LogActionID
 		,@LogUserID
 		,@InfLogPrefix + 'Start Data loading with @UATMode = ' + @UATMode + ', @JSSettlResultHist('+ISNULL(@JSSettlResultHist,'NULL')+')'
-	WHERE @UATMode = 'ON'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	CREATE TABLE #tmpJSData (
 		ObjectName NVARCHAR(150)
@@ -357,8 +359,9 @@ BEGIN
 			SELECT SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'INSERTED SettlementResultHist with StatusID = ' + CONVERT(VARCHAR,@StsRetrieving)
-			FROM #tmpInsertedRH
+				,@InfLogPrefix + 'INSERTED SettlementResultHist with StatusID(' + ISNULL(Status,'NULL') + ')'
+			FROM #tmpInsertedRH AS i
+				LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON s.StatusID = @StsRetrieving
 			ORDER BY SettlementLogID
 		ELSE
 			INSERT INTO [Log] (
@@ -369,7 +372,9 @@ BEGIN
 			SELECT @LogActionID
 				,@LogUserID
 				,@InfLogPrefix + 'NO ROW inserted SettlementResultHist'
-			WHERE @UATMode = 'ON'
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = 13 --LogMode
+				AND VValue = 'Debug'
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -523,13 +528,22 @@ BEGIN
 	IF @ErrCode = 0
 	BEGIN TRY
 		DECLARE @SiteDBCnt INT = 0
+			,@Retrieving_WaitSec INT = 0
+		
 		SELECT @SiteDBCnt = COUNT(DISTINCT SiteDBGroupID)
 		FROM bodb02.dbo.SiteDBConfig WITH (NOLOCK)
 		WHERE SiteDBGroupID <> 0
 		
+		SELECT @Retrieving_WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0)
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 11 --Retrieving_WaitSec
+		
 		BEGIN TRANSACTION --lock Retrieving SettlementResultHist for UPD Status
 			
-			--Update for CASE #1
+			/*
+				Update for CASE #1
+					Count of SiteDBGroupID By [SessionID] = Count of SiteDBConfig (UPD only for StatusID = Retrieving)
+			*/
 			TRUNCATE TABLE #tmpInsertedRH
 			
 			;WITH CTE_Session AS (
@@ -577,15 +591,17 @@ BEGIN
 				,UserID
 				,LogBef
 			)
-			SELECT SettlementLogID
+			SELECT i.SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] with current SiteDBGroupID = ' + CONVERT(VARCHAR,rh.SiteDBGroupID) + ' and Status = ' + CONVERT(VARCHAR,rh.SettlementStatusID)
+				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] (All data from SiteDBConfig.SiteDBGroupIDs is loaded)'
 			FROM #tmpInsertedRH AS i
-				LEFT JOIN #tmpResultHist AS rh ON i.SessionID = rh.SessionID AND i.SeqNo = rh.SeqNo
-			ORDER BY SettlementLogID
+			ORDER BY i.SettlementLogID
 			
-			--Update for CASE #2
+			/*
+				Update for CASE #1
+					SessionID inserted too long (over configuration time in SystemSetting)
+			*/
 			TRUNCATE TABLE #tmpInsertedRH
 			
 			;WITH CTE_Session_INSTime AS (
@@ -593,7 +609,7 @@ BEGIN
 				FROM SettlementResultHist
 				WHERE StatusID = @StsRetrieving
 				GROUP BY SessionID
-				HAVING DATEDIFF(SECOND, MIN(InsertedTime),GETDATE()) > (SELECT ISNULL(TRY_CONVERT(INT, VValue),0) FROM SystemSetting WITH (NOLOCK) WHERE VID = 11) --Retrieving_WaitSec
+				HAVING DATEDIFF(SECOND, MIN(InsertedTime),GETDATE()) > @Retrieving_WaitSec
 			)
 			UPDATE sh
 			SET sh.StatusID = @StsRetrieved
@@ -614,7 +630,7 @@ BEGIN
 			SELECT SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] By Retrieving_WaitSec configuration' 
+				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] - Over Retrieving_WaitSec(' + ISNULL(CONVERT(VARCHAR,@Retrieving_WaitSec),'') +') configuration'
 			FROM #tmpInsertedRH AS rh
 			ORDER BY SettlementLogID
 	
@@ -641,7 +657,25 @@ BEGIN
 	SET VValue = 'Done'
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
-			
+	
+	----------------------Log to make sure system still live-----------------
+	IF EXISTS (
+		SELECT VValue
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 13 --LogMode
+			AND VValue = 'Debug'
+	)
+	BEGIN
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Debug log to make sure [Capture process] still live - @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
+	END
+	
 	DROP TABLE #tmpJSData
 	DROP TABLE #tmpResultHist
 	DROP TABLE #tmpInsertedRH

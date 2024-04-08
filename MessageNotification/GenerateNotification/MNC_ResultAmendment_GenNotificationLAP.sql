@@ -9,7 +9,7 @@ AS
 	Task: generate message
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		@Environment
@@ -239,6 +239,17 @@ BEGIN
 		WHERE NULLIF(TRIM(rh.ex.value('@Id', 'VARCHAR(50)')), '') IS NOT NULL
 		CREATE CLUSTERED INDEX CIX_tmpExtraInfo ON #tmpExtraInfo (Msg_NotiID, SettlementLogID)
 		
+		;WITH CTE_LAP AS (
+			SELECT DISTINCT ntc.NotificationID
+			FROM NotificationTarget AS ntc WITH (NOLOCK)
+				INNER JOIN #tmpExtraInfo AS ex ON ntc.NotificationID = ex.Msg_NotiID
+				INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntc.TargetID = c.CustID AND c.roleid = 1 --get cust
+				INNER JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON c.srecommend = d.CustID --deposit Super
+				CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
+					TransID BIGINT '$.TransID'
+				) AS t--OPENJSON case-sensitive
+			WHERE t.TransID IS NOT NULL
+		)
 		INSERT INTO #tmpNoti (
 			Msg_NotiID 
 			,TemplateID
@@ -252,21 +263,11 @@ BEGIN
 			,tp.Content_ch
 			,tp.Content_cs
 		FROM #tmpExtraInfo AS ex
+			INNER JOIN CTE_LAP AS l ON ex.Msg_NotiID = l.NotificationID
 			INNER JOIN Notification AS n WITH (NOLOCK) ON ex.Msg_NotiID = n.NotificationID
 			,NotiTemplate AS tp WITH (NOLOCK) --currently, only have 1 message TemplateID for LAP
 		WHERE tp.TemplateID = 6--Cricket Result Amendment - Notification for LAP
 			AND n.NotificationType = 1 --Result Amendment to Msg
-			AND EXISTS (
-					SELECT 1
-					FROM NotificationTarget AS ntc WITH (NOLOCK)
-						INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntc.TargetID = c.CustID AND c.roleid = 1 --get cust
-						INNER JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON c.srecommend = d.CustID --deposit Super
-						CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
-							TransID BIGINT '$.TransID'
-						) AS t--OPENJSON case-sensitive
-					WHERE ntc.NotificationID = ex.Msg_NotiID
-						AND TransID IS NOT NULL
-				) --verify before select
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNoti ON #tmpNoti (Msg_NotiID)
 		/*
 			Parse data from ActualResult / WrongResult

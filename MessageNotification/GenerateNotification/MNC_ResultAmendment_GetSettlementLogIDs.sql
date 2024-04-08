@@ -1,6 +1,6 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_GetSettlementLogIDs
-	@Environment VARCHAR(5)
+	@Environment VARCHAR(20)
 	,@JSRemotingRef NVARCHAR(MAX)
 	,@ValidSettlementLogIDs VARCHAR(MAX) OUTPUT
 	,@ErrCode INT = 0 OUTPUT
@@ -11,7 +11,7 @@ AS
 	Task: get valid SettlementLogIDs and return it as list
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Param's Explanation:
 		@Environment
@@ -99,6 +99,17 @@ BEGIN
 	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Start GetSettlementLogIDs with @JSRemotingRef = (' + ISNULL(@JSRemotingRef,'NULL') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	/*
 		Filter data by UATMode
 			If UATMode = OFF
@@ -262,6 +273,56 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #tmpVerifyInfo WHERE ID = @iLoop)
 			BREAK
 		
+		/*
+			Parse ALL as RemotingRef
+		*/
+		TRUNCATE TABLE #tmpResourceRef
+		
+		SET @JSResource = ''
+		EXEC MNC_ResultAmendment_JSParseResult
+			@SettlementLogIDs = @SettleID
+			,@ParseAmendInfo = 'ALL'
+			,@ParseTo = 'RemotingRef'
+			,@OutJSResource = @JSResource OUTPUT
+			,@ErrCode = @ErrCode OUTPUT
+			,@ErrMsg = @ErrMsg OUTPUT
+		
+		--ParseResult Error
+		IF @ErrCode <> 0
+		BEGIN
+			
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'FAILED parse SettlementLogID(' + CONVERT(VARCHAR,@SettleID) + ') to RemotingRef format before verify ResourceData'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpVerifyInfo AS v
+			WHERE v.ID = @iLoop
+			
+			SELECT @iLoop = @iLoop + 1
+			
+			CONTINUE
+		END
+		
+		INSERT INTO #tmpResourceRef (
+			SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+		)
+		SELECT DISTINCT SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+		FROM OPENJSON(@JSResource) WITH (
+				SettlementLogID INT '$.SettlementLogID'
+				,GroupName VARCHAR(50) '$.GroupName'
+				,RefId1 VARCHAR(50) '$.RefId1'
+				,RefId2 VARCHAR(50) '$.RefId2'
+			)--OPENJSON case-sensitive
+		
+		UPDATE STATISTICS #tmpResourceRef
+		
+		---------Start to verify----------------------------------------------------------
+		
 		--Check EXISTS SettlementResultHist
 		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WHERE SettlementLogID = @SettleID)
 		BEGIN
@@ -321,41 +382,98 @@ BEGIN
 		--Invalid EventInfo (MatchID/HomeID..)
 		IF EXISTS (
 			SELECT 1
+			FROM #tmpResourceRef AS rh WITH (NOLOCK)
+				LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1) AND rh.RefId1 = 'TeamID' AND rh.GroupName = 'EventInfo'
+			WHERE t.TeamID IS NULL
+				OR NOT EXISTS (
+					SELECT 1
+					FROM SettlementResultHist AS sh WITH (NOLOCK)
+						LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
+						LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
+						LEFT JOIN bodb02.dbo.team AS h WITH (NOLOCK) ON ISNULL(m.HomeID, m14.HomeID) = h.TeamID
+					WHERE sh.SettlementLogID = @SettleID
+						AND h.TeamID = t.TeamID
+				)
+				OR NOT EXISTS (
+					SELECT 1
+					FROM SettlementResultHist AS sh WITH (NOLOCK)
+						LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
+						LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
+						LEFT JOIN bodb02.dbo.team AS a WITH (NOLOCK) ON ISNULL(m.AwayID, m14.AwayID) = a.TeamID
+					WHERE sh.SettlementLogID = @SettleID
+						AND a.TeamID = t.TeamID
+				)
+		)
+		BEGIN
+			;WITH CTE_LogTxt AS (
+				SELECT @iLoop AS ID
+					,(CASE WHEN t.TeamID IS NULL THEN 'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') NOT EXISTS IN [team] table'
+						ELSE 'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') from JSParseResult is NOT matched with HomeID/AwayID of SettlementResultHist.MatchID'
+						END
+					) AS LTxt
+				FROM #tmpResourceRef AS rh WITH (NOLOCK)
+					LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1) AND rh.RefId1 = 'TeamID' AND rh.GroupName = 'EventInfo'
+				WHERE t.TeamID IS NULL
+					OR NOT EXISTS (
+						SELECT 1
+						FROM SettlementResultHist AS sh WITH (NOLOCK)
+							LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
+							LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
+							LEFT JOIN bodb02.dbo.team AS h WITH (NOLOCK) ON ISNULL(m.HomeID, m14.HomeID) = h.TeamID
+						WHERE sh.SettlementLogID = @SettleID
+							AND h.TeamID = t.TeamID --h.TeamID: team from SettlementResultHist.MatchID 
+													--t.TeamID: team from JSParseResult
+					)
+					OR NOT EXISTS (
+						SELECT 1
+						FROM SettlementResultHist AS sh WITH (NOLOCK)
+							LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
+							LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
+							LEFT JOIN bodb02.dbo.team AS a WITH (NOLOCK) ON ISNULL(m.AwayID, m14.AwayID) = a.TeamID
+						WHERE sh.SettlementLogID = @SettleID
+							AND a.TeamID = t.TeamID --a.TeamID: team from SettlementResultHist.MatchID 
+													--t.TeamID: team from JSParseResult
+					)
+			)
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
+				,v.StatusID = @StsGenFailed
+			FROM #tmpVerifyInfo AS v
+				INNER JOIN CTE_LogTxt AS l ON v.ID = l.ID
+			
+			SELECT @iLoop = @iLoop + 1
+			
+			CONTINUE
+		END
+		
+		--Invalid EventInfo (MatchID/LeagueID..)
+		IF EXISTS (
+			SELECT 1
 			FROM SettlementResultHist AS sh WITH (NOLOCK)
 				LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
 				LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-				LEFT JOIN bodb02.dbo.team AS h WITH (NOLOCK) ON ISNULL(m.HomeID, m14.HomeID) = h.TeamID
-				LEFT JOIN bodb02.dbo.team AS a WITH (NOLOCK) ON ISNULL(m.AwayID, m14.AwayID) = a.TeamID
 				LEFT JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON ISNULL(m.LeagueID, m14.LeagueID) = l.LeagueID
 			WHERE sh.SettlementLogID = @SettleID
 				AND (
 					ISNULL(m.MatchID, m14.MatchID) IS NULL
-					OR h.TeamID IS NULL
-					OR a.TeamID IS NULL
 					OR l.LeagueID IS NULL
 				)
 		)
 		BEGIN
 			;WITH CTE_LogTxt AS (
 				SELECT @iLoop AS ID
-					,(CASE WHEN ISNULL(m.MatchID, m14.MatchID) IS NULL THEN 'MatchID(' + CONVERT(VARCHAR,sh.MatchID) + ') NOT exits IN match/match14'
-							WHEN h.TeamID IS NULL THEN 'HomeID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.HomeID,m14.HomeID)),'NULL') + ') NOT exits IN team'
-							WHEN a.TeamID IS NULL THEN 'AwayID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.AwayID,m14.AwayID)),'NULL') + ') NOT exits IN team'
-							WHEN l.LeagueID IS NULL THEN 'LeagueID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.LeagueID, m14.LeagueID)),'NULL') + ') NOT exits IN league'
+					,(CASE WHEN ISNULL(m.MatchID, m14.MatchID) IS NULL THEN 'MatchID(' + CONVERT(VARCHAR,sh.MatchID) + ') NOT exits IN [match/match14] table'
+							WHEN l.LeagueID IS NULL THEN 'LeagueID(' + ISNULL(CONVERT(VARCHAR,COALESCE(m.LeagueID, m14.LeagueID)),'NULL') + ') NOT exits IN [league] table'
 					END
 					) AS LTxt
 				FROM SettlementResultHist AS sh WITH (NOLOCK)
 					LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
 					LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-					LEFT JOIN bodb02.dbo.team AS h WITH (NOLOCK) ON ISNULL(m.HomeID, m14.HomeID) = h.TeamID
-					LEFT JOIN bodb02.dbo.team AS a WITH (NOLOCK) ON ISNULL(m.AwayID, m14.AwayID) = a.TeamID
 					LEFT JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON ISNULL(m.LeagueID, m14.LeagueID) = l.LeagueID
 				WHERE sh.SettlementLogID = @SettleID
 					AND (
 						ISNULL(m.MatchID, m14.MatchID) IS NULL
-							OR h.TeamID IS NULL
-							OR a.TeamID IS NULL
-							OR l.LeagueID IS NULL
+						OR l.LeagueID IS NULL
 					)
 			)
 			UPDATE v
@@ -456,54 +574,6 @@ BEGIN
 			
 			CONTINUE
 		END
-		
-		/*
-			Parse ALL as RemotingRef
-		*/
-		TRUNCATE TABLE #tmpResourceRef
-		
-		SET @JSResource = ''
-		EXEC MNC_ResultAmendment_JSParseResult
-			@SettlementLogIDs = @SettleID
-			,@ParseAmendInfo = 'ALL'
-			,@ParseTo = 'RemotingRef'
-			,@OutJSResource = @JSResource OUTPUT
-			,@ErrCode = @ErrCode OUTPUT
-			,@ErrMsg = @ErrMsg OUTPUT
-		
-		--ParseResult Error
-		IF @ErrCode <> 0
-		BEGIN
-			
-			UPDATE v
-			SET v.RHLog = v.RHLog + 'FAILED parse SettlementLogID(' + CONVERT(VARCHAR,@SettleID) + ') to RemotingRef format before verify ResourceData'
-				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyInfo AS v
-			WHERE v.ID = @iLoop
-			
-			SELECT @iLoop = @iLoop + 1
-			
-			CONTINUE
-		END
-		
-		INSERT INTO #tmpResourceRef (
-			SettlementLogID
-			,GroupName
-			,RefId1
-			,RefId2
-		)
-		SELECT DISTINCT SettlementLogID
-			,GroupName
-			,RefId1
-			,RefId2
-		FROM OPENJSON(@JSResource) WITH (
-				SettlementLogID INT '$.SettlementLogID'
-				,GroupName VARCHAR(50) '$.GroupName'
-				,RefId1 VARCHAR(50) '$.RefId1'
-				,RefId2 VARCHAR(50) '$.RefId2'
-			)--OPENJSON case-sensitive
-		
-		UPDATE STATISTICS #tmpResourceRef
 		
 		--ResourceData NOT EXISTS in RemotingRef
 		IF EXISTS (
@@ -697,13 +767,11 @@ BEGIN
 		)
 		AND EXISTS (
 			SELECT 1
-			FROM #tmpResourceRawData AS w
-				FULL OUTER JOIN #tmpResourceRawData AS a
+			FROM (SELECT * FROM #tmpResourceRawData WHERE AmendInfo = 'WrongResult') AS w
+				FULL OUTER JOIN (SELECT * FROM #tmpResourceRawData WHERE AmendInfo = 'ActualResult') AS a
 					ON w.SettlementLogID = a.SettlementLogID
 						AND a.ResourceID = w.ResourceID
 						AND a.RefBettypeID = w.RefBettypeID
-						AND a.AmendInfo = 'ActualResult'
-						AND w.AmendInfo = 'WrongResult'
 			WHERE a.HomeValue IS NULL
 				OR w.HomeValue IS NULL
 		)
@@ -836,6 +904,18 @@ BEGIN
 			FROM STRING_SPLIT(@ValidSettlementLogIDs, ',')
 		)
 	ORDER BY rh.SettlementLogID
+	
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Return after verifying - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpResourceRef
 	DROP TABLE #tmpResourceRawData

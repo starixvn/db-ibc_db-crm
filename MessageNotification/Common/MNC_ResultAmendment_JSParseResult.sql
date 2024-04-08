@@ -12,7 +12,7 @@ AS
 	Task: Parse ActualResult/WrongResult from XML to table
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Param's Explanation:
 		@SettlementLogIDs: List of SettlementLogID
@@ -330,11 +330,11 @@ BEGIN TRY
 			,(SELECT TOP 1 TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2 ) AS UserID --ID of StarixIT
 			,'Info - Parse RawData (' + ISNULL(rf.LTxt,'NULL') + ')'
 		FROM CTE_RawData AS rf
-		WHERE 'ON' = (
+		WHERE 'Debug' = (
 			SELECT VValue
 			FROM SystemSetting WITH (NOLOCK)
-			WHERE VID = 10 --UATMode
-		)
+			WHERE VID = 13 --LogMode
+		)		
 		ORDER BY rf.SettlementLogID
 	END
 	ELSE
@@ -436,7 +436,8 @@ BEGIN TRY
 				,value AS RefId2
 			FROM #tmpResultInfo
 				CROSS APPLY STRING_SPLIT(TeamIDs, ',')
-			-- WHERE AmendInfo <> 'SettleMatch' --include HomeID/AwayID from AmendInfo.SettleMatch
+				--AmendInfo = 'SettleMatch': HomeID/AwayID retrived from MatchID
+				--AmendInfo IN ('ActualResult', 'WrongResult'): HomeID/AwayID retrived from ActualResult/WrongResult
 			
 			UNION ALL
 			
@@ -516,11 +517,11 @@ BEGIN TRY
 			,(SELECT TOP 1 TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2 ) AS UserID --ID of StarixIT
 			,'Info - Parse RemotingRef (' + ISNULL(rf.LTxt,'NULL') + ')'
 		FROM CTE_ResourceData AS rf
-		WHERE 'ON' = (
+		WHERE 'Debug' = (
 			SELECT VValue
 			FROM SystemSetting WITH (NOLOCK)
-			WHERE VID = 10 --UATMode
-		)
+			WHERE VID = 13 --LogMode
+		)		
 		ORDER BY rf.SettlementLogID
 		
 		--return--

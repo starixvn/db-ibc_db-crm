@@ -1,13 +1,13 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_PrepareGen
-	@Environment VARCHAR(5)
+	@Environment VARCHAR(20)
 AS
 /*
 	Created: 20231213@Roy
 	Task: Prepare to start generate message process
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		@Environment
@@ -181,7 +181,6 @@ BEGIN
 	CREATE TABLE #tmpUpdatedRH (
 		SettlementLogID INT NOT NULL
 		,StatusID TINYINT NOT NULL
-		,SportType SMALLINT NOT NULL
 		,ActualResult VARCHAR(MAX)
 		,ActualResultXML XML
 		,WrongResult VARCHAR(MAX)
@@ -216,7 +215,6 @@ BEGIN
 		,sh.LastModifiedTime = GETDATE()
 	OUTPUT INSERTED.SettlementLogID
 		,INSERTED.StatusID
-		,INSERTED.SportType
 		,INSERTED.ActualResult
 		,INSERTED.WrongResult
 	INTO #tmpUpdatedRH (
@@ -283,6 +281,31 @@ BEGIN
 	GROUP BY rf.GroupName
 		,rf.RefId1
 		,rf.RefId2
+	
+	--Mark completed [Generate Message] process
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = 'Done'
+	WHERE VID = @ProcessID
+		AND VValue = 'Running'
+		AND NOT EXISTS (SELECT 1 FROM #tmpRemotingRef)
+	
+	----------------------Annual log to make sure system still live -----------------
+	IF EXISTS (
+		SELECT VValue
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 13 --LogMode
+			AND VValue = 'Debug'
+	)
+	BEGIN
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Debug log to make sure [Generate Message] process still live.'
+	END
 	
 	DROP TABLE #tmpUpdatedRH
 	DROP TABLE #tmpEventInfo

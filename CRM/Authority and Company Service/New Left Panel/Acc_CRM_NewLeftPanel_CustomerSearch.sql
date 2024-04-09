@@ -3,7 +3,7 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_NewLeftPanel_CustomerSearch @SearchInfo        NVARCHAR(200) = '',
+ALTER PROCEDURE dbo.Acc_CRM_NewLeftPanel_CustomerSearch @SearchInfo        VARCHAR(200)  = '',
                                                         @IsGuest           BIT           = 0,
                                                         @UserRole          TINYINT       = 2,
                                                         @LicenseeType      TINYINT       = 0,

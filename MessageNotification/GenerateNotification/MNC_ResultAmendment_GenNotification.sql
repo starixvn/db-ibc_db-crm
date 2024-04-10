@@ -63,7 +63,8 @@ BEGIN
 		,@StsGenerated TINYINT
 		,@StsGenerating TINYINT
 		,@StsGenFailed TINYINT
-		,@StsStartToSend TINYINT
+		,@StsReady TINYINT
+		,@StsNew TINYINT
 		,@UATMode VARCHAR(5) = 'OFF'
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
@@ -109,22 +110,17 @@ BEGIN
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Generated'
 	
+	SELECT @StsReady = StatusID
+	FROM NotiStatus WITH (NOLOCK)
+	WHERE Status = 'Ready to Send'
+	
+	SELECT @StsNew = StatusID
+	FROM NotiStatus WITH (NOLOCK)
+	WHERE Status = 'New'
+	
 	SELECT @LogMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
-	
-	IF 0 = (SELECT VValue FROM SystemSetting WITH (NOLOCK) WHERE VID = 12) --NeedReviewContent
-	BEGIN
-		SELECT @StsStartToSend = StatusID
-		FROM NotiStatus WITH (NOLOCK)
-		WHERE Status = 'Ready to Send'
-	END
-	ELSE
-	BEGIN
-		SELECT @StsStartToSend = StatusID
-		FROM NotiStatus WITH (NOLOCK)
-		WHERE Status = 'New'
-	END
 	
 	SELECT @UATMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
@@ -238,7 +234,7 @@ BEGIN
 	CREATE TABLE #tmpTemplateDetl (
 		SettlementLogID INT NOT NULL
 		,IsSabaFilter BIT NOT NULL --0: Normal / 1: Saba
-		 ,ControlGrp TINYINT NOT NULL --0: OST / 1: 777
+		,ControlGrp TINYINT NOT NULL --0: OST / 1: 777
 		,RequiredParamID INT
 		,RequiredParam VARCHAR(50)
 		,Content_en NVARCHAR(4000)
@@ -258,6 +254,7 @@ BEGIN
 	CREATE TABLE #tmpInsertedNoti (
 		NotificationID INT NOT NULL
 		,GrpID INT
+		,SuccessStatusID TINYINT --based on SystemSetting.VName = 'IgnoreReviewContentBySport'
 	)
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiMapping ON #tmpInsertedNoti (NotificationID)
 	
@@ -1035,7 +1032,7 @@ BEGIN
 		*/
 		;WITH CTE_Check AS (
 			SELECT i.GrpID
-				,MIN(CASE WHEN i.SettlementLogID IS NULL THEN 0
+				,MIN(CASE --WHEN i.SettlementLogID IS NULL THEN 0
 						WHEN n.SettlementLogID IS NULL THEN 1
 						WHEN ntgt.SettlementLogID IS NULL THEN 2
 						ELSE 3 END) AS ValidSts --MUST EXISTS Noti / NotiTarget
@@ -1048,7 +1045,7 @@ BEGIN
 		SET rh.StatusID = CASE WHEN (rh.StatusID = @StsGenerating AND ISNULL(ck.ValidSts,0) = 3) THEN @StsGenerating ELSE @StsGenFailed END
 			,rh.NotiLogBef = rh.NotiLogBef
 							+ (CASE WHEN rh.StatusID <> @StsGenerating THEN 'Before INS Notification - temp Status' + ISNULL(CONVERT(VARCHAR,rh.StatusID),'NULL') + ' - NOT [Generating]'
-								WHEN ISNULL(ck.ValidSts,0) = 0 THEN 'Before INS Notification - NOT EIXSTS IN temporary insert list'
+								WHEN i.SettlementLogID IS NULL OR ISNULL(ck.ValidSts,0) = 0 THEN 'Before INS Notification - NOT EIXSTS IN temporary insert list'
 								WHEN ck.ValidSts = 1 THEN 'Before INS Notification - Missing S.T while creating Notification (ex: SettlementLogID have 3 Noti (Normal,Saba and 777) but have NO [Saba] in #tmpNoti)'
 								WHEN ck.ValidSts = 2 THEN 'Before INS Notification - Missing S.T while creating NotificationTarget (have NO data in #tmpNotiTarget)'
 								ELSE '' --Ready for insert NotiMapping / Notification / NotificationTarget
@@ -1096,7 +1093,7 @@ BEGIN
 				NotificationID
 				,GrpID
 			) --Get Inserted
-			SELECT rh.StatusID
+			SELECT rh.StatusID --Generating
 				,1 AS NotificationType --Result Amendment to Msg
 				,n.Content_en
 				,n.Content_ch
@@ -1110,6 +1107,29 @@ BEGIN
 			SET @iLoop = (SELECT MIN(GrpID) FROM #tmpPrepareInsertNoti WHERE GrpID > @iLoop)
 		END
 		
+		---Dynamic StatusID by SystemSetting.VName = 'IgnoreReviewContentBySport'
+		;WITH CTE_Noti_Status AS (
+			SELECT DISTINCT i.NotificationID
+				/*
+					IF SportType EXISTS IN SystemSetting.VName = 'IgnoreReviewContentBySport'
+						=> SuccessStatusID = 'Ready to Send' => Ignore Review
+					ELSE
+						=> SuccessStatusID = 'New' => Need to review before push to Msg/MsgTarget
+					
+					***#tmpInsertedNoti.GrpID ONLY 1 MatchID => ONLY 1 SportType
+				*/
+				,(CASE WHEN cs.value IS NOT NULL THEN @StsReady
+					ELSE @StsNew END) AS SuccessStatusID
+			FROM #tmpInsertedNoti AS i
+				INNER JOIN #tmpPrepareInsertNoti AS pr ON i.GrpID = pr.GrpID
+				INNER JOIN #tmpResultHist AS rh ON pr.SettlementLogID = rh.SettlementLogID
+				LEFT JOIN STRING_SPLIT((SELECT VValue FROM dbo.SystemSetting WITH (NOLOCK) WHERE VID = 3), ',') AS cs ON rh.SportType = TRY_CONVERT(INT,cs.value)
+		)
+		UPDATE i
+		SET i.SuccessStatusID = s.SuccessStatusID
+		FROM #tmpInsertedNoti AS i
+			INNER JOIN CTE_Noti_Status AS s ON i.NotificationID = s.NotificationID
+			
 		/*
 			Insert NotificationTarget
 		*/
@@ -1208,7 +1228,7 @@ BEGIN
 			,ExtraInfo
 		)
 		SELECT i.NotificationID
-			,@StsStartToSend AS StatusID
+			,i.SuccessStatusID AS StatusID
 			,tgt.TargetID
 			,tgt.TargetSite
 			,tgt.TransIDs
@@ -1284,9 +1304,10 @@ BEGIN
 		*/
 		
 		-- Check after insert NotiMapping / Notification / NotificationTarget
-			-- + Update Notification StatusID = @StsStartToSend
+			-- + Update Notification StatusID = SuccessStatusID
 		;WITH CTE_Valid AS (
 			SELECT DISTINCT n.NotificationID
+				,i.SuccessStatusID
 			FROM Notification AS n
 				INNER JOIN NotificationTarget AS nt ON n.NotificationID = nt.NotificationID
 				INNER JOIN NotiMapping AS nm ON nt.NotificationID = nm.NotificationID
@@ -1294,7 +1315,7 @@ BEGIN
 			WHERE n.StatusID = @StsGenerating
 		)
 		UPDATE n
-		SET n.StatusID = @StsStartToSend
+		SET n.StatusID = v.SuccessStatusID --based on IgnoreReviewContentBySport
 		FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN CTE_Valid AS v ON n.NotificationID = v.NotificationID
 		
@@ -1326,14 +1347,27 @@ BEGIN
 			
 			because [1 SettlementLogID have many NotificationID(normal, saba)] AND [1 NotificationID have many SettlementLogID(3 SiteDBs)]
 				=> SettlementLogID vs NotificationID is Many:Many relationship
+				Ex:
+					---------------|------------|----------			|		---------------|------------|----------
+					SettlementLogID|IsSabaFilter|Status				| 		 NotificationID|IsSabaFilter|Status
+					---------------|------------|----------			| 		---------------|------------|----------
+								1  |          0 |Generating			|					8  |          0 |Failed to Generate
+								2  |          0 |Generating			|					   |			|
+								------------------------------------VS---------------------------------------------
+								1  |          1 |Generating			|					9  |          1 |Ready to Send
+								2  |          1 |Generating			|					   |			|
+					
+					***	From NotificationID(8).Status = Failed to Generate => SettlementLogID(1,2).Status = Failed to Generate
+							=> From SettlementLogID(1,2).Status = Failed to Generate => NotificationID(9).Status = Failed to Generate
 				
-			1.UPD #tmpResultHist "Success" / "Failed" (check with Notification)	
+				
+			1.UPD #tmpResultHist "Success" / "Failed" (check with Notification)	***[From NotificationID(8).Status = Failed to Generate => SettlementLogID(1,2).Status = Failed to Generate]
 				+ write log for change status
-			2.Keep Failed NotiID in #tmpInsertedNoti
+			2.KEEP Failed NotiID in #tmpInsertedNoti ***[From SettlementLogID(1,2).Status = Failed to Generate => NotificationID(9).Status = Failed to Generate]
 			3.DEL Failed NotiID
 		*/
 		-- update tmpResultHist--
-		;WITH CTE_Log AS (
+		;WITH CTE_ELog AS (
 			SELECT s.SettlementLogID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT *
@@ -1346,37 +1380,36 @@ BEGIN
 				)) AS LTxt
 			FROM #tmpResultHist AS s
 		)
-		,CTE_NotiSts AS (
-			SELECT i.GrpID
-				,MIN(CASE WHEN ISNULL(n.StatusID, -1) <> @StsStartToSend THEN 0
-						ELSE 1 END) AS ValidSts
-			FROM #tmpInsertedNoti AS i
-				LEFT JOIN Notification AS n ON i.NotificationID = n.NotificationID
-			GROUP BY i.GrpID
-		)
-		,CTE_Mapping AS (
+		,CTE_SLog AS (
 			SELECT GrpID
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),NotificationID),',') AS NotiIDs
 			FROM #tmpInsertedNoti
 			GROUP BY GrpID
 		)
+		,CTE_NotiSts AS (
+			SELECT i.GrpID
+				,MIN(CASE WHEN ISNULL(n.StatusID, -1) <> i.SuccessStatusID THEN 0
+						ELSE 1 END) AS ValidSts
+			FROM #tmpInsertedNoti AS i
+				LEFT JOIN Notification AS n ON i.NotificationID = n.NotificationID
+			GROUP BY i.GrpID
+		)
 		UPDATE rh
-		SET rh.StatusID = (CASE WHEN ISNULL(ns.ValidSts,0) = 1 THEN @StsGenerated
-							ELSE @StsGenFailed END)
-			,rh.NotiLogBef = rh.NotiLogBef + (CASE WHEN ISNULL(ns.ValidSts,0) = 1 THEN 'Changed SettlementLogID Status from [Generating] to [Successfully Generated] - NotiIDs(' + ISNULL(i.NotiIDs,'NULL') + ')'
-							ELSE ' - All Info as JSON = ' + ISNULL(l.LTxt,'NULL') END) --error log write bellow
+		SET rh.StatusID = (CASE WHEN ISNULL(ns.ValidSts,0) = 1 THEN @StsGenerated ELSE @StsGenFailed END)
+			,rh.NotiLogBef = rh.NotiLogBef + (CASE WHEN ISNULL(ns.ValidSts,0) = 1 THEN 'Changed SettlementLogID Status from [Generating] to [Successfully Generated] - NotiIDs(' + ISNULL(sl.NotiIDs,'NULL') + ')'
+							ELSE ' - All Info as JSON = ' + ISNULL(el.LTxt,'NULL') END) --error log write bellow
 		FROM #tmpResultHist AS rh
 			LEFT JOIN #tmpPrepareInsertNoti AS p ON rh.SettlementLogID = p.SettlementLogID
-			LEFT JOIN CTE_Mapping AS i ON p.GrpID = i.GrpID
-			LEFT JOIN CTE_NotiSts AS ns ON i.GrpID = ns.GrpID
-			LEFT JOIN CTE_Log AS l ON rh.SettlementLogID = l.SettlementLogID
+			LEFT JOIN CTE_NotiSts AS ns ON p.GrpID = ns.GrpID
+			LEFT JOIN CTE_SLog AS sl ON p.GrpID = sl.GrpID
+			LEFT JOIN CTE_ELog AS el ON rh.SettlementLogID = el.SettlementLogID
 		
 		--Keep Failed NotiID in #tmpInsertedNoti
 		;WITH CTE_FailedNoti AS (
 			SELECT n.NotificationID
 			FROM Notification AS n WITH (NOLOCK)
 				INNER JOIN #tmpInsertedNoti AS i ON n.NotificationID = i.NotificationID
-			WHERE n.StatusID <> @StsStartToSend
+			WHERE n.StatusID <> i.SuccessStatusID
 			
 			UNION ALL
 			
@@ -1489,7 +1522,7 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,(CASE WHEN StatusID = @StsGenerated THEN @InfLogPrefix ELSE @ErrLogPrefix END) + ISNULL(rh.NotiLogBef,'SettlementLog NULL') + ISNULL(@ErrMsg,', @ErrMsg(NULL)')
+		,(CASE WHEN StatusID = @StsGenerated THEN @InfLogPrefix ELSE @ErrLogPrefix END) + ISNULL(rh.NotiLogBef,'SettlementLog NULL') + ISNULL(@ErrMsg,'')
 	FROM #tmpResultHist AS rh
 	ORDER BY SettlementLogID
 	

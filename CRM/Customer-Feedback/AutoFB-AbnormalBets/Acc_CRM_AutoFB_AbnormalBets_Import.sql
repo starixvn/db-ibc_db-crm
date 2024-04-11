@@ -1571,7 +1571,7 @@ BEGIN
         DECLARE @Cust_Id INT
         SELECT  @Cust_Id = r.CustId FROM @Result r INNER JOIN bodb_CRM.dbo.crmCustomer c WITH (NOLOCK) ON c.CustId = r.CustId WHERE r.Id = @Id
 
-        DECLARE @Cust_IsGroupHeadline BIT
+        DECLARE @Cust_IsGroupHeadline BIT = 0
         SELECT  @Cust_IsGroupHeadline = ISNULL(IsGroupHeadLine, 0) FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = @Cust_Id AND IsGroupHeadLine = 1
 
         IF (@Cust_IsGroupHeadline = 1)
@@ -1594,12 +1594,12 @@ BEGIN
                 CommunicationID,
                 CommunicationValue
             )
-            SELECT @FeedbackId                                  FeedbackID,
-                   @Cust_Id                                     CustID,
-                   @Cust_IsGroupHeadline                        isHeadline,
-                   (cte.PicName + ' (' + cte.PicRoleName + ')') PicInfo,
-                   pc.CommunicationID                           CommunicationID,
-                   pc.CommunicationValue                        PicCommunicationValue
+            SELECT @FeedbackId                                              FeedbackID,
+                   @Cust_Id                                                 CustID,
+                   ISNULL(@Cust_IsGroupHeadline, 0)                         isHeadline,
+                   ISNULL((cte.PicName + ' (' + cte.PicRoleName + ')'), '') PicInfo,
+                   pc.CommunicationID                                       CommunicationID,
+                   pc.CommunicationValue                                    PicCommunicationValue
             FROM CTE_HeadlineInfo cte
                  LEFT JOIN bodb_CRM.dbo.crmPICCommunication pc WITH (NOLOCK) ON cte.PicID = pc.PicID
         END
@@ -1613,12 +1613,12 @@ BEGIN
                 CommunicationID,
                 CommunicationValue
             )
-            SELECT @FeedbackId            FeedbackID,
-                   @Cust_Id               CustID,
-                   @Cust_IsGroupHeadline  isHeadline,
-                   NULL                   PicInfo,
-                   ccc.CommunicationID    CommunicationID,
-                   ccc.CommunicationValue CommunicationValue
+            SELECT @FeedbackId                      FeedbackID,
+                   @Cust_Id                         CustID,
+                   ISNULL(@Cust_IsGroupHeadline, 0) isHeadline,
+                   ''                               PicInfo,
+                   ccc.CommunicationID              CommunicationID,
+                   ccc.CommunicationValue           CommunicationValue
             FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool ccc WITH (NOLOCK)
             WHERE ccc.CustID = @Cust_Id
         END

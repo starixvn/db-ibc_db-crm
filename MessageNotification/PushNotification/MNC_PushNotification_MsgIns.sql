@@ -11,7 +11,7 @@ AS
 	Task: Insert Notification to Msg/MsgTarget
 	DB: DBMSG.bodb_Message
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		Steps
@@ -29,6 +29,8 @@ AS
 */
 BEGIN
 	SET NOCOUNT ON
+	
+	DECLARE @DefaultDateTime DATETIME = GETDATE()
 	
 	CREATE TABLE #tmpJSData (
 		ObjectName NVARCHAR(150)
@@ -48,13 +50,13 @@ BEGIN
 		,isDeleted BIT NOT NULL
 		,MatchID INT
 		,LeagueGroupID SMALLINT
-		,PostTime DATETIME DEFAULT GETDATE()
+		,PostTime DATETIME
 		,Creator INT
 		,CreatorName NVARCHAR(50)
-		,CreateTime DATETIME DEFAULT GETDATE()
+		,CreateTime DATETIME
 		,LastUpdator INT
 		,LastUpdateName VARCHAR(50)
-		,LastUpdateTime DATETIME DEFAULT GETDATE()
+		,LastUpdateTime DATETIME
 	)
 	
 	CREATE TABLE #tmpMsgTarget (
@@ -62,6 +64,7 @@ BEGIN
 		,TargetName NVARCHAR(30)
 		,BetTransID VARCHAR(MAX) NULL
 		,isDeleted BIT NOT NULL
+		,PostTime DATETIME
 	)
 	
 	CREATE TABLE #tmpNewMessage (
@@ -95,6 +98,9 @@ BEGIN
 			,CreatorName
 			,LastUpdator
 			,LastUpdateName
+			,PostTime
+			,CreateTime
+			,LastUpdateTime
 		)
 		SELECT NotificationID
 			,Content_en
@@ -109,6 +115,9 @@ BEGIN
 			,CreatorName
 			,Creator AS LastUpdator
 			,CreatorName AS LastUpdateName
+			,@DefaultDateTime AS PostTime
+			,@DefaultDateTime AS CreateTime
+			,@DefaultDateTime AS LastUpdateTime
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'Notification')) WITH (
 				NotificationID INT '$.NotificationID'
 				,Content_en NVARCHAR(4000) '$.Content_en'
@@ -125,11 +134,13 @@ BEGIN
 			,TargetName
 			,BetTransID
 			,isDeleted
+			,PostTime
 		)
 		SELECT TargetID
 			,TargetName
 			,BetTransID
 			,1 AS isDeleted --tmp value, will update = 0 after everything complete
+			,@DefaultDateTime AS PostTime
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'NotificationTarget')) WITH (
 				TargetID INT '$.TargetID'
 				,TargetName NVARCHAR(30) '$.TargetName'
@@ -187,7 +198,7 @@ BEGIN
 				,LastUpdator
 				,LastUpdateName
 				,LastUpdateTime
-				,'MNC-' + CONVERT(VARCHAR,NotificationID) AS Remark
+				,'MNC-' + ISNULL(CONVERT(VARCHAR,NotificationID),'NULL') AS Remark
 			FROM #tmpMsg
 		COMMIT TRANSACTION
 		
@@ -212,12 +223,14 @@ BEGIN
 				,TargetName
 				,BetTransID
 				,isDeleted
+				,PostTime
 			)
 			SELECT @MessageID AS MessageId
 				,TargetID
 				,TargetName
 				,BetTransID
 				,isDeleted
+				,PostTime
 			FROM #tmpMsgTarget
 		COMMIT TRANSACTION
 	END TRY

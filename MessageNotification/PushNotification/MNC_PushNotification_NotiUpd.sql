@@ -11,7 +11,7 @@ AS
 	Task: update Notification staus
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		@MessageID: respone after insert DBMSG@Msg
@@ -59,6 +59,24 @@ BEGIN
 	
 	SELECT @ErrLogPrefix = 'Error - '
 	SELECT @InfLogPrefix = 'Info - '
+	
+	INSERT INTO [Log] (
+		RefID
+		,ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @NotificationID AS RefID
+		,@LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Debug log for [Push Notification] - UPD RefID with @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+', @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+', @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+						+', @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
+						+', @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	CREATE TABLE #tmpNoti (
 		NotificationID INT NOT NULL
@@ -111,6 +129,7 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@InfLogPrefix + 'Changed Notification Status from [Sending] to ['+ (CASE WHEN StatusID = @StsSucceedSend THEN 'Sent' ELSE 'Failed to Send' END) +']'
+							+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 		FROM #tmpNoti
 		ORDER BY NotificationID
 		
@@ -156,4 +175,5 @@ BEGIN
 				+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
 				+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
 	END
+	DROP TABLE #tmpNoti
 END

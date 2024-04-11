@@ -10,7 +10,7 @@ AS
 	Task: update Msg/MsgTarget after update Noti.MessageID from respone
 	DB: DBMSG.bodb_Message
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 	
@@ -28,10 +28,10 @@ BEGIN
 	BEGIN TRY
 		BEGIN TRANSACTION
 		
-		UPDATE n
-		SET n.IsTest = 0
-			,n.isDeleted = 0
-			,n.LastUpdateTime = GETDATE()
+		UPDATE m
+		SET m.IsTest = 0
+			,m.isDeleted = 0
+			,m.LastUpdateTime = GETDATE()
 		OUTPUT INSERTED.MessageID
 		INTO #tmpMsg (
 			MessageID
@@ -55,7 +55,7 @@ BEGIN
 	END CATCH
 	
 	------------------------------
-	IF NOT EXISTS (SELECT 1 FROM #tmpNoti)
+	IF NOT EXISTS (SELECT 1 FROM #tmpMsg)
 		AND @ErrCode = 0
 	BEGIN
 		SELECT @ErrCode = 1
@@ -65,5 +65,5 @@ BEGIN
 						+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
 	END
 	
-	DROP TABLE #tmpNoti
+	DROP TABLE #tmpMsg
 END

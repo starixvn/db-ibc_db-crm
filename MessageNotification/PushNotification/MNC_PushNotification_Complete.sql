@@ -8,7 +8,7 @@ AS
 	Task: complete Push Notification process
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 	
@@ -19,8 +19,23 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @ProcessID INT = 6 --Process_PushNoti
-		,@SuccessFlag INT = 1
+		,@SuccessFlag INT = -1
 	
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT (SELECT ActionID FROM LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
+		,(SELECT TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
+		,'Info - Debug log for [Push Notification] - Complete with @ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ')'
+						+', Current Value(' + ISNULL((SELECT VValue FROM SystemSetting WITH (NOLOCK) WHERE VID = @ProcessID),'NULL') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
+	
+	--only update if 'Running'
+	IF EXISTS (SELECT 1 FROM SystemSetting WITH (NOLOCK) WHERE VID = @ProcessID AND VValue = 'Running')
 	BEGIN TRY
 		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
 		SET VValue = 'Done'

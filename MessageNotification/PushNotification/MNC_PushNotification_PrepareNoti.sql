@@ -6,7 +6,7 @@ AS
 	Task: Prepare to start Push Notification process
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20230515@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
 		Steps
@@ -297,6 +297,31 @@ BEGIN
 	SELECT NotificationID
 		,JSNotification
 	FROM #tmpResult
+	
+	--Mark completed [Push Notification] process => MNC_PushNotification_Complete
+	-- UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	-- SET VValue = 'Done'
+	-- WHERE VID = @ProcessID
+		-- AND VValue = 'Running'
+		-- AND NOT EXISTS (SELECT 1 FROM #tmpResult)
+	
+	----------------------Annual log to make sure system still live -----------------
+	IF EXISTS (
+		SELECT VValue
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 13 --LogMode
+			AND VValue = 'Debug'
+	)
+	BEGIN
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Debug log to make sure [Push Notification] process still live.'
+	END
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpJSData

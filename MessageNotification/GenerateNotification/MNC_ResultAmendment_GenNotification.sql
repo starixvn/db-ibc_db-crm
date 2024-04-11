@@ -72,7 +72,7 @@ BEGIN
 		,@JSResource VARCHAR(MAX) = ''
 		,@iLoop INT
 		,@LogMode VARCHAR(500)
-		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151'
+		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151,215'
 		,@Saba_en NVARCHAR(10) = N'Saba'
 		,@Saba_ch NVARCHAR(10) = N'沙巴'
 		,@Saba_cs NVARCHAR(10) = N'沙巴'

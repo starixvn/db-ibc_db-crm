@@ -104,6 +104,7 @@ BEGIN
         FROM bodb_CRM.dbo.crmFeedbackNewCommunicationTool ft WITH (NOLOCK)
              LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND ft.CommunicationID = sc.SettingID
         WHERE ft.FeedbackID = @FeedbackID
+              AND sc.IsActive = 1
     )
     SELECT FeedbackID,
            CustID,

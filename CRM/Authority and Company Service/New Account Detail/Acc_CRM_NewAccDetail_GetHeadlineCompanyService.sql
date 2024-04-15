@@ -60,10 +60,9 @@ BEGIN
            chc.CommunicationValue CommunicationValue
     FROM bodb_CRM.dbo.crmCustomerHeadlineCompanyService chc WITH (NOLOCK)
          LEFT JOIN bodb_CRM.dbo.crmSetting scs WITH (NOLOCK) ON scs.SettingName = 'HeadlineCompanyService' AND chc.CompanyServiceID = scs.SettingID
-         LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND chc.CommunicationID = sc.SettingID
+         LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.IsActive = 1 AND sc.SettingName = 'PICCommunicationTool' AND chc.CommunicationID = sc.SettingID
     WHERE chc.HeadlineID = @HeadlineID
           AND scs.IsActive = 1
-          AND sc.IsActive = 1
     OPTION (RECOMPILE)
 
     -- Gen data from setting table

@@ -63,7 +63,7 @@ BEGIN
 		,@StsGenerated TINYINT
 		,@StsGenerating TINYINT
 		,@StsGenFailed TINYINT
-		,@StsReady TINYINT
+		,@StsSending TINYINT
 		,@StsNew TINYINT
 		,@UATMode VARCHAR(5) = 'OFF'
 		,@ErrLogPrefix NVARCHAR(150) = ''
@@ -110,9 +110,9 @@ BEGIN
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Generated'
 	
-	SELECT @StsReady = StatusID
+	SELECT @StsSending = StatusID
 	FROM NotiStatus WITH (NOLOCK)
-	WHERE Status = 'Ready to Send'
+	WHERE Status = 'Sending'
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -141,7 +141,7 @@ BEGIN
 	*/
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
-		SELECT @ErrCode = 1
+		SELECT @ErrCode = 50001 --user-defined error code
 			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
 		
 		INSERT INTO [Log] (
@@ -174,6 +174,7 @@ BEGIN
 		,SessionID VARCHAR(50)
 		,SeqNo SMALLINT
 		,MatchID INT
+		,IsTest BIT
 		,EventDate DATE
 		,SportType INT
 		,IsNeutral BIT
@@ -325,6 +326,7 @@ BEGIN
 			,SessionID
 			,SeqNo
 			,MatchID
+			,IsTest --get for NotificationExtra
 			,EventDate
 			,SportType
 			,IsNeutral
@@ -343,6 +345,7 @@ BEGIN
 			,sh.SessionID
 			,sh.SeqNo
 			,sh.MatchID
+			,sh.IsTest --get for NotificationExtra
 			,ISNULL(m.EventDate, m14.EventDate) AS EventDate
 			,sh.SportType
 			,ISNULL(m.IsNeutral, m14.IsNeutral) AS IsNeutral
@@ -1083,6 +1086,7 @@ BEGIN
 			INSERT INTO Notification (
 				StatusID
 				,NotificationType
+				,Subject
 				,Content_en
 				,Content_ch
 				,Content_cs
@@ -1095,11 +1099,13 @@ BEGIN
 			) --Get Inserted
 			SELECT rh.StatusID --Generating
 				,1 AS NotificationType --Result Amendment to Msg
+				,tp.TemplateName AS Subject
 				,n.Content_en
 				,n.Content_ch
 				,n.Content_cs
 			FROM CTE_InsertNoti AS il
 				INNER JOIN #tmpNoti AS n ON il.SettlementLogID = n.SettlementLogID AND il.IsSabaFilter = n.IsSabaFilter AND il.ControlGrp = n.ControlGrp
+				LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON n.TemplateID = tp.TemplateID
 				INNER JOIN #tmpResultHist AS rh ON il.SettlementLogID = rh.SettlementLogID
 			WHERE rh.StatusID = @StsGenerating
 			
@@ -1112,13 +1118,13 @@ BEGIN
 			SELECT DISTINCT i.NotificationID
 				/*
 					IF SportType EXISTS IN SystemSetting.VName = 'IgnoreReviewContentBySport'
-						=> SuccessStatusID = 'Ready to Send' => Ignore Review
+						=> SuccessStatusID = 'Sending' => Ignore Review
 					ELSE
 						=> SuccessStatusID = 'New' => Need to review before push to Msg/MsgTarget
 					
 					***#tmpInsertedNoti.GrpID ONLY 1 MatchID => ONLY 1 SportType
 				*/
-				,(CASE WHEN cs.value IS NOT NULL THEN @StsReady
+				,(CASE WHEN cs.value IS NOT NULL THEN @StsSending
 					ELSE @StsNew END) AS SuccessStatusID
 			FROM #tmpInsertedNoti AS i
 				INNER JOIN #tmpPrepareInsertNoti AS pr ON i.GrpID = pr.GrpID
@@ -1259,15 +1265,16 @@ BEGIN
 			,rh.EventDate
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT t.MatchID
+					,t.IsTest
 					,t.LeagueGroupID
 					,t.KOTime
 					,t.AmendedCnt
 					,t.ActionType
 					,t.GameSession
 					,t.IsNeutral
-					,CASE WHEN t.IsNeutral = 1 THEN N' ' + @Neutral_en END AS NeutralEN
-					,CASE WHEN t.IsNeutral = 1 THEN N' ' + @Neutral_ch END AS NeutralCH
-					,CASE WHEN t.IsNeutral = 1 THEN N' ' + @Neutral_cs END AS NeutralCS
+					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_en END AS NeutralEN
+					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_ch END AS NeutralCH
+					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_cs END AS NeutralCS
 					,t.HomeID
 					,rfh.RefValueEN AS HomeNameEN
 					,rfh.RefValueCH AS HomeNameCH
@@ -1287,11 +1294,14 @@ BEGIN
 					,rfs.RefValueEN AS SportNameEN
 					,rfs.RefValueCH AS SportNameCH
 					,rfs.RefValueCS AS SportNameCS
+					,c.username AS MsgSender
+					,CASE WHEN c.username IS NOT NULL THEN GETDATE() END AS MsgSendDate
 				FROM #tmpResultHist AS t
 					LEFT JOIN #tmpRemotingRef AS rfh ON t.SettlementLogID = rfh.SettlementLogID AND rfh.GroupName = 'EventInfo' AND rfh.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfh.RefId2) = t.HomeID
 					LEFT JOIN #tmpRemotingRef AS rfa ON t.SettlementLogID = rfa.SettlementLogID AND rfa.GroupName = 'EventInfo' AND rfa.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfa.RefId2) = t.AwayID
 					LEFT JOIN #tmpRemotingRef AS rfl ON t.SettlementLogID = rfl.SettlementLogID AND rfl.GroupName = 'EventInfo' AND rfl.RefId1 = 'LeagueID' AND TRY_CONVERT(INT,rfl.RefId2) = t.LeagueID
 					LEFT JOIN #tmpRemotingRef AS rfs ON t.SettlementLogID = rfs.SettlementLogID AND rfs.GroupName = 'EventInfo' AND rfs.RefId1 = 'SportType' AND TRY_CONVERT(INT,rfs.RefId2) = t.SportType
+					LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.CustID = @LogUserID AND i.SuccessStatusID = @StsSending --Sender = [configurated Executor] if IgnoreReviewContent
 				WHERE t.SettlementLogID = il.SettlementLogID
 				FOR JSON PATH
 			)) AS ExtraInfo
@@ -1354,7 +1364,7 @@ BEGIN
 								1  |          0 |Generating			|					8  |          0 |Failed to Generate
 								2  |          0 |Generating			|					   |			|
 								------------------------------------VS---------------------------------------------
-								1  |          1 |Generating			|					9  |          1 |Ready to Send
+								1  |          1 |Generating			|					9  |          1 |Sending
 								2  |          1 |Generating			|					   |			|
 					
 					***	From NotificationID(8).Status = Failed to Generate => SettlementLogID(1,2).Status = Failed to Generate

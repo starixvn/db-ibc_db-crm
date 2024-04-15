@@ -104,7 +104,7 @@ BEGIN
 			INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON i.NotificationID = nm.NotificationID
 			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 			INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON i.NotificationID = nt.NotificationID
-			INNER JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON nt.TargetID = d.CustID --deposit Super
+			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
 		GROUP BY n.NotificationID
 			,rh.SportType
 			,n.StatusID
@@ -121,11 +121,10 @@ BEGIN
 	WHERE v.NotificationType = 1 --1: Result Amendment to Msg
 		AND v.SportType = 50 --Cricket, need modify for others sport
 		AND v.StatusID IN (
-				9 --Ready to Send
-				,12 --Sending
+				12 --Sending
 				,13 --Sent
 				,14 --Failed to Send
-			)--only need Status over the 'Ready to Send' step
+			)--only need Status after Approved step
 		AND v.ValidTargetCnt > 0
 		AND ISNULL(v.SettlIDs,'') <> ''
 	

@@ -11,7 +11,7 @@ AS
 	Explanation:
 		Steps
 			- Check / Update [Push Notification] Process Status
-			- Change NotificationID from [Ready to Send] to [Sending]
+			- Get [Sending] NotificationID
 			- Parse Notification data to JSON
 		
 		Output
@@ -31,7 +31,6 @@ BEGIN
 	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
-		,@StsReadySend TINYINT
 		,@StsSending TINYINT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
@@ -45,10 +44,6 @@ BEGIN
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
-	
-	SELECT @StsReadySend = StatusID
-	FROM NotiStatus WITH (NOLOCK)
-	WHERE Status = 'Ready to Send'
 	
 	SELECT @StsSending = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -143,18 +138,12 @@ BEGIN
 	)
 	
 	/*
-		- Mark StatusID = Sending to start [Push Notification] process
-		- Get Updated NotificationID
+		Get Sending NotificationID
 	*/
-	UPDATE n
-	SET n.StatusID = @StsSending
-		,n.LastModifiedTime = GETDATE()
-	OUTPUT INSERTED.NotificationID
-	INTO #tmpSendingNoti (
-		NotificationID
-	) --Get Updated NotificationID
+	INSERT INTO #tmpSendingNoti (NotificationID)
+	SELECT DISTINCT n.NotificationID
 	FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
-	WHERE n.StatusID = @StsReadySend --Ready to Send
+	WHERE n.StatusID = @StsSending
 		AND n.NotificationType = 1 --Result Amendment to Msg
 		AND EXISTS (SELECT 1 FROM NotificationTarget AS nt WITH (NOLOCK) WHERE nt.NotificationID = n.NotificationID)
 	
@@ -176,7 +165,7 @@ BEGIN
 	SELECT NotificationID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Changed Status from [Ready to Send] to [Sending]'
+		,@InfLogPrefix + 'Changed NotificationTarget Status to [Sending]'
 	FROM #tmpSendingNoti
 	ORDER BY NotificationID
 	

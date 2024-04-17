@@ -53,8 +53,8 @@ BEGIN
 		,@StsGenerating TINYINT
 		,@SettlIDs NVARCHAR(MAX)
 		,@JSResource NVARCHAR(MAX)
-		,@ErrLogPrefix NVARCHAR(150) = ''
-		,@InfLogPrefix NVARCHAR(150) = ''
+		,@ErrLogPrefix NVARCHAR(150) = 'Error - '
+		,@InfLogPrefix NVARCHAR(150) = 'Info - '
 		,@iLoop INT
 		,@Refund_en NVARCHAR(20) = 'Refund'
 		,@Refund_ch NVARCHAR(20) = N'退款'
@@ -75,9 +75,6 @@ BEGIN
 	SELECT @StsGenerating = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Generating'
-
-	SELECT @ErrLogPrefix = 'Error - '
-	SELECT @InfLogPrefix = 'Info - '
 	-----------------------------------------------
 	CREATE TABLE #tmpRemotingRef (
 		Msg_NotiID INT
@@ -243,8 +240,7 @@ BEGIN
 			SELECT DISTINCT ntc.NotificationID
 			FROM NotificationTarget AS ntc WITH (NOLOCK)
 				INNER JOIN #tmpExtraInfo AS ex ON ntc.NotificationID = ex.Msg_NotiID
-				INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntc.TargetID = c.CustID AND c.roleid = 1 --get cust
-				INNER JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON c.srecommend = d.CustID --deposit Super
+				INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ntc.TargetSite = s.site AND s.isDeposit = 1 --deposit user
 				CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
 					TransID BIGINT '$.TransID'
 				) AS t--OPENJSON case-sensitive
@@ -448,9 +444,9 @@ BEGIN
 						) AS m--OPENJSON case-sensitive
 			)
 			UPDATE tp
-			SET tp.Content_en = ex.HomeNameEN + ISNULL(' (' + ex.NeutralEN + ')','') + ' -vs- ' + ex.AwayNameEN
-				,tp.Content_ch = ex.HomeNameCH + ISNULL(' (' + ex.NeutralCH + ')','') + ' -vs- ' + ex.AwayNameCH
-				,tp.Content_cs = ex.AwayNameCS + ISNULL(' (' + ex.NeutralCS + ')','') + ' -vs- ' + ex.AwayNameCS
+			SET tp.Content_en = ex.HomeNameEN + ISNULL(' ' + ex.NeutralEN,'') + ' -vs- ' + ex.AwayNameEN
+				,tp.Content_ch = ex.HomeNameCH + ISNULL(' ' + ex.NeutralCH,'') + ' -vs- ' + ex.AwayNameCH
+				,tp.Content_cs = ex.AwayNameCS + ISNULL(' ' + ex.NeutralCS,'') + ' -vs- ' + ex.AwayNameCS
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN CTE_Extra AS ex ON tp.Msg_NotiID = ex.Msg_NotiID
 			WHERE tp.RequiredParam = '{match_name}'
@@ -936,9 +932,9 @@ BEGIN
 		*/
 		;WITH CTE_Subject AS (
 			SELECT lap.Msg_NotiID
-				,'Result Amended ' + CONVERT(NVARCHAR, ex.EventDate, 103) AS Subject_en --(DD/MM/YYYY)
-				,N'赛果更正 ' + CONVERT(NVARCHAR, ex.EventDate, 103) AS Subject_ch
-				,N'赛果更正 ' + CONVERT(NVARCHAR, ex.EventDate, 103) AS Subject_cs
+				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended ' + CONVERT(NVARCHAR, ex.EventDate, 103) END) AS Subject_en --(DD/MM/YYYY)
+				,(CASE WHEN lap.Content_ch IS NOT NULL THEN N'赛果更正 ' + CONVERT(NVARCHAR, ex.EventDate, 103) END) AS Subject_ch
+				,(CASE WHEN lap.Content_cs IS NOT NULL THEN N'赛果更正 ' + CONVERT(NVARCHAR, ex.EventDate, 103) END) AS Subject_cs
 			FROM #tmpNoti AS lap
 				INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON lap.Msg_NotiID = ex.NotificationID
 		)
@@ -1138,15 +1134,28 @@ BEGIN
 			,TransID
 		)
 		SELECT DISTINCT i.Lap_NotiID
-			,nta.TargetID
+			,nta.TargetID --Agent
 			,nta.TargetSite
 			,ntc.TargetID AS CustID
 			,t.TransID
 		FROM #tmpInsertedNoti AS i
 			INNER JOIN NotificationTarget AS ntc WITH (NOLOCK) ON i.Msg_NotiID = ntc.NotificationID
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntc.TargetID = c.CustID AND c.roleid = 1 --get cust
-			INNER JOIN bodb02.dbo.Dep_CustSuper AS d WITH (NOLOCK) ON c.srecommend = d.CustID --deposit Super
-			INNER JOIN NotificationTarget AS nta WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID AND ntc.TargetSite = nta.TargetSite AND nta.TargetID = c.recommend
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntc.TargetID = c.CustID AND c.roleid = 1 --cust
+			INNER JOIN NotificationTarget AS nta WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID AND ntc.TargetSite = nta.TargetSite AND nta.TargetID = c.recommend --agent
+			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ntc.TargetSite = s.site AND s.isDeposit = 1 --deposit
+			CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
+				TransID BIGINT '$.TransID'
+			) AS t--OPENJSON case-sensitive
+		
+		SELECT DISTINCT i.Lap_NotiID
+			,nta.TargetID --Agent
+			,nta.TargetSite
+			,ntc.TargetID AS CustID
+			,t.TransID
+		FROM #tmpInsertedNoti AS i
+			INNER JOIN NotificationTarget AS nta WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nta.TargetID = c.CustID AND c.roleid = 2 --agent
+			INNER JOIN NotificationTarget AS ntc WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID --cust
 			CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
 				TransID BIGINT '$.TransID'
 			) AS t--OPENJSON case-sensitive
@@ -1215,7 +1224,7 @@ BEGIN
 		SELECT DISTINCT i.Lap_NotiID
 			,ex.EventDate
 			,CONVERT(NVARCHAR(MAX),(
-				SELECT DISTINCT tp.Msg_NotiID
+				SELECT DISTINCT tp.Msg_NotiID AS MsgNotiID
 					,REPLACE(rcal.Content_en,'<br/>','{new_line}') AS ReCalEN --remove [new line] tag of HTML format
 					,REPLACE(rcal.Content_ch,'<br/>','{new_line}') AS ReCalCH
 					,REPLACE(rcal.Content_cs,'<br/>','{new_line}') AS ReCalCS
@@ -1361,8 +1370,11 @@ BEGIN
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
 			,@ErrMsg = 'FAILED while INSERT new Notification LAP - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
+		-----------------------------------------------------------------------
 		
-		--------------------------
+		ROLLBACK TRANSACTION
+		
+		-----------------------------------------------------------------------
 		INSERT INTO [Log] (
 			ActionID
 			,UserID
@@ -1373,11 +1385,7 @@ BEGIN
 			,@ErrLogPrefix + 'ROLLBACK INSERT new Notification LAP - Lap_NotiIDs (' + ISNULL((SELECT STRING_AGG(CONVERT(NVARCHAR(MAX), Lap_NotiID), ',') FROM #tmpInsertedNoti),'NULL') + ')'
 				+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
-		-----------------------------------------------------------------------
-		
-		ROLLBACK TRANSACTION
-		
-		-----------------------------------------------------------------------
+		--------------------------
 		IF EXISTS (SELECT 1 FROM #tmpInsertedNoti)
 		BEGIN
 			DELETE FROM Notification

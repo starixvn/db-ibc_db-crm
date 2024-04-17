@@ -100,7 +100,7 @@ BEGIN
 	*/
 	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
-		SELECT @ErrCode = 1
+		SELECT @ErrCode = 50001 --user-defined error code
 			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
 		
 		INSERT INTO [Log] (

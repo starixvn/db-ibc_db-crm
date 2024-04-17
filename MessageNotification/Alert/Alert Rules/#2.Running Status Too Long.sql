@@ -106,11 +106,10 @@ FROM Notification AS n WITH (NOLOCK)
 	LEFT JOIN Notification AS nlap WITH (NOLOCK) ON nmlap.NotificationID = nlap.NotificationID AND nlap.NotificationType = 2
 WHERE n.NotificationType = 1 --1: Result Amendment to Msg
 	AND n.StatusID IN (
-			9 --Ready to Send
-			,12 --Sending
+			12 --Sending
 			,13 --Sent
 			,14 --Failed to Send
-		)--only need Status over the 'Ready to Send' step
+		)--only need Status after Approved step
 	AND DATEDIFF(SECOND, n.LastModifiedTime,GETDATE()) > @WaitSec
 	---LAP
 	AND nlap.NotificationID IS NULL

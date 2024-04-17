@@ -88,8 +88,8 @@ CREATE TABLE dbo.Notification (
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 GO
 
-CREATE NONCLUSTERED INDEX [IX_NotiStatusID] ON dbo.Notification (
-	StatusID
+CREATE NONCLUSTERED INDEX [IX_NotiIns] ON dbo.Notification (
+	InsertedTime
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 

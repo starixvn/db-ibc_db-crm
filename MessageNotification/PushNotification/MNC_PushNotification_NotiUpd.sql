@@ -14,7 +14,9 @@ AS
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 	
 	Explanation:
-		@MessageID: respone after insert DBMSG@Msg
+		@MessageID: respond after insert DBMSG@Msg
+		@ErrCode: respond @ErrCode from MNC_PushNotification_MsgIns
+		@ErrMsg: respond @ErrMsg from MNC_PushNotification_MsgIns
 	
 	Example:
 		EXEC MessageNotification.dbo.MNC_PushNotification_NotiUpd
@@ -82,6 +84,7 @@ BEGIN
 		NotificationID INT NOT NULL
 		,StatusID TINYINT NOT NULL
 	)
+	
 	----------------return error from MNC_PushNotification_MsgIns----------------------------------------
 	IF @ErrCode <> 0
 	BEGIN
@@ -100,7 +103,8 @@ BEGIN
 				+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
 				+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
 	END
-	ELSE IF @UpdType = 'AfterInsMsg'
+	
+	IF @UpdType = 'AfterInsMsg'
 	BEGIN TRY
 		BEGIN TRANSACTION
 		
@@ -139,6 +143,13 @@ BEGIN
 			INNER JOIN #tmpNoti AS n ON nt.NotificationID = n.NotificationID
 		
 		COMMIT TRANSACTION
+		
+		/*
+			at this state, ErrCode from MNC_PushNotification_MsgIns is handled
+			=> reset @ErrCode
+		*/
+		SELECT @ErrCode = 0
+			,@ErrMsg = ''
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -147,12 +158,12 @@ BEGIN
 		ROLLBACK TRANSACTION
 	END CATCH
 	
-	------------------------------
+	--------------check Error in this SP----------------
 	IF NOT EXISTS (SELECT 1 FROM #tmpNoti)
 	BEGIN
 		IF @ErrCode = 0
 		BEGIN
-			SELECT @ErrCode = 1
+			SELECT @ErrCode = 50003 --user-defined
 				,@ErrMsg = 'NO affected Notification with param @NotificationID = '+ ISNULL(CONVERT(VARCHAR, @NotificationID),'NULL')
 							+ ', @MessageID = ' + ISNULL(CONVERT(VARCHAR, @MessageID),'NULL')
 							+ ', @UpdType = ' + ISNULL(@UpdType,'NULL')
@@ -175,5 +186,5 @@ BEGIN
 				+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
 				+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
 	END
-	DROP TABLE #tmpNoti
+	DROP TABLE IF EXISTS #tmpNoti
 END

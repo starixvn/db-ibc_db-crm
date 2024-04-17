@@ -253,7 +253,7 @@ BEGIN
 				+ CASE WHEN @MessageID IS NULL THEN ')'
 					ELSE ', FAILED after succeeding Insert Msg with MessageID = ' + ISNULL(CONVERT(VARCHAR,@MessageID),'') + ')' END
 		
-		SELECT @ErrCode = 1
+		SELECT @ErrCode = 50002 --user-defined
 	END
 	
 	--delete data if error

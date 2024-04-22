@@ -180,7 +180,7 @@ BEGIN
 			--special handle for changed Msg Notification status from [New] -> [Sending]
 			IF @NotiUpdCnt = 1
 				AND @NotiType = 1
-				AND @CurStatus = 'New' AND @NewStatus = 'Sending'
+				AND @NewStatus = 'Sending'
 			BEGIN
 				SELECT @CExtraInfo = ISNULL(ExtraInfo,'')
 				FROM NotificationExtra WITH (NOLOCK)
@@ -198,7 +198,7 @@ BEGIN
 			--special handle for changed LAP Notification status from [New] -> [Active]
 			IF @NotiUpdCnt = 1
 				AND @NotiType = 2
-				AND @CurStatus = 'New' AND @NewStatus = 'Active'
+				AND @NewStatus = 'Active'
 			BEGIN
 				SELECT @CExtraInfo = ISNULL(ExtraInfo,'')
 				FROM NotificationExtra WITH (NOLOCK)

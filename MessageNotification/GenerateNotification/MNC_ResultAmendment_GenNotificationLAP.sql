@@ -1134,33 +1134,20 @@ BEGIN
 			,TransID
 		)
 		SELECT DISTINCT i.Lap_NotiID
-			,nta.TargetID --Agent
-			,nta.TargetSite
-			,ntc.TargetID AS CustID
+			,ntAgent.TargetID --Agent
+			,ntAgent.TargetSite
+			,ntCust.TargetID AS CustID
 			,t.TransID
 		FROM #tmpInsertedNoti AS i
-			INNER JOIN NotificationTarget AS ntc WITH (NOLOCK) ON i.Msg_NotiID = ntc.NotificationID
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntc.TargetID = c.CustID AND c.roleid = 1 --cust
-			INNER JOIN NotificationTarget AS nta WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID AND ntc.TargetSite = nta.TargetSite AND nta.TargetID = c.recommend --agent
-			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ntc.TargetSite = s.site AND s.isDeposit = 1 --deposit
-			CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
+			INNER JOIN NotificationTarget AS ntCust WITH (NOLOCK) ON i.Msg_NotiID = ntCust.NotificationID
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON ntCust.TargetID = c.CustID AND c.roleid = 1 --cust
+			INNER JOIN NotificationTarget AS ntAgent WITH (NOLOCK) ON i.Msg_NotiID = ntAgent.NotificationID AND ntCust.TargetSite = ntAgent.TargetSite AND ntAgent.TargetID = c.recommend --agent
+			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ntCust.TargetSite = s.site AND s.isDeposit = 1 --deposit
+			CROSS APPLY OPENJSON(ntCust.ExtraInfo) WITH (
 				TransID BIGINT '$.TransID'
 			) AS t--OPENJSON case-sensitive
 		
-		SELECT DISTINCT i.Lap_NotiID
-			,nta.TargetID --Agent
-			,nta.TargetSite
-			,ntc.TargetID AS CustID
-			,t.TransID
-		FROM #tmpInsertedNoti AS i
-			INNER JOIN NotificationTarget AS nta WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nta.TargetID = c.CustID AND c.roleid = 2 --agent
-			INNER JOIN NotificationTarget AS ntc WITH (NOLOCK) ON i.Msg_NotiID = nta.NotificationID --cust
-			CROSS APPLY OPENJSON(ntc.ExtraInfo) WITH (
-				TransID BIGINT '$.TransID'
-			) AS t--OPENJSON case-sensitive
-		
-		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiTarget ON #tmpNotiTarget (Lap_NotiID, TargetID)
+		CREATE CLUSTERED INDEX CIX_tmpNotiTarget ON #tmpNotiTarget (Lap_NotiID, TargetID)
 		
 		;WITH CTE_TransIDByCust AS (
 			SELECT Lap_NotiID
@@ -1245,14 +1232,15 @@ BEGIN
 			Start to final update Notification.StatusID
 		*/
 		
-		-- Check after insert NotiMapping / Notification / NotificationTarget
-			-- + Update Notification StatusID = @StsStartToSend
+		-- Check after insert NotiMapping / Notification / NotificationTarget / NotificationExtra
+			-- + Update Notification StatusID = @StsNew
 		;WITH CTE_Valid AS (
 			SELECT DISTINCT n.NotificationID
 			FROM Notification AS n
 				INNER JOIN NotificationTarget AS nt ON n.NotificationID = nt.NotificationID
 				INNER JOIN NotiMapping AS nm ON nt.NotificationID = nm.NotificationID
-				INNER JOIN #tmpInsertedNoti AS i ON nm.NotificationID = i.Lap_NotiID
+				INNER JOIN NotificationExtra AS ne ON nm.NotificationID = ne.NotificationID
+				INNER JOIN #tmpInsertedNoti AS i ON ne.NotificationID = i.Lap_NotiID
 			WHERE n.StatusID = @StsGenerating
 				AND n.NotificationType = 2 --notification for LAP
 		)

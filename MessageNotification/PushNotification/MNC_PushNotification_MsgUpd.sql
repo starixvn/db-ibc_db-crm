@@ -35,7 +35,7 @@ BEGIN
 			MessageID
 		) --Get Updated MessageID
 		WHERE MessageId = @MessageID
-			AND m.Remark LIKE 'MNC%'
+			AND Remark LIKE 'MNC%'
 		---DELETE MsgTarget
 		
 		DELETE mt

@@ -197,11 +197,15 @@ BEGIN
 
     -- Prepare data
     -- + Variables
-    DECLARE @CountRow               INT
-    DECLARE @getHeadlineID          INT
-    DECLARE @getCompanyServiceID    INT
-    DECLARE @CompanyServiceOldValue XML
-    DECLARE @CompanyServiceNewValue XML
+    DECLARE @CountRow                INT
+    DECLARE @getHeadlineID           INT
+    DECLARE @getCompanyServiceID     INT
+    DECLARE @CompanyServiceOldValue  XML
+    DECLARE @CompanyServiceNewValue  XML
+    DECLARE @CompanyServiceNullValue XML = '<Acc_CRM_NewAccDetail_UpdHeadlineCompanyService>' +
+                                           '<CompanyService>' +
+                                           '</CompanyService>' +
+                                           '</Acc_CRM_NewAccDetail_UpdHeadlineCompanyService>'
     -- + Temp table
     -- + --> Create temp table
     CREATE TABLE #tmpDataToLoop (
@@ -269,6 +273,11 @@ BEGIN
         FROM #tmpDataToLoop
         WHERE HeadlineID = @getHeadlineID AND CompanyServiceID = @getCompanyServiceID
 
+        IF(@CompanyServiceOldValue IS NULL)
+        BEGIN
+            SET @CompanyServiceOldValue = @CompanyServiceNullValue
+        END
+
         -- + Get value to @CompanyServiceNewValue
         SELECT @CompanyServiceNewValue = '<Acc_CRM_NewAccDetail_UpdHeadlineCompanyService>' +
                                          '<CompanyService>' +
@@ -277,6 +286,11 @@ BEGIN
                                          '</Acc_CRM_NewAccDetail_UpdHeadlineCompanyService>'
         FROM #tmpDataToLoop
         WHERE HeadlineID = @getHeadlineID AND CompanyServiceID = @getCompanyServiceID
+
+        IF(@CompanyServiceNewValue IS NULL)
+        BEGIN
+            SET @CompanyServiceNewValue = @CompanyServiceNullValue
+        END
 
         -- + Write log
         IF (ISNULL(CAST(@CompanyServiceOldValue AS NVARCHAR(MAX)), '') <> ISNULL(CAST(@CompanyServiceNewValue AS NVARCHAR(MAX)), ''))

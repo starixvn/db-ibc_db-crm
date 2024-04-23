@@ -270,11 +270,15 @@ BEGIN
 
     -- Prepare data
     -- + Variables
-    DECLARE @CountRow                  INT
-    DECLARE @getRowID                  INT
-    DECLARE @getHeadlineID             INT
-    DECLARE @StaffAndAuthorityOldValue XML
-    DECLARE @StaffAndAuthorityNewValue XML
+    DECLARE @CountRow                   INT
+    DECLARE @getRowID                   INT
+    DECLARE @getHeadlineID              INT
+    DECLARE @StaffAndAuthorityOldValue  XML
+    DECLARE @StaffAndAuthorityNewValue  XML
+    DECLARE @StaffAndAuthorityNullValue XML = '<Acc_CRM_NewAccDetail_UpdHeadlineStaffAndAuthority>' +
+                                              '<StaffAndAuthority>' +
+                                              '</StaffAndAuthority>' +
+                                              '</Acc_CRM_NewAccDetail_UpdHeadlineStaffAndAuthority>'
     -- + Temp table
     -- + --> Create temp table
     CREATE TABLE #tmpDataToLoop (
@@ -346,6 +350,11 @@ BEGIN
         FROM #tmpDataToLoop
         WHERE RowID = @getRowID AND HeadlineID = @getHeadlineID
 
+        IF (@StaffAndAuthorityOldValue IS NULL)
+        BEGIN
+            SET @StaffAndAuthorityOldValue = @StaffAndAuthorityNullValue
+        END
+
         -- + Get value to @StaffAndAuthorityNewValue
         SELECT @StaffAndAuthorityNewValue = '<Acc_CRM_NewAccDetail_UpdHeadlineStaffAndAuthority>' +
                                             '<StaffAndAuthority>' +
@@ -354,6 +363,11 @@ BEGIN
                                             '</Acc_CRM_NewAccDetail_UpdHeadlineStaffAndAuthority>'
         FROM #tmpDataToLoop
         WHERE RowID = @getRowID AND HeadlineID = @getHeadlineID
+
+        IF (@StaffAndAuthorityNewValue IS NULL)
+        BEGIN
+            SET @StaffAndAuthorityNewValue = @StaffAndAuthorityNullValue
+        END
 
         -- + Write log
         IF (ISNULL(CAST(@StaffAndAuthorityOldValue AS NVARCHAR(MAX)), '') <> ISNULL(CAST(@StaffAndAuthorityNewValue AS NVARCHAR(MAX)), ''))

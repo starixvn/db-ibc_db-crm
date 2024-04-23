@@ -47,6 +47,13 @@ BEGIN
 
     SET NOCOUNT ON
 
+    -- Prepare data for XML parameter
+    DECLARE @CommunicationInfoNullValue XML
+    SELECT  @CommunicationInfoNullValue = '<Acc_CRM_NewAccDetail_UpdOtherAccCommunicationInfo>' +
+                                          '<NewCommunicationTool>' +
+                                          '</NewCommunicationTool>' +
+                                          '</Acc_CRM_NewAccDetail_UpdOtherAccCommunicationInfo>'
+
     -- Parse data from @NewCommunicationTools to temp table #tmpNewCommunicationTools
     DECLARE @iDoc INT
     EXECUTE sys.sp_xml_preparedocument @iDoc OUTPUT, @NewCommunicationTools
@@ -77,6 +84,11 @@ BEGIN
     WHERE cnc.CustID = @CustID
     OPTION (RECOMPILE)
 
+    IF (@CommunicationInfoOldValue IS NULL)
+    BEGIN
+        SET @CommunicationInfoOldValue = @CommunicationInfoNullValue
+    END
+
     -- Update value for Communication Info
     BEGIN TRY    
         MERGE bodb_CRM.dbo.crmCustomerNewCommunicationTool AS TARGET
@@ -106,6 +118,11 @@ BEGIN
          LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
     WHERE cnc.CustID = @CustID
     OPTION (RECOMPILE)
+
+    IF (@CommunicationInfoNewValue IS NULL)
+    BEGIN
+        SET @CommunicationInfoNewValue = @CommunicationInfoNullValue
+    END
 
     -- Write log
     EXEC bodb_CRM.dbo.WriteLog_UserLog_crmLogCustomer @CustID    = @CustID,

@@ -3,10 +3,11 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_NewAccDetail_SyncHeadlineStaffAndAuthority @UserID  INT,
-                                                                       @IP      VARCHAR(45)    = '',
-                                                                       @ErrCode INT            = 0  OUTPUT,
-                                                                       @ErrMsg  NVARCHAR(4000) = '' OUTPUT
+ALTER PROCEDURE dbo.Acc_CRM_NewAccDetail_SyncHeadlineStaffAndAuthority @HeadlineID INT,
+                                                                       @UserID     INT,
+                                                                       @IP         VARCHAR(45)    = '',
+                                                                       @ErrCode    INT            = 0  OUTPUT,
+                                                                       @ErrMsg     NVARCHAR(4000) = '' OUTPUT
 AS
 
 /*
@@ -23,10 +24,11 @@ AS
     Example:
         DECLARE @ErrCode_out INT = 0
         DECLARE @ErrMsg_out NVARCHAR(4000) = ''
-        EXEC bodb_CRM.dbo.Acc_CRM_NewAccDetail_SyncHeadlineStaffAndAuthority @UserID  = 8,
-                                                                             @IP      = '10.0.0.4',
-                                                                             @ErrCode = @ErrCode_out OUTPUT,
-                                                                             @ErrMsg  = @ErrMsg_out  OUTPUT
+        EXEC bodb_CRM.dbo.Acc_CRM_NewAccDetail_SyncHeadlineStaffAndAuthority @HeadlineID = 1211024,
+                                                                             @UserID     = 8,
+                                                                             @IP         = '10.0.0.4',
+                                                                             @ErrCode    = @ErrCode_out OUTPUT,
+                                                                             @ErrMsg     = @ErrMsg_out  OUTPUT
         SELECT @ErrCode_out ErrCode, @ErrMsg_out ErrMsg
 */
 
@@ -65,6 +67,8 @@ BEGIN
     FROM bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK)
          LEFT JOIN bodb_CRM.dbo.crmPIC p WITH (NOLOCK) ON pm.PicID = p.PicID
          LEFT JOIN bodb_CRM.dbo.crmPICCommunication pc WITH (NOLOCK) ON p.PicID = pc.PicID
+    WHERE pm.HeadlineID = @HeadlineID
+    OPTION (RECOMPILE)
 
 
     ------------------------------------------
@@ -105,6 +109,7 @@ BEGIN
          OUTER APPLY (SELECT TRIM(value) AuthorityID FROM STRING_SPLIT(cha.AuthorityID, ',')) au
          LEFT JOIN bodb_CRM.dbo.crmSetting sa WITH (NOLOCK) ON sa.SettingName = 'StaffAndAuthority' AND au.AuthorityID = sa.SettingID
     WHERE cha.isSyncFromPicTable = 1
+          AND cha.HeadlineID = @HeadlineID
     GROUP BY cha.RowID,
              cha.HeadlineID,
              cha.PicName,
@@ -117,6 +122,7 @@ BEGIN
              CASE WHEN sr.SettingValue = 'Boss' THEN cha.PicName END,
              sr.SettingValue,
              cha.PicName
+    OPTION (RECOMPILE)
 
 
     -----------------------------
@@ -155,6 +161,7 @@ BEGIN
                 GETDATE()
             )
         WHEN NOT MATCHED BY SOURCE AND TARGET.isSyncFromPicTable = 1
+                                   AND TARGET.HeadlineID = @HeadlineID
             THEN DELETE;
     END TRY
     BEGIN CATCH
@@ -201,6 +208,7 @@ BEGIN
          OUTER APPLY (SELECT TRIM(value) AuthorityID FROM STRING_SPLIT(cha.AuthorityID, ',')) au
          LEFT JOIN bodb_CRM.dbo.crmSetting sa WITH (NOLOCK) ON sa.SettingName = 'StaffAndAuthority' AND au.AuthorityID = sa.SettingID
     WHERE cha.isSyncFromPicTable = 1
+          AND cha.HeadlineID = @HeadlineID
     GROUP BY cha.RowID,
              cha.HeadlineID,
              cha.PicName,
@@ -213,6 +221,7 @@ BEGIN
              CASE WHEN sr.SettingValue = 'Boss' THEN cha.PicName END,
              sr.SettingValue,
              cha.PicName
+    OPTION (RECOMPILE)
 
 
     ---------------

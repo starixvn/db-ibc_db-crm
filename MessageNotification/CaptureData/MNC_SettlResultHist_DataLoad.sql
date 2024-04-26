@@ -27,7 +27,7 @@ AS
 			- Load data from web (Parse JSON data)
 			- Insert into SettlementResultHist with Status = Retrieving
 				+ Insert if NOT EXISTS
-				+ The UNIQUE KEY of SettlementResultHist (SessionID,MatchID,SeqNo,Environment)
+				+ The UNIQUE KEY of SettlementResultHist (SessionID,MatchID,SeqNo)
 			- Insert into SettlementResultHistDetail
 				+ Only for NEW SettlementLogID from above step
 				+ Write log for case EXISTING SettlementLogID but SettlementResultHistDetail <> @JSSettlResultHist
@@ -43,6 +43,7 @@ BEGIN
 	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
+		,@SiteDBGroupID SMALLINT
 		,@ProcessID INT
 		,@UATMode VARCHAR(5) = 'OFF'
 		,@IsTestFlag BIT
@@ -50,8 +51,6 @@ BEGIN
 		,@StsRetrieved TINYINT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
-		-- ,@RHE_Msg NVARCHAR(MAX)
-		-- ,@IsError BIT = 0
 	
 	/*
 		**************************************************Load setting**************************************************
@@ -61,9 +60,9 @@ BEGIN
 	WHERE VID = 2 --ID of StarixIT
 	
 	SELECT @ProcessID = (
-					CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
-					ELSE 7 END --ProcessUAT_CaptureData
-				)
+		CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
+			ELSE 7 END --ProcessUAT_CaptureData
+	)
 	
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
@@ -76,10 +75,6 @@ BEGIN
 	SELECT @StsRetrieved = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Retrieved'
-	
-	-- SELECT @StsRetrieveFailed = StatusID
-	-- FROM NotiStatus WITH (NOLOCK)
-	-- WHERE Status = 'Failed to Retrieve'
 	
 	SELECT @UATMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
@@ -110,7 +105,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'NO Action for UATMode = OFF AND Environment = UAT'
+			,@InfLogPrefix + '[Capture process - DataLoad] - NO Action for UATMode = OFF AND Environment = UAT'
 		
 		RETURN
 	END
@@ -135,7 +130,9 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Start Data loading with @UATMode = ' + @UATMode + ', @JSSettlResultHist('+ISNULL(@JSSettlResultHist,'NULL')+')'
+		,@InfLogPrefix + 'Debug - Start [Capture process - DataLoad] with @UATMode(' + @UATMode + ')'
+						+ ', @Environment(' + ISNULL(@Environment,'NULL') + ')'
+						+ ', @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
@@ -165,6 +162,11 @@ BEGIN
 		SettlementLogID INT NOT NULL
 		,SessionID VARCHAR(50)
 		,SeqNo SMALLINT
+	)
+	
+	CREATE TABLE #tmpUpdatedRH (
+		SettlementLogID INT NOT NULL
+		,UpdatedCase VARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpResultHistDetail (
@@ -197,6 +199,11 @@ BEGIN
 				,JSONData NVARCHAR(MAX) '$.JSONData'
 			)--OPENJSON case-sensitive
 		
+		--get @SiteDBGroupID
+		SELECT @SiteDBGroupID = TRY_CONVERT(SMALLINT,JSONData)
+		FROM #tmpJSData
+		WHERE ObjectName = 'SiteDBGroupID'
+		
 		INSERT INTO #tmpResultHist (
 			SiteDBGroupID
 			,SessionID
@@ -212,7 +219,7 @@ BEGIN
 			,CreatedTime
 			,ExtraInfo
 		)
-		SELECT SiteDBGroupID
+		SELECT @SiteDBGroupID
 			,SessionID
 			,MatchID
 			,IsTest
@@ -226,8 +233,7 @@ BEGIN
 			,CreatedDate
 			,ExtraInfo
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory')) WITH (
-				SiteDBGroupID SMALLINT '$.SiteDBGroupID'
-				,SessionID VARCHAR(50) '$.SessionID'
+				SessionID VARCHAR(50) '$.SessionID'
 				,MatchID INT '$.MatchID'
 				,IsTest BIT '$.IsTest'
 				,SeqNo SMALLINT '$.SeqNo'
@@ -276,11 +282,11 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED to Parse JSON Data - ERROR_MESSAGE('
-								+ ISNULL(@ErrMsg,'NULL')
-								+ ') with @JSSettlResultHist = ('
-								+ ISNULL(@JSSettlResultHist,'NULL')
-								+ ')'
+			,@ErrLogPrefix + '[Capture process - DataLoad] - FAILED to Parse JSON Data'
+								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+								+ ' - @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
+								+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
+								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 	END CATCH
 	
 	/*
@@ -359,7 +365,7 @@ BEGIN
 			SELECT SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'INSERTED SettlementResultHist with StatusID(' + ISNULL(Status,'NULL') + ')'
+				,@InfLogPrefix + 'INSERTED SettlementResultHist with StatusID(' + ISNULL(s.Status,'NULL') + ')'
 			FROM #tmpInsertedRH AS i
 				LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON s.StatusID = @StsRetrieving
 			ORDER BY SettlementLogID
@@ -371,7 +377,7 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'NO ROW inserted SettlementResultHist'
+				,@InfLogPrefix + 'Debug - NO ROW inserted SettlementResultHist'
 			FROM SystemSetting WITH (NOLOCK)
 			WHERE VID = 13 --LogMode
 				AND VValue = 'Debug'
@@ -387,17 +393,18 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED INSERT INTO SettlementResultHist - ERROR_MESSAGE('
-								+ ISNULL(@ErrCode,'NULL')
-								+ '); tmp data ('
-								+ ( SELECT CONVERT(NVARCHAR(MAX),(
+			,@ErrLogPrefix + '[Capture process - DataLoad] - FAILED INSERT INTO SettlementResultHist'
+							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
+							+ ' - Prepared data('
+								+ (SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpResultHist
-											FOR JSON AUTO
+											FOR JSON PATH
 										))
 									)
 								+ ')'
-		
+							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 	END CATCH
 	
 	/*
@@ -440,15 +447,17 @@ BEGIN
 		;WITH CTE_InsertedDetail AS (
 			SELECT s.SettlementLogID
 				,CONVERT(NVARCHAR(MAX),(
-								SELECT TransID
-									,CustID
-									,ExtraInfo_Before
-									,ExtraInfo_After
-								FROM SettlementResultHistDetail AS t
-								WHERE t.Transid = s.Transid
+								SELECT t.TransID
+									,t.CustID
+									,t.ExtraInfo_Before
+									,t.ExtraInfo_After
+								FROM #tmpResultHistDetail AS t
+									INNER JOIN #tmpInsertedRH AS rh ON rh.SessionID = t.SessionID AND rh.SeqNo = t.SeqNo
+								WHERE rh.SettlementLogID = s.SettlementLogID
+									AND t.Transid = s.Transid
 									AND t.CustID = s.CustID
 								ORDER BY TransID
-								FOR JSON AUTO
+								FOR JSON PATH
 							)) AS LTxt
 			FROM #tmpInsertedRHDetail AS s
 		)
@@ -479,18 +488,24 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED INSERT INTO SettlementResultHistDetail - ERROR_MESSAGE('
-								+ ISNULL(@ErrCode,'NULL')
-								+ '); tmp data ('
-								+ ( SELECT CONVERT(NVARCHAR(MAX),(
+			,@ErrLogPrefix + '[Capture process - DataLoad] - FAILED INSERT INTO SettlementResultHistDetail'
+							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
+							+ ' - Prepared data('
+								+ (SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpResultHistDetail
-											FOR JSON AUTO
+											FOR JSON PATH
 										))
 									)
 								+ ')'
+							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 		
 		--Remove Inserted SettlementLogID
+		DELETE sh
+		FROM SettlementResultHistDetail AS sh
+			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+		
 		DELETE sh
 		FROM SettlementResultHist AS sh
 			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
@@ -504,7 +519,7 @@ BEGIN
 		SELECT SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Removed due to Failed insert SettlementResultHistDetail'
+			,@ErrLogPrefix + 'Recent [SettlementResultHist] inserts have been removed because [SettlementResultHistDetail] failed to insert.'
 		FROM #tmpInsertedRH
 		ORDER BY SettlementLogID
 		
@@ -528,15 +543,10 @@ BEGIN
 	IF @ErrCode = 0
 	BEGIN TRY
 		DECLARE @SiteDBCnt INT = 0
-			,@Retrieving_WaitSec INT = 0
 		
 		SELECT @SiteDBCnt = COUNT(DISTINCT SiteDBGroupID)
 		FROM bodb02.dbo.SiteDBConfig WITH (NOLOCK)
 		WHERE SiteDBGroupID <> 0
-		
-		SELECT @Retrieving_WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0)
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 11 --Retrieving_WaitSec
 		
 		BEGIN TRANSACTION --lock Retrieving SettlementResultHist for UPD Status
 			
@@ -544,8 +554,6 @@ BEGIN
 				Update for CASE #1
 					Count of SiteDBGroupID By [SessionID] = Count of SiteDBConfig (UPD only for StatusID = Retrieving)
 			*/
-			TRUNCATE TABLE #tmpInsertedRH
-			
 			;WITH CTE_Session AS (
 				SELECT sh.SessionID
 					,sh.MatchID
@@ -578,7 +586,8 @@ BEGIN
 			SET sh.StatusID = @StsRetrieved
 				,sh.LastModifiedTime = GETDATE()
 			OUTPUT INSERTED.SettlementLogID
-			INTO #tmpInsertedRH (SettlementLogID)
+				,'Full SiteDBGroupIDs'
+			INTO #tmpUpdatedRH (SettlementLogID, UpdatedCase)
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 				INNER JOIN CTE_Sts AS sts ON sh.SessionID = sts.SessionID AND sh.MatchID = sts.MatchID AND sh.SeqNo = sts.SeqNo
 			WHERE sts.SiteDBCnt = @SiteDBCnt
@@ -595,14 +604,19 @@ BEGIN
 				,@LogActionID
 				,@LogUserID
 				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] (All data from SiteDBConfig.SiteDBGroupIDs is loaded)'
-			FROM #tmpInsertedRH AS i
+			FROM #tmpUpdatedRH AS i
+			WHERE UpdatedCase = 'Full SiteDBGroupIDs'
 			ORDER BY i.SettlementLogID
 			
 			/*
 				Update for CASE #1
 					SessionID inserted too long (over configuration time in SystemSetting)
 			*/
-			TRUNCATE TABLE #tmpInsertedRH
+			DECLARE @Retrieving_WaitSec INT = 0
+			
+			SELECT @Retrieving_WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0)
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = 11 --Retrieving_WaitSec
 			
 			;WITH CTE_Session_INSTime AS (
 				SELECT SessionID
@@ -615,7 +629,8 @@ BEGIN
 			SET sh.StatusID = @StsRetrieved
 				,sh.LastModifiedTime = GETDATE()
 			OUTPUT INSERTED.SettlementLogID
-			INTO #tmpInsertedRH (SettlementLogID)
+				,'Over Retrieving_WaitSec'
+			INTO #tmpUpdatedRH (SettlementLogID, UpdatedCase)
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 				INNER JOIN CTE_Session_INSTime AS s ON sh.SessionID = s.SessionID
 			WHERE sh.StatusID = @StsRetrieving
@@ -630,8 +645,9 @@ BEGIN
 			SELECT SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] - Over Retrieving_WaitSec(' + ISNULL(CONVERT(VARCHAR,@Retrieving_WaitSec),'') +') configuration'
-			FROM #tmpInsertedRH AS rh
+				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] - Over Retrieving_WaitSec(' + ISNULL(CONVERT(VARCHAR,@Retrieving_WaitSec),'NULL') +') configuration'
+			FROM #tmpUpdatedRH AS rh
+			WHERE UpdatedCase = 'Over Retrieving_WaitSec'
 			ORDER BY SettlementLogID
 	
 		COMMIT TRANSACTION
@@ -649,7 +665,25 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED UPDATE SettlementResultHist.Status - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+			,@ErrLogPrefix + '[Capture process - DataLoad] - FAILED UPDATE SettlementResultHist.Status'
+							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
+							+ ' - Inserted SettlementResultHist('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpInsertedRH
+											FOR JSON PATH
+										))
+									),'NO ROW')
+							+ ' - Inserted SettlementResultHistDetail('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpInsertedRHDetail
+											FOR JSON PATH
+										))
+									),'NO ROW')
+								+ ')'
+							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 	END CATCH
 	
 	/**************************************************Mark Capture process DONE**************************************************/
@@ -658,27 +692,58 @@ BEGIN
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
 	
-	----------------------Log to make sure system still live-----------------
-	IF EXISTS (
-		SELECT VValue
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
 	)
-	BEGIN
-		INSERT INTO [Log] (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,@InfLogPrefix + 'Debug log to make sure [Capture process] still live - @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
-	END
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Completed [Capture process - DataLoad]'
+						+ ' - @SiteDBGroupID(' + ISNULL(CONVERT(VARCHAR,@SiteDBGroupID),'NULL') + ')'
+						+ ' - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = @ProcessID
+	
+	--write more info if LogMode = Debug
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Debug - Completed [Capture process - DataLoad]'
+						+ ' - @SiteDBGroupID(' + ISNULL(CONVERT(VARCHAR,@SiteDBGroupID),'NULL') + ')'
+						+ ' - Inserted SettlementResultHist('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpInsertedRH
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+						+ ' - Inserted SettlementResultHistDetail('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpInsertedRHDetail
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+						+ ' - Updated SettlementResultHist.Status('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpUpdatedRH
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpJSData
 	DROP TABLE #tmpResultHist
 	DROP TABLE #tmpInsertedRH
 	DROP TABLE #tmpResultHistDetail
 	DROP TABLE #tmpInsertedRHDetail
+	DROP TABLE #tmpUpdatedRH
 END

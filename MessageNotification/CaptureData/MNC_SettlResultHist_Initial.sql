@@ -46,9 +46,9 @@ BEGIN
 	WHERE VID = 2 --ID of StarixIT
 	
 	SELECT @ProcessID = (
-					CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
-					ELSE 7 END --ProcessUAT_CaptureData
-				)
+		CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
+			ELSE 7 END --ProcessUAT_CaptureData
+	)
 	
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
@@ -105,7 +105,7 @@ BEGIN
 		SELECT GETDATE() AS LogTime
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'NO Action for UATMode = OFF AND Environment = UAT'
+			,@InfLogPrefix + '[Capture process - Initial] - NO Action for UATMode = OFF AND Environment = UAT'
 		
 		RETURN
 	END
@@ -113,7 +113,6 @@ BEGIN
 	--check current status of Capture process
 	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_CaptureData
 	BEGIN
-		
 		SELECT NULL AS Environment
 			,NULL AS FDTime
 			,NULL AS SiteDBGroupID
@@ -130,17 +129,27 @@ BEGIN
 		SELECT GETDATE() AS LogTime
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Another Capture Settlement ResultHistory Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.'
+			,@ErrLogPrefix + 'Another [Capture process] - Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.'
 		
 		RETURN
 	END
-	ELSE
-	BEGIN
-		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-		SET VValue = 'Running'
-		WHERE VID = @ProcessID
-			AND VValue = 'Done'
-	END
+	
+	--Start [Capture process]
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = 'Running'
+	WHERE VID = @ProcessID
+		AND VValue = 'Done'
+	
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Start [Capture process - Initial] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = @ProcessID
 	
 	--define [FDTime] as timepoint to pull data from SiteDBs
 	SET @FDTime = DATEADD(HH, -ISNULL(@ScanBackHour,0) , GETDATE())
@@ -174,7 +183,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Start to capture Settlement ResultHistory (' +  LTxt + ')' AS LogBef
+		,@InfLogPrefix + 'Debug - Start [Capture process - Initial] to capture Settlement ResultHistory (' +  LTxt + ')' AS LogBef
 	FROM CTE_Log
 	WHERE EXISTS (
 		SELECT 1

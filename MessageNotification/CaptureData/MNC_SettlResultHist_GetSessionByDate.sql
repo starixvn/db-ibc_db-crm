@@ -36,8 +36,7 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpResultHist (
-		SiteDBGroupID SMALLINT
-		,SessionID VARCHAR(50)
+		SessionID VARCHAR(50)
 		,MatchID INT
 		,IsTest BIT
 		,SeqNo SMALLINT
@@ -80,8 +79,7 @@ BEGIN
 			AND ISNULL(sh.StatusID,0) >= 2 --[StatusID < 2] => not start Result Amendment steps
 	)
 	INSERT INTO #tmpResultHist (
-		SiteDBGroupID
-		,SessionID
+		SessionID
 		,MatchID
 		,IsTest
 		,SeqNo
@@ -94,8 +92,7 @@ BEGIN
 		,CreatedDate
 		,ExtraInfo
 	)
-	SELECT @SiteDBGroupID AS SiteDBGroupID
-		,SessionID
+	SELECT SessionID
 		,MatchID
 		,IsTest
 		,SeqNo
@@ -130,6 +127,11 @@ BEGIN
 		LEFT JOIN bodb02.dbo.bettrans14 AS b14 WITH (NOLOCK) ON d.Transid = b14.Transid
 	WHERE h.StatusID = 2 --2-Completed Result Amendment
 	
+	---prepare data
+	INSERT INTO #tmpJSData (ObjectName, JSONData)
+	SELECT 'SiteDBGroupID' AS ObjectName
+		,CONVERT(NVARCHAR(MAX),@SiteDBGroupID) AS JSONData
+	
 	INSERT INTO #tmpJSData (ObjectName, JSONData)
 	SELECT 'SettlementResultHistory' AS ObjectName
 		,CONVERT(NVARCHAR(MAX),(
@@ -146,6 +148,7 @@ BEGIN
 					FOR JSON AUTO
 				)) AS JSONData
 	
+	---convert data as JSON
 	SELECT @JSSettlResultHist = CONVERT(NVARCHAR(MAX),(
 				SELECT *
 				FROM #tmpJSData

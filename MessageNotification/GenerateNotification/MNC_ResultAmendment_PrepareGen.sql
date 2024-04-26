@@ -66,9 +66,9 @@ BEGIN
 	WHERE Status = 'Generating'
 	
 	SELECT @ProcessID = (
-					CASE WHEN @Environment = 'LIVE' THEN 5 --Process_GenerateNoti
-					ELSE 8 END --ProcessUAT_GenerateNoti
-				)
+		CASE WHEN @Environment = 'LIVE' THEN 5 --Process_GenerateMsgNoti
+			ELSE 8 END --ProcessUAT_GenerateMsgNoti
+		)
 	
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
@@ -126,7 +126,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'NO Action for UATMode = OFF AND Environment = UAT'
+			,@ErrLogPrefix + '[Generate Msg Noti process - Prepare] - NO Action for UATMode = OFF AND Environment = UAT'
 		
 		RETURN
 	END
@@ -159,7 +159,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Another Generate Message Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.'
+			,@ErrLogPrefix + 'Another [Generate Msg Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.'
 		
 		RETURN
 	END
@@ -169,6 +169,17 @@ BEGIN
 		SET VValue = 'Running'
 		WHERE VID = @ProcessID
 			AND VValue = 'Done'
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Start [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
 	END
 	
 	CREATE TABLE #tmpRemotingRef (
@@ -238,7 +249,7 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]'
+		,@InfLogPrefix + '[Generate Msg Noti process - Prepare] - Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]'
 	FROM #tmpUpdatedRH AS rh
 	ORDER BY SettlementLogID
 	
@@ -249,27 +260,30 @@ BEGIN
 	SELECT @SettlIDs = STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),',')
 	FROM #tmpUpdatedRH
 	
-	EXEC MNC_ResultAmendment_JSParseResult
-		@SettlementLogIDs = @SettlIDs
-		,@ParseTo = 'RemotingRef'
-		,@OutJSResource = @JSResource OUTPUT
-	
-	INSERT INTO #tmpRemotingRef (
-		SettlementLogID
-		,GroupName
-		,RefId1
-		,RefId2
-	)
-	SELECT DISTINCT SettlementLogID
-		,GroupName
-		,RefId1
-		,RefId2
-	FROM OPENJSON(@JSResource) WITH (
-			SettlementLogID INT '$.SettlementLogID'
-			,GroupName VARCHAR(50) '$.GroupName'
-			,RefId1 VARCHAR(50) '$.RefId1'
-			,RefId2 VARCHAR(50) '$.RefId2'
-		)--OPENJSON case-sensitive
+	IF NULLIF(TRIM(@SettlIDs), '') IS NOT NULL
+	BEGIN
+		EXEC MNC_ResultAmendment_JSParseResult
+			@SettlementLogIDs = @SettlIDs
+			,@ParseTo = 'RemotingRef'
+			,@OutJSResource = @JSResource OUTPUT
+		
+		INSERT INTO #tmpRemotingRef (
+			SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+		)
+		SELECT DISTINCT SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+		FROM OPENJSON(@JSResource) WITH (
+				SettlementLogID INT '$.SettlementLogID'
+				,GroupName VARCHAR(50) '$.GroupName'
+				,RefId1 VARCHAR(50) '$.RefId1'
+				,RefId2 VARCHAR(50) '$.RefId2'
+			)--OPENJSON case-sensitive
+	END
 	
 	--return for RemotingRef
 	SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rh.SettlementLogID),',') AS SettlementLogIDs
@@ -282,21 +296,14 @@ BEGIN
 		,rf.RefId1
 		,rf.RefId2
 	
-	--Mark completed [Generate Message] process
-	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-	SET VValue = 'Done'
-	WHERE VID = @ProcessID
-		AND VValue = 'Running'
-		AND NOT EXISTS (SELECT 1 FROM #tmpRemotingRef)
-	
-	----------------------Annual log to make sure system still live -----------------
-	IF EXISTS (
-		SELECT VValue
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
-	)
+	--Mark completed process
+	IF NOT EXISTS (SELECT 1 FROM #tmpRemotingRef)
 	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = 'Done'
+		WHERE VID = @ProcessID
+			AND VValue = 'Running'
+	
 		INSERT INTO [Log] (
 			ActionID
 			,UserID
@@ -304,8 +311,40 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug log to make sure [Generate Message] process still live.'
+			,@InfLogPrefix + 'Completed [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
 	END
+	
+	----------------------
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Debug - Completed [Generate Msg Noti process - Prepare]'
+						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+						+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+						+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
+						+ ' - Return('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rh.SettlementLogID),',') AS SettlementLogIDs
+											,rf.GroupName
+											,rf.RefId1
+											,rf.RefId2
+										FROM #tmpUpdatedRH AS rh
+											LEFT JOIN #tmpRemotingRef AS rf ON rh.SettlementLogID = rf.SettlementLogID
+										GROUP BY rf.GroupName
+											,rf.RefId1
+											,rf.RefId2
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpUpdatedRH
 	DROP TABLE #tmpEventInfo

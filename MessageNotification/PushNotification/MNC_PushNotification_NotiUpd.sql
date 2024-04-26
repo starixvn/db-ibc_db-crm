@@ -62,31 +62,25 @@ BEGIN
 	SELECT @ErrLogPrefix = 'Error - '
 	SELECT @InfLogPrefix = 'Info - '
 	
-	INSERT INTO [Log] (
-		RefID
-		,ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT @NotificationID AS RefID
-		,@LogActionID
-		,@LogUserID
-		,@InfLogPrefix + 'Debug log for [Push Notification] - UPD RefID with @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
-						+', @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
-						+', @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
-						+', @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-						+', @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
-	
-	CREATE TABLE #tmpNoti (
-		NotificationID INT NOT NULL
-		,StatusID TINYINT NOT NULL
-	)
-	
-	----------------return error from MNC_PushNotification_MsgIns----------------------------------------
-	IF @ErrCode <> 0
+	IF ISNULL(@ErrCode,0) <> 0
+	BEGIN
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @NotificationID AS RefID
+			,@LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FROM [MsgIns] - '
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
+						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+	END
+	ELSE
 	BEGIN
 		INSERT INTO [Log] (
 			RefID
@@ -94,15 +88,24 @@ BEGIN
 			,UserID
 			,LogBef
 		)
-		SELECT @NotificationID
+		SELECT @NotificationID AS RefID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Error from MNC_PushNotification_MsgIns - @NotificationID = '+ ISNULL(CONVERT(VARCHAR, @NotificationID),'NULL')
-				+ ', @MessageID = ' + ISNULL(CONVERT(VARCHAR, @MessageID),'NULL')
-				+ ', @UpdType = ' + ISNULL(@UpdType,'NULL')
-				+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
-				+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
+			,@InfLogPrefix + 'Debug - Start [Push Notification Msg process - NotiUpd]'
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+						+' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
+						+' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 13 --LogMode
+			AND VValue = 'Debug'
 	END
+	
+	CREATE TABLE #tmpUpdNoti (
+		NotificationID INT NOT NULL
+		,StatusID TINYINT NOT NULL
+	)
 	
 	IF @UpdType = 'AfterInsMsg'
 	BEGIN TRY
@@ -114,7 +117,7 @@ BEGIN
 			,n.LastModifiedTime = GETDATE()
 		OUTPUT INSERTED.NotificationID
 			,INSERTED.StatusID
-		INTO #tmpNoti (
+		INTO #tmpUpdNoti (
 			NotificationID
 			,StatusID
 		) --Get Updated NotificationID
@@ -129,18 +132,19 @@ BEGIN
 			,UserID
 			,LogBef
 		)
-		SELECT NotificationID
+		SELECT u.NotificationID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Changed Notification Status from [Sending] to ['+ (CASE WHEN StatusID = @StsSucceedSend THEN 'Sent' ELSE 'Failed to Send' END) +']'
+			,@InfLogPrefix + '[Push Notification Msg process - NotiUpd] - Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
 							+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
-		FROM #tmpNoti
-		ORDER BY NotificationID
+		FROM #tmpUpdNoti AS u
+			INNER JOIN NotiStatus AS s WITH (NOLOCK) ON u.StatusID = s.StatusID
+		ORDER BY u.NotificationID
 		
 		UPDATE nt
 		SET nt.StatusID = n.StatusID
 		FROM NotificationTarget AS nt WITH (ROWLOCK,UPDLOCK)
-			INNER JOIN #tmpNoti AS n ON nt.NotificationID = n.NotificationID
+			INNER JOIN #tmpUpdNoti AS n ON nt.NotificationID = n.NotificationID
 		
 		COMMIT TRANSACTION
 		
@@ -153,38 +157,33 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
+			,@ErrMsg = 'FAILED while Updated NotificationID - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		
 		ROLLBACK TRANSACTION
 	END CATCH
 	
 	--------------check Error in this SP----------------
-	IF NOT EXISTS (SELECT 1 FROM #tmpNoti)
+	IF @ErrCode = 0
+		AND NOT EXISTS (SELECT 1 FROM #tmpUpdNoti)
 	BEGIN
-		IF @ErrCode = 0
-		BEGIN
-			SELECT @ErrCode = 50003 --user-defined
-				,@ErrMsg = 'NO affected Notification with param @NotificationID = '+ ISNULL(CONVERT(VARCHAR, @NotificationID),'NULL')
-							+ ', @MessageID = ' + ISNULL(CONVERT(VARCHAR, @MessageID),'NULL')
-							+ ', @UpdType = ' + ISNULL(@UpdType,'NULL')
-							+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
-							+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
-		END
-		
-		INSERT INTO [Log] (
-			RefID
-			,ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @NotificationID
-			,@LogActionID
-			,@LogUserID
-			,@ErrLogPrefix + 'NO affected Notification with param @NotificationID = '+ ISNULL(CONVERT(VARCHAR, @NotificationID),'NULL')
-				+ ', @MessageID = ' + ISNULL(CONVERT(VARCHAR, @MessageID),'NULL')
-				+ ', @UpdType = ' + ISNULL(@UpdType,'NULL')
-				+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
-				+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
+		SELECT @ErrCode = 50003 --user-defined
+			,@ErrMsg = 'NO affected Notification'
 	END
-	DROP TABLE IF EXISTS #tmpNoti
+	
+	INSERT INTO [Log] (
+		RefID
+		,ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @NotificationID
+		,@LogActionID
+		,@LogUserID
+		,@ErrLogPrefix + '[Push Notification Msg process - NotiUpd] - ' + ISNULL(@ErrMsg,'NULL')
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+	WHERE @ErrCode <> 0
+	
+	DROP TABLE #tmpUpdNoti
 END

@@ -22,7 +22,10 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	CREATE TABLE #tmpMsg (
+	DECLARE @iErrCode INT = @ErrCode
+		,@iErrMsg NVARCHAR(2000) = @ErrMsg
+	
+	CREATE TABLE #tmpUpdMsg (
 		MessageID INT NOT NULL
 	)
 	----------------Error from MNC_PushNotification_NotiUpd----------------------------------------
@@ -31,7 +34,7 @@ BEGIN
 		---DELETE Msg
 		DELETE FROM dbo.Msg
 		OUTPUT DELETED.MessageID
-		INTO #tmpMsg (
+		INTO #tmpUpdMsg (
 			MessageID
 		) --Get Updated MessageID
 		WHERE MessageId = @MessageID
@@ -40,7 +43,7 @@ BEGIN
 		
 		DELETE mt
 		FROM dbo.MsgTarget AS mt
-			INNER JOIN #tmpMsg AS d ON d.MessageId = mt.MessageId
+			INNER JOIN #tmpUpdMsg AS d ON d.MessageId = mt.MessageId
 		
 		/*
 			at this state, ErrCode from MNC_PushNotification_NotiUpd is handled
@@ -51,8 +54,12 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
-		
+			,@ErrMsg = 'Error - [Push Notification Msg process - MsgUpd] - FAILED to DELETE MessageID due to ERROR from NotiUpd'
+						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
+						+ ' - @ErrMsg(' + ISNULL(@iErrMsg,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		ROLLBACK TRANSACTION
 	END CATCH
 	ELSE IF @UpdType = 'AfterUpdNoti'
@@ -64,7 +71,7 @@ BEGIN
 			,m.isDeleted = 0
 			,m.LastUpdateTime = GETDATE()
 		OUTPUT INSERTED.MessageID
-		INTO #tmpMsg (
+		INTO #tmpUpdMsg (
 			MessageID
 		) --Get Updated MessageID
 		FROM dbo.Msg AS m WITH (ROWLOCK,UPDLOCK)
@@ -74,27 +81,30 @@ BEGIN
 		UPDATE t
 		SET t.isDeleted = 0
 		FROM dbo.MsgTarget AS t WITH (ROWLOCK,UPDLOCK)
-			INNER JOIN #tmpMsg AS m ON t.MessageID = m.MessageID
+			INNER JOIN #tmpUpdMsg AS m ON t.MessageID = m.MessageID
 		
 		COMMIT TRANSACTION
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
-		
+			,@ErrMsg = 'Error - [Push Notification Msg process - MsgUpd] - FAILED to mark MessageID completed'
+						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
+						+ ' - @ErrMsg(' + ISNULL(@iErrMsg,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		ROLLBACK TRANSACTION
 	END CATCH
 	
 	------------------------------
-	IF NOT EXISTS (SELECT 1 FROM #tmpMsg)
+	IF NOT EXISTS (SELECT 1 FROM #tmpUpdMsg)
 		AND @ErrCode = 0
 	BEGIN
 		SELECT @ErrCode = 50004
-			,@ErrMsg = 'NO affected Msg/MsgTarget with param @MessageID = ' + ISNULL(CONVERT(VARCHAR, @MessageID),'NULL')
-						+ ', @UpdType = ' + ISNULL(@UpdType,'NULL')
-						+ ', ErrCode = ' + ISNULL(CONVERT(VARCHAR, @ErrCode),'NULL')
-						+ ', ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
+			,@ErrMsg = '[Push Notification Msg process - MsgUpd] - NO affected Msg/MsgTarget'
+						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 	END
 	
-	DROP TABLE #tmpMsg
+	DROP TABLE #tmpUpdMsg
 END

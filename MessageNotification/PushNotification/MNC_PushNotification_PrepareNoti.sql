@@ -79,10 +79,9 @@ BEGIN
 	--check current status of [Push Notification] process
 	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_PushNoti
 	BEGIN
-		RAISERROR ('Error - Another [Push Notification] Process is still active.', 16, 1)
 		
-		SELECT 0 AS NotificationID
-			,'' AS JSNotification
+		SELECT NULL AS NotificationID
+			,NULL AS JSNotification
 		WHERE 1 = 0
 		
 		INSERT INTO [Log] (
@@ -102,6 +101,17 @@ BEGIN
 		SET VValue = 'Running'
 		WHERE VID = @ProcessID
 			AND VValue = 'Done'
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Start [Push Notification Msg process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
 	END
 	
 	--------------------------------------------------------
@@ -154,31 +164,41 @@ BEGIN
 	SET nt.StatusID = @StsSending
 	FROM NotificationTarget AS nt WITH (ROWLOCK,UPDLOCK)
 		INNER JOIN #tmpSendingNoti AS s ON nt.NotificationID = s.NotificationID
+	WHERE nt.StatusID <> @StsSending
 	
 	--write log
 	INSERT INTO [Log] (
-		RefID
-		,ActionID
+		ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT NotificationID
-		,@LogActionID
+	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Changed NotificationTarget Status to [Sending]'
-	FROM #tmpSendingNoti
-	ORDER BY NotificationID
+		,@InfLogPrefix + 'Debug - [Push Notification Msg process - Prepare]'
+						+ ' - NotiIDs('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT NotificationID
+										FROM #tmpSendingNoti
+										ORDER BY NotificationID
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	----------Get Notification data----------
 	;WITH CTE_NotiExtra AS (
-		SELECT s.NotificationID
-			,ne.MatchID
-			,ne.LeagueGroupID
+		SELECT DISTINCT s.NotificationID
+			,nex.MatchID
+			,nex.LeagueGroupID
 		FROM #tmpSendingNoti AS s
-			CROSS APPLY OPENJSON((SELECT ExtraInfo FROM NotificationExtra AS ne WITH (NOLOCK) WHERE ne.NotificationID = s.NotificationID)) WITH (
+			INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON ne.NotificationID = s.NotificationID
+			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 				MatchID INT '$.MatchID'
 				,LeagueGroupID SMALLINT '$.LeagueGroupID'
-			) AS ne--OPENJSON case-sensitive
+			) AS nex--OPENJSON case-sensitive
+		WHERE ISJSON(ne.ExtraInfo) = 1
 	)
 	INSERT INTO #tmpMsg (
 		NotificationID
@@ -210,9 +230,10 @@ BEGIN
 			,ex.TransID
 		FROM #tmpSendingNoti AS s
 			INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON s.NotificationID = nt.NotificationID
-			CROSS APPLY OPENJSON(nt.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 				TransID BIGINT '$.TransID'
 			) AS ex--OPENJSON case-sensitive
+		WHERE ISJSON(nt.ExtraInfo) = 1
 	)
 	INSERT INTO #tmpMsgTarget (
 		NotificationID
@@ -294,23 +315,24 @@ BEGIN
 		-- AND VValue = 'Running'
 		-- AND NOT EXISTS (SELECT 1 FROM #tmpResult)
 	
-	----------------------Annual log to make sure system still live -----------------
-	IF EXISTS (
-		SELECT VValue
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
+	--write log
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
 	)
-	BEGIN
-		INSERT INTO [Log] (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,@InfLogPrefix + 'Debug log to make sure [Push Notification] process still live.'
-	END
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + '[Push Notification Msg process - Prepare]'
+						+ ' - Return('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT NotificationID
+											,JSNotification
+										FROM #tmpResult
+										ORDER BY NotificationID
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpJSData

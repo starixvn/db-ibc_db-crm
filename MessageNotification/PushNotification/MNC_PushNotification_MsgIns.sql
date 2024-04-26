@@ -149,7 +149,10 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
+			,@ErrMsg = 'Error - [Push Notification Msg process - MsgIns] - FAILED parse input JSON'
+						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 	END CATCH
 	
 	--insert Msg and get @MessageID
@@ -207,7 +210,10 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
+			,@ErrMsg = 'Error - [Push Notification Msg process - MsgIns] - FAILED Insert Msg'
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		ROLLBACK TRANSACTION
 	END CATCH
 	
@@ -236,7 +242,10 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
+			,@ErrMsg = 'Error - [Push Notification Msg process - MsgIns] - FAILED Insert MsgTarget'
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		
 		ROLLBACK TRANSACTION
 	END CATCH
@@ -248,10 +257,9 @@ BEGIN
 				OR NOT EXISTS (SELECT 1 FROM dbo.MsgTarget WITH (NOLOCK) WHERE MessageId = @MessageID)
 		)
 	BEGIN
-		SELECT @ErrMsg = ISNULL(@ErrMsg,'') + ' INSERT NotificationID (' + ISNULL(CONVERT(VARCHAR,@NotificationID),'') + ') FAILED'
-				+' (JSON NotificationID=' + (SELECT ISNULL(NotificationID,'NULL') FROM #tmpMsg)
-				+ CASE WHEN @MessageID IS NULL THEN ')'
-					ELSE ', FAILED after succeeding Insert Msg with MessageID = ' + ISNULL(CONVERT(VARCHAR,@MessageID),'') + ')' END
+		SELECT @ErrMsg = ISNULL(@ErrMsg,'') + 'Invalid @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ') while INSERT'
+				+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+				+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
 		
 		SELECT @ErrCode = 50002 --user-defined
 	END
@@ -266,8 +274,9 @@ BEGIN
 		DELETE FROM dbo.MsgTarget
 		WHERE MessageId = @MessageID
 		
-		SELECT @ErrMsg = ISNULL(@ErrMsg,'') + ' INSERT NotificationID (' + ISNULL(CONVERT(VARCHAR,@NotificationID),'') + ') FAILED'
-				+ ', Deleted Msg/MsgTarget with MessageId = ' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL')
+		SELECT @ErrMsg = 'Deleted Msg/MsgTarget with @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ISNULL(' - ' + @ErrMsg,'')
+		
 		SELECT @MessageID = NULL
 	END
 	

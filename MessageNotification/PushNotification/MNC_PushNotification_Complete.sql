@@ -20,46 +20,58 @@ BEGIN
 	
 	DECLARE @ProcessID INT = 6 --Process_PushNoti
 		,@SuccessFlag INT = -1
+		,@LogUserID INT
+		,@LogActionID SMALLINT
+	
+	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 2 --ID of StarixIT
+	
+	SELECT @LogActionID = ActionID
+	FROM LogAction WITH (NOLOCK)
+	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
 	INSERT INTO [Log] (
 		ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT (SELECT ActionID FROM LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
-		,(SELECT TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
-		,'Info - Debug log for [Push Notification] - Complete with @ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ')'
-						+', Current Value(' + ISNULL((SELECT VValue FROM SystemSetting WITH (NOLOCK) WHERE VID = @ProcessID),'NULL') + ')'
+	SELECT @LogActionID
+		,@LogUserID
+		,'Info - Debug - Start [Push Notification Msg process - Completed]'
+			+ '- @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
+			+ '- @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
 	
-	--only update if 'Running'
-	IF EXISTS (SELECT 1 FROM SystemSetting WITH (NOLOCK) WHERE VID = @ProcessID AND VValue = 'Running')
-	BEGIN TRY
-		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-		SET VValue = 'Done'
-		WHERE VID = @ProcessID
-			AND VValue = 'Running'
-		
-		SELECT @SuccessFlag = @@ROWCOUNT
-	END TRY
-	BEGIN CATCH
-		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = ERROR_MESSAGE() --output for web
-		
-		SET @SuccessFlag = 0
-	END CATCH
+	IF @ErrCode <> 0
+	BEGIN
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,'Error - [Push Notification Msg process - Completed]'
+				+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
+				+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+	END
+	
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = 'Done'
+	WHERE VID = @ProcessID
+		AND VValue = 'Running'
 	
 	INSERT INTO [Log] (
 		ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT (SELECT ActionID FROM LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
-		,(SELECT TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
-		,'Error - FAILED UPD [Push Notification] Process with @ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to DONE'
-			+ ISNULL(' - @ErrCode (' + CONVERT(VARCHAR,@ErrCode) + ')','')
-			+ ISNULL(' - @ErrMsg (' + @ErrMsg + ')','')
-	WHERE @SuccessFlag = 0
+	SELECT @LogActionID
+		,@LogUserID
+		,'Info - Completed [Push Notification Msg process - Completed] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = @ProcessID
 END

@@ -29,6 +29,7 @@ BEGIN
 		,@Updater VARCHAR(50)
 		,@ErrLogPrefix NVARCHAR(150) = 'Error - '
 		,@InfLogPrefix NVARCHAR(150) = 'Info - '
+		,@LogMode VARCHAR(500)
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -37,6 +38,10 @@ BEGIN
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
+	
+	SELECT @LogMode = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
 	
 	----------------------------------------------------------------
 	INSERT INTO [Log] (
@@ -48,16 +53,14 @@ BEGIN
 	SELECT @NotiID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug log Start UPD Notification with @NotiID = ' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL')
-						+ ', @NewStatus = ' + ISNULL(@NewStatus,'NULL')
-						+ ', @UpdaterID = ' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL')
-						+ ', @ErrCode = ' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL')
-						+ ', @NewContentEN (' + ISNULL(@NewContentEN,'NULL') + ')'
-						+ ', @NewContentCH (' + ISNULL(@NewContentCH,'NULL') + ')'
-						+ ', @NewContentCS (' + ISNULL(@NewContentCS,'NULL') + ')'
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
+		,@InfLogPrefix + 'Debug - Start UPD Notification'
+						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+	WHERE @LogMode = 'Debug'
 	
 	-----------------verify before update Content---------------
 	IF NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
@@ -75,8 +78,12 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
-						+ ', @NewStatus = ' + ISNULL(@NewStatus,'NULL')
-						+ ', @UpdaterID = ' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL')
+						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 		
 		RETURN
 	END
@@ -143,9 +150,15 @@ BEGIN
 						) AS ns --OPENJSON case-sensitive
 		LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 	WHERE NotificationID = @NotiID
+		AND ISJSON(n.Subject) = 1
 	OPTION (RECOMPILE)
 	
 	--parse input to new Notification
+	;WITH CTE_NewNoti AS (
+		SELECT NULLIF(TRIM(@NewContentEN), '') AS Content_en
+			,NULLIF(TRIM(@NewContentCH), '') AS Content_ch
+			,NULLIF(TRIM(@NewContentCS), '') AS Content_cs
+	)
 	INSERT INTO #tmpNewNoti (
 		NotiID
 		,Content_en
@@ -156,24 +169,26 @@ BEGIN
 		,Subject_cs
 	)
 	SELECT @NotiID
-		,NULLIF(TRIM(@NewContentEN), '')
-		,CASE WHEN NULLIF(TRIM(@NewContentEN), '') IS NOT NULL THEN '' END
-		,NULLIF(TRIM(@NewContentCH), '')
-		,CASE WHEN NULLIF(TRIM(@NewContentCH), '') IS NOT NULL THEN '' END
-		,NULLIF(TRIM(@NewContentCS), '')
-		,CASE WHEN NULLIF(TRIM(@NewContentCS), '') IS NOT NULL THEN '' END
+		,Content_en
+		,CASE WHEN Content_en IS NOT NULL THEN '' END --blank if Content IS NOT NULL (for Loop below)
+		,Content_ch
+		,CASE WHEN Content_ch IS NOT NULL THEN '' END
+		,Content_cs
+		,CASE WHEN Content_cs IS NOT NULL THEN '' END
+	FROM CTE_NewNoti
 		
 	IF @NotiType = 2 --LAP
 	BEGIN
 		/*
 			Becasue the LAP Content include [Subject]
 				=> Need to parse the [Subject] from input [Content]
+			
 			1.[Subject] = Frist [NON BLANK] line of input [Content]
 			2.[Content] = input [Content] - [Subject]
 			Ex: @NewContentEN = N'<br/> <br/><b>Subject_test</b><br/><br/><b>Dear Valued Customers,</b><br/>...'
-				Loop 1: [Subject] = '<br/> ' = TRIM(REPLACE(Subject_en, @NewLine, '')) = ''
-						[Content] = '<br/><b>Subject_test</b><br/><br/><b>Dear Valued Customers,</b><br/>...'
-				Loop 2: [Subject] = '<br/>' = TRIM(REPLACE(Subject_en, @NewLine, '')) = ''
+				Loop 1: [Subject] = '<br/>' = TRIM(REPLACE(Subject_en, @NewLine, '')) = ''
+						[Content] = '<br/><b>Subject_test</b><br/><br/><b>Dear Valued Customers,</b><br/>...' --removed SPACE
+				Loop 2: [Subject] = ' <br/>' = TRIM(REPLACE(Subject_en, @NewLine, '')) = ''
 						[Content] = '<b>Subject_test</b><br/><br/><b>Dear Valued Customers,</b><br/>...'
 				Loop 3: [Subject] = '<b>Subject_test</b>' = TRIM(REPLACE(Subject_en, @NewLine, '')) = '<b>Subject_test</b>'
 						[Content] = '<br/><br/><b>Dear Valued Customers,</b><br/>...'
@@ -181,43 +196,77 @@ BEGIN
 						[Content] = '<b>Dear Valued Customers,</b><br/>...'
 		*/
 		DECLARE @NewLine VARCHAR(5) = '<br/>'
+			,@iCnt INT
 		
-		WHILE EXISTS (
-			SELECT 1 
+		--Ensure that the WHILE loop does NOT run indefinitely--
+		;WITH CTE_NewLineCnt AS (
+			SELECT LEN(Content_en) - LEN(REPLACE(Content_en, @NewLine, '')) AS en_Cnt
+				,LEN(Content_ch) - LEN(REPLACE(Content_ch, @NewLine, '')) AS ch_Cnt
+				,LEN(Content_cs) - LEN(REPLACE(Content_cs, @NewLine, '')) AS cs_Cnt
 			FROM #tmpNewNoti
-			WHERE Subject_en = ''
-				OR Subject_ch = ''
-				OR Subject_cs = ''
-				
-				OR Content_en LIKE @NewLine + '%'
-				OR Content_ch LIKE @NewLine + '%'
-				OR Content_cs LIKE @NewLine + '%'
 		)
+		SELECT @iCnt = (SELECT MAX(v) FROM (VALUES (en_Cnt), (ch_Cnt), (cs_Cnt)) AS value(v)) / LEN(@NewLine)
+		FROM CTE_NewLineCnt --count number of times appears @NewLine
+		
+		WHILE ISNULL(@iCnt,0) >= 0
+			AND EXISTS (
+				SELECT 1 
+				FROM #tmpNewNoti
+				WHERE Subject_en = ''
+					OR Subject_ch = ''
+					OR Subject_cs = ''
+					
+					OR Content_en LIKE @NewLine + '%'
+					OR Content_ch LIKE @NewLine + '%'
+					OR Content_cs LIKE @NewLine + '%'
+			)
 		BEGIN
 			;WITH CTE_PreSubject AS (
 				SELECT NotiID
+					--get [temp Subject] => from [start] to [First @NewLine] (include @NewLine)
 					,SUBSTRING(Content_en, 0, CHARINDEX(@NewLine, Content_en, 0) + LEN(@NewLine)) AS Subject_en
 					,SUBSTRING(Content_ch, 0, CHARINDEX(@NewLine, Content_ch, 0) + LEN(@NewLine)) AS Subject_ch
 					,SUBSTRING(Content_cs, 0, CHARINDEX(@NewLine, Content_cs, 0) + LEN(@NewLine)) AS Subject_cs
 				FROM #tmpNewNoti
 			)
 			UPDATE n
-			SET n.Subject_en = CASE WHEN ISNULL(REPLACE(n.Subject_en, @NewLine, ''), '') = '' THEN REPLACE(sj.Subject_en, @NewLine, '') ELSE n.Subject_en END --Remove first @NewLine in Subject
-				,n.Content_en = (CASE WHEN ISNULL(REPLACE(n.Subject_en, @NewLine, ''), '') = '' THEN TRIM(RIGHT(n.Content_en, LEN(n.Content_en) - LEN(sj.Subject_en))) --Remove Subject in Content
-									WHEN ISNULL(n.Content_en, '') LIKE @NewLine + '%' THEN TRIM(RIGHT(n.Content_en, LEN(n.Content_en) - LEN(@NewLine))) --Remove first @NewLine in Content
-									ELSE n.Content_en END)
+			SET n.Subject_en = (CASE WHEN n.Subject_en = '' 							--IF current Subject BLANK
+										THEN TRIM(REPLACE(sj.Subject_en, @NewLine, '')) --get [temp Subject] (remove @NewLine)
+									ELSE n.Subject_en 									--keep current
+								END)
+				,n.Content_en = (CASE WHEN n.Subject_en = '' 													--IF current Subject BLANK
+										THEN TRIM(RIGHT(n.Content_en, LEN(n.Content_en) - LEN(sj.Subject_en))) 	--Remove [temp Subject] in Content
+									WHEN ISNULL(n.Content_en, '') LIKE @NewLine + '%' 							--IF current Content [start with @NewLine]
+										THEN TRIM(RIGHT(n.Content_en, LEN(n.Content_en) - LEN(@NewLine))) 		--Remove [first @NewLine] in Content
+									ELSE n.Content_en
+								END)
 				
-				,n.Subject_ch = CASE WHEN ISNULL(REPLACE(n.Subject_ch, @NewLine, ''), '') = '' THEN REPLACE(sj.Subject_ch, @NewLine, '') ELSE n.Subject_ch END
-				,n.Content_ch = (CASE WHEN ISNULL(REPLACE(n.Subject_ch, @NewLine, ''), '') = '' THEN TRIM(RIGHT(n.Content_ch, LEN(n.Content_ch) - LEN(sj.Subject_ch)))
-									WHEN ISNULL(n.Content_ch, '') LIKE @NewLine + '%' THEN TRIM(RIGHT(n.Content_ch, LEN(n.Content_ch) - LEN(@NewLine)))
-									ELSE n.Content_ch END)
+				,n.Subject_ch = (CASE WHEN n.Subject_ch = ''
+										THEN TRIM(REPLACE(sj.Subject_ch, @NewLine, ''))
+									ELSE n.Subject_ch
+								END)
+				,n.Content_ch = (CASE WHEN n.Subject_ch = ''
+										THEN TRIM(RIGHT(n.Content_ch, LEN(n.Content_ch) - LEN(sj.Subject_ch)))
+									WHEN ISNULL(n.Content_ch, '') LIKE @NewLine + '%'
+										THEN TRIM(RIGHT(n.Content_ch, LEN(n.Content_ch) - LEN(@NewLine)))
+									ELSE n.Content_ch
+								END)
 				
-				,n.Subject_cs = CASE WHEN ISNULL(REPLACE(n.Subject_cs, @NewLine, ''), '') = '' THEN REPLACE(sj.Subject_cs, @NewLine, '') ELSE n.Subject_cs END
-				,n.Content_cs = (CASE WHEN ISNULL(REPLACE(n.Subject_cs, @NewLine, ''), '') = '' THEN TRIM(RIGHT(n.Content_cs, LEN(n.Content_cs) - LEN(sj.Subject_cs)))
-									WHEN ISNULL(n.Content_cs, '') LIKE @NewLine + '%' THEN TRIM(RIGHT(n.Content_cs, LEN(n.Content_cs) - LEN(@NewLine)))
-									ELSE n.Content_cs END)
+				,n.Subject_cs = (CASE WHEN n.Subject_cs = ''
+										THEN TRIM(REPLACE(sj.Subject_cs, @NewLine, ''))
+									ELSE n.Subject_cs
+								END)
+				,n.Content_cs = (CASE WHEN n.Subject_cs = ''
+										THEN TRIM(RIGHT(n.Content_cs, LEN(n.Content_cs) - LEN(sj.Subject_cs)))
+									WHEN ISNULL(n.Content_cs, '') LIKE @NewLine + '%'
+										THEN TRIM(RIGHT(n.Content_cs, LEN(n.Content_cs) - LEN(@NewLine)))
+									ELSE n.Content_cs
+								END)
 			FROM #tmpNewNoti AS n
 				INNER JOIN CTE_PreSubject AS sj ON n.NotiID = sj.NotiID
+			
+			----reset for loop
+			SELECT @iCnt = @iCnt - 1
 		END
 	END
 	
@@ -247,7 +296,7 @@ BEGIN
 				INNER JOIN #tmpCurNoti AS c ON n.NotiID = c.NotiID
 			WHERE ISNULL(n.Subject_en,'') <> ISNULL(c.Subject_en,'')
 		)
-			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$.Subject_en', Subject_en)
+			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$[0].Subject_en', Subject_en)
 			FROM #tmpNewNoti
 		
 		IF EXISTS (
@@ -256,7 +305,7 @@ BEGIN
 				INNER JOIN #tmpCurNoti AS c ON n.NotiID = c.NotiID
 			WHERE ISNULL(n.Subject_ch,'') <> ISNULL(c.Subject_ch,'')
 		)
-			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$.Subject_ch', Subject_ch)
+			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$[0].Subject_ch', Subject_ch)
 			FROM #tmpNewNoti
 		
 		IF EXISTS (
@@ -265,7 +314,7 @@ BEGIN
 				INNER JOIN #tmpCurNoti AS c ON n.NotiID = c.NotiID
 			WHERE ISNULL(n.Subject_cs,'') <> ISNULL(c.Subject_cs,'')
 		)
-			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$.Subject_cs', Subject_cs)
+			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$[0].Subject_cs', Subject_cs)
 			FROM #tmpNewNoti
 		
 		UPDATE Notification WITH (ROWLOCK,UPDLOCK)
@@ -289,7 +338,7 @@ BEGIN
 				,@LogUserID
 				,@InfLogPrefix + 'UPD NotificationID Subject - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
 								+ ' - Notification.Subject before (' + ISNULL(@JSCurSub,'NULL') + ')'
-				,TRIM(@JSNewSub)
+				,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
 		END
 		ELSE
 		BEGIN
@@ -307,8 +356,14 @@ BEGIN
 				,@LogActionID
 				,@LogUserID
 				,@ErrLogPrefix + @ErrMsg
-					+ '- Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
-				,TRIM(@JSNewSub)
+					+ ' - Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
+					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+					+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+					+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+					+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+					+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+					+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+				,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
 		END
 	END TRY
 	BEGIN CATCH
@@ -320,16 +375,20 @@ BEGIN
 			,ActionID
 			,UserID
 			,LogBef
+			,LogAft
 		)
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + @ErrMsg
-				+ ' - Notification.Subject current(' + ISNULL(@JSCurSub,'NULL') + ')'
-				+ '- Input @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
-				+ '- Input @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
-				+ '- Input @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
-				+ '- New Subject (' + ISNULL(@JSNewSub,'NULL') + ')'
+				+ ' - Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
+				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+			,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
 	END CATCH
 	ELSE
 	BEGIN
@@ -342,10 +401,8 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug log UPD Notification.Subject - NO Change'
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
+			,@InfLogPrefix + 'Debug - UPD Notification.Subject - NO Change'
+		WHERE @LogMode = 'Debug'
 	END
 	
 	--Content DIFF
@@ -382,9 +439,9 @@ BEGIN
 							+ ' - Notification.Content_en before (' + ISNULL(c.Content_en,'NULL') + ')'
 							+ ' - Notification.Content_ch before (' + ISNULL(c.Content_ch,'NULL') + ')'
 							+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')'
-			,'Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
-				+ ' - Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
-				+ ' - Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
+			,'New Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
+				+ ' - New Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
+				+ ' - New Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
 		FROM #tmpCurNoti AS c
 			INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 		ORDER BY c.NotiID
@@ -403,9 +460,12 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + @ErrMsg
-				+ '- @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
-				+ '- @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
-				+ '- @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 	END CATCH
 	ELSE
 	BEGIN
@@ -418,10 +478,8 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug log UPD Notification.Content(en/ch/cs) - NO Change'
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
+			,@InfLogPrefix + 'Debug - UPD Notification.Content(en/ch/cs) - NO Change'
+		WHERE @LogMode = 'Debug'
 	END
 	
 	-- Status DIFF
@@ -448,9 +506,12 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + @ErrMsg
-				+ '- @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
-				+ '- @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
-				+ '- @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 	END CATCH
 	
 	--debug log
@@ -464,14 +525,14 @@ BEGIN
 	SELECT c.NotiID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug log DONE UPD Notification'
-						+ ', @NewStatus = ' + ISNULL(@NewStatus,'NULL')
-						+ ', Content_en (' + ISNULL(c.Content_en,'NULL') + ')'
-						+ ', Subject_en (' + ISNULL(c.Subject_en,'NULL') + ')'
-						+ ', Content_ch (' + ISNULL(c.Content_ch,'NULL') + ')'
-						+ ', Subject_ch (' + ISNULL(c.Subject_ch,'NULL') + ')'
-						+ ', Content_cs (' + ISNULL(c.Content_cs,'NULL') + ')'
-						+ ', Subject_cs (' + ISNULL(c.Subject_cs,'NULL') + ')'
+		,@InfLogPrefix + 'Debug - DONE UPD Notification'
+						+ ' - @NewStatus (' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - Content_en (' + ISNULL(c.Content_en,'NULL') + ')'
+						+ ' - Subject_en (' + ISNULL(c.Subject_en,'NULL') + ')'
+						+ ' - Content_ch (' + ISNULL(c.Content_ch,'NULL') + ')'
+						+ ' - Subject_ch (' + ISNULL(c.Subject_ch,'NULL') + ')'
+						+ ' - Content_cs (' + ISNULL(c.Content_cs,'NULL') + ')'
+						+ ' - Subject_cs (' + ISNULL(c.Subject_cs,'NULL') + ')'
 		,'Status = ' + ISNULL(s.Status,'NULL')
 						+ ', Subject (' + ISNULL(n.Subject,'NULL') + ')'
 						+ ', Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
@@ -480,9 +541,7 @@ BEGIN
 	FROM #tmpCurNoti AS c
 		INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 		LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
-	WHERE 'Debug' = (
-		SELECT VValue FROM SystemSetting WITH (NOLOCK) WHERE VID = 13 --LogMode
-	)
+	WHERE @LogMode = 'Debug'
 	ORDER BY c.NotiID
 	
 	DROP TABLE #tmpNewNoti

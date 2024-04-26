@@ -11,6 +11,9 @@ ALTER PROCEDURE MNC_Notification_AdmSelNoti
 	,@Status VARCHAR(MAX) = NULL
 	,@Sender VARCHAR(50) = NULL
 	,@IncludeTest BIT = NULL
+	,@PageSize INT = 100
+	,@PageIndex INT = 1
+	,@TotalRows INT = 0 OUTPUT
 AS
 /*
 	Created: 20231213@Roy
@@ -32,7 +35,7 @@ AS
 		@Sender: who confirm to push notification to Msg (NotificationExtra.ExtraInfo.MsgSender)
 								OR Active LAP Noti (NotificationExtra.ExtraInfo.LapSender)
 		@IncludeTest: NotificationExtra.ExtraInfo.IsTest
-	
+		@PageSize ,@PageIndex ,@TotalRows: handle paging
 	Example:
 		EXEC MessageNotification.dbo.MNC_Notification_AdmSelNoti
 			@FNotiID = 1
@@ -66,6 +69,23 @@ BEGIN
 	CREATE TABLE #tmpStsByNotiType (
 		NotiType TINYINT
 		,StatusID TINYINT
+	)
+	
+	CREATE TABLE #tmpResult (
+		RNo INT IDENTITY(1, 1) PRIMARY KEY
+		,NotificationID INT
+		,MessageID INT
+		,SessionID VARCHAR(50)
+		,EventDate4GMT VARCHAR(50)
+		,EventName NVARCHAR(500)
+		,CreatedTimeGMT8 VARCHAR(50)
+		,Subject NVARCHAR(1000)
+		,Content_en NVARCHAR(4000)
+		,Content_ch NVARCHAR(4000)
+		,Content_cs NVARCHAR(4000)
+		,Status VARCHAR(50)
+		,Sender VARCHAR(50)
+		,SendDateGMT8 VARCHAR(50)
 	)
 	
 	--hard code status based on NotiType - check consistency MNC_Notification_AdmUpdNotiSts
@@ -123,13 +143,14 @@ BEGIN
 		WHERE NOT EXISTS (
 			SELECT 1
 			FROM dbo.NotificationExtra AS ne WITH (NOLOCK)
-				CROSS APPLY OPENJSON(ne.ExtraInfo) WITH (
+				OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 								MsgNotiID INT '$.MsgNotiID'
 							) AS ext --OPENJSON case-sensitive
 				INNER JOIN dbo.Notification AS msgn WITH (NOLOCK) ON ext.MsgNotiID = msgn.NotificationID
 				INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON msgn.StatusID = s.StatusID
 			WHERE ne.NotificationID = i.NotiID
 				AND s.Status = 'Sent' --push successful
+				AND ISJSON(ne.ExtraInfo) = 1
 		)
 		
 		---Get data from NotificationExtra
@@ -143,7 +164,7 @@ BEGIN
 			,Sender
 			,SendDate
 		)
-		SELECT i.NotiID
+		SELECT DISTINCT i.NotiID
 			,nMsg.RefID
 			,extMsg.MatchID
 			,neMsg.EventDate
@@ -153,20 +174,22 @@ BEGIN
 			,extLap.LapSendDate
 		FROM #tmpNoti AS i
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON i.NotiID = neLap.NotificationID
-			CROSS APPLY OPENJSON(neLap.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
 							MsgNotiID INT '$.MsgNotiID'
 							,LapSender VARCHAR(50) '$.LapSender'
 							,LapSendDate DATETIME '$.LapSendDate'
 						) AS extLap --OPENJSON case-sensitive
 			INNER JOIN dbo.Notification AS nMsg WITH (NOLOCK) ON extLap.MsgNotiID = nMsg.NotificationID
 			INNER JOIN dbo.NotificationExtra AS neMsg WITH (NOLOCK) ON extLap.MsgNotiID = neMsg.NotificationID
-			CROSS APPLY OPENJSON(neMsg.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(neMsg.ExtraInfo) WITH (
 							MatchID INT '$.MatchID'
 							,IsTest BIT '$.IsTest'
 							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
 						) AS extMsg --OPENJSON case-sensitive
+		WHERE ISJSON(neLap.ExtraInfo) = 1
+			AND ISJSON(neMsg.ExtraInfo) = 1
 	END
 	ELSE --Msg Notification
 	BEGIN
@@ -180,7 +203,7 @@ BEGIN
 			,Sender
 			,SendDate
 		)
-		SELECT i.NotiID
+		SELECT DISTINCT i.NotiID
 			,n.RefID
 			,ext.MatchID
 			,ne.EventDate
@@ -191,7 +214,7 @@ BEGIN
 		FROM #tmpNoti AS i
 			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
 			INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON i.NotiID = ne.NotificationID
-			CROSS APPLY OPENJSON(ne.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 							MatchID INT '$.MatchID'
 							,IsTest BIT '$.IsTest'
 							,MsgSender VARCHAR(50) '$.MsgSender'
@@ -200,6 +223,7 @@ BEGIN
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
 						) AS ext --OPENJSON case-sensitive
+		WHERE ISJSON(ne.ExtraInfo) = 1
 	END
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiExt ON #tmpNotiExt (NotiID)
@@ -329,17 +353,30 @@ BEGIN
 	SELECT NotiID
 		,SiteType
 		,SiteGroup
-		,STRING_AGG(CONVERT(NVARCHAR(MAX),TargetSite),', ') WITHIN GROUP (ORDER BY TargetSite) AS SiteNames
+		,STRING_AGG(CONVERT(NVARCHAR(MAX),TargetSite),', ') WITHIN GROUP (ORDER BY TargetSite) AS SiteNames --Rule 1 - SiteName sort by alphabetical
 	FROM CTE_Site
 	GROUP BY NotiID
 		,SiteType
 		,SiteGroup
 	
-	-----------------------------------------Return-------------------------------------------
-	
-	----------All Notification----------
+	----------Notification----------
 	IF @NotiType = 1 --Msg
 	BEGIN
+		INSERT INTO #tmpResult (
+			NotificationID
+			,MessageID
+			,SessionID
+			,EventDate4GMT
+			,EventName
+			,CreatedTimeGMT8
+			,Subject
+			,Content_en
+			,Content_ch
+			,Content_cs
+			,Status
+			,Sender
+			,SendDateGMT8
+		)
 		SELECT DISTINCT n.NotificationID
 			,ext.MsgID AS MessageID
 			,rh.SessionID
@@ -363,6 +400,21 @@ BEGIN
 	END
 	ELSE --LAP
 	BEGIN
+		INSERT INTO #tmpResult (
+			NotificationID
+			,MessageID
+			,SessionID
+			,EventDate4GMT
+			,EventName
+			,CreatedTimeGMT8
+			,Subject
+			,Content_en
+			,Content_ch
+			,Content_cs
+			,Status
+			,Sender
+			,SendDateGMT8
+		)
 		SELECT DISTINCT n.NotificationID
 			,ext.MsgID AS MessageID
 			,rh.SessionID
@@ -380,7 +432,7 @@ BEGIN
 			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
 			INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
 			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			CROSS APPLY OPENJSON(n.Subject) WITH (
+			OUTER APPLY OPENJSON(n.Subject) WITH (
 							Subject_en NVARCHAR(300) '$.Subject_en'
 							,Subject_ch NVARCHAR(300) '$.Subject_ch'
 							,Subject_cs NVARCHAR(300) '$.Subject_cs'
@@ -388,19 +440,92 @@ BEGIN
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
 			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+		WHERE ISJSON(n.Subject) = 1
 		ORDER BY n.NotificationID DESC
 	END
 	
+	-----------------------------------------Return-------------------------------------------
+	----------Paging----------
+	DECLARE @RStart INT = @PageSize * (@PageIndex - 1) + 1
+	DECLARE @REnd INT = @RStart + @PageSize - 1
+	
+	SELECT @TotalRows = ISNULL((SELECT MAX(RNo) FROM #tmpResult), 0)
+	
+	--get all row if invalid Paging params
+	IF ISNULL(@RStart,-1) < 0
+		OR ISNULL(@REnd,-1) < 0
+		OR @RStart > @REnd
+	BEGIN
+		
+		SELECT @RStart = 0
+			,@REnd = @TotalRows
+	END
+	----------NotificationIDs----------
+	SELECT NotificationID
+		,MessageID
+		,SessionID
+		,EventDate4GMT AS EventDate
+		,EventName
+		,CreatedTimeGMT8 AS CreatedTime
+		,Subject
+		,Content_en
+		,Content_ch
+		,Content_cs
+		,Status
+		,Sender
+		,SendDateGMT8 AS SendDate
+	FROM #tmpResult
+	WHERE RNo BETWEEN @RStart AND @REnd
+	ORDER BY RNo
+	
 	----------Site by NotificationID----------
-	SELECT NotiID AS NotificationID
-		,SiteType
-		,SiteGroup
-		,SiteNames
-	FROM #tmpAffectedSite
-	ORDER BY NotiID
+	;WITH CTE_PagingNoti AS (
+		SELECT NotificationID
+		FROM #tmpResult
+		WHERE RNo BETWEEN @RStart AND @REnd
+	)
+	,CTE_SiteGroupOrder AS (
+		SELECT s.SiteGroup
+			,ROW_NUMBER() OVER (
+				ORDER BY
+					/*
+						Rule 2 - SiteType: hardcode
+							1.Credit
+							2.Licensee
+					*/
+					(CASE WHEN s.SiteType = 'Credit' THEN 1 ELSE 2 END)
+					/*
+						Rule 3 - Licensee: hardcode
+							1.Normal licensees
+							2.JS licensees
+							3.CV licensees
+					*/
+					,(CASE WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'CV licensees' THEN 3
+							WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'JS licensees' THEN 2
+							WHEN s.SiteType = 'Licensee' THEN 1 --Normal licensees
+					END)
+					/*
+						Rule 4 - Credit: Sort by alphabetical
+					*/
+					,SiteGroup
+			) AS SiteGroupOrd
+		FROM #tmpAffectedSite AS s
+			INNER JOIN CTE_PagingNoti AS p ON s.NotiID = p.NotificationID
+	)
+	SELECT s.NotiID AS NotificationID
+		,s.SiteType
+		,s.SiteGroup
+		,sgo.SiteGroupOrd
+		,s.SiteNames
+	FROM #tmpAffectedSite AS s
+		INNER JOIN CTE_PagingNoti AS p ON s.NotiID = p.NotificationID
+		LEFT JOIN CTE_SiteGroupOrder AS sgo ON s.SiteGroup = sgo.SiteGroup
+	ORDER BY s.NotiID
+		,sgo.SiteGroupOrd
 	
 	DROP TABLE #tmpNoti
 	DROP TABLE #tmpNotiExt
 	DROP TABLE #tmpStsByNotiType
 	DROP TABLE #tmpAffectedSite
+	DROP TABLE #tmpResult
 END

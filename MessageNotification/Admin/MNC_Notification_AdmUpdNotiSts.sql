@@ -26,8 +26,8 @@ BEGIN
 		,@NewStatusID TINYINT
 		,@CurStatus VARCHAR(50)
 		,@Updater VARCHAR(50)
-		,@ErrLogPrefix NVARCHAR(150) = 'Error - '
-		,@InfLogPrefix NVARCHAR(150) = 'Info - '
+		,@ErrLogPrefix NVARCHAR(150) = 'Error - Adm - '
+		,@InfLogPrefix NVARCHAR(150) = 'Info - Adm - '
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -36,10 +36,6 @@ BEGIN
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
-	
-	SELECT @NewStatusID = StatusID
-	FROM NotiStatus WITH (NOLOCK)
-	WHERE Status = @NewStatus
 	
 	----------------------------------------------------------------
 	INSERT INTO [Log] (
@@ -51,31 +47,21 @@ BEGIN
 	SELECT @NotiID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug log Start UPD Notification Status with @NotiID = ' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL')
-						+ ', @NewStatus = ' + ISNULL(@NewStatus,'NULL')
-						+ ', @UpdaterID = ' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL')
-						+ ', @ErrCode = ' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL')
+		,@InfLogPrefix + 'Debug - Start UPD Notification Status'
+						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
 	
-	--current Status = New Status
-	IF EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND StatusID = @NewStatusID)
-	BEGIN
-		INSERT INTO [Log] (
-			RefID
-			,ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @NotiID
-			,@LogActionID
-			,@LogUserID
-			,@InfLogPrefix + 'UPD Notification status - NO Change because current Status = New Status(' + ISNULL(@NewStatus,'NULL') + ')'
-		RETURN
-	END
-	
 	-----------------load info---------------
+	SELECT @NewStatus = (CASE WHEN TRIM(@NewStatus) = 'Failed' THEN 'Failed to Send' ELSE TRIM(@NewStatus) END)
+	
+	SELECT @NewStatusID = StatusID
+	FROM NotiStatus WITH (NOLOCK)
+	WHERE Status = @NewStatus
+	
 	SELECT @NotiType = n.NotificationType
 		,@CurStatus = s.Status
 	FROM Notification AS n WITH (NOLOCK)
@@ -84,32 +70,8 @@ BEGIN
 	
 	SELECT @Updater = COALESCE((SELECT username FROM bodb02.dbo.Customer WITH (NOLOCK) WHERE CustID = @UpdaterID),CONVERT(VARCHAR,@UpdaterID),'Updater(NULL)')
 	
-	-----------------verify before update Noti status---------------
-	IF @NewStatusID IS NULL
-		OR NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
-	BEGIN
-		SELECT @ErrCode = 50005
-			,@ErrMsg = 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') OR NOT EXISTS Status(' + ISNULL(@NewStatus,'NULL') + ')'
-		
-		INSERT INTO [Log] (
-			RefID
-			,ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @NotiID
-			,@LogActionID
-			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification Status - @NotiID = ' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL')
-						+ ', @NewStatus = ' + ISNULL(@NewStatus,'NULL')
-						+ ', @UpdaterID = ' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL')
-						+ ', @ErrCode = ' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL')
-						+ ', @ErrMsg = ' + ISNULL(@ErrMsg,'NULL')
-		
-		RETURN
-	END
-	
-	CREATE TABLE #tmpValidSts (
+	DROP TABLE IF EXISTS #tmpConsisSts
+	CREATE TABLE #tmpConsisSts (
 		StatusID TINYINT
 		,Status VARCHAR(50)
 	)
@@ -130,7 +92,7 @@ BEGIN
 		FROM STRING_SPLIT('New,Active,Inactive', ',') AS l
 			INNER JOIN NotiStatus AS s WITH (NOLOCK) ON l.value = s.Status
 	)
-	INSERT INTO #tmpValidSts (
+	INSERT INTO #tmpConsisSts (
 		StatusID
 		,Status
 	)
@@ -139,11 +101,12 @@ BEGIN
 	FROM CTE_Sts AS s
 	WHERE s.NotiType = @NotiType
 	
-	IF NOT EXISTS (SELECT 1 FROM #tmpValidSts WHERE StatusID = @NewStatusID)
+	/* start verify before update status */
+	IF @NewStatusID IS NULL
+		OR NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
 	BEGIN
 		SELECT @ErrCode = 50005
-			,@ErrMsg = 'NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') can NOT change status to [' + ISNULL(@NewStatus,'NULL') + ']'
-						+ ' due to inconsistent with NotificationType(' + ISNULL(CONVERT(VARCHAR,@NotiType) + '','NULL') + ')'
+			,@ErrMsg = 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') OR NOT EXISTS Status(' + ISNULL(@NewStatus,'NULL') + ')'
 		
 		INSERT INTO [Log] (
 			RefID
@@ -154,9 +117,106 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification Status - ' + @ErrMsg
-						+ ', @NewStatus = ' + ISNULL(@NewStatus,'NULL')
-						+ ', @UpdaterID = ' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL')
+			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+		
+		RETURN
+	END
+	
+	--current Status = New Status
+	IF @CurStatus = @NewStatus
+	BEGIN
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @NotiID
+			,@LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'UPD Notification status - NO Change because current Status = New Status(' + ISNULL(@NewStatus,'NULL') + ')'
+							+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+							+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+		RETURN
+	END
+	
+	--consistency between NotiType and @NewStatus
+	IF NOT EXISTS (SELECT 1 FROM #tmpConsisSts WHERE StatusID = @NewStatusID)
+	BEGIN
+		SELECT @ErrCode = 50005
+			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [' + ISNULL(@NewStatus,'NULL') + ']'
+						+ ' due to inconsistent with NotificationType(' + ISNULL(CONVERT(VARCHAR,@NotiType),'NULL') + ')'
+		
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @NotiID
+			,@LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+		
+		RETURN
+	END
+	
+	--Sending Check
+	IF @NewStatus = 'Sending'
+		AND EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND RefID IS NOT NULL)
+	BEGIN
+		SELECT @ErrCode = 50005
+			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sending]'
+						+ ' due to an existing REFID(' + CONVERT(VARCHAR,RefID) + ')'
+		FROM Notification WITH (NOLOCK)
+		WHERE NotificationID = @NotiID
+			AND RefID IS NOT NULL
+		
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @NotiID
+			,@LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+		
+		RETURN
+	END
+	
+	--Sent Check
+	IF @NewStatus = 'Sent'
+		AND EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND RefID IS NULL)
+	BEGIN
+		SELECT @ErrCode = 50005
+			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sent]'
+						+ ' due to an NOT EXISTS REFID'
+		
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @NotiID
+			,@LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 		
 		RETURN
 	END
@@ -177,7 +237,7 @@ BEGIN
 			
 			SELECT @NotiUpdCnt = @@ROWCOUNT
 			
-			--special handle for changed Msg Notification status from [New] -> [Sending]
+			--special handle for changed Msg Notification status -> [Sending]
 			IF @NotiUpdCnt = 1
 				AND @NotiType = 1
 				AND @NewStatus = 'Sending'
@@ -187,15 +247,15 @@ BEGIN
 				WHERE NotificationID = @NotiID
 				
 				--update MsgSender
-				SELECT @NExtraInfo = JSON_MODIFY(@CExtraInfo,'$.MsgSender', @Updater)
-				SELECT @NExtraInfo = JSON_MODIFY(@NExtraInfo,'$.MsgSendDate', CONVERT(VARCHAR,@CurrTime,127))
+				SELECT @NExtraInfo = JSON_MODIFY(@CExtraInfo,'$[0].MsgSender', @Updater)
+				SELECT @NExtraInfo = JSON_MODIFY(@NExtraInfo,'$[0].MsgSendDate', CONVERT(VARCHAR,@CurrTime,127))
 				
 				UPDATE NotificationExtra WITH (ROWLOCK,UPDLOCK)
 				SET ExtraInfo = @NExtraInfo
 				WHERE NotificationID = @NotiID
 			END
 			
-			--special handle for changed LAP Notification status from [New] -> [Active]
+			--special handle for changed LAP Notification status -> [Active]
 			IF @NotiUpdCnt = 1
 				AND @NotiType = 2
 				AND @NewStatus = 'Active'
@@ -205,8 +265,8 @@ BEGIN
 				WHERE NotificationID = @NotiID
 				
 				--update LapSender
-				SELECT @NExtraInfo = JSON_MODIFY(@CExtraInfo,'$.LapSender', @Updater)
-				SELECT @NExtraInfo = JSON_MODIFY(@NExtraInfo,'$.LapSendDate', CONVERT(VARCHAR,@CurrTime,127))
+				SELECT @NExtraInfo = JSON_MODIFY(@CExtraInfo,'$[0].LapSender', @Updater)
+				SELECT @NExtraInfo = JSON_MODIFY(@NExtraInfo,'$[0].LapSendDate', CONVERT(VARCHAR,@CurrTime,127))
 				
 				UPDATE NotificationExtra WITH (ROWLOCK,UPDLOCK)
 				SET ExtraInfo = @NExtraInfo
@@ -225,14 +285,19 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Changed NotificationID Status from [' + ISNULL(@CurStatus,'NULL') + '] to [' + ISNULL(@NewStatus,'NULL') + '] - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
+			,@InfLogPrefix + 'Changed NotificationID Status from [' + ISNULL(@CurStatus,'NULL') + '] to [' + ISNULL(@NewStatus,'NULL') + ']'
+							+ ' - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ') = ' + @Updater
 							+ ' - NotificationExtra.ExtraInfo '
-							+ CASE WHEN @CExtraInfo IS NULL THEN 'NO Change' ELSE 'before (' + ISNULL(@CExtraInfo,'NULL') + ')' END
+								+ CASE WHEN @CExtraInfo IS NULL THEN 'NO Change' ELSE 'before (' + ISNULL(@CExtraInfo,'NULL') + ')' END
 			,CASE WHEN @CExtraInfo IS NOT NULL THEN ISNULL(@NExtraInfo,'NULL') END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'FAILED to UPD Notification status - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
+			,@ErrMsg = 'FAILED to UPD Notification status'
+						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		
 		ROLLBACK TRANSACTION
 		
@@ -246,10 +311,8 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'ROLLBACK UPD Notification Status - @NewStatus' + ISNULL(@NewStatus,'NULL') + ')'
-				+ '- @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-				+ ' - ERROR_MESSAGE(' + @ErrMsg + ')'
+			,@ErrLogPrefix + @ErrMsg
 	END CATCH
 	
-	DROP TABLE IF EXISTS #tmpValidSts
+	DROP TABLE #tmpConsisSts
 END

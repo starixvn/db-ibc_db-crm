@@ -113,7 +113,7 @@ BEGIN
 		
 		UPDATE n
 		SET n.StatusID = (CASE WHEN @ErrCode = 0 AND @MessageID IS NOT NULL THEN @StsSucceedSend ELSE @StsFailedSend END)
-			,n.RefID = (CASE WHEN @ErrCode = 0 AND @MessageID IS NOT NULL THEN @MessageID ELSE NULL END)
+			,n.RefID = (CASE WHEN @ErrCode = 0 AND @MessageID IS NOT NULL THEN @MessageID ELSE n.RefID END)
 			,n.LastModifiedTime = GETDATE()
 		OUTPUT INSERTED.NotificationID
 			,INSERTED.StatusID

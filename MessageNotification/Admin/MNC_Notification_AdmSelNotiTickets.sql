@@ -39,21 +39,7 @@ BEGIN
 		,ExtInfo NVARCHAR(50)
 	)
 	
-	----------------------------------------------------------------
-	INSERT INTO [Log] (
-		RefID
-		,ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT @NotiID
-		,@LogActionID
-		,@LogUserID
-		,'Info - Debug log Start get Notification affected tickets with @NotiID = ' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL')
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
-	
+	----------------------------------------------------------------	
 	IF 1 = (SELECT NotificationType FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)--Msg
 	BEGIN
 		INSERT INTO #tmpAffectedTicket (
@@ -72,12 +58,13 @@ BEGIN
 			,(CASE WHEN s.isDeposit = 1 THEN c.username2 END) AS username2 --For licensee - get username2
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nt.TargetID = c.CustID
-			CROSS APPLY OPENJSON(nt.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							TransID BIGINT '$.TransID'
 						) AS t --OPENJSON case-sensitive
 			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
 			AND c.roleid = 1 --cust only
+			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 	END
 	ELSE --LAP
@@ -97,16 +84,17 @@ BEGIN
 			,c.Username
 			,(CASE WHEN s.isDeposit = 1 THEN c.username2 END) AS username2 --For licensee - get username2
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
-			CROSS APPLY OPENJSON(nt.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							CustID INT '$.CustID'
 							,TransIDs VARCHAR(MAX) '$.TransIDs'
 						) AS nc --OPENJSON case-sensitive
-			CROSS APPLY STRING_SPLIT(nc.TransIDs, ',') AS t
+			OUTER APPLY STRING_SPLIT(nc.TransIDs, ',') AS t
 			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nc.CustID = c.CustID
 			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
 			AND c.roleid = 1 --cust only
 			AND TRY_CONVERT(BIGINT,t.value) IS NOT NULL
+			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 	END
 	
@@ -133,7 +121,7 @@ BEGIN
 		
 		--get Headline of CustID
 		INSERT INTO #tmpHeadline (CustID,HeadlineID,HeadlineName)
-		EXEC DBACC.bodb02.dbo.Acc_CRM_GroupHeadlineSel @custids = @CreditCustIDs
+		EXEC bodb02.dbo.Acc_CRM_GroupHeadlineSel @custids = @CreditCustIDs
 		
 		CREATE CLUSTERED INDEX CIX_tmpHeadline ON #tmpHeadline (CustID)
 		

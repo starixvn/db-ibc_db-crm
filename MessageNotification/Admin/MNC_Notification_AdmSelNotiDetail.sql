@@ -45,21 +45,6 @@ BEGIN
 		,EventName NVARCHAR(500)
 	)
 	
-	----------------------------------------------------------------
-	INSERT INTO [Log] (
-		RefID
-		,ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT @NotiID
-		,@LogActionID
-		,@LogUserID
-		,'Info - Debug log Start get Notification Detail with @NotiID = ' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL')
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
-	
 	/*****************************************   Prepare for return   *********************************************************/
 	SELECT @NotiType = NotificationType
 	FROM dbo.Notification WITH (NOLOCK)
@@ -73,18 +58,19 @@ BEGIN
 			,EventDate
 			,EventName
 		)
-		SELECT n.NotificationID
+		SELECT DISTINCT n.NotificationID
 			,n.RefID
 			,ne.EventDate
 			,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') + ' -vs- ' + ext.AwayNameEN AS EventName
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON n.NotificationID = ne.NotificationID
-			CROSS APPLY OPENJSON(ne.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 							HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
 						) AS ext --OPENJSON case-sensitive
 		WHERE n.NotificationID = @NotiID
+			AND ISJSON(ne.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 		
 		INSERT INTO #tmpAffectedTicket (
@@ -104,11 +90,12 @@ BEGIN
 			,nt.TargetSite
 			,t.TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
-			CROSS APPLY OPENJSON(nt.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							TransID BIGINT '$.TransID'
 						) AS t --OPENJSON case-sensitive
 			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
+			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 	END
 	ELSE --LAP
@@ -119,23 +106,25 @@ BEGIN
 			,EventDate
 			,EventName
 		)
-		SELECT nLap.NotificationID
+		SELECT DISTINCT nLap.NotificationID
 			,nMsg.RefID
 			,neMsg.EventDate
 			,extMsg.HomeNameEN + ISNULL(' ' + extMsg.NeutralEN,'') + ' -vs- ' + extMsg.AwayNameEN AS EventName
 		FROM dbo.Notification AS nLap WITH (NOLOCK)
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON nLap.NotificationID = neLap.NotificationID
-			CROSS APPLY OPENJSON(neLap.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
 							MsgNotiID INT '$.MsgNotiID'
 						) AS extLap --OPENJSON case-sensitive
 			INNER JOIN dbo.Notification AS nMsg WITH (NOLOCK) ON extLap.MsgNotiID = nMsg.NotificationID
 			INNER JOIN dbo.NotificationExtra AS neMsg WITH (NOLOCK) ON extLap.MsgNotiID = neMsg.NotificationID
-			CROSS APPLY OPENJSON(neMsg.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(neMsg.ExtraInfo) WITH (
 							HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
 						) AS extMsg --OPENJSON case-sensitive
 		WHERE nLap.NotificationID = @NotiID
+			AND ISJSON(neLap.ExtraInfo) = 1
+			AND ISJSON(neMsg.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 		
 		INSERT INTO #tmpAffectedTicket (
@@ -155,7 +144,7 @@ BEGIN
 			,nt.TargetSite
 			,t.value AS TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
-			CROSS APPLY OPENJSON(nt.ExtraInfo) WITH (
+			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							CustID INT '$.CustID'
 							,TransIDs VARCHAR(MAX) '$.TransIDs'
 						) AS nc --OPENJSON case-sensitive
@@ -163,6 +152,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
 			AND TRY_CONVERT(BIGINT,t.value) IS NOT NULL
+			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 		
 	END
@@ -195,23 +185,24 @@ BEGIN
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
 			,nex.Subject_en + '<br/><br/>' + n.Content_en AS Content_en
-			,nex.Content_ch + '<br/><br/>' + n.Content_ch AS Content_ch
-			,nex.Content_cs + '<br/><br/>' + n.Content_cs AS Content_cs
+			,nex.Subject_ch + '<br/><br/>' + n.Content_ch AS Content_ch
+			,nex.Subject_cs + '<br/><br/>' + n.Content_cs AS Content_cs
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
-			CROSS APPLY OPENJSON(n.Subject) WITH (
+			OUTER APPLY OPENJSON(n.Subject) WITH (
 							Subject_en NVARCHAR(300) '$.Subject_en'
 							,Subject_ch NVARCHAR(300) '$.Subject_ch'
 							,Subject_cs NVARCHAR(300) '$.Subject_cs'
 						) AS nex --OPENJSON case-sensitive
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
+		WHERE ISJSON(n.Subject) = 1
 	END
 	
 	----------Site by NotificationID----------
 	;WITH CTE_BySite AS (
 		SELECT SiteType
 			,SiteGroup
-			,STRING_AGG(CONVERT(NVARCHAR(MAX),SiteName),', ') WITHIN GROUP (ORDER BY SiteName) AS SiteNames
+			,STRING_AGG(CONVERT(NVARCHAR(MAX),SiteName),', ') WITHIN GROUP (ORDER BY SiteName) AS SiteNames --Rule 1 - SiteName sort by alphabetical
 		FROM (
 			SELECT DISTINCT SiteType
 				,SiteGroup
@@ -220,6 +211,33 @@ BEGIN
 		) AS t
 		GROUP BY SiteType
 			,SiteGroup
+	)
+	,CTE_SiteGroupOrder AS (
+		SELECT s.SiteGroup
+			,ROW_NUMBER() OVER (
+				ORDER BY
+					/*
+						Rule 2 - SiteType: hardcode
+							1.Credit
+							2.Licensee
+					*/
+					(CASE WHEN s.SiteType = 'Credit' THEN 1 ELSE 2 END)
+					/*
+						Rule 3 - Licensee: hardcode
+							1.Normal licensees
+							2.JS licensees
+							3.CV licensees
+					*/
+					,(CASE WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'CV licensees' THEN 3
+							WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'JS licensees' THEN 2
+							WHEN s.SiteType = 'Licensee' THEN 1 --Normal licensees
+					END)
+					/*
+						Rule 4 - Credit: Sort by alphabetical
+					*/
+					,SiteGroup
+			) AS SiteGroupOrd
+		FROM CTE_BySite AS s
 	)
 	,CTE_ByTicket AS (
 		SELECT SiteType
@@ -231,12 +249,13 @@ BEGIN
 	)
 	SELECT s.SiteType
 		,s.SiteGroup
+		,sgo.SiteGroupOrd
 		,s.SiteNames
 		,t.TicketCnt
 	FROM CTE_BySite AS s
 		INNER JOIN CTE_ByTicket AS t ON s.SiteType = t.SiteType AND s.SiteGroup = t.SiteGroup
-	ORDER BY s.SiteType
-		,s.SiteGroup
+		LEFT JOIN CTE_SiteGroupOrder AS sgo ON s.SiteGroup = sgo.SiteGroup
+	ORDER BY sgo.SiteGroupOrd
 	
 	DROP TABLE #tmpNotiExt
 	DROP TABLE #tmpAffectedTicket

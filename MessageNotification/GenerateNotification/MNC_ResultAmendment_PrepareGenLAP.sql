@@ -33,6 +33,9 @@ BEGIN
 	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
+		,@ProcessID INT
+		,@ErrLogPrefix NVARCHAR(150) = ''
+		,@InfLogPrefix NVARCHAR(150) = ''
 		,@NotificationIDs VARCHAR(MAX)
 	
 	/*
@@ -42,6 +45,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
+	SELECT @ProcessID = 9 --Process_GenerateLapNoti
+		
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
 	SELECT o.[name]
@@ -66,9 +71,51 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	CREATE TABLE #tmpNoti (
+	SELECT @ErrLogPrefix = 'Error - '
+	SELECT @InfLogPrefix = 'Info - '
+	
+	--check current status of generate message process
+	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --Process_GenerateLapNoti
+	BEGIN
+		SELECT NULL AS NotificationIDs
+			,NULL AS GroupName
+			,NULL AS RefId1
+			,NULL AS RefId2
+		WHERE 1 = 0
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'Another [Generate Lap Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.'
+		
+		RETURN
+	END
+	ELSE
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = 'Running'
+		WHERE VID = @ProcessID
+			AND VValue = 'Done'
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Start [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
+	END
+	
+	CREATE TABLE #tmpPrepareNoti (
 		NotificationID INT
-		,SettlIDs VARCHAR(MAX)
+		,SettlID INT
 	)
 	
 	CREATE TABLE #tmpRemotingRef (
@@ -102,50 +149,71 @@ BEGIN
 			AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG
 			AND nMsg.RefID IS NOT NULL
 	)
-	INSERT INTO #tmpNoti (
+	INSERT INTO #tmpPrepareNoti (
 		NotificationID
-		,SettlIDs
+		,SettlID
 	)
 	SELECT NotificationID
-		,STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),',') AS SettlIDs
+		,SettlementLogID AS SettlID
 	FROM CTE_Noti
 	GROUP BY NotificationID
+		,SettlementLogID
 	HAVING SUM(LapCnt) = 0
 	
-	CREATE UNIQUE CLUSTERED INDEX CIX_tmpNoti ON #tmpNoti(NotificationID)
+	CREATE CLUSTERED INDEX CIX_tmpPrepareNoti ON #tmpPrepareNoti(NotificationID)
 	
 	--validate again
 	;WITH CTE_Valid AS (
 		SELECT i.NotificationID
-		FROM #tmpNoti AS i
+		FROM #tmpPrepareNoti AS i
 			INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON i.NotificationID = nt.NotificationID --must EXISTS Target
 			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
-		WHERE ISNULL(TRIM(i.SettlIDs),'') <> ''
+		GROUP BY i.NotificationID
 	)
 	DELETE t
-	FROM #tmpNoti AS t
+	FROM #tmpPrepareNoti AS t
 		LEFT JOIN CTE_Valid AS v ON t.NotificationID = v.NotificationID
 	WHERE v.NotificationID IS NULL
+	
+	---write log
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Debug - [Generate Lap Noti process - Prepare]'
+						+ ' - Msg List to Generate Lap ('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT NotificationID
+												,STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',') AS SettlIDs
+											FROM #tmpPrepareNoti
+											GROUP BY NotificationID
+											ORDER BY NotificationID
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	/*
 		build things to get from RemotingRef
 			Loop foreach NotificationID to create as many LAP noti as possible (ignore Error NotificationID - NOT break if any Failed)
 	*/
-	DECLARE @JSResource NVARCHAR(MAX)
-		,@SettlIDs VARCHAR(MAX)
-		,@ErrCode INT = 0
-		,@ErrMsg NVARCHAR(2000) = ''
-		,@iLoop INT
+	BEGIN TRY
+		DECLARE @JSResource NVARCHAR(MAX)
+			,@SettlIDs VARCHAR(MAX)
+			,@ErrCode INT = 0
+			,@ErrMsg NVARCHAR(2000) = ''
 		
-	SELECT @iLoop = MIN(NotificationID)
-	FROM #tmpNoti
-		
-	--loop NotificationID
-	WHILE (@iLoop IS NOT NULL)
-	BEGIN		
-		SELECT @SettlIDs = SettlIDs
-		FROM #tmpNoti
-		WHERE NotificationID = @iLoop
+		;WITH CTE_Settl AS (
+			SELECT DISTINCT SettlID
+			FROM #tmpPrepareNoti
+		)
+		SELECT @SettlIDs = STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',')
+		FROM CTE_Settl
 		
 		--get RemotingRef of ResourceID in ActualResult/WrongResult 
 		EXEC MNC_ResultAmendment_JSParseResult
@@ -158,23 +226,26 @@ BEGIN
 		
 		IF @ErrCode <> 0
 		BEGIN
-			--write log
 			INSERT INTO [Log] (
-				RefID
-				,ActionID
+				ActionID
 				,UserID
 				,LogBef
 			)
-			SELECT NotificationID
-				,@LogActionID
+			SELECT @LogActionID
 				,@LogUserID
-				,'Error - FAILED at step [JS Parse ActualResult/WrongResult] while Preparing to gen LAP Notification'
-					+ '- SettlIDs = ' + ISNULL(@SettlIDs,'NULL')
-					+ '- @JSResource OUTPUT = ' + ISNULL(@JSResource,'NULL')
-					+ '- ErrCode = ' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL')
-					+ '- ERROR_MESSAGE = ' + ISNULL(@ErrMsg,'NULL')
-			FROM #tmpNoti
-			WHERE NotificationID = @iLoop
+				,@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - FAILED JSON Parse ActualResult/WrongResult'
+								+ ' - SettlIDs(' + ISNULL(@SettlIDs,'NULL') + ')'
+								+ ' - tmpNoti('
+									+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+													SELECT NotificationID
+														,STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',') AS SettlIDs
+													FROM #tmpPrepareNoti
+													GROUP BY NotificationID
+													ORDER BY NotificationID
+													FOR JSON PATH
+												))
+											),'NO ROW') + ')'
+								+ '- ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 		END
 		ELSE
 		BEGIN
@@ -185,53 +256,42 @@ BEGIN
 				,RefId1
 				,RefId2
 			)
-			SELECT DISTINCT @iLoop AS NotificationID
-				,SettlementLogID
-				,GroupName
-				,RefId1
-				,RefId2
+			SELECT DISTINCT n.NotificationID
+				,j.SettlementLogID
+				,j.GroupName
+				,j.RefId1
+				,j.RefId2
 			FROM OPENJSON(@JSResource) WITH (
 					SettlementLogID INT '$.SettlementLogID'
 					,GroupName VARCHAR(50) '$.GroupName'
 					,RefId1 VARCHAR(50) '$.RefId1'
 					,RefId2 VARCHAR(50) '$.RefId2'
-				)--OPENJSON case-sensitive
+				) AS j--OPENJSON case-sensitive
+				INNER JOIN #tmpPrepareNoti AS n ON j.SettlementLogID = n.SettlID
 		END
-		
-		--reset for loop
-		SELECT @iLoop = (SELECT MIN(NotificationID) FROM #tmpNoti WHERE NotificationID > @iLoop)
-			,@ErrCode = 0
-			,@ErrMsg = ''
-	END --end while
-	
-	-- write log
-	;WITH CTE_Ref AS (
-		SELECT DISTINCT s.NotificationID
-			,CONVERT(NVARCHAR(MAX),(
-				SELECT DISTINCT SettlementLogID
-					,GroupName
-					,RefId1
-					,RefId2
-				FROM #tmpRemotingRef AS t
-				WHERE t.NotificationID = s.NotificationID
-				FOR JSON PATH)
-			) AS LText
-		FROM #tmpRemotingRef AS s
-	)
-	INSERT INTO [Log] (
-		RefID
-		,ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT i.NotificationID
-		,@LogActionID
-		,@LogUserID
-		,'Debug log - Prepare gen LAP Notification for Msg NotificationIDs(' + ISNULL((SELECT STRING_AGG(CONVERT(VARCHAR(MAX),NotificationID) + '-SettlIDs(' + SettlIDs + ')',',') FROM #tmpNoti),'NO valid Msg NotificationID') + ')'
-			+ 'RemotingRef (' + ISNULL(rf.LText,'NULL') + ')'
-	FROM #tmpNoti AS i
-		LEFT JOIN CTE_Ref AS rf ON i.NotificationID = rf.NotificationID
-	WHERE 'Debug' = (SELECT VValue FROM SystemSetting WITH (NOLOCK) WHERE VID = 13) --LogMode
+	END TRY
+	BEGIN CATCH
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - FAILED while Prepare ActualResult/WrongResult'
+							+ ' - SettlIDs(' + ISNULL(@SettlIDs,'NULL') + ')'
+							+ ' - tmpNoti('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+												SELECT NotificationID
+													,STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',') AS SettlIDs
+												FROM #tmpPrepareNoti
+												GROUP BY NotificationID
+												ORDER BY NotificationID
+												FOR JSON PATH
+											))
+										),'NO ROW') + ')'
+							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+	END CATCH
 	
 	--return for RemotingRef
 	;WITH CTE_Ref AS (
@@ -250,6 +310,58 @@ BEGIN
 		,rf.RefId1
 		,rf.RefId2
 	
-	DROP TABLE #tmpNoti
+	--Mark completed process
+	IF NOT EXISTS (SELECT 1 FROM #tmpRemotingRef)
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = 'Done'
+		WHERE VID = @ProcessID
+			AND VValue = 'Running'
+	
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'Completed [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
+	END
+	
+	----------------------
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,@InfLogPrefix + 'Debug - Completed [Generate Lap Noti process - Prepare]'
+						+ ' - Return('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rf.NotificationID),',') AS NotificationIDs
+											,rf.GroupName
+											,rf.RefId1
+											,rf.RefId2
+										FROM (
+											SELECT DISTINCT NotificationID
+												,GroupName
+												,RefId1
+												,RefId2
+											FROM #tmpRemotingRef
+										) AS rf
+										GROUP BY rf.GroupName
+											,rf.RefId1
+											,rf.RefId2
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
+	
+	DROP TABLE #tmpPrepareNoti
 	DROP TABLE #tmpRemotingRef
 END

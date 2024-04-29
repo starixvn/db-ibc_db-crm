@@ -528,7 +528,7 @@ BEGIN
 	
 		/*
 			----------{league_name}----------
-			The NotificationExtra handle for Non-Saba league name
+			The NotificationExtra handled for Non-Saba league name
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{league_name}')
 		BEGIN
@@ -845,14 +845,14 @@ BEGIN
 				**LogDateTime = FORMAT(GETDATE(),'MMM dd, yyyy hh:mm:ss tt')
 				
 				----|---------------|---------------|---------------------------|---------------------------------------------------|-----------------------------------------------------------|
-					|Msg_NotiID		|LogType		|LogDateTime				|****ResultName_en****								|ResultName_cs												|
+					|Msg_NotiID		|LogType		|LogDateTime				|ResultName_en								        |****ResultName_cs****										|
 				----|---------------|---------------|---------------------------|---------------------------------------------------|-----------------------------------------------------------|
 					| 1				| Calculation	| Oct 26, 2023 02:11:37 PM	| Home Over 11 Runs OE; 0							| 主队第 11 轮准确跑位得分盘 OE; 0								|
 					| 1				| Calculation	| Oct 26, 2023 03:05:13	PM	| Home Over 10 Runs; 1								| 主队第 10 轮准确跑位得分盘; 1									|
 					| 1				| ReCalculation	| Oct 27, 2023 09:13:18 AM	| Home Over 11 Runs OE; 1 | Home Over 10 Runs; 2	| 主队第 11 轮准确跑位得分盘 OE; 1 | 主队第 10 轮准确跑位得分盘; 2	|
 				----|---------------|---------------|---------------------------|---------------------------------------------------|-----------------------------------------------------------|
 				
-				****ResultName_en****
+				****ResultName_cs****
 					 = 主队第 11 轮准确跑位得分盘 OE; 1
 						=> 	1.[主队第 11 轮准确跑位得分盘 OE] 	= tmpBuildResult.ResultName_cs
 							2. [1] 							= tmpBuildResult.ActualResult_cs
@@ -1229,7 +1229,7 @@ BEGIN
 						AND t.TargetID = s.TargetID
 						AND t.TargetSite = s.TargetSite
 					ORDER BY t.CustID
-					FOR JSON AUTO
+					FOR JSON PATH
 					)) AS ExtraInfo
 		FROM CTE_TransIDByCust AS s
 		GROUP BY s.Lap_NotiID

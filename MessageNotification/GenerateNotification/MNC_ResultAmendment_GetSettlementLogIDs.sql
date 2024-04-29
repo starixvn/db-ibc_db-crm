@@ -416,7 +416,6 @@ BEGIN
 	
 	SELECT @iSettleID = MIN(SettlementLogID)
 	FROM #tmpVerifyList
-	WHERE StatusID = @StsGenerating
 	
 	WHILE (@iSettleID IS NOT NULL)
 	BEGIN TRY

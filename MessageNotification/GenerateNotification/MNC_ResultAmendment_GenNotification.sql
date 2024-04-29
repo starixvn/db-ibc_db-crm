@@ -653,27 +653,22 @@ BEGIN
 		
 		Build RequiredParam text of Template
 			#tmpTemplateDetl
-		
-		Follow below rules in order
-			1.If exists OtherInfo=""16776"", put it after the Resource_en
-			2.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
-			3.If HomeValue is number, it's result (...result is ""12,03"" instead of ""11,04""...)
-			4.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
 	****************************************************************************/
 	IF @ErrCode = 0
 		AND EXISTS (SELECT 1 FROM #tmpStagingNoti)
 	BEGIN TRY
 		/*
 			----------{match_info}----------
-			IsSabaFilter = 0: Normal / 1: Saba
-			handle for special sites - REMOVE 'SABA'
+			+ DON'T care ControlGrp
+			+ IsSabaFilter = 0: Normal / 1: Saba
+				=> handle for special sites - REMOVE 'SABA'
+			=> Build param's value (for) GROUP BY SettlementLogID, IsSabaFilter
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{match_info}')
 		BEGIN
 			;WITH CTE_MatchInfoDetl AS (
-				SELECT tp.SettlementLogID
+				SELECT DISTINCT tp.SettlementLogID
 					,tp.IsSabaFilter
-					,tp.ControlGrp
 					,rfh.RefValueEN + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_en ELSE '' END) AS HomeName_en
 					,rfa.RefValueEN AS AwayName_en
 					,(CASE WHEN tp.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueEN,@Saba_en,'') --REMOVE 'SABA'
@@ -701,33 +696,36 @@ BEGIN
 				--Pattern: "@home_name -vs- @away_name" [@league_name - @ko_date]
 				SELECT SettlementLogID
 					,IsSabaFilter
-					,ControlGrp
 					,MAX('"' + HomeName_en + ' -vs- ' + AwayName_en + '" [' + LeagueName_en + ' - ' + KO_DDMM + ']') AS Content_en
 					,MAX('"' + HomeName_ch + ' -vs- ' + AwayName_ch + '" [' + LeagueName_ch + ' - ' + KO_DDMM + ']') AS Content_ch
 					,MAX('"' + HomeName_cs + ' -vs- ' + AwayName_cs + '" [' + LeagueName_cs + ' - ' + KO_DDMM + ']') AS Content_cs
 				FROM CTE_MatchInfoDetl
 				GROUP BY SettlementLogID --GROUP BY to make sure only 1 Content foreach SettlementLogID/IsSabaFilter
 					,IsSabaFilter
-					,ControlGrp
 			)
 			UPDATE tp
 			SET tp.Content_en = m.Content_en
 				,tp.Content_ch = m.Content_ch
 				,tp.Content_cs = m.Content_cs
 			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_MatchInfo AS m ON tp.SettlementLogID = m.SettlementLogID AND tp.IsSabaFilter = m.IsSabaFilter AND tp.ControlGrp = m.ControlGrp
+				INNER JOIN CTE_MatchInfo AS m ON tp.SettlementLogID = m.SettlementLogID AND tp.IsSabaFilter = m.IsSabaFilter
 			WHERE tp.RequiredParam = '{match_info}'
 		END
 		
 		/*
 			{new_value}
-				+ SettlementLogID only 1 RefBettypeID
-					=> No need DISTINCT/GROUP BY SettlementLogID when select from RemotingRef
+				+ DON'T care ControlGrp
 				+ DON'T care IsSabaFilter
+			=> Build param's value (for) GROUP BY SettlementLogID
+			
+			Follow below rules in order
+				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
+				Rule#2.If HomeValue is number, it's result (...result is ""12,03"" instead of ""11,04""...)
+				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{new_value}')
 		BEGIN
-			--2.If exists TeamIDs
+			--Rule#1.If exists TeamIDs
 			;WITH CTE_TeamID AS (
 				SELECT atl.SettlementLogID
 					,rf.RefValueEN AS TeamName_en
@@ -747,7 +745,7 @@ BEGIN
 				INNER JOIN CTE_TeamID AS t ON tp.SettlementLogID = t.SettlementLogID
 			WHERE tp.RequiredParam = '{new_value}'
 			
-			--3.If HomeValue is number
+			--Rule#2.If HomeValue is number
 			UPDATE tp
 			SET tp.Content_en = atl.HomeValue
 				,tp.Content_ch = atl.HomeValue
@@ -761,7 +759,7 @@ BEGIN
 				AND tp.Content_cs IS NULL
 				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
 			
-			--4.If HomeValue is NOT number
+			--Rule#3.If HomeValue is NOT number
 			UPDATE tp
 			SET tp.Content_en = rf.RefValueEN
 				,tp.Content_ch = rf.RefValueCH
@@ -776,7 +774,7 @@ BEGIN
 				AND tp.Content_cs IS NULL
 				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
 			
-			--5.the rest, value of HomeValue
+			--Rule#final.the rest, value of HomeValue
 			UPDATE tp
 			SET tp.Content_en = atl.HomeValue
 				,tp.Content_ch = atl.HomeValue
@@ -792,13 +790,18 @@ BEGIN
 		
 		/*
 			{old_value}
-				+ SettlementLogID only 1 RefBettypeID
-					=> No need DISTINCT/GROUP BY SettlementLogID when select from RemotingRef
+				+ DON'T care ControlGrp
 				+ DON'T care IsSabaFilter
+			=> Build param's value (for) GROUP BY SettlementLogID
+			
+			Follow below rules in order
+				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
+				Rule#2.If HomeValue is number, it's result (...result is ""12,03"" instead of ""11,04""...)
+				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{old_value}')
 		BEGIN
-			--2.If exists TeamIDs
+			--Rule#1.If exists TeamIDs
 			;WITH CTE_TeamID AS (
 				SELECT wrg.SettlementLogID
 					,rf.RefValueEN AS TeamName_en
@@ -818,7 +821,7 @@ BEGIN
 				INNER JOIN CTE_TeamID AS t ON tp.SettlementLogID = t.SettlementLogID
 			WHERE tp.RequiredParam = '{old_value}'
 			
-			--3.If HomeValue is number
+			--Rule#2.If HomeValue is number
 			UPDATE tp
 			SET tp.Content_en = wrg.HomeValue
 				,tp.Content_ch = wrg.HomeValue
@@ -832,7 +835,7 @@ BEGIN
 				AND tp.Content_cs IS NULL
 				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
 			
-			--4.If HomeValue is NOT number
+			--Rule#3.If HomeValue is NOT number
 			UPDATE tp
 			SET tp.Content_en = rf.RefValueEN
 				,tp.Content_ch = rf.RefValueCH
@@ -847,7 +850,7 @@ BEGIN
 				AND tp.Content_cs IS NULL
 				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0
 			
-			--5.the rest, value of HomeValue
+			--Rule#final.the rest, value of HomeValue
 			UPDATE tp
 			SET tp.Content_en = wrg.HomeValue
 				,tp.Content_ch = wrg.HomeValue
@@ -874,7 +877,18 @@ BEGIN
 			WHERE tp.RequiredParam = '{sport_name}'
 		END
 		
-		----------{affected_result_name}----------
+		/*
+			{affected_result_name}
+			+ DON'T care ControlGrp
+				+ DON'T care IsSabaFilter
+			=> Build param's value for (GROUP BY) SettlementLogID
+			
+				step #1 - get Resource_en / Resource_ch / Resource_cs
+				step #2 - Replace X / Y
+					2.1 Replace G / M for GameSession IN (1,8) - match 2 inning
+					2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
+				step #3 - If exists [OtherInfo] => put it after the Resource_en
+		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{affected_result_name}')
 		BEGIN
 			--step #1 - get Resource_en / Resource_ch / Resource_cs
@@ -974,7 +988,7 @@ BEGIN
 				,Content_ch = REPLACE(REPLACE(Content_ch,' @M ',' '),'@M','')
 				,Content_cs = REPLACE(REPLACE(Content_cs,' @M ',' '),'@M','')
 			
-			--step #4 - rule#1.If exists OtherInfo => put it after the Resource_en
+			--step #3 - If exists [OtherInfo] => put it after the Resource_en
 			;WITH CTE_OtherInfo AS (
 				SELECT af.SettlementLogID
 					,af.RefBettypeID
@@ -1016,6 +1030,19 @@ BEGIN
 		/*
 			Build message content
 				#tmpStagingNoti
+			
+			List of RequiredParam
+				- {match_info}
+					+ Build param's value (for) GROUP BY SettlementLogID, IsSabaFilter
+				- {new_value}
+					+ Build param's value (for) GROUP BY SettlementLogID
+				- {old_value}
+					+ Build param's value (for) GROUP BY SettlementLogID
+				- {sport_name}
+					+ Build param's value (for) GROUP BY SettlementLogID
+				- {affected_result_name}
+					+ Build param's value for (GROUP BY) SettlementLogID
+			=> Build message content (for) GROUP BY SettlementLogID, IsSabaFilter
 		*/
 		SET @iLoop = 1
 		WHILE EXISTS(SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParamID = @iLoop)
@@ -1124,33 +1151,42 @@ BEGIN
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNoti ON #tmpNoti (SettlementLogID, IsSabaFilter, ControlGrp)
 		
 		/*
-			Verify again with #tmpNoti
-				- In case SettlementLogID have 3 noti for Normal,Saba and 777
-					+ 1 of those failed => SettlementLogID will be failed
+			Verify #tmpResultHist again before insert (with #tmpNoti)
+			- In case #tmpResultHist.SettlementLogID NOT EXISTS #tmpNoti
+				=> that mean S.T wrong while creating Notification
+					=> get related failure SettlementLogID by SessionID, MatchID
 		*/
-		;WITH CTE_Check AS (
-			SELECT i.GrpID
-				,MIN(CASE --WHEN i.SettlementLogID IS NULL THEN 0
-						WHEN n.SettlementLogID IS NULL THEN 1
-						WHEN ntgt.SettlementLogID IS NULL THEN 2
-						ELSE 3 END) AS ValidSts --MUST EXISTS Noti / NotiTarget
-			FROM #tmpNoti AS i
-				LEFT JOIN #tmpStagingNoti AS n ON i.SettlementLogID = n.SettlementLogID AND i.IsSabaFilter = n.IsSabaFilter AND i.ControlGrp = n.ControlGrp
-				LEFT JOIN #tmpStagingTarget AS ntgt ON i.SettlementLogID = ntgt.SettlementLogID AND i.IsSabaFilter = ntgt.IsSabaFilter AND i.ControlGrp = ntgt.ControlGrp
-			GROUP BY i.GrpID
+		;WITH CTE_Invalid_Content AS (
+			SELECT DISTINCT rh.SettlementLogID
+				,rh.SessionID
+				,rh.MatchID
+				,'S.T wrong while creating Notification Content (NOT EXITS in Valid Content)'
+					+ ' - SessionID(' + ISNULL(rh.SessionID,'NULL') + ') - MatchID(' + ISNULL(CONVERT(VARCHAR,rh.MatchID),'NULL') + ')' AS lTxt
+			FROM #tmpResultHist AS rh
+				LEFT JOIN #tmpNoti AS i ON rh.SettlementLogID = i.SettlementLogID
+			WHERE i.SettlementLogID IS NULL
+		)
+		,CTE_Relate_Of_Invalid_Content AS (
+			SELECT DISTINCT rh.SettlementLogID
+				,'Failed due to relating with SessionID(' + ISNULL(rh.SessionID,'NULL') + ') - MatchID(' + ISNULL(CONVERT(VARCHAR,rh.MatchID),'NULL') + ')' AS lTxt
+			FROM #tmpResultHist AS rh
+				INNER JOIN CTE_Invalid_Content AS inv ON rh.SessionID = inv.SessionID AND rh.MatchID = inv.MatchID
+			WHERE rh.SettlementLogID <> inv.SettlementLogID
 		)
 		UPDATE rh
-		SET rh.StatusID = CASE WHEN (rh.StatusID = @StsGenerating AND ISNULL(ck.ValidSts,0) = 3) THEN @StsGenerating ELSE @StsGenFailed END
-			,rh.NotiLog = rh.NotiLog
-							+ (CASE WHEN rh.StatusID <> @StsGenerating THEN 'Before INS Notification - temp Status' + ISNULL(CONVERT(VARCHAR,rh.StatusID),'NULL') + ' - NOT [Generating]'
-								WHEN i.SettlementLogID IS NULL OR ISNULL(ck.ValidSts,0) = 0 THEN 'Before INS Notification - NOT EIXSTS IN temporary insert list'
-								WHEN ck.ValidSts = 1 THEN 'Before INS Notification - Missing S.T while creating Notification (ex: SettlementLogID have 3 Noti (Normal,Saba and 777) but have NO [Saba] in #tmpStagingNoti)'
-								WHEN ck.ValidSts = 2 THEN 'Before INS Notification - Missing S.T while creating NotificationTarget (have NO data in #tmpStagingTarget)'
-								ELSE '' --Ready for insert NotiMapping / Notification / NotificationTarget
-								END)
+		SET rh.StatusID = @StsGenFailed
+			,rh.NotiLog = rh.NotiLog + ISNULL(inv1.lTxt,inv2.lTxt)
 		FROM #tmpResultHist AS rh
-			LEFT JOIN #tmpNoti AS i ON rh.SettlementLogID = i.SettlementLogID
-			LEFT JOIN CTE_Check AS ck ON i.GrpID = ck.GrpID
+			LEFT JOIN CTE_Invalid_Content AS inv1 ON rh.SettlementLogID = inv1.SettlementLogID
+			LEFT JOIN CTE_Relate_Of_Invalid_Content AS inv2 ON rh.SettlementLogID = inv2.SettlementLogID
+		WHERE ISNULL(inv1.SettlementLogID,inv2.SettlementLogID) IS NOT NULL
+		
+		--------------DELETE invalid tmpNoti--------------
+		DELETE n
+		FROM #tmpNoti AS n
+			INNER JOIN #tmpResultHist AS rh ON rh.SettlementLogID = n.SettlementLogID
+		WHERE rh.StatusID = @StsGenFailed
+		
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -1166,6 +1202,25 @@ BEGIN
 	SELECT @LogActionID
 		,@LogUserID
 		,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message & handle duplicate content compelted'
+						+ ' - tmpNoti('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpNoti
+										ORDER BY SettlementLogID
+											,IsSabaFilter
+											,ControlGrp
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
+						+ ' - Invalid tmpResultHist('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpResultHist
+										WHERE StatusID = @StsGenFailed
+										ORDER BY SettlementLogID
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
 						+ ' - tmpStagingTarget('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -1181,16 +1236,6 @@ BEGIN
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
 										FROM #tmpStagingNoti
-										ORDER BY SettlementLogID
-											,IsSabaFilter
-											,ControlGrp
-										FOR JSON PATH
-									))
-								),'NO ROW') + ')'
-						+ ' - tmpNoti('
-							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
-										FROM #tmpNoti
 										ORDER BY SettlementLogID
 											,IsSabaFilter
 											,ControlGrp
@@ -1251,6 +1296,7 @@ BEGIN
 		END
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInsertedNoti ON #tmpInsertedNoti (NotificationID)
+		
 		---Dynamic StatusID by SystemSetting.VName = 'IgnoreReviewContentBySport'
 		;WITH CTE_Noti_Status AS (
 			SELECT DISTINCT i.NotificationID
@@ -1404,7 +1450,7 @@ BEGIN
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT					
 					-----support Gen Lap noti-----
-					,t.AmendedCnt 
+					t.AmendedCnt 
 					,t.ActionType 
 					,t.GameSession
 					,t.IsNeutral
@@ -1432,7 +1478,7 @@ BEGIN
 					,c.username AS MsgSender
 					,CASE WHEN c.username IS NOT NULL THEN GETDATE() END AS MsgSendDate
 					-----support Push Msg Notification-----
-					 t.LeagueGroupID
+					,t.LeagueGroupID
 					-----Others-----
 					,t.KOTime
 					,t.SportType
@@ -1459,12 +1505,13 @@ BEGIN
 		-- Check after insert NotiMapping / Notification / NotificationTarget
 			-- + Update Notification StatusID = SuccessStatusID
 		;WITH CTE_Valid AS (
-			SELECT DISTINCT n.NotificationID
+			SELECT DISTINCT i.NotificationID
 				,i.SuccessStatusID
 			FROM Notification AS n
 				INNER JOIN NotificationTarget AS nt ON n.NotificationID = nt.NotificationID
 				INNER JOIN NotiMapping AS nm ON nt.NotificationID = nm.NotificationID
-				INNER JOIN #tmpInsertedNoti AS i ON nm.NotificationID = i.NotificationID
+				INNER JOIN NotificationExtra AS ne ON nm.NotificationID = ne.NotificationID
+				INNER JOIN #tmpInsertedNoti AS i ON ne.NotificationID = i.NotificationID
 			WHERE n.StatusID = @StsGenerating
 				AND n.NotificationType = 1 --notification for Msg
 		)

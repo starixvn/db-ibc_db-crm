@@ -1,5 +1,9 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
-CREATE PROCEDURE [dbo].[Acc_CRM_ArchivedAccount_AutoFBInfoIns] 
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_ArchivedAccount_AutoFBInfoIns] 
 	 @BatchSize 		INT 
 	,@BatchSizeAccount	INT 
 	,@MaxLogFBId		INT
@@ -16,6 +20,7 @@ AS
 
 	Revisions:
 		- 20221121@Winfred: CRM -Auto-generated FB to Headline for Archiving Dormant Accounts [redmine:#158258]
+        - 20240417@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
 	
 	Parameter's Explanation:
 		- @BatchSize = 3000
@@ -198,7 +203,12 @@ BEGIN
 		,a.Description
 		,a.Environment
 		,a.ServiceID
+        ,ISNULL(crm.IsVIP, 0) IsVIP
+        ,s.SiteLabel
 	FROM crmServiceFeedbackInfo a WITH(NOLOCK)
+         LEFT JOIN bodb_CRM.dbo.crmCustomer crm WITH (NOLOCK) ON a.HeadlineID = crm.CustID
+         LEFT JOIN bodb02.dbo.Customer cus WITH (NOLOCK) ON a.HeadlineID = cus.custid
+         LEFT JOIN bodb02.dbo.Site s WITH (NOLOCK) ON cus.site = s.site
 	WHERE a.LogFeedbackId > @MaxLogFBId AND status IN ('initial','fail') AND retryCount < 5
 	AND a.ServiceID = @ServiceID AND Environment = @Environment
 

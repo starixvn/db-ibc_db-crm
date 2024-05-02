@@ -22,6 +22,7 @@ AS
         20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
         20240207@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
         20240318@Ned.Le: Fix bug relate to table crmSettingMapping
+        20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
 
     Param's Explanation:
         @Message:
@@ -913,8 +914,11 @@ BEGIN
     ----------------------------------------------------------------------------------------------------------
 
     -- Declare variables
-    DECLARE @FeedbackId INT
     DECLARE @Id         INT = 1
+    DECLARE @FeedbackId INT
+
+    DECLARE @CustId          INT
+    DECLARE @IsGroupHeadLine BIT = 0
 
     -- Build Feedback Description
     -- + Create temp table
@@ -1210,8 +1214,10 @@ BEGIN
              LEFT JOIN #tmpFeedback_description d ON b.MessageId = d.MessageId AND b.HeadlineId = d.HeadlineId
         WHERE b.Id = @Id
 
-        -- + Get FeedbackId
-        SET @FeedbackId = SCOPE_IDENTITY()
+        -- + Get data for @FeedbackId|@CustId|@IsGroupHeadLine
+        SELECT @FeedbackId      = SCOPE_IDENTITY()
+        SELECT @CustId          = HeadlineId FROM #tmpFeedback_base WHERE Id = @Id
+        SELECT @IsGroupHeadLine = ISNULL(IsGroupHeadLine, 0) FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = @CustId AND IsGroupHeadLine = 1
 
         -- + Insert data to table crmFeedbackCustomer
         INSERT INTO bodb_CRM.dbo.crmFeedbackCustomer (
@@ -1268,6 +1274,56 @@ BEGIN
              OUTER APPLY(SELECT CAST(s.value AS INT) SubProductId FROM STRING_SPLIT(b.SubProductIds, ',') s) s
              OUTER APPLY(SELECT CAST(t.value AS INT) BettypeId FROM STRING_SPLIT(b.BettypeIds, ',') t) t
         WHERE b.Id = @Id
+
+        -- + Insert data to table crmFeedbackNewCommunicationTool
+        IF (@IsGroupHeadLine = 1)
+        BEGIN
+            ;WITH CTE_HeadlineInfo AS (
+                SELECT DISTINCT
+                       p.PicID         PicID,
+                       p.Username      PicName,
+                       sr.SettingValue PicRoleName
+                FROM bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK)
+                     LEFT JOIN bodb_CRM.dbo.crmPIC p WITH (NOLOCK) ON pm.PicID = p.PicID
+                     LEFT JOIN bodb_CRM.dbo.crmSetting sr WITH (NOLOCK) ON sr.SettingName = 'PICRole' AND p.Role = sr.SettingID
+                WHERE pm.HeadlineID = @CustId
+            )
+            INSERT INTO bodb_CRM.dbo.crmFeedbackNewCommunicationTool (
+                FeedbackID,
+                CustID,
+                isHeadline,
+                PicInfo,
+                CommunicationID,
+                CommunicationValue
+            )
+            SELECT @FeedbackId                                              FeedbackID,
+                   @CustId                                                  CustID,
+                   ISNULL(@IsGroupHeadLine, 0)                              isHeadline,
+                   ISNULL((cte.PicName + ' (' + cte.PicRoleName + ')'), '') PicInfo,
+                   pc.CommunicationID                                       CommunicationID,
+                   pc.CommunicationValue                                    PicCommunicationValue
+            FROM CTE_HeadlineInfo cte
+                 LEFT JOIN bodb_CRM.dbo.crmPICCommunication pc WITH (NOLOCK) ON cte.PicID = pc.PicID
+        END
+        ELSE
+        BEGIN
+            INSERT INTO bodb_CRM.dbo.crmFeedbackNewCommunicationTool (
+                FeedbackID,
+                CustID,
+                isHeadline,
+                PicInfo,
+                CommunicationID,
+                CommunicationValue
+            )
+            SELECT @FeedbackId                 FeedbackID,
+                   @CustId                     CustID,
+                   ISNULL(@IsGroupHeadLine, 0) isHeadline,
+                   ''                          PicInfo,
+                   ccc.CommunicationID         CommunicationID,
+                   ccc.CommunicationValue      CommunicationValue
+            FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool ccc WITH (NOLOCK)
+            WHERE ccc.CustID = @CustId
+        END
 
         -- + Insert data to table crmFeedbackReference
         INSERT INTO bodb_CRM.dbo.crmFeedbackReference (

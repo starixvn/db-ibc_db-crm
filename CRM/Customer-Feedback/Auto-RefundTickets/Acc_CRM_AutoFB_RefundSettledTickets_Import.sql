@@ -20,6 +20,7 @@ AS
 	Revisions:
 		- 20210731@Malcolm: Initialize SP [RedmineId: #195404]
         - 20240318@Ned.Le: Fix bug relate to table crmSettingMapping
+        - 20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
 		
 	Param's Explanation:
 		. @MessageContent = 
@@ -649,6 +650,67 @@ BEGIN
 		SELECT @FeedbackId, SettingId, SubSettingId, SubSettingIdLevel3
 		FROM @SettingResult
 		WHERE Id = @Id
+
+        -----------------------------------------------------------
+        -- BEGIN - Process data for crmFeedbackNewCommunicationTool
+
+        DECLARE @Cust_Id INT
+        SELECT  @Cust_Id = r.CustId FROM @Result r INNER JOIN bodb_CRM.dbo.crmCustomer c WITH (NOLOCK) ON c.CustId = r.CustId WHERE r.Id = @Id
+
+        DECLARE @Cust_IsGroupHeadline BIT = 0
+        SELECT  @Cust_IsGroupHeadline = ISNULL(IsGroupHeadLine, 0) FROM bodb02.dbo.custAccount WITH (NOLOCK) WHERE custid = @Cust_Id AND IsGroupHeadLine = 1
+
+        IF (@Cust_IsGroupHeadline = 1)
+        BEGIN
+            ;WITH CTE_HeadlineInfo AS (
+                SELECT DISTINCT
+                       p.PicID         PicID,
+                       p.Username      PicName,
+                       sr.SettingValue PicRoleName
+                FROM bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK)
+                     LEFT JOIN bodb_CRM.dbo.crmPIC p WITH (NOLOCK) ON pm.PicID = p.PicID
+                     LEFT JOIN bodb_CRM.dbo.crmSetting sr WITH (NOLOCK) ON sr.SettingName = 'PICRole' AND p.Role = sr.SettingID
+                WHERE pm.HeadlineID = @Cust_Id
+            )
+            INSERT INTO bodb_CRM.dbo.crmFeedbackNewCommunicationTool (
+                FeedbackID,
+                CustID,
+                isHeadline,
+                PicInfo,
+                CommunicationID,
+                CommunicationValue
+            )
+            SELECT @FeedbackId                                              FeedbackID,
+                   @Cust_Id                                                 CustID,
+                   ISNULL(@Cust_IsGroupHeadline, 0)                         isHeadline,
+                   ISNULL((cte.PicName + ' (' + cte.PicRoleName + ')'), '') PicInfo,
+                   pc.CommunicationID                                       CommunicationID,
+                   pc.CommunicationValue                                    PicCommunicationValue
+            FROM CTE_HeadlineInfo cte
+                 LEFT JOIN bodb_CRM.dbo.crmPICCommunication pc WITH (NOLOCK) ON cte.PicID = pc.PicID
+        END
+        ELSE
+        BEGIN
+            INSERT INTO bodb_CRM.dbo.crmFeedbackNewCommunicationTool (
+                FeedbackID,
+                CustID,
+                isHeadline,
+                PicInfo,
+                CommunicationID,
+                CommunicationValue
+            )
+            SELECT @FeedbackId                      FeedbackID,
+                   @Cust_Id                         CustID,
+                   ISNULL(@Cust_IsGroupHeadline, 0) isHeadline,
+                   ''                               PicInfo,
+                   ccc.CommunicationID              CommunicationID,
+                   ccc.CommunicationValue           CommunicationValue
+            FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool ccc WITH (NOLOCK)
+            WHERE ccc.CustID = @Cust_Id
+        END
+
+        -- END - Process data for crmFeedbackNewCommunicationTool
+        ---------------------------------------------------------
 
 		INSERT INTO dbo.crmFeedbackReference (FeedbackId, ReferenceId, DataSource, CreatedDate)
 		SELECT @FeedbackId, MessageId, 'DBMSG.bodb_Message.dbo.Msg', GETDATE()

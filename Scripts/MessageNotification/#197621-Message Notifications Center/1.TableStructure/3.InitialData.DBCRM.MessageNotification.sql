@@ -115,9 +115,9 @@ VALUES (
 	,(
 		4
 		,'Result Amendment for Cricket - Calculate to Calculate (2 amended result)'
-		,N'Attn:[{sport_name}] Due to {affected_result_name}_list wrong result displayed, the match between {match_info} as a result bet ID: "@@" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused!'
-		,N'請注意:[{sport_name}] 由於 {affected_result_name}_list 賽果顯示錯誤, {match_info} 注單: "@@" 已重新結算. 請重新檢查您的帳目. 不便之處 敬請見諒! '
-		,N'请注意:[{sport_name}] 由于 {affected_result_name}_list 赛果显示错误, {match_info} 注單: "@@" 已重新结算. 请重新检查您的帐目. 不便之处 敬请见谅!'
+		,N'Attn:[{sport_name}] Due to {affected_result_name} wrong result displayed, the match between {match_info} as a result bet ID: "@@" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused!'
+		,N'請注意:[{sport_name}] 由於 {affected_result_name} 賽果顯示錯誤, {match_info} 注單: "@@" 已重新結算. 請重新檢查您的帳目. 不便之處 敬請見諒! '
+		,N'请注意:[{sport_name}] 由于 {affected_result_name} 赛果显示错误, {match_info} 注單: "@@" 已重新结算. 请重新检查您的帐目. 不便之处 敬请见谅!'
 		,N'{sport_name},{affected_result_name},{match_info}'
 		,@StarixIT
 		,@StarixIT

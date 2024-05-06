@@ -132,6 +132,12 @@ BEGIN
         END
     END
 
+    -- Set value for parameter @return_HeadlineNameList when @Status='Draft'
+    IF (@Status = 'Draft')
+    BEGIN
+        SET @return_HeadlineNameList = @HeadlineNameList
+    END
+
 
     ------------------
     -- Process data --

@@ -76,6 +76,7 @@ BEGIN
     -------------------
     -- Validate data --
 
+    -- Check data correct of announcement information
     IF (@Status = 'Planned')
     BEGIN
         INSERT INTO #tmpReturnValidationData (HeadlineNameList, DirectAccountNameList)
@@ -97,6 +98,12 @@ BEGIN
                    @return_DirectAccountNameList = DirectAccountNameList
             FROM #tmpReturnValidationData
         END
+    END
+
+    -- Set value for parameter @return_HeadlineNameList when @Status='Draft'
+    IF (@Status = 'Draft')
+    BEGIN
+        SET @return_HeadlineNameList = @HeadlineNameList
     END
 
 

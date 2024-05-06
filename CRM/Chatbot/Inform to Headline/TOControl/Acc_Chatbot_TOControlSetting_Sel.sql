@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCUST-CustDB" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+
+USE CustDB
+GO
+
 ALTER PROCEDURE [dbo].[Acc_Chatbot_TOControlSetting_Sel]
 	@LastLogId BIGINT
 	,@BatchSize INT = 10
@@ -11,6 +15,7 @@ AS
 
 	Revisions:
 		- 20201214@Malcolm: Initialize SP [RedmineID: #146735]
+        - 20240424@Ned.Le: CRM - Migrate internal accounts to new 2 new sites - Hedging & Special (#202208)
 
 	Param's Explanation:
 		
@@ -45,7 +50,7 @@ BEGIN
 
 		DELETE r
 		FROM @Result r
-		WHERE EXISTS(SELECT TOP 1 1 FROM dbo.Customer c WITH(NOLOCK) WHERE c.custid = r.CustId AND c.site = 'CN88') 
+		WHERE EXISTS(SELECT TOP 1 1 FROM dbo.Customer c WITH(NOLOCK) WHERE c.custid = r.CustId AND c.site IN ('CN88', 'Hedging', 'Special')) 
 
 		SELECT @NumberOfRows = COUNT(1) FROM @Result
 

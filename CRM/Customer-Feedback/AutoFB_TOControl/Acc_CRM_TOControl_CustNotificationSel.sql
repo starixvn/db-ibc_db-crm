@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCUST-CustDB" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE CustDB
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_TOControl_CustNotificationSel] 
 	@LastLogID 	INT,
 	@BatchSize	INT = 10,
@@ -16,6 +20,7 @@ AS
 
 	Revisions:
 		- 20201126@Johnson: Initial sp [redmine:#145274]
+        - 20240424@Ned.Le: CRM - Migrate internal accounts to new 2 new sites - Hedging & Special (#202208)
 	
 	Parameter's Explanation:
 		- @ConfigUAT = 1: UUS customers
@@ -47,7 +52,7 @@ BEGIN
 		WHERE LogID > @LastLogID
 			AND IsGroupHeadLine = 0
 			AND NotifiedPercentValue >=80
-			AND ci.site <> 'cn88'
+			AND ci.site NOT IN ('CN88', 'Hedging', 'Special')
 	)
 	SELECT TOP(@batchSize)
 		LogID,

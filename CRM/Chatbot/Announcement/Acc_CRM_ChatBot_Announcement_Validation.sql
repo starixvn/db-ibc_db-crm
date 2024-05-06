@@ -290,8 +290,11 @@ BEGIN
                                                                                            AND s.IsActive = 1
                                                                                            AND s.SiteOffer = 2
                                                                                            AND cg.LanguageId = s.SettingID
+                 LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType   ign WITH(NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
             WHERE hl.HeadlineId <> 0
                   AND hl.ErrCode = 0
+                  AND cg.IsActive = 1
+                  AND ign.ConversationGroupId IS NULL
         ),
         CTE_DirectAccount AS (
             SELECT DISTINCT
@@ -299,11 +302,14 @@ BEGIN
                    cg.LanguageId,
                    s.SettingValue LanguageName
             FROM #tmpDirectAccountOutput da
-                 INNER JOIN bodb_CRM.dbo.crmConversationGroup cg  WITH (NOLOCK) ON da.ConversationGroupId = cg.ConversationGroupId
-                 INNER JOIN bodb_CRM.dbo.crmSetting           s   WITH (NOLOCK) ON s.SettingName = 'NotificationTemplateLanguage'
-                                                                                   AND s.IsActive = 1
-                                                                                   AND s.SiteOffer = 2
-                                                                                   AND cg.LanguageId = s.SettingID
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroup       cg  WITH (NOLOCK) ON da.ConversationGroupId = cg.ConversationGroupId
+                 INNER JOIN bodb_CRM.dbo.crmSetting                 s   WITH (NOLOCK) ON s.SettingName = 'NotificationTemplateLanguage'
+                                                                                         AND s.IsActive = 1
+                                                                                         AND s.SiteOffer = 2
+                                                                                         AND cg.LanguageId = s.SettingID
+                 LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType ign WITH(NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+            WHERE cg.IsActive = 1
+                  AND ign.ConversationGroupId IS NULL
         ),
         CTE_Union AS (
             SELECT HeadlineName, LanguageId, LanguageName FROM CTE_Headline

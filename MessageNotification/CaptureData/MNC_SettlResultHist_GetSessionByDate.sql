@@ -59,6 +59,19 @@ BEGIN
 		,ExtraInfo_After VARCHAR(MAX)
 	)
 	
+	CREATE TABLE #tmpBalanceNegativeHistory (
+		LogID BIGINT
+		,ExecDate DATETIME
+		,MatchID INT
+		,ActionID INT
+		,CustID INT
+		,GroupID INT
+		,Balance MONEY
+		,TotalBalance MONEY
+		,Site VARCHAR(50)
+		,SessionID VARCHAR(50)
+	)
+	
 	;WITH CTE_ResultHist AS (
 		SELECT DISTINCT sh.SessionID
 			,sh.MatchID
@@ -127,6 +140,31 @@ BEGIN
 		LEFT JOIN bodb02.dbo.bettrans14 AS b14 WITH (NOLOCK) ON d.Transid = b14.Transid
 	WHERE h.StatusID = 2 --2-Completed Result Amendment
 	
+	INSERT INTO #tmpBalanceNegativeHistory (
+		LogID
+		,ExecDate
+		,MatchID
+		,ActionID
+		,CustID
+		,GroupID
+		,Balance
+		,TotalBalance
+		,Site
+		,SessionID
+	)
+	SELECT DISTINCT bn.LogID
+		,bn.ExecDate
+		,bn.MatchID
+		,bn.ActionID
+		,bn.CustID
+		,bn.GroupID
+		,bn.Balance
+		,bn.TotalBalance
+		,bn.Site
+		,bn.SessionID
+	FROM bodb02.dbo.BalanceNegativeHistory AS bn WITH (NOLOCK)
+		INNER JOIN #tmpResultHistDetail AS d WITH (NOLOCK) ON bn.SessionID = d.SessionID AND bn.CustID = d.CustID
+	
 	---prepare data
 	INSERT INTO #tmpJSData (ObjectName, JSONData)
 	SELECT 'SiteDBGroupID' AS ObjectName
@@ -148,6 +186,14 @@ BEGIN
 					FOR JSON AUTO
 				)) AS JSONData
 	
+	INSERT INTO #tmpJSData (ObjectName, JSONData)
+	SELECT 'BalanceNegativeHistory' AS ObjectName
+		,CONVERT(NVARCHAR(MAX),(
+					SELECT *
+					FROM #tmpBalanceNegativeHistory
+					FOR JSON AUTO
+				)) AS JSONData
+	
 	---convert data as JSON
 	SELECT @JSSettlResultHist = CONVERT(NVARCHAR(MAX),(
 				SELECT *
@@ -161,5 +207,6 @@ BEGIN
 	
 	DROP TABLE #tmpResultHist
 	DROP TABLE #tmpResultHistDetail
+	DROP TABLE #tmpBalanceNegativeHistory
 	DROP TABLE #tmpJSData
 END

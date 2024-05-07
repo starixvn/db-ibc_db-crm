@@ -57,6 +57,28 @@ CREATE CLUSTERED INDEX [CIX_NotifDetail] ON dbo.SettlementResultHistDetail (
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
+/***** BalanceNegativeHist ****/
+DROP TABLE IF EXISTS dbo.BalanceNegativeHist
+
+CREATE TABLE dbo.BalanceNegativeHist (
+	SettlementLogID INT NOT NULL
+	,LogID BIGINT
+	,ExecDate DATETIME
+	,MatchID INT
+	,ActionID INT
+	,CustID INT
+	,GroupID INT
+	,Balance MONEY
+	,TotalBalance MONEY
+	,Site VARCHAR(50)
+) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
+GO
+
+CREATE CLUSTERED INDEX [CIX_BalanceNegative] ON dbo.BalanceNegativeHist (
+	SettlementLogID
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
+GO
+	
 /***** NotiMapping ****/
 DROP TABLE IF EXISTS dbo.NotiMapping
 

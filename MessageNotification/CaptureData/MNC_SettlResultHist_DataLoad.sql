@@ -184,6 +184,24 @@ BEGIN
 		,CustID INT
 	)
 	
+	CREATE TABLE #tmpBalanceNegativeHistory (
+		LogID BIGINT
+		,ExecDate DATETIME
+		,MatchID INT
+		,ActionID INT
+		,CustID INT
+		,GroupID INT
+		,Balance MONEY
+		,TotalBalance MONEY
+		,Site VARCHAR(50)
+		,SessionID VARCHAR(50)
+	)
+	
+	CREATE TABLE #tmpInsertedNB (
+		SettlementLogID INT NOT NULL
+		,LogID BIGINT NOT NULL
+		,CustID INT
+	)
 	/*
 		**************************************************Load data from web**************************************************
 	*/
@@ -270,6 +288,42 @@ BEGIN
 				,ExtraInfo_Before VARCHAR(MAX) '$.ExtraInfo_Before'
 				,ExtraInfo_After VARCHAR(MAX) '$.ExtraInfo_After'
 			)--OPENJSON case-sensitive
+		
+		INSERT INTO #tmpBalanceNegativeHistory (
+			LogID
+			,ExecDate
+			,MatchID
+			,ActionID
+			,CustID
+			,GroupID
+			,Balance
+			,TotalBalance
+			,Site
+			,SessionID
+		)
+		SELECT LogID
+			,ExecDate
+			,MatchID
+			,ActionID
+			,CustID
+			,GroupID
+			,Balance
+			,TotalBalance
+			,Site
+			,SessionID
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'BalanceNegativeHistory')) WITH (
+				LogID BIGINT '$.LogID'
+				,ExecDate DATETIME '$.ExecDate'
+				,MatchID INT '$.MatchID'
+				,ActionID INT '$.ActionID'
+				,CustID INT '$.CustID'
+				,GroupID INT '$.GroupID'
+				,Balance MONEY '$.Balance'
+				,TotalBalance MONEY '$.TotalBalance'
+				,Site VARCHAR(50) '$.Site'
+				,SessionID VARCHAR(50) '$.SessionID'
+			)--OPENJSON case-sensitive
+	
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -526,6 +580,138 @@ BEGIN
 	END CATCH
 	
 	/*
+		**************************************************Start to insert BalanceNegativeHist**************************************************
+		+ For new SettlementLogID
+	*/
+	IF @ErrCode = 0 AND EXISTS (SELECT 1 FROM #tmpInsertedRHDetail)
+	BEGIN TRY
+		INSERT INTO BalanceNegativeHist (
+			SettlementLogID
+			,LogID
+			,ExecDate
+			,MatchID
+			,ActionID
+			,CustID
+			,GroupID
+			,Balance
+			,TotalBalance
+			,Site
+		)
+		OUTPUT INSERTED.SettlementLogID
+			,INSERTED.LogID
+			,INSERTED.CustID
+		INTO #tmpInsertedNB (
+			SettlementLogID
+			,LogID
+			,CustID
+		) --Get Inserted Negative
+		SELECT DISTINCT rhd.SettlementLogID
+			,bn.LogID
+			,bn.ExecDate
+			,bn.MatchID
+			,bn.ActionID
+			,bn.CustID
+			,bn.GroupID
+			,bn.Balance
+			,bn.TotalBalance
+			,bn.Site
+		FROM #tmpInsertedRHDetail AS rhd
+			INNER JOIN #tmpInsertedRH AS rh ON rh.SettlementLogID = rhd.SettlementLogID
+			INNER JOIN #tmpResultHist AS rs ON rh.SessionID = rs.SessionID AND rh.SeqNo = rs.SeqNo
+			INNER JOIN #tmpBalanceNegativeHistory AS bn ON rh.SessionID = bn.SessionID AND rs.MatchID = bn.MatchID AND rhd.CustID = bn.CustID
+		WHERE NOT EXISTS (
+				SELECT 1
+				FROM BalanceNegativeHist AS tgt
+				WHERE rhd.SettlementLogID = tgt.SettlementLogID
+					AND bn.LogID = tgt.LogID
+					AND bn.CustID = tgt.CustID
+			)
+		
+		--write log
+		;WITH CTE_InsertedNB AS (
+			SELECT s.SettlementLogID
+				,CONVERT(NVARCHAR(MAX),(
+								SELECT DISTINCT t.LogID
+									,t.CustID
+								FROM #tmpInsertedNB AS t
+								WHERE t.SettlementLogID = s.SettlementLogID
+									AND t.LogID = s.LogID
+									AND t.CustID = s.CustID
+								ORDER BY LogID
+								FOR JSON PATH
+							)) AS LTxt
+			FROM #tmpInsertedNB AS s
+		)
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT bn.SettlementLogID
+			,@LogActionID
+			,@LogUserID
+			,@InfLogPrefix + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),tbn.LTxt),','),'NO ROW')+ ')'
+		FROM #tmpInsertedNB AS bn
+			LEFT JOIN CTE_InsertedNB AS tbn ON bn.SettlementLogID = tbn.SettlementLogID
+		GROUP BY bn.SettlementLogID
+		ORDER BY bn.SettlementLogID
+		
+	END TRY
+	BEGIN CATCH
+		SELECT @ErrCode = @@ERROR --output for web
+			,@ErrMsg = ERROR_MESSAGE() --output for web
+		
+		INSERT INTO [Log] (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + '[Capture process - DataLoad] - FAILED INSERT INTO BalanceNegativeHist'
+							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
+							+ ' - Prepared data('
+								+ (SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpBalanceNegativeHistory
+											FOR JSON PATH
+										))
+									)
+								+ ')'
+							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+		
+		--Remove Inserted SettlementLogID
+		
+		DELETE sh
+		FROM BalanceNegativeHist AS sh
+			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+		
+		DELETE sh
+		FROM SettlementResultHistDetail AS sh
+			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+		
+		DELETE sh
+		FROM SettlementResultHist AS sh
+			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+		
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT SettlementLogID
+			,@LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + 'Recent [SettlementResultHist] inserts have been removed because [BalanceNegativeHist] failed to insert.'
+		FROM #tmpInsertedRH
+		ORDER BY SettlementLogID
+		
+	END CATCH
+	
+	/*
 		**************************************************SettlementResultHist.Status = Successfully Retrieved**************************************************
 		
 		SettlementStatusID = [SITEDB1,2,3].SettlementResultHistory.StatusID
@@ -683,7 +869,16 @@ BEGIN
 										))
 									),'NO ROW')
 								+ ')'
+							+ ' - Inserted BalanceNegativeHist('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpInsertedNB
+											FOR JSON PATH
+										))
+									),'NO ROW')
+								+ ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+
 	END CATCH
 	
 	/**************************************************Mark Capture process DONE**************************************************/
@@ -701,7 +896,7 @@ BEGIN
 		,@LogUserID
 		,@InfLogPrefix + 'Completed [Capture process - DataLoad]'
 						+ ' - @SiteDBGroupID(' + ISNULL(CONVERT(VARCHAR,@SiteDBGroupID),'NULL') + ')'
-						+ ' - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+						+ ' - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 	
@@ -729,6 +924,13 @@ BEGIN
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
+						+ ' - Inserted BalanceNegativeHist('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpInsertedNB
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')'
 						+ ' - Updated SettlementResultHist.Status('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -746,4 +948,6 @@ BEGIN
 	DROP TABLE #tmpResultHistDetail
 	DROP TABLE #tmpInsertedRHDetail
 	DROP TABLE #tmpUpdatedRH
+	DROP TABLE #tmpBalanceNegativeHistory
+	DROP TABLE #tmpInsertedNB
 END

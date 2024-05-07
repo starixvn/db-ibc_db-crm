@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AdmSelNoti
-	@FCreatedDate DATETIME = NULL
-	,@TCreatedDate DATETIME = NULL
+	@FCreatedDateGMT8 DATETIME = NULL
+	,@TCreatedDateGMT8 DATETIME = NULL
 	,@NotiType TINYINT
 	,@FNotiID INT = NULL
 	,@TNotiID INT = NULL
@@ -88,6 +88,12 @@ BEGIN
 		,SendDateGMT8 VARCHAR(50)
 	)
 	
+	DECLARE @FCreatedDate4GMT DATETIME
+		,@TCreatedDate4GMT DATETIME
+	
+	SELECT @FCreatedDate4GMT = DATEADD(HH, -12, @FCreatedDateGMT8)
+		,@TCreatedDate4GMT = DATEADD(HH, -12, @TCreatedDateGMT8)
+	
 	--hard code status based on NotiType - check consistency MNC_Notification_AdmUpdNotiSts
 	INSERT INTO #tmpStsByNotiType (
 		NotiType
@@ -128,7 +134,7 @@ BEGIN
 		SELECT n.NotificationID
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpStsByNotiType AS s ON n.NotificationType = s.NotiType AND n.StatusID = s.StatusID
-		WHERE n.InsertedTime BETWEEN DATEADD(HH, -12, @FCreatedDate) AND DATEADD(HH, -12, @TCreatedDate) --convert to GMT-4
+		WHERE n.InsertedTime BETWEEN @FCreatedDate4GMT AND @TCreatedDate4GMT --GMT-4
 			AND n.NotificationType = @NotiType
 		OPTION (RECOMPILE)
 	END
@@ -452,9 +458,7 @@ BEGIN
 	SELECT @TotalRows = ISNULL((SELECT MAX(RNo) FROM #tmpResult), 0)
 	
 	--get all row if invalid Paging params
-	IF ISNULL(@RStart,-1) < 0
-		OR ISNULL(@REnd,-1) < 0
-		OR @RStart > @REnd
+	IF NOT EXISTS (SELECT 1 WHERE @RStart <= @REnd)
 	BEGIN
 		
 		SELECT @RStart = 0

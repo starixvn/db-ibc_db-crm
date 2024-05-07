@@ -1015,9 +1015,9 @@ BEGIN
 		*/
 		;WITH CTE_Subject AS (
 			SELECT lap.Msg_NotiID
-				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended ' + CONVERT(NVARCHAR, ex.EventDate, 103) END) AS Subject_en --(DD/MM/YYYY)
-				,(CASE WHEN lap.Content_ch IS NOT NULL THEN N'赛果更正 ' + CONVERT(NVARCHAR, ex.EventDate, 103) END) AS Subject_ch
-				,(CASE WHEN lap.Content_cs IS NOT NULL THEN N'赛果更正 ' + CONVERT(NVARCHAR, ex.EventDate, 103) END) AS Subject_cs
+				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended' END) AS Subject_en
+				,(CASE WHEN lap.Content_ch IS NOT NULL THEN N'赛果更正' END) AS Subject_ch
+				,(CASE WHEN lap.Content_cs IS NOT NULL THEN N'赛果更正' END) AS Subject_cs
 			FROM #tmpNoti AS lap
 				INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON lap.Msg_NotiID = ex.NotificationID
 		)

@@ -19,17 +19,6 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @LogUserID INT
-		,@LogActionID SMALLINT
-	
-	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 2 --ID of StarixIT
-	
-	SELECT @LogActionID = ActionID
-	FROM LogAction WITH (NOLOCK)
-	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
-	
 	CREATE TABLE #tmpAffectedTicket (
 		SiteType NVARCHAR(50)
 		,SiteName NVARCHAR(50)

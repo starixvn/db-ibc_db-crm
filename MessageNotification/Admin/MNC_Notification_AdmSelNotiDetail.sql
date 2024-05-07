@@ -34,6 +34,7 @@ BEGIN
 	)
 	
 	/*****************************************   Prepare for return   *********************************************************/
+	DECLARE @NotiType TINYINT
 	SELECT @NotiType = NotificationType
 	FROM dbo.Notification WITH (NOLOCK)
 	WHERE NotificationID = @NotiID

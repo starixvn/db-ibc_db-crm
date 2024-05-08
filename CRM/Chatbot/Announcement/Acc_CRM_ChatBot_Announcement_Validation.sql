@@ -125,8 +125,8 @@ BEGIN
                           FROM bodb_CRM.dbo.crmConversationGroupHeadline             cgh WITH (NOLOCK)
                                INNER JOIN bodb_CRM.dbo.crmConversationGroup          cg  WITH (NOLOCK) ON cgh.ConversationGroupId = cg.ConversationGroupId
                                INNER JOIN bodb_CRM.dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON cg.ConversationGroupId  = cgr.ConversationGroupId
-                               INNER JOIN bodb_CRM.dbo.crmConversationGroupBot       cgb WITH (NOLOCK) ON cg.ConversationGroupId  = cgb.ConversationGroupId
-                               LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType    ign WITH (NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+                               LEFT  JOIN bodb_CRM.dbo.crmConversationGroupBot       cgb WITH (NOLOCK) ON cg.ConversationGroupId  = cgb.ConversationGroupId
+                               LEFT  JOIN bodb_CRM.dbo.crmIgnoredNotificationType    ign WITH (NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
                           WHERE cgh.HeadlineId = h.HeadlineId
                                 AND cg.IsDeleted = 0) AS n (NotMapped, BotRemoved, InActive, IgnoredAnnouncement)
         WHERE h.ErrCode = -1

@@ -283,7 +283,7 @@ BEGIN
 		,cg.ConversationGroupName AS [DisplayName]
 		,t.RelatedNotificationIds
 		,t.ChannelId
-        ,ac.FileName
+        ,an.FileName
 	FROM #Tmp t
 		LEFT JOIN dbo.crmNotificationGroup nr WITH(NOLOCK) ON t.NotificationId = nr.NotificationId
 		LEFT JOIN dbo.crmConversationGroup cg WITH(NOLOCK) ON cg.ConversationGroupId = nr.ConversationGroupId
@@ -291,7 +291,6 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Customer o WITH(NOLOCK) ON o.custid = t.ResolvedBy
 		LEFT JOIN CTE e ON e.NotificationId = t.NotificationId
         LEFT JOIN bodb_CRM.dbo.crmAnnouncementNotification an (NOLOCK) ON t.NotificationId = an.NotificationId
-        LEFT JOIN bodb_CRM.dbo.crmAnnouncementContent ac (NOLOCK) ON an.AnnouncementId = ac.AnnouncementId AND cg.LanguageId = ac.LanguageId
 	ORDER BY t.NotificationId DESC
 
 	SELECT 

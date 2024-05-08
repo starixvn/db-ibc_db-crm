@@ -122,7 +122,7 @@ BEGIN
                s.ChatTypeId,
                s.BotId,
                s.ConversationId,
-               ISNULL(ac.FileName, '') FileName,
+               an.FileName,
                a.AnnouncementId,
                s.IsOnlyRetryImage,
                s.ErrImages,
@@ -130,6 +130,13 @@ BEGIN
         FROM #tmpSendNotifications s
              LEFT JOIN bodb_CRM.dbo.crmAnnouncementNotification an WITH (NOLOCK) ON an.NotificationId = s.NotificationId
              LEFT JOIN bodb_CRM.dbo.crmAnnouncement a WITH (NOLOCK) ON a.AnnouncementId = an.AnnouncementId
-             LEFT JOIN bodb_CRM.dbo.crmAnnouncementContent ac WITH (NOLOCK) ON a.AnnouncementId = ac.AnnouncementId AND s.LanguageId = ac.LanguageId
+
+
+    ------------------
+    -- Drop temp table
+
+    DROP TABLE #tmpSendNotifications
+    DROP TABLE #tmpNotifications
+
 END
 GO

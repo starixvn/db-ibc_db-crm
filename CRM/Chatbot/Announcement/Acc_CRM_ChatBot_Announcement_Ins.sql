@@ -7,6 +7,7 @@ ALTER PROCEDURE dbo.Acc_CRM_ChatBot_Announcement_Ins --Announcement information
                                                      @NotificationTemplateId SMALLINT,
                                                      @Title                  NVARCHAR(2000) = '',
                                                      @Contents               XML,
+                                                     @UploadFileType         VARCHAR(10),
                                                      --Input specific headline list
                                                      @HeadlineNameList       NVARCHAR(MAX)  = '',
                                                      --Get headline list based on some criteria
@@ -48,6 +49,8 @@ AS
                          <Content LanguageId = "50003" Value = "Content TH" FileName = "ImageTH.png"/>
                          <Content LanguageId = "50004" Value = "Content YN" FileName = "ImageYN.png"/>
                      </Contents>
+        - @UploadFileType = 'All'   : Upload images that use for all languagues
+                          = 'Single': Upload images that use for each language
         - @HeadlineType = 0 : Normal
                         = 1 : VIP
                         = 2 : All
@@ -130,7 +133,8 @@ BEGIN
             HeadlineNameList,
             SiteNameList,
             CurrencyIdList,
-            HeadlineType
+            HeadlineType,
+            UploadFileType
         )
         VALUES (
             @NotificationTemplateId,
@@ -143,7 +147,8 @@ BEGIN
             @return_HeadlineNameList,
             @SiteNameList,
             @CurrencyList,
-            @HeadlineType
+            @HeadlineType,
+            @UploadFileType
         )
 
         -- + Get AnnouncementId
@@ -237,6 +242,7 @@ BEGIN
                                                        @SiteNameList            AS '@SiteNameList',
                                                        @CurrencyList            AS '@CurrencyList',
                                                        @HeadlineType            AS '@HeadlineType',
+                                                       @UploadFileType          AS '@UploadFileType',
                                                        @Contents
                                                 FOR XML PATH('Acc_CRM_ChatBot_Announcement_Ins')))
 

@@ -9,6 +9,7 @@ ALTER PROCEDURE dbo.Acc_CRM_ChatBot_Announcement_Upd --Key value
                                                      @NotificationTemplateId SMALLINT,
                                                      @Title                  NVARCHAR(2000) = '',
                                                      @Contents               XML,
+                                                     @UploadFileType         VARCHAR(10),
                                                      --Input specific headline list
                                                      @HeadlineNameList       NVARCHAR(MAX)  = '',
                                                      --Get headline list based on some criteria
@@ -48,6 +49,8 @@ AS
                          <Content LanguageId = "50003" Value = "Content TH" FileName = "ImageTH.png"/>
                          <Content LanguageId = "50004" Value = "Content YN" FileName = "ImageYN.png"/>
                      </Contents>
+        - @UploadFileType = 'All'   : Upload images that use for all languagues
+                          = 'Single': Upload images that use for each language
         - @HeadlineType = 0 : Normal
                         = 1 : VIP
                         = 2 : All
@@ -84,6 +87,7 @@ BEGIN
         SiteNameList            NVARCHAR(MAX),
         CurrencyIdList          VARCHAR(MAX),
         HeadlineType            TINYINT,
+        UploadFileType          VARCHAR(10),
         UpdatedBy               INT,
         UpdatedDate             DATETIME,
         LanguageId              INT,
@@ -161,6 +165,7 @@ BEGIN
             SiteNameList           = @SiteNameList,
             CurrencyIdList         = @CurrencyList,
             HeadlineType           = @HeadlineType,
+            UploadFileType         = @UploadFileType,
             UpdatedBy              = @UserId,
             UpdatedDate            = @CurrentDate
         OUTPUT deleted.NotificationTemplateId,
@@ -174,6 +179,7 @@ BEGIN
                deleted.SiteNameList,
                deleted.CurrencyIdList,
                deleted.HeadlineType,
+               deleted.UploadFileType,
                deleted.UpdatedBy,
                deleted.UpdatedDate,
                1 Type
@@ -189,6 +195,7 @@ BEGIN
             SiteNameList,
             CurrencyIdList,
             HeadlineType,
+            UploadFileType,
             UpdatedBy,
             UpdatedDate,
             Type
@@ -281,6 +288,7 @@ BEGIN
                 a.SiteNameList           = t.SiteNameList,
                 a.CurrencyIdList         = t.CurrencyIdList,
                 a.HeadlineType           = t.HeadlineType,
+                a.UploadFileType         = t.UploadFileType,
                 a.UpdatedBy              = t.UpdatedBy,
                 a.UpdatedDate            = t.UpdatedDate
             FROM bodb_CRM.dbo.crmAnnouncement a 
@@ -367,6 +375,7 @@ BEGIN
                                                         SiteNameList           AS '@SiteNameList',
                                                         CurrencyIdList         AS '@CurrencyIdList',
                                                         HeadlineType           AS '@HeadlineType',
+                                                        UploadFileType         AS '@UploadFileType',
                                                         (SELECT LanguageId AS '@LanguageId',
                                                                 Content    AS '@Value',
                                                                 FileName   AS '@FileName'
@@ -389,7 +398,8 @@ BEGIN
                                                        @SiteNameList            AS '@SiteNameList',
                                                        @CurrencyList            AS '@CurrencyList',
                                                        @HeadlineType            AS '@HeadlineType',
-                                                       @Contents                
+                                                       @UploadFileType          AS '@UploadFileType',
+                                                       @Contents
                                                 FOR XML PATH('Acc_CRM_ChatBot_Announcement_Upd')))
 
     -- Write log

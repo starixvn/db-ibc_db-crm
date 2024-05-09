@@ -37,6 +37,7 @@ BEGIN
 		,a.SendImmediately
 		,a.SendDate
 		,d.DirectAccounts
+        ,a.UploadFileType
 	FROM dbo.crmAnnouncement a WITH(NOLOCK)
 		LEFT JOIN dbo.crmNotificationTemplate nt WITH(NOLOCK) ON nt.NotificationTemplateId = a.NotificationTemplateId
 		OUTER APPLY CTE_DirectAccount d 

@@ -28,6 +28,13 @@ AS
         - 20240327@Ned.Le: CRM - Headline Announcement - Enhancement - Allow to attach separate screenshots for a specific language AND Allow to push Notifications with empty content [Redmine: #201042]
 
     Param's Explanation:
+        - @Contents: <Contents>
+                         <Content LanguageId = "50000" Value = "Content EN" FileName = "ImageEN.png"/>
+                         <Content LanguageId = "50001" Value = "Content SC" FileName = "ImageSC.png"/>
+                         <Content LanguageId = "50002" Value = "Content EN SC" FileName = "ImageENSC.png"/>
+                         <Content LanguageId = "50003" Value = "Content TH" FileName = "ImageTH.png"/>
+                         <Content LanguageId = "50004" Value = "Content YN" FileName = "ImageYN.png"/>
+                     </Contents>
         - @HeadlineType = 0 : Normal
                         = 1 : VIP
                         = 2 : All

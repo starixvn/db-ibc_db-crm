@@ -48,7 +48,7 @@ BEGIN
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ProcessID INT
 		,@IsTestFlag BIT
-		,@UATMode VARCHAR(5) = 'OFF'
+		,@UATMode BIT = 0
 	
 	/*
 		Load setting
@@ -111,7 +111,7 @@ BEGIN
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
+	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT NULL AS SettlementLogIDs
 			,NULL AS GroupName
@@ -130,11 +130,11 @@ BEGIN
 		
 		RETURN
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'LIVE' --REAL data only
+	ELSE IF @UATMode = 1 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'UAT' --TEST data only
+	ELSE IF @UATMode = 1 AND @Environment = 'UAT' --TEST data only
 	BEGIN
 		SET @IsTestFlag = 1
 	END
@@ -326,7 +326,7 @@ BEGIN
 		,@LogUserID
 		,@InfLogPrefix + 'Debug - Completed [Generate Msg Noti process - Prepare]'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
-						+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
 						+ ' - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(

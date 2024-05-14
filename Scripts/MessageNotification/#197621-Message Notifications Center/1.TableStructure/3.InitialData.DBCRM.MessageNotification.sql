@@ -2,7 +2,7 @@
 /*
 	Created by Roy@20231213
 	Run at DBCRM@MessageNotification
-	Task: Insert i nitial data for workflow
+	Task: Insert initial data for workflow
 */
 USE [MessageNotification]
 GO
@@ -41,24 +41,27 @@ INSERT INTO SystemSetting (
 	VID
 	,VName
 	,VValue
+	,DataType
 	,Remark
 )
-VALUES (1, 'ScanBackHour', '24', 'scan back from current to pull SettlementResultHistory')
-	,(2,'Executor', '10278938', 'ID of StarixIT')
-	,(3,'IgnoreReviewContentBySport', '', 'With these sports, IGNORE review notification before push to Msg/MsgTarget')
+VALUES (1, 'ScanBackHour', '24', 'Int32', 'scan back from current to pull SettlementResultHistory')
+	,(2,'Executor', '10278938', 'Int32', 'ID of StarixIT')
+	,(3,'IgnoreReviewContentBySport', '', 'String', 'With these sports, IGNORE review notification before push to Msg/MsgTarget')
 	
-	,(4,'Process_CaptureData', 'Done', 'Done, Running')
-	,(5,'Process_GenerateMsgNoti', 'Done', 'Done, Running')
-	,(6,'Process_PushNoti', 'Done', 'Done, Running')
+	,(4,'Process_CaptureData', 'Done', 'String', 'Done, Running')
+	,(5,'Process_GenerateMsgNoti', 'Done', 'String', 'Done, Running')
+	,(6,'Process_PushNoti', 'Done', 'String', 'Done, Running')
 	
-	,(7,'ProcessUAT_CaptureData', 'Done', 'Done, Running')
-	,(8,'ProcessUAT_GenerateMsgNoti', 'Done', 'Done, Running')
-	,(9,'Process_GenerateLapNoti', 'Done', 'Done, Running')
+	,(7,'ProcessUAT_CaptureData', 'Done', 'String', 'Done, Running')
+	,(8,'ProcessUAT_GenerateMsgNoti', 'Done', 'String', 'Done, Running')
+	,(9,'Process_GenerateLapNoti', 'Done', 'String', 'Done, Running')
 	
-	,(10,'UATMode', 'OFF', 'Turn ON/OFF UATMode; If UATMode = OFF, PRD handle all data; If UATMode = ON, 1.PRD handle REAL data only 2.UAT handle REAL TEST (test matches)')
-	,(11,'Retrieving_WaitSec', '30', 'Change Status [Retrieving] -> [Successfully Retrieved] IF the SessionID keep Retrieving over this configuration')
-	-- ,(12,'NeedReviewContent', 'YES', 'YES, NO; Need review message content before push to DBMSG')
-	,(13,'LogMode', 'Debug', 'Normal, Debug')
+	,(10,'UATMode', '0', 'Boolean', 'Turn ON/OFF UATMode; If UATMode = OFF, PRD handle all data; If UATMode = ON, 1.PRD handle REAL data only 2.UAT handle REAL TEST (test matches)')
+	,(11,'Retrieving_WaitSec', '30', 'Int32', 'Change Status [Retrieving] -> [Successfully Retrieved] IF the SessionID keep Retrieving over this configuration')
+	,(12,'IT ChatGroupID', NULL, 'String','IT ChatGroupID')
+	,(13,'LogMode', 'Debug', 'String', 'Normal, Debug')
+	,(14,'OST ChatGroupID', '19:934a887696734ecfbc35dc45521729c4@thread.skype', 'String','Notification Alert - Local')
+	,(15,'777 ChatGroupID', '19:85743ff1eb01435d899cbc1a4f756f47@thread.skype', 'String','Notification Alert (for 777 only) - Local')
 
 /***** NotiTemplate ****/
 TRUNCATE TABLE NotiTemplate
@@ -147,12 +150,40 @@ VALUES (
 	)
 
 /***** AlertRule ****/
--- TRUNCATE TABLE AlertRule
--- INSERT INTO AlertRule (
-	-- RuleName
-	-- ,SQLStatement
-	-- ,ChatGroupID
-	-- ,BotID
-	-- ,Chanel
--- )
--- VALUES ('Deafult Group', NULL, 'ChatGroupID', 'BotID','Chanel')
+TRUNCATE TABLE AlertRule
+INSERT INTO AlertRule (
+	RuleID
+	,RuleName
+	,RuleType
+	,SQLStatement
+	,ChatGroupIDs
+	-- ,LastScan
+)
+VALUES (
+		1
+		,'SysErr - Running Status Too Long'
+		,'SysErr'
+		,''
+		,'12,14'
+	)
+	,(
+		2
+		,'NewNoti - Need Review'
+		,'NewNoti'
+		,''
+		,'12,14'
+	)
+	,(
+		3
+		,'PushErr - Sent Issue'
+		,'PushErr'
+		,''
+		,'12,14'
+	)
+	,(
+		4
+		,'SysErr - Missing From Any SiteGroupDB'
+		,'SysErr'
+		,''
+		,'12,14'
+	)

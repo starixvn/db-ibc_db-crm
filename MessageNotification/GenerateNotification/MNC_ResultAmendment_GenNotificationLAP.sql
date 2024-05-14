@@ -1252,6 +1252,14 @@ BEGIN
 		/*
 			Insert NotificationExtra
 		*/
+		;WITH CTE_Match AS (
+			SELECT tp.Msg_NotiID
+				,MAX(MatchID) AS MatchID
+			FROM #tmpTemplateDetl AS tp
+				LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON tp.Msg_NotiID = nm.NotificationID
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+			GROUP BY tp.Msg_NotiID
+		)
 		INSERT INTO NotificationExtra (
 			NotificationID
 			,EventDate
@@ -1261,6 +1269,7 @@ BEGIN
 			,ex.EventDate
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT tp.Msg_NotiID AS MsgNotiID
+					,m.MatchID
 					,REPLACE(rcal.Content_en,'<br/>','{new_line}') AS ReCalEN --remove [new line] tag of HTML format
 					,REPLACE(rcal.Content_ch,'<br/>','{new_line}') AS ReCalCH
 					,REPLACE(rcal.Content_cs,'<br/>','{new_line}') AS ReCalCS
@@ -1270,6 +1279,7 @@ BEGIN
 				FROM #tmpTemplateDetl AS tp
 					LEFT JOIN #tmpTemplateDetl AS rcal ON tp.Msg_NotiID = rcal.Msg_NotiID AND rcal.RequiredParam = '{recal_time}'
 					LEFT JOIN #tmpTemplateDetl AS cal ON tp.Msg_NotiID = cal.Msg_NotiID AND cal.RequiredParam = '{cal_time}'
+					LEFT JOIN CTE_Match AS m ON tp.Msg_NotiID = m.Msg_NotiID
 				WHERE tp.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH
 			)) AS ExtraInfo

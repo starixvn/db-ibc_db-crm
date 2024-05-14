@@ -45,7 +45,7 @@ BEGIN
 		,@LogActionID SMALLINT
 		,@SiteDBGroupID SMALLINT
 		,@ProcessID INT
-		,@UATMode VARCHAR(5) = 'OFF'
+		,@UATMode BIT = 0
 		,@IsTestFlag BIT
 		,@StsRetrieving TINYINT
 		,@StsRetrieved TINYINT
@@ -93,7 +93,7 @@ BEGIN
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
+	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT @ErrCode = 50001 --user-defined error code
 			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
@@ -109,11 +109,11 @@ BEGIN
 		
 		RETURN
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'LIVE' --REAL data only
+	ELSE IF @UATMode = 1 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'UAT' --TEST data only
+	ELSE IF @UATMode = 1 AND @Environment = 'UAT' --TEST data only
 	BEGIN
 		SET @IsTestFlag = 1
 	END
@@ -130,7 +130,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Start [Capture process - DataLoad] with @UATMode(' + @UATMode + ')'
+		,@InfLogPrefix + 'Debug - Start [Capture process - DataLoad] with @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ', @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ', @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 	FROM SystemSetting WITH (NOLOCK)

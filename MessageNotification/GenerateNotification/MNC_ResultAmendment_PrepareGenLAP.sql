@@ -128,6 +128,7 @@ BEGIN
 	
 	/*
 		Get List of Msg NotificationID which not EXISTS Lap NotificationID
+			Refer to Data rule #2.Running Status Too Long.sql
 	*/
 	;WITH CTE_Noti AS (
 		SELECT DISTINCT nMsg.NotificationID
@@ -143,7 +144,7 @@ BEGIN
 				WHERE mLap.SettlementLogID = mMsg.SettlementLogID
 					AND nLap.NotificationType = 2 --2: Result Amendment to LAP
 			) AS nL
-		WHERE nMsg.InsertedTime >= DATEADD(HH, - 48, GETDATE())
+		WHERE nMsg.LastModifiedTime >= DATEADD(HH, - 24, GETDATE())
 			AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
 			AND rh.SportType = 50 --Cricket, need modify for others sport
 			AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG

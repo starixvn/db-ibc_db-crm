@@ -63,7 +63,7 @@ BEGIN
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@IsTestFlag BIT
-		,@UATMode VARCHAR(5) = 'OFF'
+		,@UATMode BIT = 0
 		,@LogMode VARCHAR(500)
 		,@ErrCode INT = 0
 		,@ErrMsg NVARCHAR(2000) = ''
@@ -111,7 +111,7 @@ BEGIN
 	SELECT @LogActionID
 		,@LogUserID
 		,@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Verify]'
-						+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 	WHERE @LogMode = 'Debug'
@@ -125,11 +125,11 @@ BEGIN
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 'ON' AND @Environment = 'LIVE' --REAL data only
+	IF @UATMode = 1 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END
-	ELSE IF @UATMode = 'ON' AND @Environment = 'UAT' --TEST data only
+	ELSE IF @UATMode = 1 AND @Environment = 'UAT' --TEST data only
 	BEGIN
 		SET @IsTestFlag = 1
 	END
@@ -210,7 +210,7 @@ BEGIN
 		SELECT @LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED to Parse JSON Data'
-							+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
@@ -232,7 +232,7 @@ BEGIN
 		SELECT @LogActionID
 			,@LogUserID
 			,@InfLogPrefix + '[Generate Msg Noti process - Verify] - HAVE NO Valid SettlementLogIDs'
-							+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 		
@@ -290,7 +290,7 @@ BEGIN
 			SELECT @LogActionID
 				,@LogUserID
 				,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
-								+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+								+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
@@ -349,7 +349,7 @@ BEGIN
 			SELECT @LogActionID
 				,@LogUserID
 				,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RawData format'
-								+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+								+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
@@ -391,7 +391,7 @@ BEGIN
 		SELECT @LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef/RawData format'
-							+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'

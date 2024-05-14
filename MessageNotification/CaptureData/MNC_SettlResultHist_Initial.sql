@@ -34,7 +34,7 @@ BEGIN
 		,@LogActionID SMALLINT
 		,@ProcessID INT
 		,@ScanBackHour INT
-		,@UATMode VARCHAR(5) = 'OFF'
+		,@UATMode BIT = 0
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 	
@@ -87,7 +87,7 @@ BEGIN
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	
-	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
+	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime

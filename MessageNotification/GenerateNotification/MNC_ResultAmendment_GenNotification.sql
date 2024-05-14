@@ -65,7 +65,7 @@ BEGIN
 		,@StsGenFailed TINYINT
 		,@StsSending TINYINT
 		,@StsNew TINYINT
-		,@UATMode VARCHAR(5) = 'OFF'
+		,@UATMode BIT = 0
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ValidSettlementLogIDs VARCHAR(MAX)
@@ -139,7 +139,7 @@ BEGIN
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 'OFF' AND @Environment = 'UAT' --no action (RETURN)
+	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT @ErrCode = 50001 --user-defined error code
 			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
@@ -292,7 +292,7 @@ BEGIN
 		,@LogUserID
 		,@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Gen]'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
-						+ ' - @UATMode(' + ISNULL(@UATMode,'NULL') + ')'
+						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 	WHERE @LogMode = 'Debug'
 	/****************************************************************************

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -8,13 +8,14 @@ AS
 
 /*
     Created: 20230104@Malcolm
-    Task:    Synthesize, classify and group messages
-    DB:      DBACC/bodb02
+    Task   : Synthesize, classify and group messages
+    DB     : DBACC/bodb02
 
     Revisions:
         20230104@Malcolm: Initialize SPs [Redmine: #181906]
         20230802@Malcolm: Incorporate voiding duplicated bet tickets with TVS [Redmine: #191355]
         20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [Redmine: #198905]
+        20240515@Ned.Le: CRM/Chatboot - Support Auto Feedback/ Headline Noti and Chatbot for Licensee for TVS - Void abnormal bet (issuetypeid = 11) for many matches (#204823)
 
     Example:
         EXEC bodb02.dbo.Task_CRM_VoidingHistoryCollection_Ins
@@ -55,7 +56,7 @@ BEGIN
     -- [09] Drop temp tables                                                                     --
     --                                                                                           --
     -----------------------------------------------------------------------------------------------
- 
+
 
     --------------------
     -- Declare variables
@@ -215,7 +216,6 @@ BEGIN
     -- Create temp table
     CREATE TABLE #tmpAbnormalAccount (
         Support_BroadcastSessionId VARCHAR(100),
-        Support_RequestId          INT,
         Support_MatchId            INT,
         Support_MessageIdGroup     INT,
         Support_StatusId           TINYINT,
@@ -244,7 +244,6 @@ BEGIN
     )
     INSERT INTO #tmpAbnormalAccount (
         Support_BroadcastSessionId,
-        Support_RequestId,
         Support_MatchId,
         Support_MessageIdGroup,
         Support_StatusId,
@@ -260,7 +259,6 @@ BEGIN
         Using_UsernameList
     )
     SELECT vh.BroadcastSessionId Support_BroadcastSessionId,
-           0                     Support_RequestId,
            0                     Support_MatchId,
            vh.MessageIdGroup     Support_MessageIdGroup,
            vh.StatusId           Support_StatusId,
@@ -366,7 +364,6 @@ BEGIN
     -- Create temp table
     CREATE TABLE #tmpDuplicateTicket (
         Support_BroadcastSessionId VARCHAR(100),
-        Support_RequestId          INT,
         Support_MatchId            INT,
         Support_MessageIdGroup     INT,
         Support_StatusId           TINYINT,
@@ -460,7 +457,6 @@ BEGIN
     -- + Insert data to temp table
     INSERT INTO #tmpDuplicateTicket (
         Support_BroadcastSessionId,
-        Support_RequestId,
         Support_MatchId,
         Support_MessageIdGroup,
         Support_StatusId,
@@ -478,7 +474,6 @@ BEGIN
         Using_FilterBy
     )
     SELECT vh.BroadcastSessionId Support_BroadcastSessionId,
-           rq.RequestId          Support_RequestId,
            0                     Support_MatchId,
            vh.MessageIdGroup     Support_MessageIdGroup,
            vh.StatusId           Support_StatusId,
@@ -507,7 +502,6 @@ BEGIN
     -- Create temp table
     CREATE TABLE #tmpAbnormalBet (
         Support_BroadcastSessionId VARCHAR(100),
-        Support_RequestId          INT,
         Support_MatchId            INT,
         Support_MessageIdGroup     INT,
         Support_StatusId           TINYINT,
@@ -536,13 +530,12 @@ BEGIN
         GROUP BY rd.RequestId, rd.MatchId, rd.FilterBy
     ),
     CTE_VoidTransaction AS (
-        SELECT vt.VoidingHistoryId, vt.MessageId, STRING_AGG(CAST(vt.TransId AS VARCHAR(MAX)), ',') TransIdList
+        SELECT vt.VoidingHistoryId, vt.MessageId, vt.MatchId, STRING_AGG(CAST(vt.TransId AS VARCHAR(MAX)), ',') TransIdList
         FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK)
-        GROUP BY vt.VoidingHistoryId, vt.MessageId
+        GROUP BY vt.VoidingHistoryId, vt.MessageId, vt.MatchId
     )
     INSERT INTO #tmpAbnormalBet (
         Support_BroadcastSessionId,
-        Support_RequestId,
         Support_MatchId,
         Support_MessageIdGroup,
         Support_StatusId,
@@ -561,8 +554,7 @@ BEGIN
         Using_FilterBy
     )
     SELECT vh.BroadcastSessionId Support_BroadcastSessionId,
-           0                     Support_RequestId,
-           CASE WHEN rq.ActionId = 1 THEN ISNULL(rd.MatchId, 0) ELSE 0 END Support_MatchId,
+           rd.MatchId            Support_MatchId,
            vh.MessageIdGroup     Support_MessageIdGroup,
            vh.StatusId           Support_StatusId,
            vh.ModifiedDate       Support_ModifiedDate,
@@ -580,9 +572,9 @@ BEGIN
            rd.FilterBy           Using_FilterBy
     FROM bodb02.dbo.TicketVoiding_Request rq WITH (NOLOCK)
          INNER JOIN #tmpTicketVoiding_VoidingHistory vh ON rq.RequestId = vh.RequestId
-         LEFT JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
-         LEFT JOIN CTE_RequestDetail rd WITH (NOLOCK) ON rq.RequestId = rd.RequestId
-         LEFT JOIN CTE_VoidTransaction vt WITH (NOLOCK) ON vh.VoidingHistoryId = vt.VoidingHistoryId AND vh.MessageId = vt.MessageId
+         INNER JOIN bodb02.dbo.Customer crb WITH (NOLOCK) ON rq.UserId = crb.custid
+         INNER JOIN CTE_RequestDetail rd WITH (NOLOCK) ON rq.RequestId = rd.RequestId
+         INNER JOIN CTE_VoidTransaction vt WITH (NOLOCK) ON vh.VoidingHistoryId = vt.VoidingHistoryId AND vh.MessageId = vt.MessageId AND rd.MatchId = vt.MatchId
     WHERE rq.IssueTypeId IN (11, 15)
 
 
@@ -594,7 +586,6 @@ BEGIN
     CREATE TABLE #tmpFinal (
         Support_Id                 INT,
         Support_BroadcastSessionId VARCHAR(100),
-        Support_RequestId          INT,
         Support_MatchId            INT,
         Support_MessageIdGroup     INT,
         Support_StatusId           TINYINT,
@@ -621,7 +612,6 @@ BEGIN
     --   --> From #tmpAbnormalAccount
     INSERT INTO #tmpFinal (
         Support_BroadcastSessionId,
-        Support_RequestId,
         Support_MatchId,
         Support_MessageIdGroup,
         Support_StatusId,
@@ -645,7 +635,6 @@ BEGIN
         Using_MaxWinlostdate
     )
     SELECT Support_BroadcastSessionId,
-           Support_RequestId,
            Support_MatchId,
            Support_MessageIdGroup,
            Support_StatusId,
@@ -671,7 +660,6 @@ BEGIN
     --   --> From #tmpDuplicateTicket
     INSERT INTO #tmpFinal (
         Support_BroadcastSessionId,
-        Support_RequestId,
         Support_MatchId,
         Support_MessageIdGroup,
         Support_StatusId,
@@ -695,7 +683,6 @@ BEGIN
         Using_MaxWinlostdate
     )
     SELECT Support_BroadcastSessionId,
-           Support_RequestId,
            Support_MatchId,
            Support_MessageIdGroup,
            Support_StatusId,
@@ -721,7 +708,6 @@ BEGIN
     --   --> From #tmpAbnormalBet
     INSERT INTO #tmpFinal (
         Support_BroadcastSessionId,
-        Support_RequestId,
         Support_MatchId,
         Support_MessageIdGroup,
         Support_StatusId,
@@ -745,7 +731,6 @@ BEGIN
         Using_MaxWinlostdate
     )
     SELECT Support_BroadcastSessionId,
-           Support_RequestId,
            Support_MatchId,
            Support_MessageIdGroup,
            Support_StatusId,
@@ -769,29 +754,23 @@ BEGIN
            NULL Using_MaxWinlostdate
     FROM #tmpAbnormalBet
 
-    -- Clean data | For Manual Void or Auto Void Instant (ActionId<>1)
-    --            | 1) In 1 BroadcastSessionID, if all rows have StatusId=2, they will be collected immediately, no need to wait
-    --            | 2) In 1 BroadcastSessionID, if there are some rows with StatusId<>2 (A) and some rows with StatusId=2 (B) then at time >= MIN(ModifiedDate of rows B) + 1 minute will only collect all rows B
-    --            | For Auto Void Winning (ActionId=1)
-    --            | 1) In 1 (BroadcastSessionID, MatchId), if all rows have StatusId=2, they will be collected immediately, no need to wait
-    --            | 2) In 1 (BroadcastSessionID, MatchId), if there are some rows with StatusId<>2 (A) and some rows with StatusId=2 (B) then at time >= MIN(ModifiedDate of rows B) + 1 minute will only collect all rows B
+    -- Clean data | If all rows have StatusId=2, they will be collected immediately, no need to wait
+    --            | If there are some rows with StatusId<>2 (A) and some rows with StatusId=2 (B) then at time >= MIN(ModifiedDate of rows B) + 1 minute will only collect all rows B
     -- + Manipulate data
     ;WITH
     CTE_Session AS (
         SELECT Support_BroadcastSessionId,
-               Support_RequestId,
                Support_MatchId,
                Support_MessageIdGroup,
                MAX(CASE WHEN Support_StatusId <> 2 THEN 1 ELSE 0 END) + MAX(CASE WHEN Support_StatusId = 2 THEN 2 ELSE 0 END) AS StatusSum, --StatusSum have 3 value: 1_all row not finish | 2_all row finish | 3_some not finish and some finish
                MIN(CASE WHEN Support_StatusId = 2 THEN Support_ModifiedDate ELSE NULL END) AS ModifiedDate                                  --ModifiedDate: just need the min value of all row
         FROM #tmpFinal
         GROUP BY Support_BroadcastSessionId,
-                 Support_RequestId,
                  Support_MatchId,
                  Support_MessageIdGroup
     ),
     CTE_SessionCollection AS (
-        SELECT Support_BroadcastSessionId, Support_RequestId, Support_MatchId, Support_MessageIdGroup
+        SELECT Support_BroadcastSessionId, Support_MatchId, Support_MessageIdGroup
         FROM CTE_Session s
         WHERE StatusSum = 2 OR (StatusSum = 3 AND @CurrentDate >= DATEADD(MINUTE, 1, ModifiedDate)) --Just keep request that all row finish or request that already operate for more than 1 minute (just keep row already finish)
     )
@@ -799,7 +778,6 @@ BEGIN
     SET fi.Support_IsCollect = 0 
     FROM #tmpFinal fi
          LEFT JOIN CTE_SessionCollection sc ON fi.Support_BroadcastSessionId = sc.Support_BroadcastSessionId
-                                               AND fi.Support_RequestId = sc.Support_RequestId
                                                AND fi.Support_MatchId = sc.Support_MatchId 
                                                AND fi.Support_MessageIdGroup = sc.Support_MessageIdGroup
     WHERE sc.Support_BroadcastSessionId IS NULL
@@ -812,7 +790,7 @@ BEGIN
     SET fi.Support_Id = fi.rn
     FROM (
         SELECT Support_Id,
-               DENSE_RANK() OVER (ORDER BY Support_BroadcastSessionId, Support_RequestId, Support_MatchId, Support_MessageIdGroup) AS rn
+               DENSE_RANK() OVER (ORDER BY Support_BroadcastSessionId, Support_MatchId, Support_MessageIdGroup) AS rn
         FROM #tmpFinal
     ) fi
     -- + Run loop to insert data to main table

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_ConfigAutoFeedback_SettingUpd] 
 	  @UpdateConfig NVARCHAR(MAX)
 	, @UserID				INT
@@ -14,7 +14,8 @@ AS
 
 	Revisions:
 		- 20221028@Winfred: Update system setting config for all service [redmine:#158258]
-	
+		- 20240515@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621]
+		
 	Parameter's Explanation:
 		- @UpdateConfig:
 			<ROOT>
@@ -29,8 +30,8 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @xml XML, @iDoc INT,  @Threshold INT, @NumProduct INT = 0
-	SELECT	@ErrCode = 0, @ErrMsg = ''
+	DECLARE @iDoc INT, @MNCServiceName VARCHAR(100) = 'Notification Center'
+
 	CREATE TABLE #SettingName(ID INT,SettingName VARCHAR(50),Value VARCHAR(MAX),ServiceName VARCHAR(100))
 	CREATE TABLE #SettingNameOld(ID INT,SettingName VARCHAR(50),Value VARCHAR(MAX),ServiceName VARCHAR(100))
 
@@ -56,8 +57,14 @@ BEGIN
 		RETURN
 	END CATCH;
 
-	IF EXISTS (SELECT TOP 1 1 FROM #SettingName a
-				WHERE NOT EXISTS (SELECT TOP 1 1 FROM SystemSetting WITH(NOLOCK) WHERE ID = a.ID))
+	--TO DO:
+	IF EXISTS (
+		SELECT 1
+		FROM #SettingName a
+			LEFT JOIN dbo.SystemSetting s WITH (NOLOCK) ON a.ID = s.ID AND a.ServiceName = s.ServiceName
+			LEFT JOIN MessageNotification.dbo.SystemSetting ms WITH (NOLOCK) ON a.ID = ms.VID AND a.ServiceName = @MNCServiceName
+		WHERE s.ID IS NULL AND ms.VID IS NULL
+	)
 	BEGIN
 		SET @ErrCode = 101
 		SET @ErrMsg = N'Not exists ID.'
@@ -65,17 +72,26 @@ BEGIN
 	END
 
 	INSERT INTO #SettingNameOld(ID, SettingName, Value, ServiceName)
-	SELECT s.ID, s.SettingName, b.Value, s.ServiceName 
-	FROM #SettingName s
-	INNER JOIN SystemSetting b WITH(NOLOCK) ON S.ID  = b.ID
+	SELECT n.ID, n.SettingName, s.Value, n.ServiceName 
+	FROM #SettingName n
+		INNER JOIN dbo.SystemSetting s WITH(NOLOCK) ON s.ID = n.ID AND s.ServiceName = n.ServiceName
+	UNION ALL
+	SELECT n.ID, n.SettingName, s.VValue, @MNCServiceName
+	FROM #SettingName n
+		INNER JOIN MessageNotification.dbo.SystemSetting s WITH(NOLOCK) ON s.VID = n.ID AND n.ServiceName = @MNCServiceName
 
-	UPDATE S
-	SET S.Value = b.Value
-	FROM SystemSetting S WITH(UPDLOCK,ROWLOCK)
-		INNER JOIN #SettingName b ON S.ID  = b.ID
+	UPDATE s
+	SET s.Value = n.Value
+	FROM dbo.SystemSetting s WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN #SettingName n ON n.ID  = s.ID AND n.ServiceName = s.ServiceName
+
+	UPDATE s 
+	SET s.VValue = n.Value
+	FROM MessageNotification.dbo.SystemSetting s WITH (ROWLOCK, UPDLOCK)
+		INNER JOIN #SettingName n ON n.ID = s.VID AND n.ServiceName = @MNCServiceName
 	
 	-- write log  
-	 DECLARE @LogElement XML , @LogElementOld XML , @UpdateConfigOld NVARCHAR(MAX), @UpdateConfigNew NVARCHAR(MAX)
+	DECLARE @LogElement XML , @LogElementOld XML , @UpdateConfigOld NVARCHAR(MAX), @UpdateConfigNew NVARCHAR(MAX)
 	
 	SELECT @UpdateConfigOld =	CAST((SELECT ID AS '@ID',
 									 SettingName AS '@SETTING',

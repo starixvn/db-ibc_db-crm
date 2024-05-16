@@ -45,6 +45,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackUpd --KEY
                                                           @RelatedCustID         VARCHAR(MAX)   = NULL,
                                                           --IFELSE
                                                           @UpdateReviewedMode    TINYINT        = 0,
+                                                          @IsOverwrite           BIT            = 0,
                                                           --LOG
                                                           @UserID                INT,
                                                           @IP                    VARCHAR(45),
@@ -61,6 +62,7 @@ AS
 
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
 
     Param's Explanation:
         @Category: <ROOT>
@@ -89,10 +91,11 @@ BEGIN
     -------------------------------------------------------
     -- 1. Check data consistency                         --
     -- 2. Sync related customers not exist on CRM to CRM --
-    -- 3. Process data for old value                     --
-    -- 4. Process data for new value                     --
-    -- 5. Update main data                               --
-    -- 6. Write Log                                      --
+    -- 3. Overwrite account info                         --
+    -- 4. Process data for old value                     --
+    -- 5. Process data for new value                     --
+    -- 6. Update main data                               --
+    -- 7. Write Log                                      --
     -------------------------------------------------------
 
 
@@ -247,8 +250,54 @@ BEGIN
     DROP TABLE #tmpSyncRelatedCustomer
 
 
+    -------------------------------
+    -- 3. Overwrite account info --
+
+    IF (@IsOverwrite = 1)
+    BEGIN
+        DECLARE @IsVip_crmCustomer BIT
+        SELECT  @IsVip_crmCustomer = IsVip		
+        FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK)
+        WHERE CustID = @CustID
+
+        EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerShortUpd @CustID                 = @CustID,
+                                                      @TitleID                = @TitleID,
+                                                      @FirstName              = @FirstName,
+                                                      @LastName               = @LastName,
+                                                      @Birthday               = @Birthday,
+                                                      @Passport               = @Passport,
+                                                      @BettingCode            = @BettingCode,
+                                                      @RefCode2               = @RefCode2,
+                                                      @IsVip                  = @IsVip_crmCustomer,
+                                                      @SiteID                 = @SiteID,
+                                                      @LicenseeType           = @LicenseeType,
+                                                      @Phone                  = NULL,
+                                                      @PhoneCountryCode       = NULL,
+                                                      @PhoneAreaCode          = NULL,
+                                                      @Phone2                 = NULL,
+                                                      @Phone2CountryCode      = NULL,
+                                                      @Phone2AreaCode         = NULL,
+                                                      @Phone3                 = NULL,
+                                                      @Phone3CountryCode      = NULL,
+                                                      @Phone3AreaCode         = NULL,
+                                                      @MobilePhone            = NULL,
+                                                      @MobilePhoneCountryCode = NULL,
+                                                      @MobilePhoneAreaCode    = NULL,
+                                                      @Fax                    = NULL,
+                                                      @FaxCountryCode         = NULL,
+                                                      @FaxAreaCode            = NULL,
+                                                      @Email                  = NULL,
+                                                      @Skype                  = NULL,
+                                                      @MSN                    = NULL,
+                                                      @UserID                 = @UserID,
+                                                      @IP                     = @IP,
+                                                      @ErrCode                = @ErrCode OUTPUT,
+                                                      @ErrMsg                 = @ErrMsg  OUTPUT
+    END
+
+
     -----------------------------------
-    -- 3. Process data for old value --
+    -- 4. Process data for old value --
 
     -- crmFeedback
     DECLARE @TitleID_Old        INT,
@@ -404,14 +453,14 @@ BEGIN
 
 
     -----------------------------------
-    -- 4. Process data for new value --
+    -- 5. Process data for new value --
 
     --------------
     -- crmFeedback
 
-    -- @IsVip
-    DECLARE @IsVip BIT
-    SELECT  @IsVip = IsVip FROM bodb_CRM.dbo.crmFeedback WITH (NOLOCK) WHERE FeedbackID = @FeedbackID AND CustID = @CustID
+    -- @IsVip_crmFeedback
+    DECLARE @IsVip_crmFeedback BIT
+    SELECT  @IsVip_crmFeedback = IsVip FROM bodb_CRM.dbo.crmFeedback WITH (NOLOCK) WHERE FeedbackID = @FeedbackID AND CustID = @CustID
 
     -- @SolveDate|@Review|@IsReviewed|@ReviewerID
     DECLARE @SolveDate DATETIME
@@ -441,6 +490,7 @@ BEGIN
 
     ----------------------------------
     -- crmFeedbackNewCommunicationTool
+
     IF (ISNULL(@NewCommunicationTools, '') <> '')
     BEGIN
         DECLARE @iDoc_41 INT
@@ -612,7 +662,7 @@ BEGIN
 
 
     -------------------------
-    -- 5. Update main data --
+    -- 6. Update main data --
 
     -- crmFeedback
     UPDATE bodb_CRM.dbo.crmFeedback WITH (ROWLOCK, UPDLOCK)
@@ -638,7 +688,7 @@ BEGIN
         Birthday       = @Birthday,
         RefCode1       = @BettingCode,
         RefCode2       = @RefCode2,
-        IsVip          = @IsVip,
+        IsVip          = @IsVip_crmFeedback,
         LicenseeType   = @LicenseeType,
         Inquiries      = @NoInquiries
     WHERE FeedbackID = @FeedbackID
@@ -690,7 +740,7 @@ BEGIN
 
 
     ------------------
-    -- 6. Write Log --
+    -- 7. Write Log --
 
     -- Build XML for old value
     DECLARE @OldValues XML 
@@ -765,7 +815,7 @@ BEGIN
                          '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')           + '</Birthday>'              +
                          '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode),'')           + '</BettingCode>'           +
                          '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2),'')              + '</RefCode2>'              +
-                         '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip),'')                  + '</IsVip>'                 +
+                         '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip_crmFeedback),'')      + '</IsVip>'                 +
                          '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')           + '</LicenseeType>'          +
                          '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')           + '</NoInquiries>'           +
                          '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')         + '</RelatedCustID>'         +

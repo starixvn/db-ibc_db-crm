@@ -48,6 +48,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns --KEY
                                                           @IsCommunicationLog    BIT            = 0,
                                                           @IsHeadline            BIT            = 0,
                                                           @IsManualMultiple      BIT            = 0,
+                                                          @IsOverwrite           BIT            = 0,
                                                           --LOG
                                                           @UserID                INT,
                                                           @IP                    VARCHAR(45),
@@ -64,6 +65,7 @@ AS
 
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
 
     Param's Explanation:
         @Category: <ROOT>
@@ -88,9 +90,10 @@ BEGIN
     -------------------------------------------------------
     -- 1. Check data consistency                         --
     -- 2. Sync related customers not exist on CRM to CRM --
-    -- 3. Process data                                   --
-    -- 4. Insert data to table                           --
-    -- 5. Write Log                                      --
+    -- 3. Overwrite account info                         --
+    -- 4. Process data                                   --
+    -- 5. Insert data to table                           --
+    -- 6. Write Log                                      --
     -------------------------------------------------------
 
 
@@ -274,8 +277,49 @@ BEGIN
     DROP TABLE #tmpSyncRelatedCustomer
 
 
+    -------------------------------
+    -- 3. Overwrite account info --
+
+    IF (@IsOverwrite = 1)
+    BEGIN
+        EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerShortUpd @CustID                 = @CustID,
+                                                      @TitleID                = @TitleID,
+                                                      @FirstName              = @FirstName,
+                                                      @LastName               = @LastName,
+                                                      @Birthday               = @Birthday,
+                                                      @Passport               = @Passport,
+                                                      @BettingCode            = @BettingCode,
+                                                      @RefCode2               = @RefCode2,
+                                                      @IsVip                  = @IsVip,
+                                                      @SiteID                 = @SiteID,
+                                                      @LicenseeType           = @LicenseeType,
+                                                      @Phone                  = NULL,
+                                                      @PhoneCountryCode       = NULL,
+                                                      @PhoneAreaCode          = NULL,
+                                                      @Phone2                 = NULL,
+                                                      @Phone2CountryCode      = NULL,
+                                                      @Phone2AreaCode         = NULL,
+                                                      @Phone3                 = NULL,
+                                                      @Phone3CountryCode      = NULL,
+                                                      @Phone3AreaCode         = NULL,
+                                                      @MobilePhone            = NULL,
+                                                      @MobilePhoneCountryCode = NULL,
+                                                      @MobilePhoneAreaCode    = NULL,
+                                                      @Fax                    = NULL,
+                                                      @FaxCountryCode         = NULL,
+                                                      @FaxAreaCode            = NULL,
+                                                      @Email                  = NULL,
+                                                      @Skype                  = NULL,
+                                                      @MSN                    = NULL,
+                                                      @UserID                 = @UserID,
+                                                      @IP                     = @IP,
+                                                      @ErrCode                = @ErrCode OUTPUT,
+                                                      @ErrMsg                 = @ErrMsg  OUTPUT
+    END
+
+
     ---------------------
-    -- 3. Process data --
+    -- 4. Process data --
 
     --------------
     -- crmFeedback
@@ -528,7 +572,7 @@ BEGIN
 
 
     -----------------------------
-    -- 4. Insert data to table --
+    -- 5. Insert data to table --
 
     -- Create variables
     DECLARE @FeedbackID INT
@@ -723,7 +767,7 @@ BEGIN
 
 
     ------------------
-    -- 5. Write Log --
+    -- 6. Write Log --
 
     DECLARE @LogElement XML
     SELECT  @LogElement = '<Acc_CRM_NewManualFeedback_FeedbackIns>' +

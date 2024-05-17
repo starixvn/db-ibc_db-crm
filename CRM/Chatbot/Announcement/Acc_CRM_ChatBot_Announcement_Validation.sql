@@ -344,12 +344,12 @@ BEGIN
         BEGIN
             ;WITH CTE_Data AS (
                 SELECT LanguageName,
-                       STRING_AGG(CAST(HeadlineName AS VARCHAR(MAX)), ',') HeadlineNameList
+                       STRING_AGG(CAST(HeadlineName AS VARCHAR(MAX)), ', ') ErrorHeadlineNameList
                 FROM #tmpValidateContentsOutput
                 GROUP BY LanguageName
             )
             SELECT @ErrCode = 104,
-                   @ErrMsg = ISNULL(@ErrMsg, '') + 'Please input the ' + LanguageName + ' content for headline(s): ' + HeadlineNameList + ';'
+                   @ErrMsg = ISNULL(@ErrMsg, '') + 'Please input the ' + LanguageName + ' content for headline(s): ' + ErrorHeadlineNameList + ';'
             FROM CTE_Data
             ORDER BY LanguageName
         

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_Chatbot_VodingMessage_Sel]
 	@Message		XML
 AS
@@ -11,6 +11,7 @@ AS
 		- 20210811@Malcolm: Initialize SPs [Redmine: #151509]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
 		- 20231017@Malcolm: Add MsgContentsType, MatchId [Redmine: #195404]
+		- 20240514@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621] 
 		
 	Param's Explanation:
 	@Message:
@@ -84,7 +85,7 @@ BEGIN
 		MessageId
 		,MsgTargetId
 		,CASE WHEN MsgContentsType = 102 THEN 6
-			  WHEN MsgContentsType = 110 THEN 7
+			  WHEN MsgContentsType IN (110, 111) THEN 7
 		 ELSE 0 END AS [Type] 
 	FROM #Message
 

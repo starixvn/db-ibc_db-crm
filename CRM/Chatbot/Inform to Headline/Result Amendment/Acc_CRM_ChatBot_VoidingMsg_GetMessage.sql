@@ -1,4 +1,4 @@
-/*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBMSG-bodb_Message" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_VoidingMsg_GetMessage]
 	@LastMsgTargetId	INT
 	,@BatchSizeGetMsg	INT
@@ -11,6 +11,8 @@ AS
 	Revisions:
 		- 20210811@Malcolm: Initialize SPs [Redmine: #151509]
 		- 20231017@Malcolm: Get message for refund settled ticket [Redmine: #195404]
+		- 20240514@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621]
+
 	Param's Explanation:
 		
 */
@@ -28,6 +30,7 @@ BEGIN
 	/*
 		MsgContentsType = 102 : Void Setted tickets
 		MsgContentsType = 110 : refund settled ticket
+		MsgContentsType = 111 : Result Amendment
 	*/
 	INSERT INTO @Msg (MessageId, MsgContentsType, MsgTargetId, MatchId)
 	SELECT m.MessageId, m.MsgContentsType, MIN(mt.MsgTargetId) AS MsgTargetId, m.MatchId
@@ -35,7 +38,13 @@ BEGIN
 		CROSS APPLY (
 			SELECT TOP(2147483647) m.MessageId, m.MsgContentsType, m.MatchId
 			FROM dbo.Msg m WITH(NOLOCK) 
-			WHERE m.MessageId = mt.MessageId AND (m.MsgContentsType = 102 OR m.MsgContentsType = 110 AND m.MsgType = 1)
+			WHERE m.MessageId = mt.MessageId 
+				AND (
+						(
+						m.MsgContentsType = 102 OR m.MsgContentsType = 110 OR (m.MsgContentsType = 111 AND m.isDeleted = 0)
+					) 
+					AND m.MsgType = 1
+				)
 		) AS m
 	WHERE  mt.MsgTargetId > @LastMsgTargetId AND mt.MsgTargetId <= @MaxMsgTargetId
 	GROUP BY m.MessageId, m.MsgContentsType, m.MatchId
@@ -63,7 +72,7 @@ BEGIN
 
 	SELECT MessageId, MsgTargetId, BetTransId, MsgContentsType, MatchId 
 	FROM @Result 
-	WHERE MsgContentsType = 110 
+	WHERE MsgContentsType IN (110, 111) 
 	ORDER BY MsgTargetId ASC
 
 	SELECT MessageId, MsgTargetId, BetTransId, MsgContentsType, MatchId 

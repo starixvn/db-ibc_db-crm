@@ -288,8 +288,6 @@ BEGIN
 	
 		--filter by @MatchID
 		IF @MatchID IS NOT NULL
-			OR @IncludeTest IS NOT NULL
-			OR ISNULL(TRIM(@Sender),'') <> ''
 		BEGIN
 			DELETE i
 			FROM #tmpNoti AS i

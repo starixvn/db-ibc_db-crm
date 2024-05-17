@@ -699,6 +699,9 @@ BEGIN
 						SELECT DISTINCT t.GroupName
 							,t.RefId1
 							,t.RefId2
+							,t.RefValueEN
+							,t.RefValueCH
+							,t.RefValueCS
 						FROM #tmpRemotingRefData AS t
 						WHERE t.SettlementLogID = @iSettleID
 						ORDER BY t.GroupName

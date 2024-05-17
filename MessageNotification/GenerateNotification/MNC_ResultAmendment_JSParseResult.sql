@@ -240,7 +240,7 @@ BEGIN TRY
 			,NULLIF(TRIM(a.c.value('@Home', 'VARCHAR(50)')), '') AS HomeValue
 			,NULLIF(TRIM(a.c.value('@Away', 'VARCHAR(50)')), '') AS AwayValue
 			,NULLIF(TRIM(a.c.value('@OtherInfo', 'VARCHAR(MAX)')), '') AS OtherInfo
-			,NULLIF(TRIM(a.c.value('@TeamIDs', 'VARCHAR(MAX)')), '') AS TeamIDs
+			,NULLIF(TRIM(a.c.value('@TeamIds', 'VARCHAR(MAX)')), '') AS TeamIDs
 			,NULLIF(TRIM(a.c.value('@G', 'VARCHAR(50)')), '') AS G
 			,NULLIF(TRIM(a.c.value('@X', 'VARCHAR(50)')), '') AS X
 			,NULLIF(TRIM(a.c.value('@Y', 'VARCHAR(50)')), '') AS Y
@@ -256,7 +256,7 @@ BEGIN TRY
 			,NULLIF(TRIM(w.c.value('@Home', 'VARCHAR(50)')), '') AS HomeValue
 			,NULLIF(TRIM(w.c.value('@Away', 'VARCHAR(50)')), '') AS AwayValue
 			,NULLIF(TRIM(w.c.value('@OtherInfo', 'VARCHAR(MAX)')), '') AS OtherInfo
-			,NULLIF(TRIM(w.c.value('@TeamIDs', 'VARCHAR(MAX)')), '') AS TeamIDs
+			,NULLIF(TRIM(w.c.value('@TeamIds', 'VARCHAR(MAX)')), '') AS TeamIDs --Can value('(//*/@*[lower-case(local-name())="teamids"])[1]', 'INT') to ignore case-sensitive (low performance)
 			,NULLIF(TRIM(w.c.value('@G', 'VARCHAR(50)')), '') AS G
 			,NULLIF(TRIM(w.c.value('@X', 'VARCHAR(50)')), '') AS X
 			,NULLIF(TRIM(w.c.value('@Y', 'VARCHAR(50)')), '') AS Y

@@ -732,7 +732,7 @@ BEGIN
 					,rf.RefValueCH AS TeamName_ch
 					,rf.RefValueCS AS TeamName_cs
 				FROM #tmpResultInfo AS atl
-					CROSS APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
+					OUTER APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
 					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
 				WHERE atl.AmendInfo = 'ActualResult'
 					AND TRY_CONVERT(INT,t.value) IS NOT NULL
@@ -754,9 +754,9 @@ BEGIN
 				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
 			WHERE atl.AmendInfo = 'ActualResult'
 				AND tp.RequiredParam = '{new_value}'
-				AND tp.Content_en IS NULL
-				AND tp.Content_ch IS NULL
-				AND tp.Content_cs IS NULL
+				AND tp.Content_en IS NULL --EXCLUDE above rules
+				AND tp.Content_ch IS NULL --EXCLUDE above rules
+				AND tp.Content_cs IS NULL --EXCLUDE above rules
 				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
 			
 			--Rule#3.If HomeValue is NOT number
@@ -769,9 +769,9 @@ BEGIN
 				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2 = atl.HomeValue
 			WHERE atl.AmendInfo = 'ActualResult'
 				AND tp.RequiredParam = '{new_value}'
-				AND tp.Content_en IS NULL
-				AND tp.Content_ch IS NULL
-				AND tp.Content_cs IS NULL
+				AND tp.Content_en IS NULL --EXCLUDE above rules
+				AND tp.Content_ch IS NULL --EXCLUDE above rules
+				AND tp.Content_cs IS NULL --EXCLUDE above rules
 				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
 			
 			--Rule#final.the rest, value of HomeValue
@@ -783,9 +783,9 @@ BEGIN
 				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
 			WHERE atl.AmendInfo = 'ActualResult'
 				AND tp.RequiredParam = '{new_value}'
-				AND tp.Content_en IS NULL
-				AND tp.Content_ch IS NULL
-				AND tp.Content_cs IS NULL
+				AND tp.Content_en IS NULL --EXCLUDE above rules
+				AND tp.Content_ch IS NULL --EXCLUDE above rules
+				AND tp.Content_cs IS NULL --EXCLUDE above rules
 		END
 		
 		/*

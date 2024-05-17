@@ -747,9 +747,9 @@ BEGIN
 			
 			--Rule#2.If HomeValue is number
 			UPDATE tp
-			SET tp.Content_en = atl.HomeValue
-				,tp.Content_ch = atl.HomeValue
-				,tp.Content_cs = atl.HomeValue
+			SET tp.Content_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+				,tp.Content_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+				,tp.Content_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
 			WHERE atl.AmendInfo = 'ActualResult'
@@ -761,12 +761,13 @@ BEGIN
 			
 			--Rule#3.If HomeValue is NOT number
 			UPDATE tp
-			SET tp.Content_en = rf.RefValueEN
-				,tp.Content_ch = rf.RefValueCH
-				,tp.Content_cs = rf.RefValueCS
+			SET tp.Content_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
+				,tp.Content_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
+				,tp.Content_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
-				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2 = atl.HomeValue
+				INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = atl.HomeValue
+				INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = atl.AwayValue
 			WHERE atl.AmendInfo = 'ActualResult'
 				AND tp.RequiredParam = '{new_value}'
 				AND tp.Content_en IS NULL --EXCLUDE above rules
@@ -776,9 +777,9 @@ BEGIN
 			
 			--Rule#final.the rest, value of HomeValue
 			UPDATE tp
-			SET tp.Content_en = atl.HomeValue
-				,tp.Content_ch = atl.HomeValue
-				,tp.Content_cs = atl.HomeValue
+			SET tp.Content_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+				,tp.Content_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+				,tp.Content_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
 			WHERE atl.AmendInfo = 'ActualResult'
@@ -823,9 +824,9 @@ BEGIN
 			
 			--Rule#2.If HomeValue is number
 			UPDATE tp
-			SET tp.Content_en = wrg.HomeValue
-				,tp.Content_ch = wrg.HomeValue
-				,tp.Content_cs = wrg.HomeValue
+			SET tp.Content_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+				,tp.Content_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+				,tp.Content_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
 			WHERE wrg.AmendInfo = 'WrongResult'
@@ -837,12 +838,13 @@ BEGIN
 			
 			--Rule#3.If HomeValue is NOT number
 			UPDATE tp
-			SET tp.Content_en = rf.RefValueEN
-				,tp.Content_ch = rf.RefValueCH
-				,tp.Content_cs = rf.RefValueCS
+			SET tp.Content_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
+				,tp.Content_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
+				,tp.Content_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
-				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2 = wrg.HomeValue
+				INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = wrg.HomeValue
+				INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = wrg.AwayValue
 			WHERE wrg.AmendInfo = 'WrongResult'
 				AND tp.RequiredParam = '{old_value}'
 				AND tp.Content_en IS NULL
@@ -852,9 +854,9 @@ BEGIN
 			
 			--Rule#final.the rest, value of HomeValue
 			UPDATE tp
-			SET tp.Content_en = wrg.HomeValue
-				,tp.Content_ch = wrg.HomeValue
-				,tp.Content_cs = wrg.HomeValue
+			SET tp.Content_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+				,tp.Content_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+				,tp.Content_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
 			WHERE wrg.AmendInfo = 'WrongResult'

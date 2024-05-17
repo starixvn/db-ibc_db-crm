@@ -1019,9 +1019,9 @@ BEGIN
 				GROUP BY SettlementLogID
 			)
 			UPDATE tp
-			SET tp.Content_en = af.Content_en
-				,tp.Content_ch = af.Content_ch
-				,tp.Content_cs = af.Content_cs
+			SET tp.Content_en = '"' + af.Content_en + '"'
+				,tp.Content_ch = '"' + af.Content_ch  + '"'
+				,tp.Content_cs = '"' + af.Content_cs  + '"'
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN CTE_Affected AS af ON tp.SettlementLogID = af.SettlementLogID
 			WHERE tp.RequiredParam = '{affected_result_name}'

@@ -458,7 +458,7 @@ BEGIN
 		--update AmendedCnt
 		;WITH CTE_RefBettype AS (
 			SELECT SettlementLogID
-				,COUNT(DISTINCT RefBettypeID) AS AmendedCnt
+				,COUNT(DISTINCT ResourceID) AS AmendedCnt
 			FROM #tmpResultInfo
 			GROUP BY SettlementLogID
 		)

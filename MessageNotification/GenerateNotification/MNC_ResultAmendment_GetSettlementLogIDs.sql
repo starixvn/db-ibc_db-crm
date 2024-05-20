@@ -538,62 +538,18 @@ BEGIN
 			WHERE rh.SettlementLogID = @iSettleID
 				AND rh.RefId1 = 'TeamID'
 				AND rh.GroupName = 'EventInfo'
-				AND ( t.TeamID IS NULL
-					OR (NOT EXISTS (
-							SELECT 1
-							FROM SettlementResultHist AS sh WITH (NOLOCK)
-								LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
-								LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-								LEFT JOIN bodb02.dbo.team AS h WITH (NOLOCK) ON ISNULL(m.HomeID, m14.HomeID) = h.TeamID
-							WHERE sh.SettlementLogID = @iSettleID
-								AND h.TeamID = t.TeamID
-						)
-						AND NOT EXISTS (
-							SELECT 1
-							FROM SettlementResultHist AS sh WITH (NOLOCK)
-								LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
-								LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-								LEFT JOIN bodb02.dbo.team AS a WITH (NOLOCK) ON ISNULL(m.AwayID, m14.AwayID) = a.TeamID
-							WHERE sh.SettlementLogID = @iSettleID
-								AND a.TeamID = t.TeamID
-						)
-					)
-				)
+				AND t.TeamID IS NULL
 		)
 		BEGIN
 			;WITH CTE_LogTxt AS (
 				SELECT rh.SettlementLogID AS SettleID
-					,(CASE WHEN t.TeamID IS NULL THEN 'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') NOT EXISTS IN [team] table'
-						ELSE 'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') from JSParseResult is NOT matched with HomeID/AwayID of SettlementResultHist.MatchID' END
-					) AS LTxt
+					,'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') NOT EXISTS IN [team] table' AS LTxt
 				FROM #tmpResourceRef AS rh WITH (NOLOCK)
 					LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1)
 				WHERE rh.SettlementLogID = @iSettleID
 					AND rh.RefId1 = 'TeamID'
 					AND rh.GroupName = 'EventInfo'
-					AND ( t.TeamID IS NULL
-						OR (NOT EXISTS (
-								SELECT 1
-								FROM SettlementResultHist AS sh WITH (NOLOCK)
-									LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
-									LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-									LEFT JOIN bodb02.dbo.team AS h WITH (NOLOCK) ON ISNULL(m.HomeID, m14.HomeID) = h.TeamID
-								WHERE sh.SettlementLogID = @iSettleID
-									AND h.TeamID = t.TeamID --h.TeamID: team from SettlementResultHist.MatchID 
-															--t.TeamID: team from JSParseResult
-							)
-							AND NOT EXISTS (
-								SELECT 1
-								FROM SettlementResultHist AS sh WITH (NOLOCK)
-									LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
-									LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-									LEFT JOIN bodb02.dbo.team AS a WITH (NOLOCK) ON ISNULL(m.AwayID, m14.AwayID) = a.TeamID
-								WHERE sh.SettlementLogID = @iSettleID
-									AND a.TeamID = t.TeamID --a.TeamID: team from SettlementResultHist.MatchID 
-															--t.TeamID: team from JSParseResult
-							)
-						)
-					)
+					AND t.TeamID IS NULL
 			)
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')

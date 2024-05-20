@@ -643,17 +643,18 @@ Refer AlertID: ' + ISNULL(CONVERT(VARCHAR,tp.AlertID),'NULL') ELSE '' END --add 
 	ORDER BY a.AlertID
 	
 	---------Return---------
-	;WITH CTE_EventAlert AS (
-		SELECT DISTINCT ChatGroupID
+	;WITH CTE_Alert AS (
+		SELECT ChatGroupID
 			,MatchID
 			,RuleType AS MsgType
 			,Content
 		FROM #tmpSendingAlert AS a
 		WHERE (a.ChatGroupID <> @IT_ChatGroupID AND a.ValidTarget = 1)
 			OR (a.ChatGroupID = @IT_ChatGroupID)
-	)
-	,CTE_SystemAlert AS (
-		SELECT DISTINCT @IT_ChatGroupID AS ChatGroupID
+		
+		UNION ALL
+		
+		SELECT @IT_ChatGroupID AS ChatGroupID
 			,ext.MatchID
 			,ar.RuleType AS MsgType
 			,ac.Content
@@ -664,22 +665,11 @@ Refer AlertID: ' + ISNULL(CONVERT(VARCHAR,tp.AlertID),'NULL') ELSE '' END --add 
 					MatchID INT '$.MatchID'
 				) AS ext
 	)
-	SELECT *
-	FROM (
-		SELECT ChatGroupID
+	SELECT DISTINCT ChatGroupID
 			,MatchID
 			,MsgType
 			,Content
-		FROM CTE_EventAlert
-		
-		UNION ALL
-		
-		SELECT ChatGroupID
-			,MatchID
-			,MsgType
-			,Content
-		FROM CTE_SystemAlert
-	) AS t
+	FROM CTE_Alert
 	ORDER BY ChatGroupID
 		,MsgType
 	

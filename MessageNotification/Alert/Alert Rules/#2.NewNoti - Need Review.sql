@@ -18,6 +18,11 @@ Alert Output:
 		- SessionID
 		- LastModifiedTime
 
+Key to remove EXISTED
+	- NotificationID
+	- SessionID
+	- LastModifiedTime
+
 --Output Param: 
 
 		--Declaration for Unit Testing
@@ -62,11 +67,12 @@ END
 
 /******************************************Start to Check****************************************************/
 CREATE TABLE #tmpNewNoti_New (
-	NotificationID INT
-	,MatchID INT
+	NotificationID INT NOT NULL
+	,SessionID VARCHAR(50) NOT NULL
+	,LastModifiedTime DATETIME NOT NULL
+	-----------
+	,MatchID INT NOT NULL
 	,Content NVARCHAR(4000)
-	,SessionID VARCHAR(50)
-	,LastModifiedTime DATETIME
 )
 
 CREATE TABLE #tmpNewNoti_Old (
@@ -81,15 +87,16 @@ WHERE Status = 'New'
 
 INSERT INTO #tmpNewNoti_New (
 	NotificationID
-	,MatchID
 	,SessionID
 	,LastModifiedTime
+	-----------
+	,MatchID
 	,Content
 )
 SELECT DISTINCT n.NotificationID
-	,rh.MatchID
 	,rh.SessionID
 	,n.LastModifiedTime
+	,rh.MatchID
 	,CASE WHEN n.NotificationType = 2 THEN 'LAP ' ELSE '' END
 		+ 'Result Amendment message(s) for SessionID ['+ ISNULL(rh.SessionID,'NULL') +'] created. Please review it.' AS Content
 FROM Notification AS n WITH (NOLOCK)
@@ -122,7 +129,15 @@ WHERE a.RuleID = @RuleID
 	AND ext.RefInfo = 'NotificationID'
 	AND ext.SessionID IS NOT NULL
 	AND ext.LastModifiedTime IS NOT NULL
---Delete EXISTED
+/*
+	Delete EXISTED
+	
+	Key to remove EXISTED
+	- NotificationID
+	- SessionID
+	- LastModifiedTime
+
+*/
 DELETE n
 FROM #tmpNewNoti_New AS n
 	INNER JOIN #tmpNewNoti_Old AS o ON n.NotificationID = o.NotificationID AND n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime

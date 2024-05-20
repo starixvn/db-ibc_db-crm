@@ -15,6 +15,9 @@ Alert Output:
 		- RefInfo = 'SessionID'
 		- InsertedTime
 
+Key to remove EXISTED
+	- SessionID
+	
 --Output Param: 
 
 		--Declaration for Unit Testing
@@ -66,7 +69,7 @@ END
 
 /******************************************Start to Check****************************************************/
 CREATE TABLE #tmpSettlError_New (
-	SessionID VARCHAR(50)
+	SessionID VARCHAR(50) NOT NULL
 	,SiteCnt INT
 	,Mi_InsertedTime DATETIME
 	,DeleteReason TINYINT
@@ -74,45 +77,40 @@ CREATE TABLE #tmpSettlError_New (
 
 CREATE TABLE #tmpSettlError_Old (
 	SessionID VARCHAR(50)
-	,SettlementLogID INT
-	,LastModifiedTime DATETIME
-	,DeleteReason TINYINT
 )
 
---get all Session
-INSERT INTO #tmpSettlError_New ( SessionID )
-SELECT SessionID
-FROM SettlementResultHist AS rh WITH (NOLOCK)
-WHERE rh.SettlementLogID > @FromSettlID
-	AND rh.SettlementLogID <= @ToSettlID
-GROUP BY SessionID
-
 /*
-	Get more info from SessionID
+	Get SessionID info
 	DeleteReason
 		1: Enough SiteDBs count => Ignore
 		2: NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
-		3: Error BUT EEXISTED IN Alert => Ignore
+		3: Error BUT EXISTED IN Alert => Ignore
 */
 ;WITH CTE_SessionInfo AS (
 	SELECT s.SessionID
 		,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
 		,MIN(rh.InsertedTime) AS Mi_InsertedTime
-	FROM #tmpSettlError_New AS s
+	FROM SettlementResultHist AS s WITH (NOLOCK) 
 		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+	WHERE s.SettlementLogID > @FromSettlID
+		AND s.SettlementLogID <= @ToSettlID
 	GROUP BY s.SessionID
 )
-UPDATE t
-SET t.SiteCnt = s.SiteCnt
-	,t.Mi_InsertedTime = s.Mi_InsertedTime
-	,t.DeleteReason = (
-		CASE WHEN s.SiteCnt = @SiteCnt THEN 1 --Enough SiteDBs count => Ignore
+INSERT INTO #tmpSettlError_New (
+	SessionID
+	,SiteCnt
+	,Mi_InsertedTime
+	,DeleteReason
+)
+SELECT SessionID
+	,SiteCnt
+	,Mi_InsertedTime
+	,(CASE WHEN SiteCnt = @SiteCnt THEN 1 --Enough SiteDBs count => Ignore
 			WHEN DATEDIFF(SECOND, s.Mi_InsertedTime,GETDATE()) < @WaitSec THEN 2 --NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
 			ELSE 0
 		END
-	)
-FROM #tmpSettlError_New AS t
-	INNER JOIN CTE_SessionInfo AS s ON t.SessionID = s.SessionID
+	) AS DeleteReason
+FROM CTE_SessionInfo
 
 -----------------------Make Sure NOT EXISTS IN Alert--------------------------------------------------
 CREATE CLUSTERED INDEX CIX_tmpSettlError_New ON #tmpSettlError_New (SessionID)
@@ -127,7 +125,14 @@ FROM Alert AS a WITH (NOLOCK)
 WHERE a.RuleID = @RuleID
 	AND ISJSON(a.RefExtraInfo) = 1
 	AND ext.RefInfo = 'SessionID'
---Delete EXISTED
+
+/*
+	Delete EXISTED
+	
+	Key to remove EXISTED
+	- SessionID
+
+*/
 UPDATE n
 SET n.DeleteReason = 3 --Error BUT EXISTED IN Alert => Ignore
 FROM #tmpSettlError_New AS n

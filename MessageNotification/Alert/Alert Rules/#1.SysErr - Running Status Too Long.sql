@@ -23,6 +23,11 @@ Alert Output:
 			- RefInfo = 'NotificationID'
 			- LastModifiedTime
 
+Key to remove EXISTED
+	- SessionID
+	- SettlementLogID
+	- LastModifiedTime
+
 --Output Param: 
 
 		--Declaration for Unit Testing
@@ -74,33 +79,22 @@ BEGIN
 END
 
 /******************************************Start to Check****************************************************/
-CREATE TABLE #tmpNotiError_New (
-	NotificationID INT
-	,MatchID INT
+CREATE TABLE #tmpError_New (
+	SessionID VARCHAR(50) NOT NULL
+	,SettlementLogID INT NOT NULL
+	,LastModifiedTime DATETIME NOT NULL
+	------------------
+	,MatchID INT NOT NULL
 	,Content NVARCHAR(4000)
-	,LastModifiedTime DATETIME
 )
 
-CREATE TABLE #tmpNotiError_Old (
-	NotificationID INT
-	,LastModifiedTime DATETIME
-)
-
-CREATE TABLE #tmpSettlError_New (
-	SessionID VARCHAR(50)
-	,MatchID INT
-	,SettlementLogID INT
-	,Content NVARCHAR(4000)
-	,LastModifiedTime DATETIME
-)
-
-CREATE TABLE #tmpSettlError_Old (
+CREATE TABLE #tmpError_Old (
 	SessionID VARCHAR(50)
 	,SettlementLogID INT
 	,LastModifiedTime DATETIME
 )
 
-CREATE TABLE #tmpLapNotiCheck (
+CREATE TABLE #tmpNotiNOLap (
 	NotificationID INT
 	,MatchID INT
 	,SettlID INT
@@ -125,18 +119,19 @@ WHERE Status = 'Retrieving'
 	GROUP BY SessionID
 	HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),GETDATE()) > @WaitSec
 )
-INSERT INTO #tmpSettlError_New (
+INSERT INTO #tmpError_New (
 	SessionID
-	,MatchID
 	,SettlementLogID
-	,Content
 	,LastModifiedTime
+	,MatchID
+	--------------
+	,Content
 )
 SELECT DISTINCT l.SessionID
-	,rh.MatchID
 	,rh.SettlementLogID
-	,'SessionID [' + l.SessionID + '] in [Retrieving] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data] process.' AS Content
 	,rh.LastModifiedTime
+	,rh.MatchID
+	,'SessionID [' + l.SessionID + '] in [Retrieving] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data] process.' AS Content
 FROM CTE_LongSession AS l
 	INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON l.SessionID = rh.SessionID AND rh.StatusID = @Sts
 WHERE rh.LastModifiedTime > @FromModifiedTime
@@ -159,18 +154,19 @@ WHERE Status = 'Generating'
 	GROUP BY SessionID
 	HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),GETDATE()) > @WaitSec
 )
-INSERT INTO #tmpSettlError_New (
+INSERT INTO #tmpError_New (
 	SessionID
-	,MatchID
 	,SettlementLogID
-	,Content
 	,LastModifiedTime
+	,MatchID
+	--------------
+	,Content
 )
 SELECT DISTINCT rh.SessionID
-	,rh.MatchID
 	,rh.SettlementLogID
-	,'SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notification] process.' AS Content
 	,rh.LastModifiedTime
+	,rh.MatchID
+	,'SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notification] process.' AS Content
 FROM SettlementResultHist AS rh WITH (NOLOCK)
 WHERE StatusID = @Sts
 	AND LastModifiedTime > @FromModifiedTime
@@ -202,7 +198,7 @@ SELECT @WaitSec = 60
 		AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG
 		AND nMsg.RefID IS NOT NULL
 )
-INSERT INTO #tmpLapNotiCheck (
+INSERT INTO #tmpNotiNOLap (
 	NotificationID
 	,MatchID
 )
@@ -212,48 +208,53 @@ FROM CTE_Noti
 GROUP BY NotificationID
 HAVING SUM(LapCnt) = 0
 
-CREATE CLUSTERED INDEX CIX_tmpLapNotiCheck ON #tmpLapNotiCheck(NotificationID)
+CREATE CLUSTERED INDEX CIX_tmpNotiNOLap ON #tmpNotiNOLap(NotificationID)
 
---validate again with Target
+--validate again with Target => must EXISTS [deposit] Target
 ;WITH CTE_Valid AS (
 	SELECT i.NotificationID
-	FROM #tmpLapNotiCheck AS i
+	FROM #tmpNotiNOLap AS i
 		INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON i.NotificationID = nt.NotificationID --must EXISTS Target
 		INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
 	GROUP BY i.NotificationID
 )
 DELETE t
-FROM #tmpLapNotiCheck AS t
+FROM #tmpNotiNOLap AS t
 	LEFT JOIN CTE_Valid AS v ON t.NotificationID = v.NotificationID
 WHERE v.NotificationID IS NULL
 
-INSERT INTO #tmpNotiError_New (
-	NotificationID
-	,MatchID
-	,Content
+INSERT INTO #tmpError_New (
+	SessionID
+	,SettlementLogID
 	,LastModifiedTime
+	,MatchID
+	--------------
+	,Content
 )
-SELECT n.NotificationID
+SELECT DISTINCT rh.SessionID
+	,rh.SettlementLogID
+	,n.LastModifiedTime --[after being approved MessageID]
 	,ck.MatchID
-	,'NOT EXISTS LAP Notification after being approved MessageID [' + CONVERT(VARCHAR,n.RefID) + '] for more than '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate LAP Notification] process.' AS Content
-	,n.LastModifiedTime
-FROM Notification AS n WITH (NOLOCK)
-	INNER JOIN #tmpLapNotiCheck AS ck ON n.NotificationID = ck.NotificationID
-WHERE DATEDIFF(SECOND, n.LastModifiedTime,GETDATE()) > @WaitSec
+	,'LAP Notification of SessionID [' + rh.SessionID + '] NOT EXISTS after being approved MessageID [' + CONVERT(VARCHAR,n.RefID) + '] for more than '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate LAP Notification] process.' AS Content
+FROM #tmpNotiNOLap AS ck
+	INNER JOIN Notification AS n WITH (NOLOCK) ON n.NotificationID = ck.NotificationID
+	INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+	INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+WHERE DATEDIFF(SECOND, n.LastModifiedTime,GETDATE()) > @WaitSec --[after being approved MessageID] => Use Notification.LastModifiedTime
 
 -----------------------Make Sure NOT EXISTS IN Alert--------------------------------------------------
-CREATE CLUSTERED INDEX CIX_tmpSettlError_New ON #tmpSettlError_New (SessionID)
+CREATE CLUSTERED INDEX CIX_tmpError_New ON #tmpError_New (SessionID)
 
-INSERT INTO #tmpSettlError_Old (
+INSERT INTO #tmpError_Old (
 	SessionID
 	,SettlementLogID
 	,LastModifiedTime
 )
-SELECT DISTINCT RefID AS SessionID
+SELECT DISTINCT a.RefID AS SessionID
 	,ext.SettlementLogID
 	,ext.LastModifiedTime
 FROM Alert AS a WITH (NOLOCK)
-	INNER JOIN #tmpSettlError_New AS sn ON a.RefID = sn.SessionID
+	INNER JOIN #tmpError_New AS sn ON a.RefID = sn.SessionID
 	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 			RefInfo VARCHAR(50) '$.RefInfo'
 			,SettlementLogID INT '$.SettlementLogID'
@@ -264,38 +265,22 @@ WHERE a.RuleID = @RuleID
 	AND ext.RefInfo = 'SessionID'
 	AND ext.SettlementLogID IS NOT NULL
 	AND ext.LastModifiedTime IS NOT NULL
---Delete EXISTED
-DELETE n
-FROM #tmpSettlError_New AS n
-	INNER JOIN #tmpSettlError_Old AS o ON n.SessionID = o.SessionID AND n.SettlementLogID = o.SettlementLogID AND n.LastModifiedTime = o.LastModifiedTime
 
----------------------------------
-CREATE CLUSTERED INDEX CIX_tmpNotiError_New ON #tmpNotiError_New (NotificationID)
+/*
+	Delete EXISTED
+	
+	Key to remove EXISTED
+	- NotificationID
+	- SessionID
+	- LastModifiedTime
 
-INSERT INTO #tmpNotiError_Old (
-	NotificationID
-	,LastModifiedTime
-)
-SELECT DISTINCT a.RefID AS NotificationID
-	,ext.LastModifiedTime
-FROM Alert AS a WITH (NOLOCK)
-	INNER JOIN #tmpNotiError_New AS n ON a.RefID = CONVERT(NVARCHAR,n.NotificationID)
-	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
-			RefInfo VARCHAR(50) '$.RefInfo'
-			,LastModifiedTime DATETIME '$.LastModifiedTime'
-		) AS ext --OPENJSON case-sensitive
-WHERE a.RuleID = @RuleID
-	AND ISJSON(a.RefExtraInfo) = 1
-	AND ext.RefInfo = 'NotificationID'
-	AND ext.LastModifiedTime IS NOT NULL
---Delete EXISTED
+*/
 DELETE n
-FROM #tmpNotiError_New AS n
-	INNER JOIN #tmpNotiError_Old AS o ON n.NotificationID = o.NotificationID AND n.LastModifiedTime = o.LastModifiedTime
+FROM #tmpError_New AS n
+	INNER JOIN #tmpError_Old AS o ON n.SessionID = o.SessionID AND n.SettlementLogID = o.SettlementLogID AND n.LastModifiedTime = o.LastModifiedTime
 
 --build result
-IF NOT EXISTS (SELECT 1 FROM #tmpSettlError_New)
-	AND NOT EXISTS (SELECT 1 FROM #tmpNotiError_New )
+IF NOT EXISTS (SELECT 1 FROM #tmpError_New)
 BEGIN
 	SELECT @JSAlertResult = ''
 		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
@@ -310,56 +295,28 @@ BEGIN
 						,t.SettlementLogID
 						,t.MatchID
 						,t.LastModifiedTime
-					FROM #tmpSettlError_New AS t
+					FROM #tmpError_New AS t
 					WHERE t.SessionID = s.SessionID
 						AND t.Content = s.Content
 					FOR JSON PATH)
 				) AS RefExtraInfo
-		FROM #tmpSettlError_New AS s
+		FROM #tmpError_New AS s
 		GROUP BY s.SessionID
 			,s.Content
 	)
-	,CTE_Noti AS (
-		SELECT CONVERT(NVARCHAR,s.NotificationID) AS RefID
-			,s.Content
-			,CONVERT(NVARCHAR(MAX),(
-					SELECT DISTINCT 'NotificationID' AS RefInfo
-						,t.MatchID
-						,t.LastModifiedTime
-					FROM #tmpNotiError_New AS t
-					WHERE t.NotificationID = s.NotificationID
-						AND t.Content = s.Content
-					FOR JSON PATH)
-				) AS RefExtraInfo
-		FROM #tmpNotiError_New AS s
-		GROUP BY s.NotificationID
-			,s.Content
-	)
 	SELECT @JSAlertResult = CONVERT(NVARCHAR(MAX),(
-				SELECT *
-				FROM (
-					SELECT RefID
-						,RefExtraInfo
-						,Content
-					FROM CTE_Sett
-					
-					UNION ALL
-					
-					SELECT RefID
-						,RefExtraInfo
-						,Content
-					FROM CTE_Noti
-				) AS t
+				SELECT RefID
+					,RefExtraInfo
+					,Content
+				FROM CTE_Sett
 				FOR JSON PATH
 			))
 		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
 END
 
-DROP TABLE #tmpNotiError_New
-DROP TABLE #tmpNotiError_Old
-DROP TABLE #tmpSettlError_New
-DROP TABLE #tmpSettlError_Old
-DROP TABLE #tmpLapNotiCheck
+DROP TABLE #tmpError_New
+DROP TABLE #tmpError_Old
+DROP TABLE #tmpNotiNOLap
 
 --Return for Unit Testing
 -- SELECT @LastScan AS [@LastScan]

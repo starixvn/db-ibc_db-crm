@@ -18,6 +18,11 @@ Alert Output:
 		- SessionID
 		- LastModifiedTime
 
+Key to remove EXISTED
+	- NotificationID
+	- SessionID
+	- LastModifiedTime
+
 --Output Param: 
 
 		--Declaration for Unit Testing
@@ -62,10 +67,11 @@ END
 
 /******************************************Start to Check****************************************************/
 CREATE TABLE #tmpFailedSendNoti_New (
-	NotificationID INT
-	,MatchID INT
-	,Content NVARCHAR(4000)
-	,SessionID VARCHAR(50)
+	NotificationID INT NOT NULL
+	,SessionID VARCHAR(50) NOT NULL
+	,LastModifiedTime DATETIME NOT NULL
+	-----------
+	,MatchID INT NOT NULL
 	,LastModifiedTime DATETIME
 )
 
@@ -81,15 +87,16 @@ WHERE Status = 'Failed to Send'
 
 INSERT INTO #tmpFailedSendNoti_New (
 	NotificationID
-	,MatchID
 	,SessionID
 	,LastModifiedTime
+	-----------
+	,MatchID
 	,Content
 )
 SELECT DISTINCT n.NotificationID
-	,rh.MatchID
 	,rh.SessionID
 	,n.LastModifiedTime
+	,rh.MatchID
 	,'Result Amendment message associated with SessionID ['+ ISNULL(rh.SessionID,'NULL') +'] was NOT successfully inserted to DBMSG. Please review it.' AS Content
 FROM Notification AS n WITH (NOLOCK)
 	LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
@@ -122,7 +129,16 @@ WHERE a.RuleID = @RuleID
 	AND ext.RefInfo = 'NotificationID'
 	AND ext.SessionID IS NOT NULL
 	AND ext.LastModifiedTime IS NOT NULL
---Delete EXISTED
+
+/*
+	Delete EXISTED
+	
+	Key to remove EXISTED
+	- NotificationID
+	- SessionID
+	- LastModifiedTime
+
+*/
 DELETE n
 FROM #tmpFailedSendNoti_New AS n
 	INNER JOIN #tmpFailedSendNoti_Old AS o ON n.NotificationID = o.NotificationID AND n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime

@@ -61,6 +61,7 @@ BEGIN TRY
 		,OtherInfo VARCHAR(200)
 		,TeamIDs VARCHAR(200)
 		,G VARCHAR(50)
+		,M VARCHAR(50)
 		,X VARCHAR(50)
 		,Y VARCHAR(50)
 	)
@@ -242,6 +243,7 @@ BEGIN TRY
 			,NULLIF(TRIM(a.c.value('@OtherInfo', 'VARCHAR(MAX)')), '') AS OtherInfo
 			,NULLIF(TRIM(a.c.value('@TeamIds', 'VARCHAR(MAX)')), '') AS TeamIDs
 			,NULLIF(TRIM(a.c.value('@G', 'VARCHAR(50)')), '') AS G
+			,NULLIF(TRIM(a.c.value('@M', 'VARCHAR(50)')), '') AS M
 			,NULLIF(TRIM(a.c.value('@X', 'VARCHAR(50)')), '') AS X
 			,NULLIF(TRIM(a.c.value('@Y', 'VARCHAR(50)')), '') AS Y
 		FROM CTE_XML
@@ -258,6 +260,7 @@ BEGIN TRY
 			,NULLIF(TRIM(w.c.value('@OtherInfo', 'VARCHAR(MAX)')), '') AS OtherInfo
 			,NULLIF(TRIM(w.c.value('@TeamIds', 'VARCHAR(MAX)')), '') AS TeamIDs --Can value('(//*/@*[lower-case(local-name())="teamids"])[1]', 'INT') to ignore case-sensitive (low performance)
 			,NULLIF(TRIM(w.c.value('@G', 'VARCHAR(50)')), '') AS G
+			,NULLIF(TRIM(w.c.value('@M', 'VARCHAR(50)')), '') AS M
 			,NULLIF(TRIM(w.c.value('@X', 'VARCHAR(50)')), '') AS X
 			,NULLIF(TRIM(w.c.value('@Y', 'VARCHAR(50)')), '') AS Y
 		FROM CTE_XML
@@ -274,6 +277,7 @@ BEGIN TRY
 		,OtherInfo
 		,TeamIDs
 		,G
+		,M
 		,X
 		,Y
 	)
@@ -286,6 +290,7 @@ BEGIN TRY
 		,OtherInfo
 		,TeamIDs
 		,G
+		,M
 		,X
 		,Y
 	FROM CTE_Actual
@@ -301,6 +306,7 @@ BEGIN TRY
 		,OtherInfo
 		,TeamIDs
 		,G
+		,M
 		,X
 		,Y
 	FROM CTE_Wrong
@@ -374,10 +380,17 @@ BEGIN TRY
 			SELECT 'G' AS RefId2
 		)
 		,CTE_AffectedResult AS (
-			SELECT DISTINCT SettlementLogID
-				,G
+			SELECT SettlementLogID
+				,G AS tG
 			FROM #tmpResultInfo
 			WHERE G IS NOT NULL
+
+			UNION
+
+			SELECT SettlementLogID
+				,M AS tG
+			FROM #tmpResultInfo
+			WHERE M IS NOT NULL
 		)
 		INSERT INTO #tmpRemotingRef (
 			SettlementLogID
@@ -388,7 +401,7 @@ BEGIN TRY
 		SELECT DISTINCT ar.SettlementLogID
 			,'RefResource' AS GroupName
 			,'ResourceCricket' AS RefId1
-			,g.RefId2 + ar.G AS RefId2
+			,g.RefId2 + ar.tG AS RefId2
 		FROM CTE_G AS g
 			,CTE_AffectedResult AS ar
 		
@@ -425,7 +438,7 @@ BEGIN TRY
 			,RefId2
 		FROM CTE_Result
 		WHERE RefId2 LIKE '%[a-zA-Z][a-zA-Z]%' --characters
-			AND RefId2 NOT IN ('H','A') --for case Cricket » Early Result Types 3
+			AND RefId2 NOT IN ('H','A') --for case Cricket » Early Result Types 3, Cricket » Early Result Types 8
 		
 		/*
 			For GroupName=EventInfo

@@ -69,7 +69,7 @@ BEGIN
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ValidSettlementLogIDs VARCHAR(MAX)
-		,@JSResource VARCHAR(MAX) = ''
+		,@JSResource NVARCHAR(MAX) = ''
 		,@iLoop INT
 		,@LogMode VARCHAR(500)
 		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151,215'
@@ -266,6 +266,7 @@ BEGIN
 		,OtherInfo VARCHAR(200)
 		,TeamIDs VARCHAR(200)
 		,G VARCHAR(50)
+		,M VARCHAR(50)
 		,X VARCHAR(50)
 		,Y VARCHAR(50)
 	)
@@ -275,6 +276,7 @@ BEGIN
 		,RefBettypeID VARCHAR(50)
 		,OtherInfo VARCHAR(50)
 		,G VARCHAR(50)
+		,M VARCHAR(50)
 		,X VARCHAR(50)
 		,Y VARCHAR(50)
 		,Content_en NVARCHAR(4000)
@@ -423,6 +425,7 @@ BEGIN
 			,OtherInfo
 			,TeamIDs
 			,G
+			,M
 			,X
 			,Y
 		)
@@ -435,6 +438,7 @@ BEGIN
 			,OtherInfo
 			,TeamIDs
 			,G
+			,M
 			,X
 			,Y
 		FROM OPENJSON(@JSResource) WITH (
@@ -447,6 +451,7 @@ BEGIN
 				,OtherInfo VARCHAR(200) '$.OtherInfo'
 				,TeamIDs VARCHAR(200) '$.TeamIDs'
 				,G VARCHAR(50) '$.G'
+				,M VARCHAR(50) '$.M'
 				,X VARCHAR(50) '$.X'
 				,Y VARCHAR(50) '$.Y'
 			)--OPENJSON case-sensitive
@@ -915,6 +920,7 @@ BEGIN
 				,RefBettypeID
 				,OtherInfo
 				,G
+				,M
 				,X
 				,Y
 				,Content_en
@@ -925,6 +931,7 @@ BEGIN
 				,ISNULL(atl.RefBettypeID, wrg.RefBettypeID) AS RefBettypeID
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.OtherInfo ELSE wrg.OtherInfo END AS OtherInfo
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.G ELSE wrg.G END AS G
+				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.M ELSE wrg.M END AS M
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.X ELSE wrg.X END AS X
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.Y ELSE wrg.Y END AS Y
 				,rf.RefValueEN AS Content_en
@@ -980,7 +987,7 @@ BEGIN
 			;WITH CTE_M_Inns AS (
 				SELECT af.SettlementLogID
 					,af.RefBettypeID
-					,'M' + af.G AS rM --Handle case 1 inning only later
+					,'M' + af.M AS rM --Handle case 1 inning only later
 				FROM #tmpAffectedResult AS af
 					INNER JOIN #tmpResultHist AS rh ON af.SettlementLogID = rh.SettlementLogID AND rh.GameSession IN (1,8)
 				WHERE ISNULL(CHARINDEX('@M',af.Content_en),0) > 0

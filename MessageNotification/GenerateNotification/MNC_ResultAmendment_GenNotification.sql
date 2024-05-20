@@ -720,8 +720,9 @@ BEGIN
 			
 			Follow below rules in order
 				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
-				Rule#2.If HomeValue is number, it's result (...result is ""12,03"" instead of ""11,04""...)
+				Rule#2.If HomeValue is number, it's result (...result is ""12-03"" instead of ""11-04""...)
 				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
+				**Include Away below Home
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{new_value}')
 		BEGIN
@@ -746,6 +747,21 @@ BEGIN
 			WHERE tp.RequiredParam = '{new_value}'
 			
 			--Rule#2.If HomeValue is number
+			/*
+				some cases:
+				1.<xml Home="01" Away="" TeamIDs="" OtherInfo="">
+					=> Home = 01
+					=> {new_value} = {1} => handled below code
+				2.<xml Home="01" Away="02" TeamIDs="" OtherInfo="">
+					=> Home = 01
+					=> {new_value} = {1-2} => handled below code
+				3.<xml Home="01" TeamIDs="123" OtherInfo="123,456">
+					=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" = [TeamIDs="123"]
+					=> {new_value} = {team name of 123} => Rule#1 handled
+				4.<xml Home="01" TeamIDs="" OtherInfo="123,456">
+					=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" BUT [TeamIDs=""]
+					=> IGNORE case because very complex to handle (must check bettype, convert this case to Rule#1 template...)
+			*/
 			UPDATE tp
 			SET tp.Content_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 				,tp.Content_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')

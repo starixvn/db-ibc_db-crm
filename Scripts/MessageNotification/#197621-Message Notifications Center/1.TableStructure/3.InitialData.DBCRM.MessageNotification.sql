@@ -140,9 +140,9 @@ VALUES (
 	,(
 		6
 		,'Result Amendment for Cricket - Notification for LAP'
-		,N'<b>Dear Valued Customers,</b><br/><br/>Please be informed that the match between "{match_name}" [{league_name} - {event_date}], result has been amended. Please refer to below for more information:<br/><br/><b>English Message:-</b><br/>{notification}<br/><br/><b>Settlement log:</b><br/><b>(System Time)</b><br/>{cal_time}<br/>{recal_time}<br/><br/><b style="color:red">Kindly refer to the attached file for those affected customers & tickets.</b><br/><br/>Sorry for the inconvenience caused and thank you for your kind attention!<br/><br/><b>Best Regards,<br/>Customer Service Team</b>'
+		,N'Dear Valued Customers,<br/><br/>Kindly be informed that the match between "{match_name}" [{league_name} - {event_date}] due to wrong result displayed, result has been amended. Please refer to below for more information:<br/><br/><b>English Message:-</b><br/>{notification}<br/><br/><b>Settlement log (System Time):</b><br/>{cal_time}<br/>{recal_time}<br/><br/><b style="color:red">Kindly refer to the attached file for those affected customers & tickets.</b><br/><br/>Sorry for the inconvenience caused and thank you for your kind attention!<br/><br/><b>Best Regards,<br/>Customer Service Team</b>'
 		,NULL
-		,N'<b>亲爱的客户,</b><br/><br/>请注意, 赛事 "{match_name}" [{league_name} - {event_date}], 赛果已重新结算。有关详情，请参考以下资讯：<br/><br/><b>中文信息:-</b><br/>{notification}<br/><br/><b>结算日志:</b><br/><b>(系统时间)</b><br/>{cal_time}<br/>{recal_time}<br/><br/><b style="color:red">有关受影响的会员和注单请参阅附件。</b><br/><br/>不便之处, 敬请见谅。谢谢!<br/>'
+		,N'亲爱的客户,<br/><br/>请注意, 赛事 "{match_name}" [{league_name} - {event_date}] 由于赛果显示错误, 赛果已重新结算。有关详情，请参考以下资讯：<br/><br/>中文信息:-<br/>{notification}<br/><br/>结算日志: (系统时间):<br/>{cal_time}<br/>{recal_time}<br/><br/><a style="color:red">有关受影响的会员和注单请参阅附件。</a><br/><br/>不便之处 敬请见谅!<br/>'
 		,N'{match_name},{league_name},{event_date},{notification},{cal_time},{recal_time}'
 		,@StarixIT
 		,@StarixIT

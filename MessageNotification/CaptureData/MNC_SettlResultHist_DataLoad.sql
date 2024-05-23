@@ -650,7 +650,7 @@ BEGIN
 		SELECT rh.SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),d.LTxt),','),'NO ROW')+ ')'
+			,@InfLogPrefix + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),bn.LTxt),','),'NO ROW')+ ')'
 		FROM #tmpInsertedRH AS rh
 			LEFT JOIN CTE_InsertedNB AS bn ON rh.SettlementLogID = bn.SettlementLogID
 		GROUP BY rh.SettlementLogID

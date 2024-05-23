@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AdmSelNoti
-	@FCreatedDateGMT8 DATETIME = NULL
-	,@TCreatedDateGMT8 DATETIME = NULL
+	@FCreatedDateGMT8 DATE = NULL
+	,@TCreatedDateGMT8 DATE = NULL
 	,@NotiType TINYINT
 	,@FNotiID INT = NULL
 	,@TNotiID INT = NULL
@@ -57,6 +57,7 @@ BEGIN
 		,IsTest BIT
 		,Sender VARCHAR(50)
 		,SendDate DATETIME
+		,Subject NVARCHAR(MAX)
 	)
 	
 	CREATE TABLE #tmpAffectedSite (
@@ -88,11 +89,21 @@ BEGIN
 		,SendDateGMT8 VARCHAR(50)
 	)
 	
-	DECLARE @FCreatedDate4GMT DATETIME
-		,@TCreatedDate4GMT DATETIME
+	DECLARE @FCreatedTime4GMT DATETIME
+		,@TCreatedTime4GMT DATETIME
 	
-	SELECT @FCreatedDate4GMT = DATEADD(HH, -12, @FCreatedDateGMT8)
-		,@TCreatedDate4GMT = DATEADD(HH, -12, @TCreatedDateGMT8)
+	/*
+		Ex: @FCreatedDateGMT8 = 2024-01-02 => meaning [2024-01-02 00:00:00]
+			@TCreatedDateGMT8 = 2024-01-03 => meaning [2024-01-03 23:59:59]
+			
+		After convert GMT-4
+			@FCreatedTime4GMT = 2024-01-01 12:00:00
+			@TCreatedTime4GMT
+				= 2024-01-03 11:59:59 for compare [<=]
+				= 2024-01-03 12:00:00 for compare [<]
+	*/
+	SELECT @FCreatedTime4GMT = DATEADD(HH, -12, CONVERT(DATETIME, @FCreatedDateGMT8))
+		,@TCreatedTime4GMT = DATEADD(HH, -12, CONVERT(DATETIME, DATEADD(DD, 1, @TCreatedDateGMT8))) --for compare [<]
 	
 	--hard code status based on NotiType - check consistency MNC_Notification_AdmUpdNotiSts
 	INSERT INTO #tmpStsByNotiType (
@@ -134,7 +145,8 @@ BEGIN
 		SELECT n.NotificationID
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpStsByNotiType AS s ON n.NotificationType = s.NotiType AND n.StatusID = s.StatusID
-		WHERE n.InsertedTime BETWEEN @FCreatedDate4GMT AND @TCreatedDate4GMT --GMT-4
+		WHERE n.InsertedTime >= @FCreatedTime4GMT
+			AND n.InsertedTime < @TCreatedTime4GMT
 			AND n.NotificationType = @NotiType
 		OPTION (RECOMPILE)
 	END
@@ -169,6 +181,7 @@ BEGIN
 			,IsTest
 			,Sender
 			,SendDate
+			,Subject
 		)
 		SELECT DISTINCT i.NotiID
 			,nMsg.RefID
@@ -178,6 +191,7 @@ BEGIN
 			,extMsg.IsTest
 			,extLap.LapSender
 			,extLap.LapSendDate
+			,neLap.ExtraInfo AS Subject
 		FROM #tmpNoti AS i
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON i.NotiID = neLap.NotificationID
 			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
@@ -387,7 +401,7 @@ BEGIN
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
 			,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
-			,n.Subject AS Subject
+			,n.Subject
 			,n.Content_en
 			,n.Content_ch
 			,n.Content_cs
@@ -436,7 +450,7 @@ BEGIN
 			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
 			INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
 			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			OUTER APPLY OPENJSON(n.Subject) WITH (
+			OUTER APPLY OPENJSON(ext.Subject) WITH (
 							Subject_en NVARCHAR(300) '$.Subject_en'
 							,Subject_ch NVARCHAR(300) '$.Subject_ch'
 							,Subject_cs NVARCHAR(300) '$.Subject_cs'
@@ -444,7 +458,7 @@ BEGIN
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
 			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-		WHERE ISJSON(n.Subject) = 1
+		WHERE ISJSON(ext.Subject) = 1
 		ORDER BY n.NotificationID DESC
 	END
 	
@@ -481,38 +495,34 @@ BEGIN
 	ORDER BY RNo
 	
 	----------Site by NotificationID----------
-	;WITH CTE_PagingNoti AS (
-		SELECT NotificationID
-		FROM #tmpResult
-		WHERE RNo BETWEEN @RStart AND @REnd
+	;WITH CTE_OrdRule AS (
+		SELECT DISTINCT s.SiteGroup
+			/*
+				Rule 2 - SiteType: hardcode
+					1.Credit
+					2.Licensee
+			*/
+			,(CASE WHEN s.SiteType = 'Credit' THEN 1 ELSE 2 END) AS Ord2
+			/*
+				Rule 3 - Licensee: hardcode
+					1.Normal licensees
+					2.JS licensees
+					3.CV licensees
+			*/
+			,(CASE WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'CV licensees' THEN 3
+					WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'JS licensees' THEN 2
+					WHEN s.SiteType = 'Licensee' THEN 1 --Normal licensees
+			END) AS Ord3
+			/*
+				Rule 4 - Credit: Sort by alphabetical
+			*/
+			,SiteGroup AS Ord4
+		FROM #tmpAffectedSite AS s
 	)
 	,CTE_SiteGroupOrder AS (
-		SELECT s.SiteGroup
-			,ROW_NUMBER() OVER (
-				ORDER BY
-					/*
-						Rule 2 - SiteType: hardcode
-							1.Credit
-							2.Licensee
-					*/
-					(CASE WHEN s.SiteType = 'Credit' THEN 1 ELSE 2 END)
-					/*
-						Rule 3 - Licensee: hardcode
-							1.Normal licensees
-							2.JS licensees
-							3.CV licensees
-					*/
-					,(CASE WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'CV licensees' THEN 3
-							WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'JS licensees' THEN 2
-							WHEN s.SiteType = 'Licensee' THEN 1 --Normal licensees
-					END)
-					/*
-						Rule 4 - Credit: Sort by alphabetical
-					*/
-					,SiteGroup
-			) AS SiteGroupOrd
-		FROM #tmpAffectedSite AS s
-			INNER JOIN CTE_PagingNoti AS p ON s.NotiID = p.NotificationID
+		SELECT DISTINCT SiteGroup
+			,ROW_NUMBER() OVER ( ORDER BY Ord2, Ord3, Ord4 ) AS SiteGroupOrd
+		FROM CTE_OrdRule
 	)
 	SELECT s.NotiID AS NotificationID
 		,s.SiteType
@@ -520,8 +530,12 @@ BEGIN
 		,sgo.SiteGroupOrd
 		,s.SiteNames
 	FROM #tmpAffectedSite AS s
-		INNER JOIN CTE_PagingNoti AS p ON s.NotiID = p.NotificationID
 		LEFT JOIN CTE_SiteGroupOrder AS sgo ON s.SiteGroup = sgo.SiteGroup
+	WHERE s.NotiID IN (
+		SELECT NotificationID
+		FROM #tmpResult
+		WHERE RNo BETWEEN @RStart AND @REnd
+	)
 	ORDER BY s.NotiID
 		,sgo.SiteGroupOrd
 	

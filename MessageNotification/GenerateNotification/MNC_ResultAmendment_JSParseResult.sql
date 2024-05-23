@@ -437,7 +437,7 @@ BEGIN TRY
 			,'ResultSettlement' AS RefId1
 			,RefId2
 		FROM CTE_Result
-		WHERE RefId2 LIKE '%[a-zA-Z][a-zA-Z]%' --characters
+		WHERE ISNUMERIC(RefId2) = 0 --characters
 			AND RefId2 NOT IN ('H','A') --for case Cricket » Early Result Types 3, Cricket » Early Result Types 8
 		
 		/*
@@ -534,6 +534,40 @@ BEGIN TRY
 				+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
 				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')'
 	END
+	
+	--write log--
+	INSERT INTO [Log] (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,'Info - Debug - [Parse SettlementResultHist to JSON] final'
+						+ ' - tmpResultInfo('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpResultInfo
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+						+ ' - tmpEventInfo('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpEventInfo
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+						+ ' - tmpRemotingRef('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpRemotingRef
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpRemotingRef
 	DROP TABLE #tmpEventInfo

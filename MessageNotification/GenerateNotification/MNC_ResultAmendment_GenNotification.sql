@@ -273,15 +273,23 @@ BEGIN
 	
 	CREATE TABLE #tmpAffectedResult (
 		SettlementLogID INT
-		,RefBettypeID VARCHAR(50)
+		,ResourceID VARCHAR(50)
 		,OtherInfo VARCHAR(50)
 		,G VARCHAR(50)
 		,M VARCHAR(50)
 		,X VARCHAR(50)
 		,Y VARCHAR(50)
-		,Content_en NVARCHAR(4000)
-		,Content_ch NVARCHAR(4000)
-		,Content_cs NVARCHAR(4000)
+		,ResultName_en NVARCHAR(4000)
+		,ResultName_ch NVARCHAR(4000)
+		,ResultName_cs NVARCHAR(4000)
+		
+		,ActualValue_en NVARCHAR(4000)
+		,ActualValue_ch NVARCHAR(4000)
+		,ActualValue_cs NVARCHAR(4000)
+		
+		,WrongValue_en NVARCHAR(4000)
+		,WrongValue_ch NVARCHAR(4000)
+		,WrongValue_cs NVARCHAR(4000)
 	)
 	
 	--write log for LogMode = Debug
@@ -717,176 +725,6 @@ BEGIN
 			WHERE tp.RequiredParam = '{match_info}'
 		END
 		
-		/*
-			{new_value}
-				+ DON'T care ControlGrp
-				+ DON'T care IsSabaFilter
-			=> Build param's value (for) GROUP BY SettlementLogID
-			
-			Follow below rules in order
-				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
-				Rule#2.If HomeValue is number, it's result (...result is ""12-03"" instead of ""11-04""...)
-				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
-				**Include Away below Home
-		*/
-		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{new_value}')
-		BEGIN
-			--Rule#1.If exists TeamIDs
-			;WITH CTE_TeamID AS (
-				SELECT atl.SettlementLogID
-					,rf.RefValueEN AS TeamName_en
-					,rf.RefValueCH AS TeamName_ch
-					,rf.RefValueCS AS TeamName_cs
-				FROM #tmpResultInfo AS atl
-					OUTER APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
-					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
-				WHERE atl.AmendInfo = 'ActualResult'
-					AND TRY_CONVERT(INT,t.value) IS NOT NULL
-			)
-			UPDATE tp
-			SET tp.Content_en = t.TeamName_en
-				,tp.Content_ch = t.TeamName_ch
-				,tp.Content_cs = t.TeamName_cs
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_TeamID AS t ON tp.SettlementLogID = t.SettlementLogID
-			WHERE tp.RequiredParam = '{new_value}'
-			
-			--Rule#2.If HomeValue is number
-			/*
-				some cases:
-				1.<xml Home="01" Away="" TeamIDs="" OtherInfo="">
-					=> Home = 01
-					=> {new_value} = {1} => handled below code
-				2.<xml Home="01" Away="02" TeamIDs="" OtherInfo="">
-					=> Home = 01
-					=> {new_value} = {1-2} => handled below code
-				3.<xml Home="01" TeamIDs="123" OtherInfo="123,456">
-					=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" = [TeamIDs="123"]
-					=> {new_value} = {team name of 123} => Rule#1 handled
-				4.<xml Home="01" TeamIDs="" OtherInfo="123,456">
-					=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" BUT [TeamIDs=""]
-					=> IGNORE case because very complex to handle (must check bettype, convert this case to Rule#1 template...)
-			*/
-			UPDATE tp
-			SET tp.Content_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
-				,tp.Content_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
-				,tp.Content_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND tp.RequiredParam = '{new_value}'
-				AND tp.Content_en IS NULL --EXCLUDE above rules
-				AND tp.Content_ch IS NULL --EXCLUDE above rules
-				AND tp.Content_cs IS NULL --EXCLUDE above rules
-				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
-			
-			--Rule#3.If HomeValue is NOT number
-			UPDATE tp
-			SET tp.Content_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
-				,tp.Content_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
-				,tp.Content_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
-				INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = atl.HomeValue
-				INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = atl.AwayValue
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND tp.RequiredParam = '{new_value}'
-				AND tp.Content_en IS NULL --EXCLUDE above rules
-				AND tp.Content_ch IS NULL --EXCLUDE above rules
-				AND tp.Content_cs IS NULL --EXCLUDE above rules
-				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
-			
-			--Rule#final.the rest, value of HomeValue
-			UPDATE tp
-			SET tp.Content_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
-				,tp.Content_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
-				,tp.Content_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND tp.RequiredParam = '{new_value}'
-				AND tp.Content_en IS NULL --EXCLUDE above rules
-				AND tp.Content_ch IS NULL --EXCLUDE above rules
-				AND tp.Content_cs IS NULL --EXCLUDE above rules
-		END
-		
-		/*
-			{old_value}
-				+ DON'T care ControlGrp
-				+ DON'T care IsSabaFilter
-			=> Build param's value (for) GROUP BY SettlementLogID
-			
-			Follow below rules in order
-				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
-				Rule#2.If HomeValue is number, it's result (...result is ""12,03"" instead of ""11,04""...)
-				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
-		*/
-		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{old_value}')
-		BEGIN
-			--Rule#1.If exists TeamIDs
-			;WITH CTE_TeamID AS (
-				SELECT wrg.SettlementLogID
-					,rf.RefValueEN AS TeamName_en
-					,rf.RefValueCH AS TeamName_ch
-					,rf.RefValueCS AS TeamName_cs
-				FROM #tmpResultInfo AS wrg
-					CROSS APPLY STRING_SPLIT(wrg.TeamIDs, ',') AS t
-					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
-				WHERE wrg.AmendInfo = 'WrongResult'
-					AND TRY_CONVERT(INT,t.value) IS NOT NULL
-			)
-			UPDATE tp
-			SET tp.Content_en = t.TeamName_en
-				,tp.Content_ch = t.TeamName_ch
-				,tp.Content_cs = t.TeamName_cs
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_TeamID AS t ON tp.SettlementLogID = t.SettlementLogID
-			WHERE tp.RequiredParam = '{old_value}'
-			
-			--Rule#2.If HomeValue is number
-			UPDATE tp
-			SET tp.Content_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
-				,tp.Content_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
-				,tp.Content_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND tp.RequiredParam = '{old_value}'
-				AND tp.Content_en IS NULL
-				AND tp.Content_ch IS NULL
-				AND tp.Content_cs IS NULL
-				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
-			
-			--Rule#3.If HomeValue is NOT number
-			UPDATE tp
-			SET tp.Content_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
-				,tp.Content_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
-				,tp.Content_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
-				INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = wrg.HomeValue
-				INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = wrg.AwayValue
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND tp.RequiredParam = '{old_value}'
-				AND tp.Content_en IS NULL
-				AND tp.Content_ch IS NULL
-				AND tp.Content_cs IS NULL
-				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0
-			
-			--Rule#final.the rest, value of HomeValue
-			UPDATE tp
-			SET tp.Content_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
-				,tp.Content_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
-				,tp.Content_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND tp.RequiredParam = '{old_value}'
-				AND tp.Content_en IS NULL
-				AND tp.Content_ch IS NULL
-				AND tp.Content_cs IS NULL
-		END
-		
 		----------{sport_name}----------
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{sport_name}')
 		BEGIN
@@ -917,31 +755,32 @@ BEGIN
 			--step #1 - get Resource_en / Resource_ch / Resource_cs
 			INSERT INTO #tmpAffectedResult (
 				SettlementLogID
-				,RefBettypeID
+				,ResourceID
 				,OtherInfo
 				,G
 				,M
 				,X
 				,Y
-				,Content_en
-				,Content_ch
-				,Content_cs
+				,ResultName_en
+				,ResultName_ch
+				,ResultName_cs
 			)
 			SELECT DISTINCT tp.SettlementLogID
-				,ISNULL(atl.RefBettypeID, wrg.RefBettypeID) AS RefBettypeID
+				,ISNULL(atl.ResourceID, wrg.ResourceID) AS ResourceID
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.OtherInfo ELSE wrg.OtherInfo END AS OtherInfo
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.G ELSE wrg.G END AS G
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.M ELSE wrg.M END AS M
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.X ELSE wrg.X END AS X
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.Y ELSE wrg.Y END AS Y
-				,rf.RefValueEN AS Content_en
-				,rf.RefValueCH AS Content_ch
-				,rf.RefValueCS AS Content_cs
+				,rf.RefValueEN AS ResultName_en
+				,rf.RefValueCH AS ResultName_ch
+				,rf.RefValueCS AS ResultName_cs
 			FROM #tmpTemplateDetl AS tp
 				LEFT JOIN #tmpResultInfo AS atl ON tp.SettlementLogID = atl.SettlementLogID AND atl.AmendInfo = 'ActualResult'
 				LEFT JOIN #tmpResultInfo AS wrg ON tp.SettlementLogID = wrg.SettlementLogID AND wrg.AmendInfo = 'WrongResult'
 				INNER JOIN #tmpRemotingRef AS rf ON rf.RefId2 = ISNULL(atl.RefBettypeID, wrg.RefBettypeID)
-			WHERE ISNULL(atl.RefBettypeID, wrg.RefBettypeID) IS NOT NULL
+			WHERE ISNULL(atl.ResourceID, wrg.ResourceID) IS NOT NULL
+				AND ISNULL(atl.RefBettypeID, wrg.RefBettypeID) IS NOT NULL
 				AND tp.RequiredParam = '{affected_result_name}'
 				AND rf.GroupName = 'RefResource'
 				AND rf.RefId1 = 'ResourceCricket'
@@ -950,73 +789,73 @@ BEGIN
 			
 			--step #2 - Replace X / Y
 			UPDATE #tmpAffectedResult
-			SET Content_en = REPLACE(Content_en,'@X',X)
-				,Content_ch = REPLACE(Content_ch,'@X',X)
-				,Content_cs = REPLACE(Content_cs,'@X',X)
-			WHERE ISNULL(CHARINDEX('@X',Content_en),0) > 0
-				OR ISNULL(CHARINDEX('@X',Content_ch),0) > 0
-				OR ISNULL(CHARINDEX('@X',Content_cs),0) > 0
+			SET ResultName_en = REPLACE(ResultName_en,'@X',X)
+				,ResultName_ch = REPLACE(ResultName_ch,'@X',X)
+				,ResultName_cs = REPLACE(ResultName_cs,'@X',X)
+			WHERE ISNULL(CHARINDEX('@X',ResultName_en),0) > 0
+				OR ISNULL(CHARINDEX('@X',ResultName_ch),0) > 0
+				OR ISNULL(CHARINDEX('@X',ResultName_cs),0) > 0
 			
 			UPDATE #tmpAffectedResult
-			SET Content_en = REPLACE(Content_en,'@Y',Y)
-				,Content_ch = REPLACE(Content_ch,'@Y',Y)
-				,Content_cs = REPLACE(Content_cs,'@Y',Y)
-			WHERE ISNULL(CHARINDEX('@Y',Content_en),0) > 0
-				OR ISNULL(CHARINDEX('@Y',Content_ch),0) > 0
-				OR ISNULL(CHARINDEX('@Y',Content_cs),0) > 0
+			SET ResultName_en = REPLACE(ResultName_en,'@Y',Y)
+				,ResultName_ch = REPLACE(ResultName_ch,'@Y',Y)
+				,ResultName_cs = REPLACE(ResultName_cs,'@Y',Y)
+			WHERE ISNULL(CHARINDEX('@Y',ResultName_en),0) > 0
+				OR ISNULL(CHARINDEX('@Y',ResultName_ch),0) > 0
+				OR ISNULL(CHARINDEX('@Y',ResultName_cs),0) > 0
 			
 			--step #2 - 2.1 Replace G / M for GameSession IN (1,8) - match 2 inning
 			;WITH CTE_G_Inns AS (
 				SELECT af.SettlementLogID
-					,af.RefBettypeID
+					,af.ResourceID
 					,'G' + af.G AS rG --Handle case 1 inning only later
 				FROM #tmpAffectedResult AS af
 					INNER JOIN #tmpResultHist AS rh ON af.SettlementLogID = rh.SettlementLogID AND rh.GameSession IN (1,8)
-				WHERE ISNULL(CHARINDEX('@G',af.Content_en),0) > 0
-					OR ISNULL(CHARINDEX('@G',af.Content_ch),0) > 0
-					OR ISNULL(CHARINDEX('@G',af.Content_cs),0) > 0
+				WHERE ISNULL(CHARINDEX('@G',af.ResultName_en),0) > 0
+					OR ISNULL(CHARINDEX('@G',af.ResultName_ch),0) > 0
+					OR ISNULL(CHARINDEX('@G',af.ResultName_cs),0) > 0
 			)
 			UPDATE af
-			SET Content_en = REPLACE(af.Content_en,'@G',rf.RefValueEN)
-				,Content_ch = REPLACE(af.Content_ch,'@G',rf.RefValueCH)
-				,Content_cs = REPLACE(af.Content_cs,'@G',rf.RefValueCS)
+			SET ResultName_en = REPLACE(af.ResultName_en,'@G',rf.RefValueEN)
+				,ResultName_ch = REPLACE(af.ResultName_ch,'@G',rf.RefValueCH)
+				,ResultName_cs = REPLACE(af.ResultName_cs,'@G',rf.RefValueCS)
 			FROM #tmpAffectedResult AS af
-				INNER JOIN CTE_G_Inns AS inn ON af.SettlementLogID = inn.SettlementLogID AND af.RefBettypeID = inn.RefBettypeID
+				INNER JOIN CTE_G_Inns AS inn ON af.SettlementLogID = inn.SettlementLogID AND af.ResourceID = inn.ResourceID
 				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rG
 			
 			;WITH CTE_M_Inns AS (
 				SELECT af.SettlementLogID
-					,af.RefBettypeID
+					,af.ResourceID
 					,'M' + af.M AS rM --Handle case 1 inning only later
 				FROM #tmpAffectedResult AS af
 					INNER JOIN #tmpResultHist AS rh ON af.SettlementLogID = rh.SettlementLogID AND rh.GameSession IN (1,8)
-				WHERE ISNULL(CHARINDEX('@M',af.Content_en),0) > 0
-					OR ISNULL(CHARINDEX('@M',af.Content_ch),0) > 0
-					OR ISNULL(CHARINDEX('@M',af.Content_cs),0) > 0
+				WHERE ISNULL(CHARINDEX('@M',af.ResultName_en),0) > 0
+					OR ISNULL(CHARINDEX('@M',af.ResultName_ch),0) > 0
+					OR ISNULL(CHARINDEX('@M',af.ResultName_cs),0) > 0
 			)
 			UPDATE af
-			SET Content_en = REPLACE(af.Content_en,'@M',ISNULL(rf.RefValueEN,''))
-				,Content_ch = REPLACE(af.Content_ch,'@M',ISNULL(rf.RefValueCH,''))
-				,Content_cs = REPLACE(af.Content_cs,'@M',ISNULL(rf.RefValueCS,''))
+			SET ResultName_en = REPLACE(af.ResultName_en,'@M',ISNULL(rf.RefValueEN,''))
+				,ResultName_ch = REPLACE(af.ResultName_ch,'@M',ISNULL(rf.RefValueCH,''))
+				,ResultName_cs = REPLACE(af.ResultName_cs,'@M',ISNULL(rf.RefValueCS,''))
 			FROM #tmpAffectedResult AS af
-				INNER JOIN CTE_M_Inns AS inn ON af.SettlementLogID = inn.SettlementLogID AND af.RefBettypeID = inn.RefBettypeID
+				INNER JOIN CTE_M_Inns AS inn ON af.SettlementLogID = inn.SettlementLogID AND af.ResourceID = inn.ResourceID
 				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rM
 			
 			----step #2 - 2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
 			UPDATE #tmpAffectedResult
-			SET Content_en = REPLACE(REPLACE(Content_en,' @G ',' '),'@G','')
-				,Content_ch = REPLACE(REPLACE(Content_ch,' @G ',' '),'@G','')
-				,Content_cs = REPLACE(REPLACE(Content_cs,' @G ',' '),'@G','')
+			SET ResultName_en = REPLACE(REPLACE(ResultName_en,' @G ',' '),'@G','')
+				,ResultName_ch = REPLACE(REPLACE(ResultName_ch,' @G ',' '),'@G','')
+				,ResultName_cs = REPLACE(REPLACE(ResultName_cs,' @G ',' '),'@G','')
 			
 			UPDATE #tmpAffectedResult
-			SET Content_en = REPLACE(REPLACE(Content_en,' @M ',' '),'@M','')
-				,Content_ch = REPLACE(REPLACE(Content_ch,' @M ',' '),'@M','')
-				,Content_cs = REPLACE(REPLACE(Content_cs,' @M ',' '),'@M','')
+			SET ResultName_en = REPLACE(REPLACE(ResultName_en,' @M ',' '),'@M','')
+				,ResultName_ch = REPLACE(REPLACE(ResultName_ch,' @M ',' '),'@M','')
+				,ResultName_cs = REPLACE(REPLACE(ResultName_cs,' @M ',' '),'@M','')
 			
 			--step #3 - If exists [OtherInfo] => put it after the Resource_en
 			;WITH CTE_OtherInfo AS (
 				SELECT af.SettlementLogID
-					,af.RefBettypeID
+					,af.ResourceID
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),',') AS r_en
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),',') AS r_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),',') AS r_cs
@@ -1025,32 +864,219 @@ BEGIN
 					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = o.value
 				WHERE TRY_CONVERT(INT,o.value) IS NOT NULL
 				GROUP BY af.SettlementLogID
-					,af.RefBettypeID
+					,af.ResourceID
 			)
 			UPDATE af
-			SET af.Content_en = af.Content_en + ' - ' + TRIM(o.r_en)
-				,af.Content_ch = af.Content_ch + ' - ' + TRIM(o.r_ch)
-				,af.Content_cs = af.Content_cs + ' - ' + TRIM(o.r_cs)
+			SET af.ResultName_en = af.ResultName_en + ' - ' + TRIM(o.r_en)
+				,af.ResultName_ch = af.ResultName_ch + ' - ' + TRIM(o.r_ch)
+				,af.ResultName_cs = af.ResultName_cs + ' - ' + TRIM(o.r_cs)
 			FROM #tmpAffectedResult AS af
-				INNER JOIN CTE_OtherInfo AS o ON af.SettlementLogID = o.SettlementLogID AND af.RefBettypeID = o.RefBettypeID
+				INNER JOIN CTE_OtherInfo AS o ON af.SettlementLogID = o.SettlementLogID AND af.ResourceID = o.ResourceID
 			
 			---------final affected_result_name---------
 			;WITH CTE_Affected AS (
 				SELECT SettlementLogID
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(Content_en,'')),',') AS Content_en
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(Content_ch,'')),',') AS Content_ch
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(Content_cs,'')),',') AS Content_cs
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),',') AS ResultName_en
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),',') AS ResultName_ch
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),',') AS ResultName_cs
 				FROM #tmpAffectedResult
 				GROUP BY SettlementLogID
 			)
 			UPDATE tp
-			SET tp.Content_en = '"' + af.Content_en + '"'
-				,tp.Content_ch = '"' + af.Content_ch  + '"'
-				,tp.Content_cs = '"' + af.Content_cs  + '"'
+			SET tp.Content_en = '"' + af.ResultName_en + '"'
+				,tp.Content_ch = '"' + af.ResultName_ch  + '"'
+				,tp.Content_cs = '"' + af.ResultName_cs  + '"'
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN CTE_Affected AS af ON tp.SettlementLogID = af.SettlementLogID
 			WHERE tp.RequiredParam = '{affected_result_name}'
 		END
+		
+		
+		/*
+			*****Message Template may NOT {new_value} but use it for: gen LAP, chatbot LIC,..*****
+			
+			{new_value}
+				+ DON'T care ControlGrp
+				+ DON'T care IsSabaFilter
+			=> Build param's value (for) GROUP BY SettlementLogID
+			
+			Follow below rules in order
+				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
+				Rule#2.If HomeValue is number, it's result (...result is ""12-03"" instead of ""11-04""...)
+				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
+				**Include Away below Home
+		*/
+		UPDATE af
+		SET af.ActualValue_en = N'Refund'
+			,af.ActualValue_ch = N'退款'
+			,af.ActualValue_cs = N'退款'
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultHist AS rh ON rh.SettlementLogID = af.SettlementLogID
+		WHERE rh.ActionType = 2 --CAL to Refund => WrongResult [have value] + ActualResult [blank]
+		
+		--Rule#1.If exists TeamIDs
+		;WITH CTE_TeamID AS (
+			SELECT DISTINCT atl.SettlementLogID
+				,atl.ResourceID
+				,rf.RefValueEN AS TeamName_en
+				,rf.RefValueCH AS TeamName_ch
+				,rf.RefValueCS AS TeamName_cs
+			FROM #tmpResultInfo AS atl
+				OUTER APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
+				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
+			WHERE atl.AmendInfo = 'ActualResult'
+				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+		)
+		UPDATE af
+		SET af.ActualValue_en = t.TeamName_en
+			,af.ActualValue_ch = t.TeamName_ch
+			,af.ActualValue_cs = t.TeamName_cs
+		FROM #tmpAffectedResult AS af
+			INNER JOIN CTE_TeamID AS t ON af.SettlementLogID = t.SettlementLogID AND af.ResourceID = t.ResourceID
+		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
+		
+		--Rule#2.If HomeValue is number
+		/*
+			some cases:
+			1.<xml Home="01" Away="" TeamIDs="" OtherInfo="">
+				=> Home = 01
+				=> {new_value} = {1} => handled below code
+			2.<xml Home="01" Away="02" TeamIDs="" OtherInfo="">
+				=> Home = 01
+				=> {new_value} = {1-2} => handled below code
+			3.<xml Home="01" TeamIDs="123" OtherInfo="123,456">
+				=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" = [TeamIDs="123"]
+				=> {new_value} = {team name of 123} => Rule#1 handled
+			4.<xml Home="01" TeamIDs="" OtherInfo="123,456">
+				=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" BUT [TeamIDs=""]
+				=> IGNORE case because very complex to handle (must check bettype, convert this case to Rule#1 template...)
+		*/
+		UPDATE af
+		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+			,af.ActualValue_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+			,af.ActualValue_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultInfo AS atl ON af.SettlementLogID = atl.SettlementLogID AND af.ResourceID = atl.ResourceID
+		WHERE atl.AmendInfo = 'ActualResult'
+			AND af.ActualValue_en IS NULL --EXCLUDE above rules
+			AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
+		
+		--Rule#3.If HomeValue is NOT number
+		UPDATE af
+		SET af.ActualValue_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
+			,af.ActualValue_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
+			,af.ActualValue_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultInfo AS atl ON af.SettlementLogID = atl.SettlementLogID AND af.ResourceID = atl.ResourceID
+			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = atl.HomeValue
+			INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = atl.AwayValue
+		WHERE atl.AmendInfo = 'ActualResult'
+			AND af.ActualValue_en IS NULL --EXCLUDE above rules
+			AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
+		
+		--Rule#final.the rest, value of HomeValue
+		UPDATE af
+		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+			,af.ActualValue_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+			,af.ActualValue_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultInfo AS atl ON af.SettlementLogID = atl.SettlementLogID AND af.ResourceID = atl.ResourceID
+		WHERE atl.AmendInfo = 'ActualResult'
+			AND af.ActualValue_en IS NULL --EXCLUDE above rules
+		
+		-- IF EXISTS {new_value}
+		UPDATE tp
+		SET tp.Content_en = atl.ActualValue_en
+			,tp.Content_ch = atl.ActualValue_ch
+			,tp.Content_cs = atl.ActualValue_cs
+		FROM #tmpTemplateDetl AS tp
+			INNER JOIN #tmpAffectedResult AS atl ON tp.SettlementLogID = atl.SettlementLogID
+		WHERE tp.RequiredParam = '{new_value}'
+		
+		/*
+			*****Message Template may NOT {new_value} but use it for: gen LAP, chatbot LIC,..*****
+			
+			{old_value}
+				+ DON'T care ControlGrp
+				+ DON'T care IsSabaFilter
+			=> Build param's value (for) GROUP BY SettlementLogID
+			
+			Follow below rules in order
+				Rule#1.If exists TeamIDs=""874484"" , don't care HomeValue - it's result (...result is "Ireland" instead of "Scotland"...)
+				Rule#2.If HomeValue is number, it's result (...result is ""12,03"" instead of ""11,04""...)
+				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
+		*/
+		UPDATE af
+		SET af.WrongValue_en = N'Refund'
+			,af.WrongValue_ch = N'退款'
+			,af.WrongValue_cs = N'退款'
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultHist AS rh ON rh.SettlementLogID = af.SettlementLogID
+		WHERE rh.ActionType = 3 --Refund to CAL => WrongResult [blank] + ActualResult [have value]
+		
+		--Rule#1.If exists TeamIDs
+		;WITH CTE_TeamID AS (
+			SELECT wrg.SettlementLogID
+				,wrg.ResourceID
+				,rf.RefValueEN AS TeamName_en
+				,rf.RefValueCH AS TeamName_ch
+				,rf.RefValueCS AS TeamName_cs
+			FROM #tmpResultInfo AS wrg
+				CROSS APPLY STRING_SPLIT(wrg.TeamIDs, ',') AS t
+				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
+			WHERE wrg.AmendInfo = 'WrongResult'
+				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+		)
+		UPDATE af
+		SET af.WrongValue_en = t.TeamName_en
+			,af.WrongValue_ch = t.TeamName_ch
+			,af.WrongValue_cs = t.TeamName_cs
+		FROM #tmpAffectedResult AS af
+			INNER JOIN CTE_TeamID AS t ON af.SettlementLogID = t.SettlementLogID AND af.ResourceID = t.ResourceID
+		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
+		
+		--Rule#2.If HomeValue is number
+		UPDATE af
+		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+			,af.WrongValue_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+			,af.WrongValue_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultInfo AS wrg ON af.SettlementLogID = wrg.SettlementLogID AND af.ResourceID = wrg.ResourceID
+		WHERE wrg.AmendInfo = 'WrongResult'
+			AND af.WrongValue_en IS NULL --EXCLUDE above rules
+			AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
+		
+		--Rule#3.If HomeValue is NOT number
+		UPDATE af
+		SET af.WrongValue_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
+			,af.WrongValue_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
+			,af.WrongValue_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultInfo AS wrg ON af.SettlementLogID = wrg.SettlementLogID AND af.ResourceID = wrg.ResourceID
+			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = wrg.HomeValue
+			INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = wrg.AwayValue
+		WHERE wrg.AmendInfo = 'WrongResult'
+			AND af.WrongValue_en IS NULL --EXCLUDE above rules
+			AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0
+		
+		--Rule#final.the rest, value of HomeValue
+		UPDATE af
+		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+			,af.WrongValue_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+			,af.WrongValue_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+		FROM #tmpAffectedResult AS af
+			INNER JOIN #tmpResultInfo AS wrg ON af.SettlementLogID = wrg.SettlementLogID AND af.ResourceID = wrg.ResourceID
+		WHERE wrg.AmendInfo = 'WrongResult'
+			AND af.WrongValue_en IS NULL --EXCLUDE above rules
+		
+		-- IF EXISTS {old_value}
+		UPDATE tp
+		SET tp.Content_en = wrg.WrongValue_en
+			,tp.Content_ch = wrg.WrongValue_ch
+			,tp.Content_cs = wrg.WrongValue_cs
+		FROM #tmpTemplateDetl AS tp
+			INNER JOIN #tmpAffectedResult AS wrg ON tp.SettlementLogID = wrg.SettlementLogID
+		WHERE tp.RequiredParam = '{old_value}'
 		
 		/*
 			Build message content
@@ -1465,6 +1491,27 @@ BEGIN
 		/*
 			Insert NotificationExtra
 		*/
+		;WITH CTE_AffectedResult AS (
+			SELECT s.SettlementLogID
+				,CONVERT(NVARCHAR(MAX),(
+								SELECT DISTINCT t.ResourceID
+									,t.ResultName_en
+									,t.ResultName_ch
+									,t.ResultName_cs
+									,t.ActualValue_en
+									,t.ActualValue_ch
+									,t.ActualValue_cs
+									,t.WrongValue_en
+									,t.WrongValue_ch
+									,t.WrongValue_cs
+								FROM #tmpAffectedResult AS t
+								WHERE t.SettlementLogID = s.SettlementLogID
+								ORDER BY t.ResourceID
+								FOR JSON PATH
+							)) AS afResult
+			FROM #tmpAffectedResult AS s
+			GROUP BY s.SettlementLogID
+		)
 		INSERT INTO NotificationExtra (
 			NotificationID
 			,EventDate
@@ -1475,7 +1522,8 @@ BEGIN
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT					
 					-----support Gen Lap noti-----
-					t.AmendedCnt 
+					af.afResult AS AffectedResult
+					,t.AmendedCnt 
 					,t.ActionType 
 					,t.GameSession
 					,t.IsNeutral
@@ -1504,13 +1552,15 @@ BEGIN
 					,CASE WHEN c.username IS NOT NULL THEN GETDATE() END AS MsgSendDate
 					-----support Push Msg Notification-----
 					,t.LeagueGroupID
-					-----Others-----
+					-----Chatbot LIC-----
 					,t.KOTime
+					-----Others-----
 					,t.SportType
 					,rfs.RefValueEN AS SportNameEN
 					,rfs.RefValueCH AS SportNameCH
 					,rfs.RefValueCS AS SportNameCS
 				FROM #tmpResultHist AS t
+					LEFT JOIN CTE_AffectedResult AS af ON t.SettlementLogID = af.SettlementLogID
 					LEFT JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'EventInfo' AND rfh.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfh.RefId2) = t.HomeID
 					LEFT JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'EventInfo' AND rfa.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfa.RefId2) = t.AwayID
 					LEFT JOIN #tmpRemotingRef AS rfl ON rfl.GroupName = 'EventInfo' AND rfl.RefId1 = 'LeagueID' AND TRY_CONVERT(INT,rfl.RefId2) = t.LeagueID

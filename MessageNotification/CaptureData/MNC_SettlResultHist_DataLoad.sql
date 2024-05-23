@@ -79,7 +79,7 @@ BEGIN
 	SELECT @UATMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --UATMode
-				
+	
 	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
@@ -635,12 +635,11 @@ BEGIN
 									,t.CustID
 								FROM #tmpInsertedNB AS t
 								WHERE t.SettlementLogID = s.SettlementLogID
-									AND t.LogID = s.LogID
-									AND t.CustID = s.CustID
 								ORDER BY LogID
 								FOR JSON PATH
 							)) AS LTxt
 			FROM #tmpInsertedNB AS s
+			GROUP BY s.SettlementLogID
 		)
 		INSERT INTO [Log] (
 			RefID
@@ -648,15 +647,14 @@ BEGIN
 			,UserID
 			,LogBef
 		)
-		SELECT bn.SettlementLogID
+		SELECT rh.SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),tbn.LTxt),','),'NO ROW')+ ')'
-		FROM #tmpInsertedNB AS bn
-			LEFT JOIN CTE_InsertedNB AS tbn ON bn.SettlementLogID = tbn.SettlementLogID
-		GROUP BY bn.SettlementLogID
-		ORDER BY bn.SettlementLogID
-		
+			,@InfLogPrefix + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),d.LTxt),','),'NO ROW')+ ')'
+		FROM #tmpInsertedRH AS rh
+			LEFT JOIN CTE_InsertedNB AS bn ON rh.SettlementLogID = bn.SettlementLogID
+		GROUP BY rh.SettlementLogID
+		ORDER BY rh.SettlementLogID
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web

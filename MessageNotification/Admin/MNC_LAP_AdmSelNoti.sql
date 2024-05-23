@@ -50,12 +50,17 @@ BEGIN
 	)
 	SELECT DISTINCT n.NotificationID
 		,ne.EventDate
-		,n.Subject
+		,sj.Subject_cs + ' | ' + sj.Subject_en + ' (' + CONVERT(VARCHAR, ne.EventDate, 106) + ')' AS Subject --dd Mon yyyy
 		,n.Content_en
 		,n.Content_cs
 	FROM dbo.Notification AS n WITH (NOLOCK)
 		INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON n.NotificationID = ne.NotificationID
+		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+						Subject_en NVARCHAR(300) '$.Subject_en'
+						,Subject_cs NVARCHAR(300) '$.Subject_cs'
+					) AS sj --OPENJSON case-sensitive
 	WHERE ne.EventDate BETWEEN @FEventDate AND @TEventDate
+		AND ISJSON(ne.ExtraInfo) = 1
 		AND n.StatusID IN (
 			SELECT StatusID
 			FROM dbo.NotiStatus WITH (NOLOCK)
@@ -86,16 +91,11 @@ BEGIN
 	
 	SELECT r.LAPNotiID AS NotificationID
 		,CONVERT(VARCHAR, r.EventDate4GMT, 101) AS EventDate --MM/DD/YYYY
-		,sj.Subject_cs + ' | ' + sj.Subject_en + ' (' + CONVERT(VARCHAR, r.EventDate4GMT, 106) + ')' AS Subject --dd Mon yyyy
+		,r.Subject
 		,CASE WHEN @LanguageCode = 'en' THEN r.Content_en
 			ELSE r.Content_cs END AS Content
 	FROM #tmpResult AS r
-		OUTER APPLY OPENJSON(r.Subject) WITH (
-						Subject_en NVARCHAR(300) '$.Subject_en'
-						,Subject_cs NVARCHAR(300) '$.Subject_cs'
-					) AS sj --OPENJSON case-sensitive
 	WHERE r.RNo BETWEEN @RStart AND @REnd
-		AND ISJSON(r.Subject) = 1
 	ORDER BY RNo
 	
 	DROP TABLE #tmpResult

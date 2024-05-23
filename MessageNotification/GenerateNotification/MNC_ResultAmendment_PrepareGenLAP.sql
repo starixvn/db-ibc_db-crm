@@ -115,12 +115,11 @@ BEGIN
 	
 	CREATE TABLE #tmpPrepareNoti (
 		NotificationID INT
-		,SettlID INT
+		,SportType SMALLINT
 	)
 	
 	CREATE TABLE #tmpRemotingRef (
 		NotificationID INT
-		,SettlementLogID INT
 		,GroupName VARCHAR(50)
 		,RefId1 VARCHAR(50)
 		,RefId2 VARCHAR(50)
@@ -132,7 +131,7 @@ BEGIN
 	*/
 	;WITH CTE_Noti AS (
 		SELECT DISTINCT nMsg.NotificationID
-			,mMsg.SettlementLogID
+			,rh.SportType
 			,(CASE WHEN nL.NotificationID IS NOT NULL THEN 1 ELSE 0 END) AS LapCnt
 		FROM Notification AS nMsg WITH (NOLOCK)
 			INNER JOIN NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
@@ -152,13 +151,13 @@ BEGIN
 	)
 	INSERT INTO #tmpPrepareNoti (
 		NotificationID
-		,SettlID
+		,SportType
 	)
 	SELECT NotificationID
-		,SettlementLogID AS SettlID
+		,SportType
 	FROM CTE_Noti
 	GROUP BY NotificationID
-		,SettlementLogID
+		,SportType
 	HAVING SUM(LapCnt) = 0
 	
 	CREATE CLUSTERED INDEX CIX_tmpPrepareNoti ON #tmpPrepareNoti(NotificationID)
@@ -188,9 +187,7 @@ BEGIN
 						+ ' - Msg List to Generate Lap ('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT NotificationID
-												,STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',') AS SettlIDs
 											FROM #tmpPrepareNoti
-											GROUP BY NotificationID
 											ORDER BY NotificationID
 											FOR JSON PATH
 										))
@@ -201,98 +198,21 @@ BEGIN
 	
 	/*
 		build things to get from RemotingRef
-			Loop foreach NotificationID to create as many LAP noti as possible (ignore Error NotificationID - NOT break if any Failed)
+		
+		Currently, no need info from @JSRemotingRef
+			=> only FW list of NotificationIDs for next step
 	*/
-	BEGIN TRY
-		DECLARE @JSResource NVARCHAR(MAX)
-			,@SettlIDs VARCHAR(MAX)
-			,@ErrCode INT = 0
-			,@ErrMsg NVARCHAR(2000) = ''
-		
-		;WITH CTE_Settl AS (
-			SELECT DISTINCT SettlID
-			FROM #tmpPrepareNoti
-		)
-		SELECT @SettlIDs = STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',')
-		FROM CTE_Settl
-		
-		--get RemotingRef of ResourceID in ActualResult/WrongResult 
-		EXEC MNC_ResultAmendment_JSParseResult
-			@SettlementLogIDs = @SettlIDs
-			,@ParseAmendInfo = 'ActualResult,WrongResult'
-			,@ParseTo = 'RemotingRef'
-			,@OutJSResource = @JSResource OUTPUT
-			,@ErrCode = @ErrCode OUTPUT
-			,@ErrMsg = @ErrMsg OUTPUT
-		
-		IF @ErrCode <> 0
-		BEGIN
-			INSERT INTO [Log] (
-				ActionID
-				,UserID
-				,LogBef
-			)
-			SELECT @LogActionID
-				,@LogUserID
-				,@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - FAILED JSON Parse ActualResult/WrongResult'
-								+ ' - SettlIDs(' + ISNULL(@SettlIDs,'NULL') + ')'
-								+ ' - tmpNoti('
-									+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-													SELECT NotificationID
-														,STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',') AS SettlIDs
-													FROM #tmpPrepareNoti
-													GROUP BY NotificationID
-													ORDER BY NotificationID
-													FOR JSON PATH
-												))
-											),'NO ROW') + ')'
-								+ '- ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
-		END
-		ELSE
-		BEGIN
-			INSERT INTO #tmpRemotingRef (
-				NotificationID
-				,SettlementLogID
-				,GroupName
-				,RefId1
-				,RefId2
-			)
-			SELECT DISTINCT n.NotificationID
-				,j.SettlementLogID
-				,j.GroupName
-				,j.RefId1
-				,j.RefId2
-			FROM OPENJSON(@JSResource) WITH (
-					SettlementLogID INT '$.SettlementLogID'
-					,GroupName VARCHAR(50) '$.GroupName'
-					,RefId1 VARCHAR(50) '$.RefId1'
-					,RefId2 VARCHAR(50) '$.RefId2'
-				) AS j--OPENJSON case-sensitive
-				INNER JOIN #tmpPrepareNoti AS n ON j.SettlementLogID = n.SettlID
-		END
-	END TRY
-	BEGIN CATCH
-		INSERT INTO [Log] (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - FAILED while Prepare ActualResult/WrongResult'
-							+ ' - SettlIDs(' + ISNULL(@SettlIDs,'NULL') + ')'
-							+ ' - tmpNoti('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-												SELECT NotificationID
-													,STRING_AGG(CONVERT(VARCHAR(MAX),SettlID),',') AS SettlIDs
-												FROM #tmpPrepareNoti
-												GROUP BY NotificationID
-												ORDER BY NotificationID
-												FOR JSON PATH
-											))
-										),'NO ROW') + ')'
-							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
-	END CATCH
+	INSERT INTO #tmpRemotingRef (
+		NotificationID
+		,GroupName
+		,RefId1
+		,RefId2
+	)
+	SELECT DISTINCT n.NotificationID
+		,'EventInfo' AS GroupName
+		,'SportType' AS RefId1
+		,SportType AS RefId2
+	FROM #tmpPrepareNoti AS n
 	
 	--return for RemotingRef
 	;WITH CTE_Ref AS (
@@ -333,35 +253,26 @@ BEGIN
 	
 	----------------------
 	INSERT INTO [Log] (
-		ActionID
+		RefID
+		,ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT @LogActionID
+	SELECT NotificationID
+		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Completed [Generate Lap Noti process - Prepare]'
+		,@InfLogPrefix + '[Generate Lap Noti process - Prepare] - Completed'
 						+ ' - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rf.NotificationID),',') AS NotificationIDs
-											,rf.GroupName
-											,rf.RefId1
-											,rf.RefId2
-										FROM (
-											SELECT DISTINCT NotificationID
-												,GroupName
-												,RefId1
-												,RefId2
-											FROM #tmpRemotingRef
-										) AS rf
-										GROUP BY rf.GroupName
-											,rf.RefId1
-											,rf.RefId2
+										SELECT DISTINCT NotificationID
+											,GroupName
+											,RefId1
+											,RefId2
+										FROM #tmpRemotingRef
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
+		FROM #tmpRemotingRef
 	
 	DROP TABLE #tmpPrepareNoti
 	DROP TABLE #tmpRemotingRef

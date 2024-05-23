@@ -84,14 +84,14 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 	-----------------------------------------------
-	CREATE TABLE #tmpRemotingRef (
-		GroupName VARCHAR(50)
-		,RefId1 VARCHAR(50)
-		,RefId2 VARCHAR(50)
-		,RefValueEN NVARCHAR(500)
-		,RefValueCH NVARCHAR(500)
-		,RefValueCS NVARCHAR(500)
-	)
+	-- CREATE TABLE #tmpRemotingRef (
+		-- GroupName VARCHAR(50)
+		-- ,RefId1 VARCHAR(50)
+		-- ,RefId2 VARCHAR(50)
+		-- ,RefValueEN NVARCHAR(500)
+		-- ,RefValueCH NVARCHAR(500)
+		-- ,RefValueCS NVARCHAR(500)
+	-- )
 
 	CREATE TABLE #tmpExtraInfo (
 		Msg_NotiID INT
@@ -99,44 +99,22 @@ BEGIN
 		,ResourceID VARCHAR(50)
 		,ReCalc DATETIME
 		,Calc DATETIME
-		,AmendedCnt TINYINT
-		,ActionType TINYINT
-		,GameSession TINYINT
-	)
-
-	CREATE TABLE #tmpParsedResult (
-		SettlementLogID INT
-		,AmendInfo VARCHAR(50)
-		,ResourceID VARCHAR(50)
-		,RefBettypeID VARCHAR(50)
-		,HomeValue VARCHAR(50)
-		,AwayValue VARCHAR(50)
-		,OtherInfo VARCHAR(200)
-		,TeamIDs VARCHAR(200)
-		,G VARCHAR(50)
-		,X VARCHAR(50)
-		,Y VARCHAR(50)
 	)
 	
-	CREATE TABLE #tmpBuildResult (
+	CREATE TABLE #tmpAffectedResult (
 		SettlementLogID INT
-		,ActionType TINYINT
 		,ResourceID VARCHAR(50)
-		,OtherInfo VARCHAR(200)
-		,G VARCHAR(50)
-		,X VARCHAR(50)
-		,Y VARCHAR(50)
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
 		,ResultName_cs NVARCHAR(4000)
 		
-		,ActualResult_en NVARCHAR(4000)
-		,ActualResult_ch NVARCHAR(4000)
-		,ActualResult_cs NVARCHAR(4000)
+		,ActualValue_en NVARCHAR(4000)
+		,ActualValue_ch NVARCHAR(4000)
+		,ActualValue_cs NVARCHAR(4000)
 		
-		,WrongResult_en NVARCHAR(4000)
-		,WrongResult_ch NVARCHAR(4000)
-		,WrongResult_cs NVARCHAR(4000)
+		,WrongValue_en NVARCHAR(4000)
+		,WrongValue_ch NVARCHAR(4000)
+		,WrongValue_cs NVARCHAR(4000)
 	)
 	
 	CREATE TABLE #tmpTemplateDetl (
@@ -217,29 +195,30 @@ BEGIN
 		WHERE n.NotificationType = 1 --1: Result Amendment to Msg
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputNoti ON #tmpInputNoti (Msg_NotiID)
 		
-		INSERT INTO #tmpRemotingRef(
-			GroupName
-			,RefId1
-			,RefId2
-			,RefValueEN
-			,RefValueCH
-			,RefValueCS
-		)
-		SELECT DISTINCT GroupName
-			,RefId1
-			,RefId2
-			,RefValueEN
-			,RefValueCH
-			,RefValueCS
-		FROM OPENJSON(@JSRemotingRef) WITH (
-				GroupName VARCHAR(50) '$.GroupName'
-				,RefId1 VARCHAR(50) '$.RefId1'
-				,RefId2 VARCHAR(50) '$.RefId2'
-				,RefValueEN NVARCHAR(500) '$.RefValueEN'
-				,RefValueCH NVARCHAR(500) '$.RefValueCH'
-				,RefValueCS NVARCHAR(500) '$.RefValueCS'
-			)--OPENJSON case-sensitive
-		CREATE CLUSTERED INDEX CIX_tmpRemotingRef ON #tmpRemotingRef (GroupName, RefId1, RefId2)
+		--no need info from @JSRemotingRef
+		-- INSERT INTO #tmpRemotingRef(
+			-- GroupName
+			-- ,RefId1
+			-- ,RefId2
+			-- ,RefValueEN
+			-- ,RefValueCH
+			-- ,RefValueCS
+		-- )
+		-- SELECT DISTINCT GroupName
+			-- ,RefId1
+			-- ,RefId2
+			-- ,RefValueEN
+			-- ,RefValueCH
+			-- ,RefValueCS
+		-- FROM OPENJSON(@JSRemotingRef) WITH (
+				-- GroupName VARCHAR(50) '$.GroupName'
+				-- ,RefId1 VARCHAR(50) '$.RefId1'
+				-- ,RefId2 VARCHAR(50) '$.RefId2'
+				-- ,RefValueEN NVARCHAR(500) '$.RefValueEN'
+				-- ,RefValueCH NVARCHAR(500) '$.RefValueCH'
+				-- ,RefValueCS NVARCHAR(500) '$.RefValueCS'
+			-- )--OPENJSON case-sensitive
+		-- CREATE CLUSTERED INDEX CIX_tmpRemotingRef ON #tmpRemotingRef (GroupName, RefId1, RefId2)
 		
 		;WITH CTE_Ext AS (
 			SELECT i.Msg_NotiID
@@ -255,28 +234,15 @@ BEGIN
 			,ResourceID
 			,ReCalc
 			,Calc
-			,AmendedCnt
-			,ActionType
-			,GameSession
 		)
 		SELECT DISTINCT c.Msg_NotiID
 			,c.SettlementLogID
 			,NULLIF(TRIM(rh.ex.value('@Id', 'VARCHAR(50)')), '') AS ResourceID
 			,rh.ex.value('@ReCalc', 'DATETIME') AS ReCalc
 			,rh.ex.value('@Calc', 'DATETIME') AS Calc
-			,ext.AmendedCnt
-			,ext.ActionType
-			,ext.GameSession
 		FROM CTE_Ext AS c
 			CROSS APPLY c.ExtraInfoXML.nodes('root/r') rh(ex)
-			INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON c.Msg_NotiID = ne.NotificationID
-			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
-							AmendedCnt TINYINT '$.AmendedCnt'
-							,ActionType TINYINT '$.ActionType'
-							,GameSession TINYINT '$.GameSession'
-						) AS ext --OPENJSON case-sensitive
 		WHERE NULLIF(TRIM(rh.ex.value('@Id', 'VARCHAR(50)')), '') IS NOT NULL
-			AND ISJSON(ne.ExtraInfo) = 1
 		CREATE CLUSTERED INDEX CIX_tmpExtraInfo ON #tmpExtraInfo (Msg_NotiID, SettlementLogID)
 		
 		;WITH CTE_LAP AS (
@@ -310,73 +276,6 @@ BEGIN
 			AND n.NotificationType = 1 --Result Amendment to Msg
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNoti ON #tmpNoti (Msg_NotiID)
-		
-		/*
-			Parse data from ActualResult / WrongResult
-				#tmpParsedResult
-		*/
-		SELECT @SettlIDs = STRING_AGG(CONVERT(NVARCHAR(MAX),ex.SettlementLogID),',')
-		FROM #tmpExtraInfo AS ex
-			INNER JOIN #tmpNoti AS n ON ex.Msg_NotiID = n.Msg_NotiID
-		
-		EXEC MNC_ResultAmendment_JSParseResult
-			@SettlementLogIDs = @SettlIDs
-			,@ParseAmendInfo = 'ActualResult,WrongResult'
-			,@ParseTo = 'RawData'
-			,@OutJSResource = @JSResource OUTPUT
-			,@ErrCode = @ErrCode OUTPUT
-			,@ErrMsg = @ErrMsg OUTPUT
-		
-		INSERT INTO #tmpParsedResult (
-			SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,RefBettypeID
-			,HomeValue
-			,AwayValue
-			,OtherInfo
-			,TeamIDs
-			,G
-			,X
-			,Y
-		)
-		SELECT DISTINCT SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,RefBettypeID
-			,HomeValue
-			,AwayValue
-			,OtherInfo
-			,TeamIDs
-			,G
-			,X
-			,Y
-		FROM OPENJSON(@JSResource) WITH (
-				SettlementLogID INT '$.SettlementLogID'
-				,AmendInfo VARCHAR(50) '$.AmendInfo'
-				,ResourceID VARCHAR(50) '$.ResourceID'
-				,RefBettypeID VARCHAR(50) '$.RefBettypeID'
-				,HomeValue VARCHAR(50) '$.HomeValue'
-				,AwayValue VARCHAR(50) '$.AwayValue'
-				,OtherInfo VARCHAR(200) '$.OtherInfo'
-				,TeamIDs VARCHAR(200) '$.TeamIDs'
-				,G VARCHAR(50) '$.G'
-				,X VARCHAR(50) '$.X'
-				,Y VARCHAR(50) '$.Y'
-			)--OPENJSON case-sensitive
-		WHERE SettlementLogID IS NOT NULL
-			AND ResourceID IS NOT NULL
-		
-		CREATE CLUSTERED INDEX CIX_tmpParsedResult ON #tmpParsedResult (SettlementLogID)
-		
-		--delete invalid Msg_NotiID
-		DELETE FROM #tmpNoti
-		WHERE Msg_NotiID NOT IN (
-			SELECT DISTINCT n.Msg_NotiID
-			FROM #tmpExtraInfo AS ex
-			INNER JOIN #tmpNoti AS n ON ex.Msg_NotiID = n.Msg_NotiID
-			INNER JOIN #tmpParsedResult AS rs ON ex.SettlementLogID = rs.SettlementLogID
-		)
 		
 		--write log--
 		INSERT INTO [Log] (
@@ -428,21 +327,6 @@ BEGIN
 											FROM #tmpExtraInfo
 											ORDER BY Msg_NotiID
 												,SettlementLogID
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')'
-							+ ' - tmpRemotingRef('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
-											FROM #tmpRemotingRef
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')'
-							+ ' - tmpParsedResult('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
-											FROM #tmpParsedResult
-											ORDER BY SettlementLogID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -589,256 +473,51 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam IN ('{cal_time}','{recal_time}'))
 		BEGIN
 			/*
-				Build result name
+				Load AffectedResult from Msg Noti
 			*/
-			--step #1 - get Resource_en / Resource_ch / Resource_cs
-			INSERT INTO #tmpBuildResult (
+			INSERT INTO #tmpAffectedResult (
 				SettlementLogID
-				,ActionType
 				,ResourceID
-				,OtherInfo
-				,G
-				,X
-				,Y
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
+				,ActualValue_en
+				,ActualValue_ch
+				,ActualValue_cs
+				,WrongValue_en
+				,WrongValue_ch
+				,WrongValue_cs
 			)
 			SELECT DISTINCT ex.SettlementLogID
-				,ex.ActionType
-				,ex.ResourceID
-				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.OtherInfo ELSE wrg.OtherInfo END AS OtherInfo
-				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.G ELSE wrg.G END AS G
-				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.X ELSE wrg.X END AS X
-				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.Y ELSE wrg.Y END AS Y
-				,rf.RefValueEN AS ResultName_en
-				,rf.RefValueCH AS ResultName_ch
-				,rf.RefValueCS AS ResultName_cs
+				,af.ResourceID
+				,af.ResultName_en
+				,af.ResultName_ch
+				,af.ResultName_cs
+				,af.ActualValue_en
+				,af.ActualValue_ch
+				,af.ActualValue_cs
+				,af.WrongValue_en
+				,af.WrongValue_ch
+				,af.WrongValue_cs
 			FROM #tmpExtraInfo AS ex
-				LEFT JOIN #tmpParsedResult AS atl ON ex.SettlementLogID = atl.SettlementLogID AND ex.ResourceID = atl.ResourceID AND atl.AmendInfo = 'ActualResult'
-				LEFT JOIN #tmpParsedResult AS wrg ON ex.SettlementLogID = wrg.SettlementLogID AND ex.ResourceID = wrg.ResourceID AND wrg.AmendInfo = 'WrongResult'
-				INNER JOIN #tmpRemotingRef AS rf ON rf.RefId2 = ISNULL(atl.RefBettypeID, wrg.RefBettypeID)
-			WHERE ex.ResourceID = ISNULL(atl.ResourceID, wrg.ResourceID)
-				AND rf.GroupName = 'RefResource'
-				AND rf.RefId1 = 'ResourceCricket'
-			
-			--step #2 - Replace X / Y
-			UPDATE #tmpBuildResult
-			SET ResultName_en = REPLACE(ResultName_en,'@X',X)
-				,ResultName_ch = REPLACE(ResultName_ch,'@X',X)
-				,ResultName_cs = REPLACE(ResultName_cs,'@X',X)
-			WHERE ISNULL(CHARINDEX('@X',ResultName_en),0) > 0
-				OR ISNULL(CHARINDEX('@X',ResultName_ch),0) > 0
-				OR ISNULL(CHARINDEX('@X',ResultName_cs),0) > 0
-			
-			UPDATE #tmpBuildResult
-			SET ResultName_en = REPLACE(ResultName_en,'@Y',Y)
-				,ResultName_ch = REPLACE(ResultName_ch,'@Y',Y)
-				,ResultName_cs = REPLACE(ResultName_cs,'@Y',Y)
-			WHERE ISNULL(CHARINDEX('@Y',ResultName_en),0) > 0
-				OR ISNULL(CHARINDEX('@Y',ResultName_ch),0) > 0
-				OR ISNULL(CHARINDEX('@Y',ResultName_cs),0) > 0
-			
-			--step #2 - 2.1 Replace G / M for GameSession IN (1,8) - match 2 inning
-			;WITH CTE_G_Inns AS (
-				SELECT rs.SettlementLogID
-					,rs.ResourceID
-					,'G' + rs.G AS rG --Handle case 1 inning only later
-				FROM #tmpBuildResult AS rs
-					INNER JOIN #tmpExtraInfo AS rh ON rs.SettlementLogID = rh.SettlementLogID AND rs.ResourceID = rh.ResourceID AND rh.GameSession IN (1,8)
-				WHERE ISNULL(CHARINDEX('@G',rs.ResultName_en),0) > 0
-					OR ISNULL(CHARINDEX('@G',rs.ResultName_ch),0) > 0
-					OR ISNULL(CHARINDEX('@G',rs.ResultName_cs),0) > 0
-			)
-			UPDATE rs
-			SET rs.ResultName_en = REPLACE(rs.ResultName_en,'@G',rf.RefValueEN)
-				,rs.ResultName_ch = REPLACE(rs.ResultName_ch,'@G',rf.RefValueCH)
-				,rs.ResultName_cs = REPLACE(rs.ResultName_cs,'@G',rf.RefValueCS)
-			FROM #tmpBuildResult AS rs
-				INNER JOIN CTE_G_Inns AS inn ON rs.SettlementLogID = inn.SettlementLogID AND rs.ResourceID = inn.ResourceID
-				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rG
-			
-			;WITH CTE_M_Inns AS (
-				SELECT rs.SettlementLogID
-					,rs.ResourceID
-					,'M' + rs.G AS rM --Handle case 1 inning only later
-				FROM #tmpBuildResult AS rs
-					INNER JOIN #tmpExtraInfo AS rh ON rs.SettlementLogID = rh.SettlementLogID AND rs.ResourceID = rh.ResourceID AND rh.GameSession IN (1,8)
-				WHERE ISNULL(CHARINDEX('@M',rs.ResultName_en),0) > 0
-					OR ISNULL(CHARINDEX('@M',rs.ResultName_ch),0) > 0
-					OR ISNULL(CHARINDEX('@M',rs.ResultName_cs),0) > 0
-			)
-			UPDATE rs
-			SET ResultName_en = REPLACE(rs.ResultName_en,'@M',ISNULL(rf.RefValueEN,''))
-				,ResultName_ch = REPLACE(rs.ResultName_ch,'@M',ISNULL(rf.RefValueCH,''))
-				,ResultName_cs = REPLACE(rs.ResultName_cs,'@M',ISNULL(rf.RefValueCS,''))
-			FROM #tmpBuildResult AS rs
-				INNER JOIN CTE_M_Inns AS inn ON rs.SettlementLogID = inn.SettlementLogID AND rs.ResourceID = inn.ResourceID
-				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rM
-			
-			----step #2 - 2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
-			UPDATE #tmpBuildResult
-			SET ResultName_en = REPLACE(REPLACE(ResultName_en,' @G ',' '),'@G','')
-				,ResultName_ch = REPLACE(REPLACE(ResultName_ch,' @G ',' '),'@G','')
-				,ResultName_cs = REPLACE(REPLACE(ResultName_cs,' @G ',' '),'@G','')
-			
-			UPDATE #tmpBuildResult
-			SET ResultName_en = REPLACE(REPLACE(ResultName_en,' @M ',' '),'@M','')
-				,ResultName_ch = REPLACE(REPLACE(ResultName_ch,' @M ',' '),'@M','')
-				,ResultName_cs = REPLACE(REPLACE(ResultName_cs,' @M ',' '),'@M','')
-			
-			--step #4 - rule#1.If exists OtherInfo => put it after the Resource_en
-			;WITH CTE_OtherInfo AS (
-				SELECT rs.SettlementLogID
-					,rs.ResourceID
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),',') AS r_en
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),',') AS r_ch
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),',') AS r_cs
-				FROM #tmpBuildResult AS rs
-					CROSS APPLY STRING_SPLIT(rs.OtherInfo, ',') AS o
-					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = o.value
-				WHERE TRY_CONVERT(INT,o.value) IS NOT NULL
-				GROUP BY rs.SettlementLogID
-					,rs.ResourceID
-			)
-			UPDATE rs
-			SET rs.ResultName_en = rs.ResultName_en + ' - ' + TRIM(o.r_en)
-				,rs.ResultName_ch = rs.ResultName_ch + ' - ' + TRIM(o.r_ch)
-				,rs.ResultName_cs = rs.ResultName_cs + ' - ' + TRIM(o.r_cs)
-			FROM #tmpBuildResult AS rs
-				INNER JOIN CTE_OtherInfo AS o ON rs.SettlementLogID = o.SettlementLogID AND rs.ResourceID = o.ResourceID
-			
-			/*
-				Build ActualResult
-			*/
-			UPDATE #tmpBuildResult
-			SET ActualResult_en = @Refund_en
-				,ActualResult_ch = @Refund_ch
-				,ActualResult_cs = @Refund_cs
-			WHERE ActionType = 2 --CAL to Refund => WrongResult [have value] + ActualResult [blank]
-			
-			--2.If exists TeamIDs
-			;WITH CTE_TeamID AS (
-				SELECT atl.SettlementLogID
-					,atl.ResourceID
-					,rf.RefValueEN AS TeamName_en
-					,rf.RefValueCH AS TeamName_ch
-					,rf.RefValueCS AS TeamName_cs
-				FROM #tmpParsedResult AS atl
-					CROSS APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
-					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
-				WHERE atl.AmendInfo = 'ActualResult'
-					AND TRY_CONVERT(INT,t.value) IS NOT NULL
-			)
-			UPDATE rs
-			SET rs.ActualResult_en = t.TeamName_en
-				,rs.ActualResult_ch = t.TeamName_ch
-				,rs.ActualResult_cs = t.TeamName_cs
-			FROM #tmpBuildResult AS rs
-				INNER JOIN CTE_TeamID AS t ON rs.SettlementLogID = t.SettlementLogID AND rs.ResourceID = t.ResourceID
-			WHERE rs.ActionType <> 2
-					
-			--3.If HomeValue is number
-			UPDATE rs
-			SET rs.ActualResult_en = atl.HomeValue
-				,rs.ActualResult_ch = atl.HomeValue
-				,rs.ActualResult_cs = atl.HomeValue
-			FROM #tmpBuildResult AS rs
-				INNER JOIN #tmpParsedResult AS atl ON rs.SettlementLogID = atl.SettlementLogID AND rs.ResourceID = atl.ResourceID
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND rs.ActionType <> 2
-				AND rs.ActualResult_en IS NULL
-				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
-					
-			--4.If HomeValue is NOT number
-			UPDATE rs
-			SET rs.ActualResult_en = rf.RefValueEN
-				,rs.ActualResult_ch = rf.RefValueCH
-				,rs.ActualResult_cs = rf.RefValueCS
-			FROM #tmpBuildResult AS rs
-				INNER JOIN #tmpParsedResult AS atl ON rs.SettlementLogID = atl.SettlementLogID AND rs.ResourceID = atl.ResourceID
-				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2 = atl.HomeValue
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND rs.ActionType <> 2
-				AND rs.ActualResult_en IS NULL
-				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
-					
-			--5.the rest, value of HomeValue
-			UPDATE rs
-			SET rs.ActualResult_en = atl.HomeValue
-				,rs.ActualResult_ch = atl.HomeValue
-				,rs.ActualResult_cs = atl.HomeValue
-			FROM #tmpBuildResult AS rs
-				INNER JOIN #tmpParsedResult AS atl ON rs.SettlementLogID = atl.SettlementLogID AND rs.ResourceID = atl.ResourceID
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND rs.ActionType <> 2
-				AND rs.ActualResult_en IS NULL
-			
-			/*
-				Build WrongResult
-			*/
-			UPDATE #tmpBuildResult
-			SET WrongResult_en = @Refund_en
-				,WrongResult_ch = @Refund_ch
-				,WrongResult_cs = @Refund_cs
-			WHERE ActionType = 3 --Refund to CAL => WrongResult [blank] + ActualResult [have value]
-			
-			--2.If exists TeamIDs
-			;WITH CTE_TeamID AS (
-				SELECT wrg.SettlementLogID
-					,wrg.ResourceID
-					,rf.RefValueEN AS TeamName_en
-					,rf.RefValueCH AS TeamName_ch
-					,rf.RefValueCS AS TeamName_cs
-				FROM #tmpParsedResult AS wrg
-					CROSS APPLY STRING_SPLIT(wrg.TeamIDs, ',') AS t
-					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
-				WHERE wrg.AmendInfo = 'WrongResult'
-					AND TRY_CONVERT(INT,t.value) IS NOT NULL
-			)
-			UPDATE rs
-			SET rs.WrongResult_en = t.TeamName_en
-				,rs.WrongResult_ch = t.TeamName_ch
-				,rs.WrongResult_cs = t.TeamName_cs
-			FROM #tmpBuildResult AS rs
-				INNER JOIN CTE_TeamID AS t ON rs.SettlementLogID = t.SettlementLogID AND rs.ResourceID = t.ResourceID
-			WHERE rs.ActionType <> 3
-					
-			--3.If HomeValue is number
-			UPDATE rs
-			SET rs.WrongResult_en = wrg.HomeValue
-				,rs.WrongResult_ch = wrg.HomeValue
-				,rs.WrongResult_cs = wrg.HomeValue
-			FROM #tmpBuildResult AS rs
-				INNER JOIN #tmpParsedResult AS wrg ON rs.SettlementLogID = wrg.SettlementLogID AND rs.ResourceID = wrg.ResourceID
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND rs.ActionType <> 3
-				AND rs.WrongResult_en IS NULL
-				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
-					
-			--4.If HomeValue is NOT number
-			UPDATE rs
-			SET rs.WrongResult_en = rf.RefValueEN
-				,rs.WrongResult_ch = rf.RefValueCH
-				,rs.WrongResult_cs = rf.RefValueCS
-			FROM #tmpBuildResult AS rs
-				INNER JOIN #tmpParsedResult AS wrg ON rs.SettlementLogID = wrg.SettlementLogID AND rs.ResourceID = wrg.ResourceID
-				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2 = wrg.HomeValue
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND rs.ActionType <> 3
-				AND rs.WrongResult_en IS NULL
-				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0
-					
-			--5.the rest, value of HomeValue
-			UPDATE rs
-			SET rs.WrongResult_en = wrg.HomeValue
-				,rs.WrongResult_ch = wrg.HomeValue
-				,rs.WrongResult_cs = wrg.HomeValue
-			FROM #tmpBuildResult AS rs
-				INNER JOIN #tmpParsedResult AS wrg ON rs.SettlementLogID = wrg.SettlementLogID AND rs.ResourceID = wrg.ResourceID
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND rs.ActionType <> 3
-				AND rs.WrongResult_en IS NULL
+				INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON ex.Msg_NotiID = ne.NotificationID
+				OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+						AffectedResult NVARCHAR(MAX) '$.AffectedResult' AS JSON
+					) AS ext--OPENJSON case-sensitive
+				OUTER APPLY OPENJSON(ext.AffectedResult) WITH (
+						ResourceID VARCHAR(50) '$.ResourceID'
+						,ResultName_en NVARCHAR(4000) '$.ResultName_en'
+						,ResultName_ch NVARCHAR(4000) '$.ResultName_ch'
+						,ResultName_cs NVARCHAR(4000) '$.ResultName_cs'
+						,ActualValue_en NVARCHAR(4000) '$.ActualValue_en'
+						,ActualValue_ch NVARCHAR(4000) '$.ActualValue_ch'
+						,ActualValue_cs NVARCHAR(4000) '$.ActualValue_cs'
+						,WrongValue_en NVARCHAR(4000) '$.WrongValue_en'
+						,WrongValue_ch NVARCHAR(4000) '$.WrongValue_ch'
+						,WrongValue_cs NVARCHAR(4000) '$.WrongValue_cs'
+					) AS af--OPENJSON case-sensitive
+			WHERE ISJSON(ne.ExtraInfo) = 1
+				AND ISJSON(ext.AffectedResult) = 1
 			
 			/*
 				build final data for [Settlement Log]
@@ -854,8 +533,8 @@ BEGIN
 				
 				****ResultName_cs****
 					 = 主队第 11 轮准确跑位得分盘 OE; 1
-						=> 	1.[主队第 11 轮准确跑位得分盘 OE] 	= tmpBuildResult.ResultName_cs
-							2. [1] 							= tmpBuildResult.ActualResult_cs
+						=> 	1.[主队第 11 轮准确跑位得分盘 OE] 	= #tmpAffectedResult.ResultName_cs
+							2. [1] 							= #tmpAffectedResult.ActualValue_cs
 			
 			*/
 			;WITH CTE_ResultByNoti AS (
@@ -865,21 +544,21 @@ BEGIN
 					,r.ResultName_en
 					,r.ResultName_ch
 					,r.ResultName_cs
-					,r.ActualResult_en
-					,r.ActualResult_ch
-					,r.ActualResult_cs
-					,r.WrongResult_en
-					,r.WrongResult_ch
-					,r.WrongResult_cs
+					,r.ActualValue_en
+					,r.ActualValue_ch
+					,r.ActualValue_cs
+					,r.WrongValue_en
+					,r.WrongValue_ch
+					,r.WrongValue_cs
 				FROM #tmpExtraInfo AS ex
-					LEFT JOIN #tmpBuildResult AS r ON ex.SettlementLogID = r.SettlementLogID AND ex.ResourceID = r.ResourceID
+					LEFT JOIN #tmpAffectedResult AS r ON ex.SettlementLogID = r.SettlementLogID AND ex.ResourceID = r.ResourceID
 			)
 			,CTE_ReCalc_Raw AS (
 				SELECT DISTINCT Msg_NotiID
 					,ReCalc
-					,ResultName_en + '; ' + ActualResult_en AS ResultName_en
-					,ResultName_ch + '; ' + ActualResult_ch AS ResultName_ch
-					,ResultName_cs + '; ' + ActualResult_cs AS ResultName_cs
+					,ResultName_en + '; ' + ActualValue_en AS ResultName_en
+					,ResultName_ch + '; ' + ActualValue_ch AS ResultName_ch
+					,ResultName_cs + '; ' + ActualValue_cs AS ResultName_cs
 				FROM CTE_ResultByNoti
 			)
 			,CTE_ReCalc AS (
@@ -896,9 +575,9 @@ BEGIN
 			,CTE_Calc_Raw AS (
 				SELECT DISTINCT Msg_NotiID
 					,Calc
-					,ResultName_en + '; ' + WrongResult_en AS ResultName_en
-					,ResultName_ch + '; ' + WrongResult_ch AS ResultName_ch
-					,ResultName_cs + '; ' + WrongResult_cs AS ResultName_cs
+					,ResultName_en + '; ' + WrongValue_en AS ResultName_en
+					,ResultName_ch + '; ' + WrongValue_ch AS ResultName_ch
+					,ResultName_cs + '; ' + WrongValue_cs AS ResultName_cs
 				FROM CTE_ResultByNoti
 			)
 			,CTE_Calc AS (
@@ -955,7 +634,7 @@ BEGIN
 			BEGIN
 				;WITH CTE_Calc AS (
 					SELECT Msg_NotiID
-						,STRING_AGG(CONVERT(NVARCHAR(MAX),('Calculate Time: ' + LogDateTime_en + ' [' + ResultName_en + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS CalEN --<br/>: new line HTML format
+						,STRING_AGG(CONVERT(NVARCHAR(MAX),('Calculation Time: ' + LogDateTime_en + ' [' + ResultName_en + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS CalEN --<br/>: new line HTML format
 						,STRING_AGG(CONVERT(NVARCHAR(MAX),(N'结算时间: ' + LogDateTime_ch + ' [' + ResultName_ch + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS CalCH
 						,STRING_AGG(CONVERT(NVARCHAR(MAX),(N'结算时间: ' + LogDateTime_cs + ' [' + ResultName_cs + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS CalCS
 					FROM #tmpSettlLog
@@ -975,7 +654,7 @@ BEGIN
 			BEGIN
 				;WITH CTE_ReCalc AS (
 					SELECT Msg_NotiID
-						,STRING_AGG(CONVERT(NVARCHAR(MAX),('Recalculate Time: ' + LogDateTime_en + ' [' + ResultName_en + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS ReCalEN --<br/>: new line HTML format
+						,STRING_AGG(CONVERT(NVARCHAR(MAX),('ReCalculation Time: ' + LogDateTime_en + ' [' + ResultName_en + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS ReCalEN --<br/>: new line HTML format
 						,STRING_AGG(CONVERT(NVARCHAR(MAX),(N'重新结算时间: ' + LogDateTime_ch + ' [' + ResultName_ch + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS ReCalCH
 						,STRING_AGG(CONVERT(NVARCHAR(MAX),(N'重新结算时间: ' + LogDateTime_cs + ' [' + ResultName_cs + ']')),'<br/>') WITHIN GROUP (ORDER BY LogDateTime) AS ReCalCS
 					FROM #tmpSettlLog
@@ -1015,28 +694,14 @@ BEGIN
 		*/
 		;WITH CTE_Subject AS (
 			SELECT lap.Msg_NotiID
-				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended' END) AS Subject_en
-				,(CASE WHEN lap.Content_ch IS NOT NULL THEN N'赛果更正' END) AS Subject_ch
-				,(CASE WHEN lap.Content_cs IS NOT NULL THEN N'赛果更正' END) AS Subject_cs
+				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended' + ISNULL(' (' + CONVERT(VARCHAR, ne.EventDate, 106) + ')','') END) AS Subject
 			FROM #tmpNoti AS lap
-				INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON lap.Msg_NotiID = ex.NotificationID
-		)
-		,CTE_SubjectJSON AS (
-			SELECT Msg_NotiID
-				,CONVERT(NVARCHAR(MAX),(
-					SELECT Subject_en
-						,Subject_ch
-						,Subject_cs
-					FROM CTE_Subject AS t
-					WHERE t.Msg_NotiID = s.Msg_NotiID
-					FOR JSON PATH)
-				) AS Subject
-			FROM CTE_Subject AS s
+				LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON lap.Msg_NotiID = ne.NotificationID
 		)
 		UPDATE lap
-		SET lap.Subject = j.Subject
+		SET lap.Subject = sj.Subject
 		FROM #tmpNoti AS lap
-			INNER JOIN CTE_SubjectJSON AS j ON lap.Msg_NotiID = j.Msg_NotiID
+			INNER JOIN CTE_Subject AS sj ON lap.Msg_NotiID = sj.Msg_NotiID
 		
 		--write log
 		INSERT INTO [Log] (
@@ -1064,10 +729,10 @@ BEGIN
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
-							+ ' - tmpBuildResult('
+							+ ' - #tmpAffectedResult('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
-											FROM #tmpBuildResult
+											FROM #tmpAffectedResult
 											ORDER BY SettlementLogID
 											FOR JSON PATH
 										))
@@ -1254,11 +919,19 @@ BEGIN
 		*/
 		;WITH CTE_Match AS (
 			SELECT tp.Msg_NotiID
-				,MAX(MatchID) AS MatchID
+				,MAX(rh.MatchID) AS MatchID
 			FROM #tmpTemplateDetl AS tp
 				LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON tp.Msg_NotiID = nm.NotificationID
 				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 			GROUP BY tp.Msg_NotiID
+		)
+		,CTE_Subject AS (
+			SELECT DISTINCT i.Msg_NotiID
+				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended' END) AS Subject_en
+				,(CASE WHEN lap.Content_ch IS NOT NULL THEN N'赛果更正' END) AS Subject_ch
+				,(CASE WHEN lap.Content_cs IS NOT NULL THEN N'赛果更正' END) AS Subject_cs
+			FROM #tmpInsertedNoti AS i
+				INNER JOIN Notification AS lap WITH (NOLOCK) ON i.Lap_NotiID = lap.NotificationID
 		)
 		INSERT INTO NotificationExtra (
 			NotificationID
@@ -1268,19 +941,14 @@ BEGIN
 		SELECT DISTINCT i.Lap_NotiID
 			,ex.EventDate
 			,CONVERT(NVARCHAR(MAX),(
-				SELECT DISTINCT tp.Msg_NotiID AS MsgNotiID
+				SELECT DISTINCT m.Msg_NotiID AS MsgNotiID
 					,m.MatchID
-					,REPLACE(rcal.Content_en,'<br/>','{new_line}') AS ReCalEN --remove [new line] tag of HTML format
-					,REPLACE(rcal.Content_ch,'<br/>','{new_line}') AS ReCalCH
-					,REPLACE(rcal.Content_cs,'<br/>','{new_line}') AS ReCalCS
-					,REPLACE(cal.Content_en,'<br/>','{new_line}') AS CalEN
-					,REPLACE(cal.Content_ch,'<br/>','{new_line}') AS CalCH
-					,REPLACE(cal.Content_cs,'<br/>','{new_line}') AS CalCS
-				FROM #tmpTemplateDetl AS tp
-					LEFT JOIN #tmpTemplateDetl AS rcal ON tp.Msg_NotiID = rcal.Msg_NotiID AND rcal.RequiredParam = '{recal_time}'
-					LEFT JOIN #tmpTemplateDetl AS cal ON tp.Msg_NotiID = cal.Msg_NotiID AND cal.RequiredParam = '{cal_time}'
-					LEFT JOIN CTE_Match AS m ON tp.Msg_NotiID = m.Msg_NotiID
-				WHERE tp.Msg_NotiID = i.Msg_NotiID
+					,sj.Subject_en
+					,sj.Subject_ch
+					,sj.Subject_cs
+				FROM CTE_Match AS m
+					LEFT JOIN CTE_Subject AS sj ON sj.Msg_NotiID = m.Msg_NotiID
+				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH
 			)) AS ExtraInfo
 		FROM #tmpInsertedNoti AS i
@@ -1506,11 +1174,9 @@ BEGIN
 		,@InfLogPrefix + 'Completed [Generate Lap Noti process - Gen] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
-								
-	DROP TABLE #tmpRemotingRef
+	
 	DROP TABLE #tmpExtraInfo
-	DROP TABLE #tmpParsedResult
-	DROP TABLE #tmpBuildResult
+	DROP TABLE #tmpAffectedResult
 	DROP TABLE #tmpSettlLog
 	DROP TABLE #tmpInsertedNoti
 	DROP TABLE #tmpNoti

@@ -969,7 +969,7 @@ BEGIN
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultInfo AS atl ON af.SettlementLogID = atl.SettlementLogID AND af.ResourceID = atl.ResourceID
 			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = atl.HomeValue
-			INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = atl.AwayValue
+			LEFT JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = atl.AwayValue
 		WHERE atl.AmendInfo = 'ActualResult'
 			AND af.ActualValue_en IS NULL --EXCLUDE above rules
 			AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
@@ -1054,7 +1054,7 @@ BEGIN
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultInfo AS wrg ON af.SettlementLogID = wrg.SettlementLogID AND af.ResourceID = wrg.ResourceID
 			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = wrg.HomeValue
-			INNER JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = wrg.AwayValue
+			LEFT JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = wrg.AwayValue
 		WHERE wrg.AmendInfo = 'WrongResult'
 			AND af.WrongValue_en IS NULL --EXCLUDE above rules
 			AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0

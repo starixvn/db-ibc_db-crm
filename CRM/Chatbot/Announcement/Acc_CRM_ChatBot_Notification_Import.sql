@@ -174,6 +174,12 @@ BEGIN
 	BEGIN TRY
 		WHILE EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 		BEGIN
+            -- Reset value
+            SET @ConversationGroupId = NULL
+            SET @Status              = NULL
+            SET @NotificationId      = NULL
+            SET @FileName            = NULL
+
             -- Get key value
 			SELECT @ConversationGroupId = ConversationGroupId, @Status = [Status] FROM #Result WHERE Id = @Id
             
@@ -245,7 +251,8 @@ BEGIN
 				) AS t
 			WHERE g.ChatTypeId = 2
 				AND ',' + CONVERT(VARCHAR(50), g.RelatedIds) + ',' LIKE '%,' + CONVERT(VARCHAR(50), @Id) + ',%'
-			
+
+            -- Update value to continue the loop
 			SET @Id += 1
 		END
 	END TRY

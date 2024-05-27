@@ -73,6 +73,7 @@ BEGIN
 		,@iLoop INT
 		,@LogMode VARCHAR(500)
 		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151,215'
+		,@SepBySite VARCHAR(500) = ''
 		,@Saba_en NVARCHAR(10) = N'Saba'
 		,@Saba_ch NVARCHAR(10) = N'沙巴'
 		,@Saba_cs NVARCHAR(10) = N'沙巴'
@@ -117,6 +118,10 @@ BEGIN
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'New'
+	
+	SELECT @SepBySite = ISNULL(VValue,'')
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 16 --Separate Noti by Site
 	
 	SELECT @LogMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
@@ -466,7 +471,7 @@ BEGIN
 		WHERE SettlementLogID IN ( SELECT SettlementLogID FROM #tmpResultHist )
 			AND RefBettypeID IS NOT NULL
 		
-		CREATE CLUSTERED INDEX CIX_tmpResultInfo ON #tmpResultInfo (SettlementLogID)
+		CREATE CLUSTERED INDEX CIX_tmpResultInfo ON #tmpResultInfo (SettlementLogID, AmendInfo, ResourceID)
 		
 		--update AmendedCnt
 		;WITH CTE_RefBettype AS (
@@ -510,7 +515,7 @@ BEGIN
 		SELECT DISTINCT rhd.SettlementLogID
 			,(CASE WHEN (saba.value IS NOT NULL AND (ag.Site = '777777' OR s.IsChinaView = 1 OR s.SpecialPlatfrom > 0)) THEN 1
 				ELSE 0 END) AS IsSabaFilter --0: Normal / 1: Saba
-			,(CASE WHEN ag.Site = '777777' THEN 1
+			,(CASE WHEN (sep.value IS NOT NULL) THEN 1 --configured in SytemSetting
 				ELSE 0 END) AS ControlGrp --0: OST / 1: 777
 			,ag.Site AS TargetSite
 			,rhd.CustID
@@ -524,6 +529,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.Customer AS ag WITH (NOLOCK) ON c.recommend = ag.CustID
 			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ag.Site = s.Site
 			LEFT JOIN STRING_SPLIT(@SabaLeagueGroup, ',') AS saba ON rh.LeagueGroupID = TRY_CONVERT(INT,saba.value)
+			LEFT JOIN STRING_SPLIT(@SepBySite, ',') AS sep ON ag.Site = TRIM(sep.value)
 		-- WHERE rh.SportType = 50 --Cricket
 		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (SettlementLogID, IsSabaFilter, ControlGrp)
 		
@@ -890,7 +896,6 @@ BEGIN
 				INNER JOIN CTE_Affected AS af ON tp.SettlementLogID = af.SettlementLogID
 			WHERE tp.RequiredParam = '{affected_result_name}'
 		END
-		
 		
 		/*
 			*****Message Template may NOT {new_value} but use it for: gen LAP, chatbot LIC,..*****
@@ -1494,21 +1499,21 @@ BEGIN
 		;WITH CTE_AffectedResult AS (
 			SELECT s.SettlementLogID
 				,CONVERT(NVARCHAR(MAX),(
-								SELECT DISTINCT t.ResourceID
-									,t.ResultName_en
-									,t.ResultName_ch
-									,t.ResultName_cs
-									,t.ActualValue_en
-									,t.ActualValue_ch
-									,t.ActualValue_cs
-									,t.WrongValue_en
-									,t.WrongValue_ch
-									,t.WrongValue_cs
-								FROM #tmpAffectedResult AS t
-								WHERE t.SettlementLogID = s.SettlementLogID
-								ORDER BY t.ResourceID
-								FOR JSON PATH
-							)) AS afResult
+					SELECT DISTINCT t.ResourceID
+						,t.ResultName_en
+						,t.ResultName_ch
+						,t.ResultName_cs
+						,t.ActualValue_en
+						,t.ActualValue_ch
+						,t.ActualValue_cs
+						,t.WrongValue_en
+						,t.WrongValue_ch
+						,t.WrongValue_cs
+					FROM #tmpAffectedResult AS t
+					WHERE t.SettlementLogID = s.SettlementLogID
+					ORDER BY t.ResourceID
+					FOR JSON PATH
+				)) AS afResult
 			FROM #tmpAffectedResult AS s
 			GROUP BY s.SettlementLogID
 		)

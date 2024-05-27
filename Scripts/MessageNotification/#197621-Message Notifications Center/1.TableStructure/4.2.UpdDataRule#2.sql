@@ -25,12 +25,27 @@ AlertRule properties
 Alert rule
 	1.Any [New] Notification(s) of Msg or Lap
 
-Alert Output:
-	RefID: NotificationID
-	RefExtraInfo:
-		- RefInfo = ''NotificationID''
-		- SessionID
-		- LastModifiedTime
+-----Steps of Rule-----
+1.Define @LastScan
+2.Exec Rule and insert into [Error_New] table with Key Columns
+	- NotificationID
+	- SessionID
+	- LastModifiedTime
+3.Remove EXISTED
+	- Load [Error_Old] by @RuleID
+	- Remove EXISTED from [Error_New] based on [Error_Old]
+4.Return result
+	- @JSAlertResult
+		+ RefID: NotificationID
+		+ RefExtraInfo
+			[{
+				"LastModifiedTime": "2024-05-08T05:29:15.880",
+				"MatchID": 83531721,
+				"RefInfo": "NotificationID",
+				"SessionID": "e230ee02-fa38-42e9-ac76-8c27093a0f48"
+			}]
+		+ Content
+	- @LastScan
 
 --Output Param: 
 
@@ -50,7 +65,9 @@ DECLARE @StsNew TINYINT
 	,@FromModifiedTime DATETIME
 	,@ToModifiedTime DATETIME = GETDATE()
 
-/*
+/**************************************************************************************
+	1.Define @LastScan
+	
 	in this Rule, @LastScan IS LastModifiedTime
 	
 	Define @FromModifiedTime and @ToModifiedTime
@@ -76,11 +93,12 @@ END
 
 /******************************************Start to Check****************************************************/
 CREATE TABLE #tmpNewNoti_New (
-	NotificationID INT
-	,MatchID INT
+	NotificationID INT NOT NULL
+	,SessionID VARCHAR(50) NOT NULL
+	,LastModifiedTime DATETIME NOT NULL
+	-----------
+	,MatchID INT NOT NULL
 	,Content NVARCHAR(4000)
-	,SessionID VARCHAR(50)
-	,LastModifiedTime DATETIME
 )
 
 CREATE TABLE #tmpNewNoti_Old (
@@ -93,17 +111,21 @@ SELECT @StsNew = StatusID
 FROM NotiStatus WITH (NOLOCK)
 WHERE Status = ''New''
 
+/**************************************************************************************
+	2.Exec Rule and insert into [Error_New] table with Key Columns
+*/
 INSERT INTO #tmpNewNoti_New (
 	NotificationID
-	,MatchID
 	,SessionID
 	,LastModifiedTime
+	-----------
+	,MatchID
 	,Content
 )
 SELECT DISTINCT n.NotificationID
-	,rh.MatchID
 	,rh.SessionID
 	,n.LastModifiedTime
+	,rh.MatchID
 	,CASE WHEN n.NotificationType = 2 THEN ''LAP '' ELSE '''' END
 		+ ''Result Amendment message(s) for SessionID [''+ ISNULL(rh.SessionID,''NULL'') +''] created. Please review it.'' AS Content
 FROM Notification AS n WITH (NOLOCK)
@@ -113,7 +135,15 @@ WHERE n.StatusID = @StsNew
 	AND n.LastModifiedTime > @FromModifiedTime
 	AND n.LastModifiedTime <= @ToModifiedTime
 
------------------------Make Sure NOT EXISTS IN Alert--------------------------------------------------
+/**************************************************************************************
+	3.Remove EXISTED
+	
+	Key to remove EXISTED
+		- NotificationID
+		- SessionID
+		- LastModifiedTime
+
+*/
 CREATE CLUSTERED INDEX CIX_tmpNewNoti_New ON #tmpNewNoti_New (NotificationID)
 
 INSERT INTO #tmpNewNoti_Old (
@@ -136,16 +166,18 @@ WHERE a.RuleID = @RuleID
 	AND ext.RefInfo = ''NotificationID''
 	AND ext.SessionID IS NOT NULL
 	AND ext.LastModifiedTime IS NOT NULL
---Delete EXISTED
+
 DELETE n
 FROM #tmpNewNoti_New AS n
 	INNER JOIN #tmpNewNoti_Old AS o ON n.NotificationID = o.NotificationID AND n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime
 
---build result
+/**************************************************************************************
+	4.Return result
+*/
 IF NOT EXISTS (SELECT 1 FROM #tmpNewNoti_New)
 BEGIN
 	SELECT @JSAlertResult = ''''
-		,@LastScan = @ToModifiedTime
+		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
 END
 ELSE
 BEGIN
@@ -171,7 +203,7 @@ BEGIN
 				FROM CTE_Noti
 				FOR JSON PATH
 			))
-		,@LastScan = @ToModifiedTime
+		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
 END
 
 DROP TABLE #tmpNewNoti_New

@@ -57,7 +57,7 @@ BEGIN
 			SELECT 1
 			FROM AlertRule AS a WITH (NOLOCK)
 				CROSS APPLY STRING_SPLIT(a.ChatGroupIDs, ',') AS i
-				INNER JOIN SystemSetting AS s WITH (NOLOCK) ON TRY_CONVERT(INT,i.value) = s.VID
+				INNER JOIN SystemSetting AS s WITH (NOLOCK) ON TRY_CONVERT(INT,TRIM(i.value)) = s.VID
 			WHERE a.RuleID = @RuleID
 		)
 		BEGIN
@@ -141,14 +141,12 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,'Warning - EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,'Info - EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - @LastScan(' + ISNULL(@LastScan,'NULL') + ')'
 					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')'
-					+ ' - @SQLStatement(' + ISNULL(@SQLStatement,'NULL') + ')'
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = 13 --LogMode
-			AND (VValue = 'Debug'
-				OR ISJSON(@JSAlertResult) = 0)
+			AND (VValue = 'Debug' OR ISNULL(TRIM(@JSAlertResult),'') = '')
 		
 		UPDATE AlertRule WITH (ROWLOCK,UPDLOCK)
 		SET LastScan = @LastScan
@@ -187,6 +185,9 @@ BEGIN
 			,@LogUserID
 			,'Error - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - @SQLStatement(' + ISNULL(@SQLStatement,'NULL') + ')'
+					+ ' - @Params(' + ISNULL(@Params,'NULL') + ')'
+					+ ' - @LastScan(' + ISNULL(@LastScan,'NULL') + ')'
+					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')'
 					+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 		
 		--Continue exec for next RuleID

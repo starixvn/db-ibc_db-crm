@@ -62,6 +62,7 @@ VALUES (1, 'ScanBackHour', '24', 'Int32', 'scan back from current to pull Settle
 	,(13,'LogMode', 'Debug', 'String', 'Normal, Debug')
 	,(14,'OST ChatGroupID', '19:934a887696734ecfbc35dc45521729c4@thread.skype', 'String','Notification Alert - Local')
 	,(15,'777 ChatGroupID', '19:85743ff1eb01435d899cbc1a4f756f47@thread.skype', 'String','Notification Alert (for 777 only) - Local')
+	,(16,'Separate Noti by Site', '777777', 'String','Sites will be separated notifications from OST')
 
 /***** NotiTemplate ****/
 TRUNCATE TABLE NotiTemplate
@@ -164,26 +165,26 @@ VALUES (
 		,'SysErr - Running Status Too Long'
 		,'SysErr'
 		,''
-		,'12,14'
+		,'12,14,15'
 	)
 	,(
 		2
 		,'NewNoti - Need Review'
 		,'NewNoti'
 		,''
-		,'12,14'
+		,'14,15'
 	)
 	,(
 		3
 		,'PushErr - Sent Issue'
 		,'PushErr'
 		,''
-		,'12,14'
+		,'12,14,15'
 	)
 	,(
 		4
 		,'SysErr - Missing From Any SiteGroupDB'
 		,'SysErr'
 		,''
-		,'12,14'
+		,'12,14,15'
 	)

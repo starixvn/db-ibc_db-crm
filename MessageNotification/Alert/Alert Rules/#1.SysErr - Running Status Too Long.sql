@@ -12,22 +12,28 @@ Alert rule for [Running] status
 	2.For [Generate Msg Notification] process, [Generating] over 60s
 	3.For [Generate Lap Notification] process, over 60s
 
-Alert Output:
-	RefID: SessionID or NotificationID
-	RefExtraInfo:
-		+ For SessionID
-			- RefInfo = 'SessionID'
-			- SettlementLogID
-			- LastModifiedTime
-		+ For NotificationID
-			- RefInfo = 'NotificationID'
-			- LastModifiedTime
-
-Key to remove EXISTED
+-----Steps of Rule-----
+1.Define @LastScan
+2.Exec Rule and insert into [Error_New] table with Key Columns
 	- SessionID
 	- SettlementLogID
 	- LastModifiedTime
-
+3.Remove EXISTED
+	- Load [Error_Old] by @RuleID
+	- Remove EXISTED from [Error_New] based on [Error_Old]
+4.Return result
+	- @JSAlertResult
+		+ RefID: SessionID
+		+ RefExtraInfo
+			[{
+				"LastModifiedTime": "2024-05-08T05:29:15.870",
+				"MatchID": 83150441,
+				"RefInfo": "SessionID",
+				"SettlementLogID": 1234
+			}]
+		+ Content
+	- @LastScan
+	
 --Output Param: 
 
 		--Declaration for Unit Testing
@@ -46,7 +52,9 @@ DECLARE @WaitSec INT = 0
 	,@FromModifiedTime DATETIME
 	,@ToModifiedTime DATETIME = GETDATE()
 
-/*
+/**************************************************************************************
+	1.Define @LastScan
+	
 	in this Rule, @LastScan IS LastModifiedTime
 	
 	Define @FromModifiedTime and @ToModifiedTime
@@ -78,7 +86,6 @@ BEGIN
 	RETURN
 END
 
-/******************************************Start to Check****************************************************/
 CREATE TABLE #tmpError_New (
 	SessionID VARCHAR(50) NOT NULL
 	,SettlementLogID INT NOT NULL
@@ -100,6 +107,9 @@ CREATE TABLE #tmpNotiNOLap (
 	,SettlID INT
 )
 
+/**************************************************************************************
+	2.Exec Rule and insert into [Error_New] table with Key Columns
+*/
 ---1.For [Capture Data] process, [Retrieving] over 2*Configuration_WaitSec---
 SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
 FROM SystemSetting WITH (NOLOCK)
@@ -242,7 +252,15 @@ FROM #tmpNotiNOLap AS ck
 	INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 WHERE DATEDIFF(SECOND, n.LastModifiedTime,GETDATE()) > @WaitSec --[after being approved MessageID] => Use Notification.LastModifiedTime
 
------------------------Make Sure NOT EXISTS IN Alert--------------------------------------------------
+/**************************************************************************************
+	3.Remove EXISTED
+	
+	Key to remove EXISTED
+	- SessionID
+	- SettlementLogID
+	- LastModifiedTime
+
+*/
 CREATE CLUSTERED INDEX CIX_tmpError_New ON #tmpError_New (SessionID)
 
 INSERT INTO #tmpError_Old (
@@ -266,20 +284,13 @@ WHERE a.RuleID = @RuleID
 	AND ext.SettlementLogID IS NOT NULL
 	AND ext.LastModifiedTime IS NOT NULL
 
-/*
-	Delete EXISTED
-	
-	Key to remove EXISTED
-	- NotificationID
-	- SessionID
-	- LastModifiedTime
-
-*/
 DELETE n
 FROM #tmpError_New AS n
 	INNER JOIN #tmpError_Old AS o ON n.SessionID = o.SessionID AND n.SettlementLogID = o.SettlementLogID AND n.LastModifiedTime = o.LastModifiedTime
 
---build result
+/**************************************************************************************
+	4.Return result
+*/
 IF NOT EXISTS (SELECT 1 FROM #tmpError_New)
 BEGIN
 	SELECT @JSAlertResult = ''

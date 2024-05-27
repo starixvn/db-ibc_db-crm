@@ -21,14 +21,27 @@ AlertRule properties
 	Target: OST / 777
 	LastScan: compare with SettlementLogID
 
-Alert rule for Missing data from any SiteGroupDB
+Alert rule
+	1. Missing data from any SiteGroupDB
 
-Alert Output:
-	RefID: SessionID
-	RefExtraInfo:
-		- RefInfo = ''SessionID''
-		- InsertedTime
-
+-----Steps of Rule-----
+1.Define @LastScan
+2.Exec Rule and insert into [Error_New] table with Key Columns
+	- SessionID
+3.Remove EXISTED
+	- Load [Error_Old] by @RuleID
+	- Remove EXISTED from [Error_New] based on [Error_Old]
+4.Return result
+	- @JSAlertResult
+		+ RefID: SessionID
+		+ RefExtraInfo
+			[{
+				"MatchID": 83531721,
+				"RefInfo": "NotificationID",
+			}]
+		+ Content
+	- @LastScan
+	
 --Output Param: 
 
 		--Declaration for Unit Testing
@@ -47,7 +60,9 @@ DECLARE @FromSettlID INT
 	,@SiteCnt INT = 0
 	,@WaitSec INT = 0
 
-/*
+/**************************************************************************************
+	1.Define @LastScan
+	
 	in this Rule, @LastScan IS SettlementLogID
 	
 	Define @FromSettlID and @ToSettlID
@@ -78,9 +93,8 @@ BEGIN
 	RETURN
 END
 
-/******************************************Start to Check****************************************************/
 CREATE TABLE #tmpSettlError_New (
-	SessionID VARCHAR(50)
+	SessionID VARCHAR(50) NOT NULL
 	,SiteCnt INT
 	,Mi_InsertedTime DATETIME
 	,DeleteReason TINYINT
@@ -88,47 +102,50 @@ CREATE TABLE #tmpSettlError_New (
 
 CREATE TABLE #tmpSettlError_Old (
 	SessionID VARCHAR(50)
-	,SettlementLogID INT
-	,LastModifiedTime DATETIME
-	,DeleteReason TINYINT
 )
 
---get all Session
-INSERT INTO #tmpSettlError_New ( SessionID )
-SELECT SessionID
-FROM SettlementResultHist AS rh WITH (NOLOCK)
-WHERE rh.SettlementLogID > @FromSettlID
-	AND rh.SettlementLogID <= @ToSettlID
-GROUP BY SessionID
-
-/*
-	Get more info from SessionID
+/**************************************************************************************
+	2.Exec Rule and insert into [Error_New] table with Key Columns
+	
+	Get SessionID info
 	DeleteReason
 		1: Enough SiteDBs count => Ignore
 		2: NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
-		3: Error BUT EEXISTED IN Alert => Ignore
+		3: Error BUT EXISTED IN Alert => Ignore
 */
 ;WITH CTE_SessionInfo AS (
 	SELECT s.SessionID
 		,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
 		,MIN(rh.InsertedTime) AS Mi_InsertedTime
-	FROM #tmpSettlError_New AS s
+	FROM SettlementResultHist AS s WITH (NOLOCK) 
 		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+	WHERE s.SettlementLogID > @FromSettlID
+		AND s.SettlementLogID <= @ToSettlID
 	GROUP BY s.SessionID
 )
-UPDATE t
-SET t.SiteCnt = s.SiteCnt
-	,t.Mi_InsertedTime = s.Mi_InsertedTime
-	,t.DeleteReason = (
-		CASE WHEN s.SiteCnt = @SiteCnt THEN 1 --Enough SiteDBs count => Ignore
-			WHEN DATEDIFF(SECOND, s.Mi_InsertedTime,GETDATE()) < @WaitSec THEN 2 --NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
+INSERT INTO #tmpSettlError_New (
+	SessionID
+	,SiteCnt
+	,Mi_InsertedTime
+	,DeleteReason
+)
+SELECT SessionID
+	,SiteCnt
+	,Mi_InsertedTime
+	,(CASE WHEN SiteCnt = @SiteCnt THEN 1 --Enough SiteDBs count => Ignore
+			WHEN DATEDIFF(SECOND, Mi_InsertedTime,GETDATE()) < @WaitSec THEN 2 --NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
 			ELSE 0
 		END
-	)
-FROM #tmpSettlError_New AS t
-	INNER JOIN CTE_SessionInfo AS s ON t.SessionID = s.SessionID
+	) AS DeleteReason
+FROM CTE_SessionInfo
 
------------------------Make Sure NOT EXISTS IN Alert--------------------------------------------------
+/**************************************************************************************
+	3.Remove EXISTED
+	
+	Key to remove EXISTED
+	- SessionID
+
+*/
 CREATE CLUSTERED INDEX CIX_tmpSettlError_New ON #tmpSettlError_New (SessionID)
 
 INSERT INTO #tmpSettlError_Old ( SessionID )
@@ -141,14 +158,16 @@ FROM Alert AS a WITH (NOLOCK)
 WHERE a.RuleID = @RuleID
 	AND ISJSON(a.RefExtraInfo) = 1
 	AND ext.RefInfo = ''SessionID''
---Delete EXISTED
+
 UPDATE n
 SET n.DeleteReason = 3 --Error BUT EXISTED IN Alert => Ignore
 FROM #tmpSettlError_New AS n
 	INNER JOIN #tmpSettlError_Old AS o ON n.SessionID = o.SessionID
 WHERE n.DeleteReason = 0
 
---build result
+/**************************************************************************************
+	4.Return result
+*/
 IF NOT EXISTS (SELECT 1 FROM #tmpSettlError_New)--have no row in SettlementResultHist
 BEGIN
 	SELECT @JSAlertResult = ''''

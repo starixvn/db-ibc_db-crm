@@ -63,6 +63,7 @@ BEGIN
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@IsTestFlag BIT
+		,@InvalidResourceIDType TINYINT
 		,@UATMode BIT = 0
 		,@LogMode VARCHAR(500)
 		,@ErrCode INT = 0
@@ -637,6 +638,73 @@ BEGIN
 			CONTINUE
 		END
 		
+		--Check Invalid ResourceID
+		SELECT @InvalidResourceIDType = 0
+		
+		;WITH CTE_XML AS (
+			SELECT 'main' AS ResourceIDFrom
+				,TRY_CONVERT(XML, ActualResult) AS ResultXML
+			FROM SettlementResultHist WITH (NOLOCK)
+			WHERE SettlementLogID = @iSettleID
+			
+			UNION ALL
+			
+			SELECT 'main' AS ResourceIDFrom
+				,TRY_CONVERT(XML, WrongResult) AS ResultXML
+			FROM SettlementResultHist WITH (NOLOCK)
+			WHERE SettlementLogID = @iSettleID
+			
+			UNION ALL
+			
+			SELECT 'detail' AS ResourceIDFrom
+				,TRY_CONVERT(XML, ExtraInfo_Before) AS ResultXML
+			FROM SettlementResultHistDetail WITH (NOLOCK)
+			WHERE SettlementLogID = @iSettleID
+			
+			UNION ALL
+			
+			SELECT 'detail' AS ResourceIDFrom
+				,TRY_CONVERT(XML, ExtraInfo_After) AS ResultXML
+			FROM SettlementResultHistDetail WITH (NOLOCK)
+			WHERE SettlementLogID = @iSettleID
+
+		)
+		,CTE_ResourceID AS (
+			SELECT DISTINCT ResourceIDFrom
+				,TRIM(a.c.value('@Id', 'VARCHAR(50)')) AS ResourceID
+			FROM CTE_XML
+				OUTER APPLY ResultXML.nodes('root/r') a(c)
+			WHERE ISNULL(TRIM(a.c.value('@Id', 'VARCHAR(50)')),'') <> ''
+		)
+		SELECT @InvalidResourceIDType = (
+			CASE WHEN NOT EXISTS (SELECT 1 FROM CTE_ResourceID WHERE ResourceIDFrom = 'main') THEN 1 --Actual/Wrong NOT EXISTS ResourceID
+				WHEN NOT EXISTS (SELECT 1 FROM CTE_ResourceID WHERE ResourceIDFrom = 'detail') THEN 2 --ExtraInfo_Before/ExtraInfo_After NOT EXISTS ResourceID
+				WHEN EXISTS (
+					SELECT 1
+					FROM CTE_ResourceID AS d
+						LEFT JOIN CTE_ResourceID AS m ON m.ResourceID = d.ResourceID AND m.ResourceIDFrom = 'main'
+					WHERE d.ResourceIDFrom = 'detail'
+						AND m.ResourceID IS NULL
+				) THEN 3 --SettlementResultHistDetail.ResourceID NOT EXISTS SettlementResultHist.ResourceID
+			ELSE 0 END
+		)
+		
+		IF @InvalidResourceIDType <> 0
+		BEGIN
+			UPDATE #tmpVerifyList
+			SET RHLog = RHLog + 'Invalid ResourceID'
+							+ CASE WHEN @InvalidResourceIDType = 1 THEN ' - Actual/Wrong NOT EXISTS ResourceID'
+									WHEN @InvalidResourceIDType = 2 THEN ' - SettlementResultHistDetail.ExtraInfo_Before/ExtraInfo_After NOT EXISTS ResourceID'
+									WHEN @InvalidResourceIDType = 3 THEN ' - SettlementResultHistDetail.ResourceID NOT EXISTS SettlementResultHist.ResourceID'
+								ELSE ' - @InvalidResourceIDType(' + ISNULL(CONVERT(VARCHAR,@InvalidResourceIDType),'NULL') + ')' END
+				,StatusID = @StsGenFailed
+			WHERE SettlementLogID = @iSettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+
 		--ResourceData NOT EXISTS in RemotingRef
 		IF EXISTS (
 			SELECT 1

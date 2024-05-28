@@ -2,9 +2,9 @@
 ALTER PROCEDURE MNC_Notification_AdmUpdNoti
 	@NotiID INT
 	,@NewStatus VARCHAR(50)
-	,@NewContentEN NVARCHAR(MAX)
-	,@NewContentCH NVARCHAR(MAX)
-	,@NewContentCS NVARCHAR(MAX)
+	,@NewContentEN NVARCHAR(MAX) = NULL
+	,@NewContentCH NVARCHAR(MAX) = NULL
+	,@NewContentCS NVARCHAR(MAX) = NULL
 	,@UpdaterID INT
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT

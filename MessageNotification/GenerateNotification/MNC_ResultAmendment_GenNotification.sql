@@ -941,14 +941,16 @@ BEGIN
 		;WITH CTE_TeamID AS (
 			SELECT DISTINCT atl.TempNotiID
 				,atl.ResourceID
-				,rf.RefValueEN AS TeamName_en
-				,rf.RefValueCH AS TeamName_ch
-				,rf.RefValueCS AS TeamName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueEN,'')),', ') AS TeamName_en
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCH,'')),', ') AS TeamName_ch
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCS,'')),', ') AS TeamName_cs
 			FROM #tmpResultInfo AS atl
 				OUTER APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
 				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
 			WHERE atl.AmendInfo = 'ActualResult'
 				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+			GROUP BY atl.TempNotiID
+				,atl.ResourceID
 		)
 		UPDATE af
 		SET af.ActualValue_en = t.TeamName_en
@@ -1041,14 +1043,16 @@ BEGIN
 		;WITH CTE_TeamID AS (
 			SELECT wrg.TempNotiID
 				,wrg.ResourceID
-				,rf.RefValueEN AS TeamName_en
-				,rf.RefValueCH AS TeamName_ch
-				,rf.RefValueCS AS TeamName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueEN,'')),', ') AS TeamName_en
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCH,'')),', ') AS TeamName_ch
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCS,'')),', ') AS TeamName_cs
 			FROM #tmpResultInfo AS wrg
 				CROSS APPLY STRING_SPLIT(wrg.TeamIDs, ',') AS t
 				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
 			WHERE wrg.AmendInfo = 'WrongResult'
 				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+			GROUP BY wrg.TempNotiID
+				,wrg.ResourceID
 		)
 		UPDATE af
 		SET af.WrongValue_en = t.TeamName_en

@@ -1,264 +1,397 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Announcement_Validation]
-	@HeadlineNameList			NVARCHAR(MAX) = ''
-	,@SiteNameList				NVARCHAR(MAX) = ''
-	,@CurrencyList				VARCHAR(MAX) = ''
-	,@HeadlineType				TINYINT = NULL
-	,@Title						NVARCHAR(2000) = ''
-	,@Contents					XML
-	,@FileName					NVARCHAR(2000)
-	,@SendDate					DATETIME = NULL
-	,@SendImmediately			BIT 
-	,@Status					VARCHAR(20)
-	,@ErrCode					INT = 0 OUTPUT
-	,@ErrMsg					NVARCHAR(2000) = '' OUTPUT
+ALTER PROCEDURE dbo.Acc_CRM_ChatBot_Announcement_Validation --Input specific headline list
+                                                            @HeadlineNameList NVARCHAR(MAX)  = '',
+                                                            --Get headline list based on some criteria
+                                                            @SiteNameList     NVARCHAR(MAX)  = '',
+                                                            @CurrencyList     VARCHAR(MAX)   = '',
+                                                            @HeadlineType     TINYINT        = NULL,
+                                                            --Content
+                                                            @Contents         XML,
+                                                            --Save error and return
+                                                            @ErrCode          INT            = 0  OUTPUT,
+                                                            @ErrMsg           NVARCHAR(2000) = '' OUTPUT
 AS
 
 /*
-	Created: 20221213@Malcolm
-	Task :  Announcement - Annoucement list - New annoucement (Insert a new announcement)/ Edit announcement - Validation
-	DB: DBCRM/bodb_CRM
-	Original:
-		Revisions:
-			- 20221213@Malcolm: Initialize SPs [Redmine: #192158]
-            - 20231208@Ned.Le: Fix error relate to STRING_AGG function
+    Created: 20221213@Malcolm
+    Task: Announcement - Annoucement list - New annoucement (Insert a new announcement)/ Edit announcement - Validation
+    DB: DBCRM/bodb_CRM
+    Original:
 
-	Param's Explanation:
+    Revisions:
+        - 20221213@Malcolm: Initialize SPs [Redmine: #192158]
+        - 20231208@Ned.Le: Fix error relate to STRING_AGG function
+        - 20240327@Ned.Le: CRM - Headline Announcement - Enhancement - Allow to attach separate screenshots for a specific language AND Allow to push Notifications with empty content [Redmine: #201042]
 
-	- @Contents:
-			<Contents>
-					<Content LanguageId = "50000" Value = "Content EN"/>
-					<Content LanguageId = "50001" Value = "Content SC"/>
-					<Content LanguageId = "50002" Value = "Content EN SC"/>
-					<Content LanguageId = "50003" Value = "Content TH"/>
-					<Content LanguageId = "50004" Value = "Content YN"/>
-			</Contents>
-			
-	- @HeadlineType = 0 : Normal
-		              = 1 : VIP
-					  = 2 : All
-		
+    Param's Explanation:
+        - @Contents: <Contents>
+                         <Content LanguageId = "50000" Value = "Content EN" FileName = "ImageEN.png"/>
+                         <Content LanguageId = "50001" Value = "Content SC" FileName = "ImageSC.png"/>
+                         <Content LanguageId = "50002" Value = "Content EN SC" FileName = "ImageENSC.png"/>
+                         <Content LanguageId = "50003" Value = "Content TH" FileName = "ImageTH.png"/>
+                         <Content LanguageId = "50004" Value = "Content YN" FileName = "ImageYN.png"/>
+                     </Contents>
+        - @HeadlineType = 0 : Normal
+                        = 1 : VIP
+                        = 2 : All
 */
 
 BEGIN
-	SET NOCOUNT ON
 
-	DECLARE @NotificationTypeId SMALLINT, @CurrentDate DATETIME = GETDATE(),  @DirectAccountList NVARCHAR(MAX) = ''
+    SET NOCOUNT ON
 
-	SELECT @NotificationTypeId = NotificationTypeId FROM dbo.crmNotificationType WITH(NOLOCK) WHERE NotificationTypeName = 'Upload Announcement'
 
-	DECLARE @Headline TABLE (CustId INT, Username VARCHAR(30), ErrCode TINYINT DEFAULT(6))
+    ------------------
+    -- Prepare data --
 
-	DECLARE @HeadlineGroup TABLE (HeadlineId INT PRIMARY KEY)
-	DECLARE @DirectAccount TABLE (CustId INT PRIMARY KEY) -- Not Assign Group
-	CREATE TABLE #ConversationGroupRecipient (CustId INT, ConversationGroupId INT, NoRecipient INT)
-	CREATE CLUSTERED INDEX CIX_ConversationGroupId ON #ConversationGroupRecipient (ConversationGroupId)
+    -- Variables
+    DECLARE @NotificationTypeId SMALLINT
+    SELECT  @NotificationTypeId = NotificationTypeId FROM bodb_CRM.dbo.crmNotificationType WITH (NOLOCK) WHERE NotificationTypeName = 'Upload Announcement'
 
-	--Get headline
-	IF @Status = 'Planned'
-	BEGIN
-		BEGIN
-			DECLARE @TabError TABLE (ErrCode TINYINT, ErrMsg NVARCHAR(MAX))
+    DECLARE @DirectAccountNameList NVARCHAR(MAX) = ''
 
-			INSERT INTO @TabError (ErrCode, ErrMsg)
-			VALUES (1, 'Invalid Headline')
-				,(2, 'Not Mapped Headline')
-				,(3, 'Bot Removed Headline')
-				,(4, 'In-Active Headline')
-				,(5, 'Ignored Headline')
+    -- Temp tables
+    CREATE TABLE #tmpHeadlineInput  (HeadlineId INT, HeadlineName VARCHAR(30))
+    CREATE TABLE #tmpHeadlineOutput (HeadlineId INT, HeadlineName VARCHAR(30), ErrCode SMALLINT DEFAULT(-1))
 
-			IF ISNULL(@HeadlineNameList, '') <> ''
-			BEGIN
-				SELECT @SiteNameList = NULL, @CurrencyList = NULL, @HeadlineType = NULL 
+    CREATE TABLE #tmpDirectAccountInput  (DirectAccId INT, ConversationGroupId INT, NoRecipient INT)
+    CREATE TABLE #tmpDirectAccountOutput (DirectAccId INT, DirectAccName VARCHAR(30), ConversationGroupId INT)
+    
+    CREATE TABLE #tmpValidateContentsInput  (LanguageId INT, Content NVARCHAR(MAX), FileName NVARCHAR(MAX))
+    CREATE TABLE #tmpValidateContentsOutput (HeadlineName VARCHAR(30), LanguageId INT, LanguageName NVARCHAR(100), Content NVARCHAR(MAX), FileName NVARCHAR(MAX))
 
-				INSERT INTO @Headline (Username, CustId, ErrCode)
-				SELECT DISTINCT f.value AS Username, n.CustId, CASE WHEN n.CustId IS NULL THEN 1 ELSE 6 END
-				FROM STRING_SPLIT(@HeadlineNameList, ',') f
-				OUTER APPLY (
-					SELECT c.custid
-					FROM bodb02.dbo.Customer c WITH(NOLOCK)
-					WHERE c.username = CONVERT(VARCHAR(30), f.value)
-				) AS n
-				WHERE f.value <> ''
+    CREATE TABLE #tmpErrorList (ErrCode TINYINT, ErrMsg NVARCHAR(MAX))
+    INSERT INTO  #tmpErrorList (ErrCode, ErrMsg) VALUES (1, 'Invalid Headline'),
+                                                        (2, 'Not Mapped Headline'),
+                                                        (3, 'Bot Removed Headline'),
+                                                        (4, 'In-Active Headline'),
+                                                        (5, 'Ignored Headline')
 
-				UPDATE h
-					SET h.ErrCode = 1
-				FROM @Headline h 
-					LEFT JOIN bodb02.dbo.CustGroupHeadline cgh WITH(NOLOCK) ON cgh.CustID = h.CustId
-				WHERE h.ErrCode = 6 AND cgh.CustID IS NULL
+   
+    ------------------
+    -- Process data --
 
-				UPDATE h
-					SET h.ErrCode = n.ErrCode
-				FROM @Headline h
-				CROSS APPLY (
-					SELECT TOP(1) 0 AS ErrCode
-					FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK) 
-						INNER JOIN dbo.crmConversationGroupBot cgb WITH(NOLOCK) ON cgb.ConversationGroupId = cgh.ConversationGroupId
-						INNER JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = cgh.ConversationGroupId
-						INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = g.ConversationGroupId
-						LEFT JOIN dbo.crmIgnoredNotificationType nt WITH(NOLOCK) ON nt.ConversationGroupId = g.ConversationGroupId AND nt.NotificationTypeId = @NotificationTypeId
-					WHERE g.IsActive = 1 AND cgh.HeadlineId = h.CustId AND nt.ConversationGroupId IS NULL
-				) AS n
-				WHERE h.ErrCode = 6
+    -- Validate data for Headline from specific headline list
+    IF (ISNULL(@HeadlineNameList, '') <> '')
+    BEGIN 
+        -- + Parse string data to table
+        INSERT INTO #tmpHeadlineOutput (
+            HeadlineId,
+            HeadlineName,
+            ErrCode
+        )
+        SELECT DISTINCT
+               n.custid                                      HeadlineId,
+               f.value                                       HeadlineName,
+               CASE WHEN n.CustId IS NULL THEN 1 ELSE -1 END ErrCode
+        FROM STRING_SPLIT(@HeadlineNameList, ',') f
+             OUTER APPLY (SELECT c.custid
+                          FROM bodb02.dbo.Customer c WITH (NOLOCK)
+                          WHERE c.username = CONVERT(VARCHAR(30), f.value)) AS n
+        WHERE f.value <> ''
 
-				UPDATE h
-					SET h.ErrCode = CASE WHEN n.NotMapped IS NULL THEN 2 -- NotMapped
-										 WHEN n.BotRemoved IS NULL THEN 3 -- BotRemoved
-										 WHEN ISNULL(n.InActive,0) = 0 THEN 4 -- InActive
-										 WHEN n.[IgnoredAnnouncement] IS NOT NULL THEN 5 -- Ignored Headline
-									ELSE 0 END 
-				FROM @Headline h
-				OUTER APPLY (
-					SELECT TOP(1) g.ConversationGroupId AS [NotMapped], cgb.BotId AS [BotRemoved], CONVERT(TINYINT, g.IsActive) AS [InActive], nt.ConversationGroupId AS [IgnoredAnnouncement]
-					FROM dbo.crmConversationGroupHeadline cgh WITH(NOLOCK)
-						INNER JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = cgh.ConversationGroupId
-						INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cgh.ConversationGroupId
-						LEFT JOIN dbo.crmConversationGroupBot cgb WITH(NOLOCK) ON cgb.ConversationGroupId = cgh.ConversationGroupId	
-						LEFT JOIN dbo.crmIgnoredNotificationType nt WITH(NOLOCK) ON nt.ConversationGroupId = g.ConversationGroupId AND nt.NotificationTypeId = @NotificationTypeId
-					WHERE cgh.HeadlineId = h.CustId AND g.IsDeleted = 0
-				) AS n ([NotMapped], [BotRemoved], [InActive], [IgnoredAnnouncement])
-				WHERE h.ErrCode = 6
+        -- + Check input headline is headline or not
+        UPDATE h
+        SET h.ErrCode = 1
+        FROM #tmpHeadlineOutput h 
+             LEFT JOIN bodb02.dbo.CustGroupHeadline cgh WITH (NOLOCK) ON cgh.CustID = h.HeadlineId
+        WHERE h.ErrCode = -1
+              AND cgh.CustID IS NULL
 
-				IF EXISTS (SELECT 1 FROM @Headline WHERE ErrCode <> 0)
-				BEGIN
-					;WITH CTE AS
-					(
-						SELECT h.ErrCode, STRING_AGG(CONVERT(VARCHAR(MAX), h.Username), ',') AS UsernameList
-						FROM @Headline h 
-						WHERE h.ErrCode <> 0
-						GROUP BY h.ErrCode
-					)
-					SELECT @ErrCode = 100, @ErrMsg = ISNULL(@ErrMsg, '') + t.ErrMsg + ': ' + c.UsernameList + ';'
-					FROM CTE c
-						INNER JOIN @TabError t ON t.ErrCode = c.ErrCode
-					ORDER BY t.ErrCode ASC
+        -- + Update value for valid headline
+        UPDATE h
+        SET h.ErrCode = n.ErrCode
+        FROM #tmpHeadlineOutput h
+             CROSS APPLY (SELECT TOP(1) 0 AS ErrCode
+                          FROM bodb_CRM.dbo.crmConversationGroupHeadline             cgh WITH (NOLOCK)
+                               INNER JOIN bodb_CRM.dbo.crmConversationGroup          cg  WITH (NOLOCK) ON cgh.ConversationGroupId = cg.ConversationGroupId
+                               INNER JOIN bodb_CRM.dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON cg.ConversationGroupId  = cgr.ConversationGroupId
+                               INNER JOIN bodb_CRM.dbo.crmConversationGroupBot       cgb WITH (NOLOCK) ON cg.ConversationGroupId  = cgb.ConversationGroupId
+                               LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType    ign WITH (NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+                          WHERE cgh.HeadlineId = h.HeadlineId
+                                AND cg.IsActive = 1
+                                AND ign.ConversationGroupId IS NULL) AS n
+        WHERE h.ErrCode = -1
 
-					SELECT @ErrMsg = SUBSTRING(@ErrMsg, 1, LEN(@ErrMsg)-1)
-					RETURN 
-				END
+        -- + Update value for invalid headline
+        UPDATE h
+        SET h.ErrCode = CASE WHEN n.NotMapped           IS NULL     THEN 2 -- NotMapped
+                             WHEN n.BotRemoved          IS NULL     THEN 3 -- BotRemoved
+                             WHEN ISNULL(n.InActive,0)  = 0         THEN 4 -- InActive
+                             WHEN n.IgnoredAnnouncement IS NOT NULL THEN 5 -- Ignored Headline
+                        ELSE 0 END 
+        FROM #tmpHeadlineOutput h
+             OUTER APPLY (SELECT TOP(1) cg.ConversationGroupId        AS NotMapped,
+                                        cgb.BotId                     AS BotRemoved,
+                                        CONVERT(TINYINT, cg.IsActive) AS InActive,
+                                        ign.ConversationGroupId       AS IgnoredAnnouncement
+                          FROM bodb_CRM.dbo.crmConversationGroupHeadline             cgh WITH (NOLOCK)
+                               INNER JOIN bodb_CRM.dbo.crmConversationGroup          cg  WITH (NOLOCK) ON cgh.ConversationGroupId = cg.ConversationGroupId
+                               INNER JOIN bodb_CRM.dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON cg.ConversationGroupId  = cgr.ConversationGroupId
+                               LEFT  JOIN bodb_CRM.dbo.crmConversationGroupBot       cgb WITH (NOLOCK) ON cg.ConversationGroupId  = cgb.ConversationGroupId
+                               LEFT  JOIN bodb_CRM.dbo.crmIgnoredNotificationType    ign WITH (NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+                          WHERE cgh.HeadlineId = h.HeadlineId
+                                AND cg.IsDeleted = 0) AS n (NotMapped, BotRemoved, InActive, IgnoredAnnouncement)
+        WHERE h.ErrCode = -1
 
-				SELECT @HeadlineNameList = STRING_AGG(CONVERT(VARCHAR(MAX), Username), ',') WITHIN GROUP (ORDER BY Username)
-				FROM @Headline
-			END
-			ELSE 
-			BEGIN -- Get headline from Site, Currency, Headline type
+        -- + Check exist invalid headline and return
+        IF EXISTS (SELECT 1 FROM #tmpHeadlineOutput WHERE ErrCode > 0)
+        BEGIN
+            ;WITH CTE AS (
+                SELECT h.ErrCode,
+                       STRING_AGG(CONVERT(VARCHAR(MAX), h.HeadlineName), ',') HeadlineNameList
+                FROM #tmpHeadlineOutput h
+                WHERE h.ErrCode > 0
+                GROUP BY h.ErrCode
+            )
+            SELECT @ErrCode = 100,
+                   @ErrMsg  = ISNULL(@ErrMsg, '') + t.ErrMsg + ': ' + c.HeadlineNameList + ';'
+            FROM CTE c
+                 INNER JOIN #tmpErrorList t ON t.ErrCode = c.ErrCode
+            ORDER BY t.ErrCode
 
-				SELECT @HeadlineNameList = NULL
+            SELECT @ErrMsg = SUBSTRING(@ErrMsg, 1, LEN(@ErrMsg)-1)
 
-				INSERT INTO @HeadlineGroup (HeadlineId)
-				SELECT DISTINCT p.HeadlineID
-				FROM dbo.crmPicManagement p WITH(NOLOCK)
-				CROSS APPLY (
-					SELECT TOP 1 1 AS Id
-					FROM bodb02.dbo.Customer c WITH(NOLOCK)
-					WHERE c.custid = p.CustID AND ',' + @SiteNameList + ',' LIKE '%,' + c.site + ',%' 
-							AND ',' + @CurrencyList + ',' LIKE '%,' + CONVERT(VARCHAR(4), c.currency) +  ',%'
-				) AS c
-				WHERE p.HeadlineID <> 0
-				
-				INSERT INTO @Headline (CustId, ErrCode)
-				SELECT DISTINCT e.HeadlineId, 0
-				FROM @HeadlineGroup e 
-					INNER JOIN dbo.crmConversationGroupHeadline cg WITH(NOLOCK) ON cg.HeadlineId = e.HeadlineId
-					INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cg.ConversationGroupId
-					INNER JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = cgr.ConversationGroupId
-					INNER JOIN dbo.crmConversationGroupBot cgb WITH(NOLOCK) ON cgb.ConversationGroupId = g.ConversationGroupId
-					LEFT JOIN dbo.crmIgnoredNotificationType nt WITH(NOLOCK) ON nt.ConversationGroupId = g.ConversationGroupId AND nt.NotificationTypeId = @NotificationTypeId
-				WHERE g.IsActive = 1 AND nt.NotificationTypeId IS NULL
+            RETURN
+        END
+    END
 
-				IF @HeadlineType <> 2
-				BEGIN
-					DELETE h
-					FROM @Headline h
-						LEFT JOIN dbo.crmCustomer c WITH(NOLOCK) ON c.CustID = h.CustId
-					WHERE ISNULL(c.IsVIP, 0) <> @HeadlineType
-				END
-				ELSE 
-				BEGIN -- Get Direct account belong to Not Assign Group
-					;WITH CTE_Pic AS
-					(
-						SELECT p.CustID, p.HeadlineID, p.PicID
-						FROM dbo.crmPicManagement p WITH(NOLOCK)
-						CROSS APPLY (
-							SELECT TOP 1 1 AS Id
-							FROM bodb02.dbo.Customer c WITH(NOLOCK)
-							WHERE c.custid = p.CustID AND ',' + @SiteNameList + ',' LIKE '%,' + c.site + ',%' 
-									AND ',' + @CurrencyList + ',' LIKE '%,' + CONVERT(VARCHAR(4), c.currency) +  ',%'
-						) AS c
-						WHERE p.HeadlineID = 0
-					)
-					INSERT INTO #ConversationGroupRecipient (CustId, ConversationGroupId, NoRecipient)
-					SELECT p.CustID, cgh.ConversationGroupId, COUNT(DISTINCT cgr.RecipientId) AS [NoRecipient]
-					FROM CTE_Pic p
-						INNER JOIN dbo.crmRecipient r WITH(NOLOCK) ON r.SourceId = p.PicID AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
-						INNER JOIN dbo.crmConversationGroupHeadline cgh WITH(NOLOCK) ON cgh.HeadlineId = p.HeadlineID
-						INNER JOIN dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cgr.ConversationGroupId = cgh.ConversationGroupId AND r.RecipientId = cgr.RecipientId
-						INNER JOIN dbo.crmConversationGroup g WITH(NOLOCK) ON g.ConversationGroupId = cgh.ConversationGroupId 
-						INNER JOIN dbo.crmConversationGroupBot cgb WITH(NOLOCK) ON cgb.ConversationGroupId = g.ConversationGroupId
-						LEFT JOIN dbo.crmIgnoredNotificationType nt WITH(NOLOCK) ON nt.ConversationGroupId = g.ConversationGroupId AND nt.NotificationTypeId = @NotificationTypeId
-					WHERE g.IsActive = 1 AND nt.NotificationTypeId IS NULL
-					GROUP BY p.CustID, cgh.ConversationGroupId
+    -- Validate data for Headline/DirectAccount from Site, Currency, Headline type
+    ELSE 
+    BEGIN
+        -- + Get list of headline base on @SiteNameList and @CurrencyList
+        INSERT INTO #tmpHeadlineInput (HeadlineId, HeadlineName)
+        SELECT DISTINCT p.HeadlineID, cus.username HeadlineName
+        FROM bodb_CRM.dbo.crmPicManagement p WITH (NOLOCK)
+             INNER JOIN bodb02.dbo.Customer cus WITH (NOLOCK) ON p.HeadlineID = cus.custid
+             CROSS APPLY (SELECT TOP 1 1 ID
+                          FROM bodb02.dbo.Customer c WITH (NOLOCK)
+                          WHERE c.custid = p.CustID
+                                AND ',' + @SiteNameList + ',' LIKE '%,' + c.site + ',%' 
+                                AND ',' + @CurrencyList + ',' LIKE '%,' + CONVERT(VARCHAR(4), c.currency) + ',%') AS c
+        WHERE p.HeadlineID <> 0 --just mention to CustID have HeadlineID
 
-					;WITH CTE_ConversationGroup AS
-					(
-						SELECT g.ConversationGroupId, COUNT(RecipientId) AS [TotalRecipient]
-						FROM dbo.crmConversationGroupRecipient g WITH(NOLOCK)
-						WHERE EXISTS (SELECT 1 FROM #ConversationGroupRecipient r WHERE r.ConversationGroupId = g.ConversationGroupId)
-						GROUP BY g.ConversationGroupId
-					)
-					INSERT INTO @DirectAccount (CustId)
-					SELECT DISTINCT gr.CustID
-					FROM #ConversationGroupRecipient gr 
-						INNER JOIN CTE_ConversationGroup g ON g.ConversationGroupId = gr.ConversationGroupId AND g.TotalRecipient = gr.NoRecipient
+        -- + Get suitable headline
+        INSERT INTO #tmpHeadlineOutput (
+            HeadlineId,
+            HeadlineName,
+            ErrCode
+        )
+        SELECT DISTINCT h.HeadlineId, h.HeadlineName, 0 ErrCode
+        FROM #tmpHeadlineInput h
+             INNER JOIN bodb_CRM.dbo.crmConversationGroupHeadline  cgh WITH(NOLOCK) ON h.HeadlineId            = cgh.HeadlineId
+             INNER JOIN bodb_CRM.dbo.crmConversationGroup          cg  WITH(NOLOCK) ON cgh.ConversationGroupId = cg.ConversationGroupId
+             INNER JOIN bodb_CRM.dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cg.ConversationGroupId  = cgr.ConversationGroupId
+             INNER JOIN bodb_CRM.dbo.crmConversationGroupBot       cgb WITH(NOLOCK) ON cg.ConversationGroupId  = cgb.ConversationGroupId
+             LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType    ign WITH(NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+        WHERE cg.IsActive = 1
+              AND ign.NotificationTypeId IS NULL
 
-					IF EXISTS (SELECT 1 FROM @DirectAccount)
-					BEGIN 
-						INSERT INTO @Headline (CustId, ErrCode, Username)
-						VALUES (0, 0, '')
-					END
-				END
+        -- + IF @HeadlineType <> 2 | Just mention to headlince account only
+        --                         | Not include direct account not assign group but have mapping to PIC
+        IF (@HeadlineType <> 2)
+        BEGIN
+            DELETE h
+            FROM #tmpHeadlineOutput h
+                 LEFT JOIN bodb_CRM.dbo.crmCustomer c WITH (NOLOCK) ON c.CustID = h.HeadlineId
+            WHERE ISNULL(c.IsVIP, 0) <> @HeadlineType
+        END
 
-				IF NOT EXISTS (SELECT 1 FROM @Headline)
-				BEGIN
-					SELECT @ErrCode = 102, @ErrMsg = 'No Group Headline info'
-					RETURN
-				END
+        -- + IF @HeadlineType = 2 | Beside headline account
+        --                        | Include direct account not assign group but have mapping to PIC
+        ELSE 
+        BEGIN
+            -- + --> Insert data to table #tmpConversationGroupRecipient
+            ;WITH CTE_Pic AS (
+                SELECT p.CustID,
+                       p.HeadlineID,
+                       p.PicID
+                FROM bodb_CRM.dbo.crmPicManagement p WITH (NOLOCK)
+                     CROSS APPLY (SELECT TOP 1 1 AS Id
+                                  FROM bodb02.dbo.Customer c WITH (NOLOCK)
+                                  WHERE c.custid = p.CustID
+                                        AND ',' + @SiteNameList + ',' LIKE '%,' + c.site + ',%'
+                                        AND ',' + @CurrencyList + ',' LIKE '%,' + CONVERT(VARCHAR(4), c.currency) +  ',%') AS c
+                WHERE p.HeadlineID = 0 --just mention to CustID not have HeadlineID
+            )
+            INSERT INTO #tmpDirectAccountInput (
+                DirectAccId,
+                ConversationGroupId,
+                NoRecipient
+            )
+            SELECT p.CustID DirectAccId,
+                   cgh.ConversationGroupId,
+                   COUNT(DISTINCT cgr.RecipientId) AS NoRecipient
+            FROM CTE_Pic p
+                 INNER JOIN bodb_CRM.dbo.crmRecipient                  r   WITH(NOLOCK) ON p.PicID = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroupHeadline  cgh WITH(NOLOCK) ON p.HeadlineID = cgh.HeadlineId
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroup          cg  WITH(NOLOCK) ON cgh.ConversationGroupId = cg.ConversationGroupId
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroupRecipient cgr WITH(NOLOCK) ON cg.ConversationGroupId  = cgr.ConversationGroupId AND r.RecipientId = cgr.RecipientId
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroupBot       cgb WITH(NOLOCK) ON cg.ConversationGroupId  = cgb.ConversationGroupId
+                 LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType    ign WITH(NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+            WHERE cg.IsActive = 1
+                  AND ign.NotificationTypeId IS NULL
+            GROUP BY p.CustID,
+                     cgh.ConversationGroupId
 
-				SELECT @HeadlineNameList = 
-				(
-					SELECT STRING_AGG(CONVERT(VARCHAR(MAX), c.username), ',') 
-					FROM bodb02.dbo.Customer c WITH(NOLOCK)
-					WHERE EXISTS (SELECT 1 FROM @Headline h WHERE h.CustId = c.custid)
-				)
-			END
-		END
+            -- + --> Insert data to table #tmpDirectAccount
+            ;WITH CTE_ConversationGroup AS (
+                SELECT g.ConversationGroupId,
+                       COUNT(RecipientId) TotalRecipient
+                FROM bodb_CRM.dbo.crmConversationGroupRecipient g WITH (NOLOCK)
+                WHERE EXISTS (SELECT 1 FROM #tmpDirectAccountInput r WHERE r.ConversationGroupId = g.ConversationGroupId)
+                GROUP BY g.ConversationGroupId
+            )
+            INSERT INTO #tmpDirectAccountOutput (DirectAccId, DirectAccName, ConversationGroupId)
+            SELECT gr.DirectAccId, cus.username DirectAccName, gr.ConversationGroupId
+            FROM #tmpDirectAccountInput gr
+                 INNER JOIN bodb02.dbo.Customer cus WITH (NOLOCK) ON gr.DirectAccId = cus.custid
+                 INNER JOIN CTE_ConversationGroup g ON g.ConversationGroupId = gr.ConversationGroupId
+                                                       AND g.TotalRecipient = gr.NoRecipient --pay more attention to this requirement
 
-	END 
-	ELSE
-	BEGIN
-		SELECT @ErrCode = 0, @ErrMsg = ''
-		
-		SELECT NULL AS HeadlineNameList, NULL AS CurrencyList, NULL AS SiteNameList, NULL AS SendDate, NULL	AS SendImmediately, NULL AS DirectAccountList, NULL AS HeadlineType 
-		RETURN
-	END
-	
-	IF @ErrCode = 0
-	BEGIN
-		SELECT @DirectAccountList = STRING_AGG(CONVERT(VARCHAR(MAX), c.username), ',') WITHIN GROUP (ORDER BY c.Username ASC)
-		FROM @DirectAccount d
-			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = d.CustId
+            -- + --> Insert one dummy row data to not return error at the next step
+            IF EXISTS (SELECT 1 FROM #tmpDirectAccountOutput)
+            BEGIN 
+                INSERT INTO #tmpHeadlineOutput (HeadlineId, HeadlineName, ErrCode)
+                VALUES (0, '', 0)
+            END
+        END
 
-		SELECT @HeadlineNameList AS HeadlineNameList, @CurrencyList AS CurrencyList, @SiteNameList AS SiteNameList, @SendDate AS SendDate, @SendImmediately	AS SendImmediately, @DirectAccountList AS DirectAccountList, @HeadlineType AS HeadlineType 
-	END
-	ELSE
-	BEGIN
-		SELECT NULL AS HeadlineNameList, NULL AS CurrencyList, NULL AS SiteNameList, NULL AS SendDate, NULL	AS SendImmediately, NULL AS DirectAccountList, NULL AS HeadlineType 
-	END
+        -- + If not have data to create announcement will return error
+        IF NOT EXISTS (SELECT 1 FROM #tmpHeadlineOutput)
+        BEGIN
+            SELECT @ErrCode = 102
+            SELECT @ErrMsg = 'No Group Headline info'
+            RETURN
+        END
+    END
 
-	DROP TABLE #ConversationGroupRecipient
+    -- Validate data between Headline and Content
+    BEGIN
+        -- + Parse XML to temp table
+        INSERT INTO #tmpValidateContentsInput (
+            LanguageId,
+            Content,
+            FileName
+        )
+        SELECT t.c.value('@LanguageId', 'INT')         AS LanguageId,
+               t.c.value('@Value', 'NVARCHAR(MAX)')    AS Content,
+               t.c.value('@FileName', 'NVARCHAR(MAX)') AS FileName
+        FROM @Contents.nodes('Contents/Content') AS t(c)
+
+        -- + Process data to get result
+        ;WITH
+        CTE_Headline AS (
+            SELECT DISTINCT
+                   hl.HeadlineName,
+                   cg.LanguageId,
+                   s.SettingValue LanguageName
+            FROM #tmpHeadlineOutput hl
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON hl.HeadlineId = cgh.HeadlineId
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroup         cg  WITH (NOLOCK) ON cgh.ConversationGroupId = cg.ConversationGroupId
+                 INNER JOIN bodb_CRM.dbo.crmSetting                   s   WITH (NOLOCK) ON s.SettingName = 'NotificationTemplateLanguage'
+                                                                                           AND s.IsActive = 1
+                                                                                           AND s.SiteOffer = 2
+                                                                                           AND cg.LanguageId = s.SettingID
+                 LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType   ign WITH(NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+            WHERE hl.HeadlineId <> 0
+                  AND hl.ErrCode = 0
+                  AND cg.IsActive = 1
+                  AND ign.ConversationGroupId IS NULL
+        ),
+        CTE_DirectAccount AS (
+            SELECT DISTINCT
+                   da.DirectAccName HeadlineName,
+                   cg.LanguageId,
+                   s.SettingValue LanguageName
+            FROM #tmpDirectAccountOutput da
+                 INNER JOIN bodb_CRM.dbo.crmConversationGroup       cg  WITH (NOLOCK) ON da.ConversationGroupId = cg.ConversationGroupId
+                 INNER JOIN bodb_CRM.dbo.crmSetting                 s   WITH (NOLOCK) ON s.SettingName = 'NotificationTemplateLanguage'
+                                                                                         AND s.IsActive = 1
+                                                                                         AND s.SiteOffer = 2
+                                                                                         AND cg.LanguageId = s.SettingID
+                 LEFT JOIN  bodb_CRM.dbo.crmIgnoredNotificationType ign WITH(NOLOCK) ON cg.ConversationGroupId  = ign.ConversationGroupId AND ign.NotificationTypeId = @NotificationTypeId
+            WHERE cg.IsActive = 1
+                  AND ign.ConversationGroupId IS NULL
+        ),
+        CTE_Union AS (
+            SELECT HeadlineName, LanguageId, LanguageName FROM CTE_Headline
+            UNION
+            SELECT HeadlineName, LanguageId, LanguageName FROM CTE_DirectAccount
+        )
+        INSERT INTO #tmpValidateContentsOutput (
+            HeadlineName,
+            LanguageId,
+            LanguageName,
+            Content,
+            FileName
+        )
+        SELECT cte.HeadlineName,
+               cte.LanguageId,
+               cte.LanguageName,
+               tmp.Content,
+               tmp.FileName
+        FROM CTE_Union cte
+             LEFT JOIN #tmpValidateContentsInput tmp ON cte.LanguageId = tmp.LanguageId
+        WHERE ISNULL(tmp.Content, '') = '' AND ISNULL(FileName, '') = ''
+
+        -- + Return error if exist
+        IF EXISTS (SELECT TOP 1 1 FROM #tmpValidateContentsOutput)
+        BEGIN
+            ;WITH CTE_Data AS (
+                SELECT LanguageName,
+                       STRING_AGG(CAST(HeadlineName AS VARCHAR(MAX)), ', ') ErrorHeadlineNameList
+                FROM #tmpValidateContentsOutput
+                GROUP BY LanguageName
+            )
+            SELECT @ErrCode = 104,
+                   @ErrMsg = ISNULL(@ErrMsg, '') + 'Please input the ' + LanguageName + ' content for headline(s): ' + ErrorHeadlineNameList + ';'
+            FROM CTE_Data
+            ORDER BY LanguageName
+        
+            SELECT @ErrMsg = SUBSTRING(@ErrMsg, 1, LEN(@ErrMsg)-1)
+            
+            RETURN
+        END
+    END
+
+
+    -----------------
+    -- Return data --
+
+    -- Build data for variable @HeadlineNameList
+    ;WITH CTE_HeadlineName AS (
+        SELECT DISTINCT HeadlineName FROM #tmpHeadlineOutput WHERE HeadlineId <> 0
+    )
+    SELECT @HeadlineNameList = STRING_AGG(CAST(HeadlineName AS VARCHAR(MAX)), ',')
+    FROM CTE_HeadlineName
+
+    -- Build data for variable @DirectAccountNameList
+    ;WITH CTE_DirectAccName AS (
+        SELECT DISTINCT DirectAccName FROM #tmpDirectAccountOutput
+    )
+    SELECT @DirectAccountNameList = STRING_AGG(CAST(DirectAccName AS VARCHAR(MAX)), ',')
+    FROM CTE_DirectAccName
+
+    -- Return result
+    SELECT @HeadlineNameList      AS HeadlineNameList,
+           @DirectAccountNameList AS DirectAccountList
+
+
+    ---------------
+    -- Drop data --
+
+    DROP TABLE #tmpHeadlineInput
+    DROP TABLE #tmpHeadlineOutput
+    DROP TABLE #tmpDirectAccountInput
+    DROP TABLE #tmpDirectAccountOutput
+    DROP TABLE #tmpValidateContentsInput
+    DROP TABLE #tmpValidateContentsOutput
+    DROP TABLE #tmpErrorList
+
 END
 GO

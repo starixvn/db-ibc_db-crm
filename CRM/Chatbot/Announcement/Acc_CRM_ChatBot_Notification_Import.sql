@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -17,6 +17,7 @@ AS
 			- 20221213@Malcolm: Initialize SPs [Redmine: #179118]
 			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
             - 20231208@Ned.Le: Fix error relate to STRING_AGG function
+            - 20240327@Ned.Le: CRM - Headline Announcement - Enhancement - Allow to attach separate screenshots for a specific language AND Allow to push Notifications with empty content [Redmine: #201042]
 
 	Param's Explanation:
 		
@@ -27,7 +28,7 @@ BEGIN
 	
 	SELECT @ErrCode = 0, @ErrMsg = ''
 
-	DECLARE @ConversationGroupId INT = 0, @NotificationId INT = 0, @UserId INT, @Title NVARCHAR(2000), @NotificationTypeId SMALLINT, @NotificationTemplateId SMALLINT, @Status VARCHAR(20), @MaxGroup INT
+	DECLARE @ConversationGroupId INT = 0, @NotificationId INT = 0, @UserId INT, @Title NVARCHAR(2000), @NotificationTypeId SMALLINT, @NotificationTemplateId SMALLINT, @Status VARCHAR(20), @MaxGroup INT, @FileName NVARCHAR(MAX)
 
 	DECLARE @Notificationlist TABLE (NotificationId INT PRIMARY KEY)
 
@@ -173,8 +174,16 @@ BEGIN
 	BEGIN TRY
 		WHILE EXISTS (SELECT 1 FROM #Result WHERE Id = @Id)
 		BEGIN
-			SELECT @ConversationGroupId = ConversationGroupId, @Status = [Status] FROM #Result WHERE Id = @Id
+            -- Reset value
+            SET @ConversationGroupId = NULL
+            SET @Status              = NULL
+            SET @NotificationId      = NULL
+            SET @FileName            = NULL
 
+            -- Get key value
+			SELECT @ConversationGroupId = ConversationGroupId, @Status = [Status] FROM #Result WHERE Id = @Id
+            
+            -- crmNotification
 			INSERT INTO dbo.crmNotification
 			(
 				NotificationTypeId
@@ -191,37 +200,49 @@ BEGIN
 			SELECT @NotificationTypeId, @UserId, GETDATE(), @Title, c.Content,g.Status, '', g.RelatedIds, NULL, g.ChannelId
 			FROM #Result g
 			OUTER APPLY (
-				SELECT TOP(1) ac.Content
+				SELECT ac.Content
 				FROM dbo.crmAnnouncementContent ac WITH(NOLOCK) 
-				WHERE ac.AnnouncementId = @AnnouncementId AND ac.LanguageId IN (g.LanguageId, 50000)
-				ORDER BY ac.LanguageId DESC
+				WHERE ac.AnnouncementId = @AnnouncementId AND ac.LanguageId = g.LanguageId
 			) AS c
 			WHERE g.Id = @Id
 
+            -- Get key value
 			SELECT @NotificationId = SCOPE_IDENTITY()
 
+            -- @Notificationlist
 			INSERT INTO @Notificationlist (NotificationId)
 			VALUES (@NotificationId)
 
+            -- crmNotificationGroup
 			INSERT INTO dbo.crmNotificationGroup (NotificationId, ConversationGroupId, Status)
 			SELECT @NotificationId, @ConversationGroupId, @Status
 
+            -- crmNotificationRecipient
 			INSERT INTO dbo.crmNotificationRecipient (NotificationId, RecipientId, ConversationGroupId)
 			SELECT @NotificationId, RecipientId, @ConversationGroupId
 			FROM dbo.crmConversationGroupRecipient WITH(NOLOCK)
 			WHERE ConversationGroupId = @ConversationGroupId
 
+            -- crmNotificationHeadline
 			INSERT INTO dbo.crmNotificationHeadline (NotificationId, HeadlineId)
 			SELECT DISTINCT @NotificationId, CASE WHEN cgh.IsGroupHeadline = 0 THEN 0 ELSE cgh.CustId END AS HeadlineId
 			FROM #ConversationGroupHeadline cgh
 			WHERE cgh.Id = @Id 
-			
-			INSERT INTO dbo.crmAnnouncementNotification (AnnouncementId, NotificationId)
-			VALUES (@AnnouncementId, @NotificationId)
 
+            -- crmAnnouncementNotification
+            SELECT @FileName = ac.FileName
+            FROM dbo.crmAnnouncementContent ac WITH(NOLOCK) 
+            WHERE ac.AnnouncementId = @AnnouncementId
+                  AND ac.LanguageId IN (SELECT g.LanguageId FROM #Result g WHERE g.Id = @Id)
+
+			INSERT INTO dbo.crmAnnouncementNotification (AnnouncementId, NotificationId, FileName)
+			VALUES (@AnnouncementId, @NotificationId, ISNULL(@FileName, ''))
+
+            -- crmNotificationRefDetail
 			INSERT INTO dbo.crmNotificationRefDetail (NotificationId, ReferenceId, DataSource)
 			VALUES (@NotificationId, @AnnouncementId, 'DBCRM.bodb_CRM.dbo.crmAnnouncement')
 
+            -- do something to continue the loop
 			UPDATE g
 				SET g.RelatedIds = RIGHT(LEFT(tmpRelatedIds, LEN(tmpRelatedIds) - 1), LEN(tmpRelatedIds) - 2)
 			FROM #Result g
@@ -230,7 +251,8 @@ BEGIN
 				) AS t
 			WHERE g.ChatTypeId = 2
 				AND ',' + CONVERT(VARCHAR(50), g.RelatedIds) + ',' LIKE '%,' + CONVERT(VARCHAR(50), @Id) + ',%'
-			
+
+            -- Update value to continue the loop
 			SET @Id += 1
 		END
 	END TRY

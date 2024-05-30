@@ -912,20 +912,40 @@ BEGIN
 			Insert NotificationExtra
 		*/
 		;WITH CTE_Match AS (
-			SELECT tp.Msg_NotiID
-				,MAX(rh.MatchID) AS MatchID
+			SELECT DISTINCT tp.Msg_NotiID
+				,mi.MatchID
+				,mi.IsTest
+				,mi.HomeNameEN
+				,mi.HomeNameCH
+				,mi.HomeNameCS
+				,mi.AwayNameEN
+				,mi.AwayNameCH
+				,mi.AwayNameCS
+				,mi.NeutralEN
+				,mi.NeutralCH
+				,mi.NeutralCS
+				,mi.SportNameEN
+				,mi.SportNameCH
+				,mi.SportNameCS
 			FROM #tmpTemplateDetl AS tp
-				LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON tp.Msg_NotiID = nm.NotificationID
-				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-			GROUP BY tp.Msg_NotiID
-		)
-		,CTE_Subject AS (
-			SELECT DISTINCT i.Msg_NotiID
-				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended' END) AS Subject_en
-				,(CASE WHEN lap.Content_ch IS NOT NULL THEN N'赛果更正' END) AS Subject_ch
-				,(CASE WHEN lap.Content_cs IS NOT NULL THEN N'赛果更正' END) AS Subject_cs
-			FROM #tmpInsertedNoti AS i
-				INNER JOIN Notification AS lap WITH (NOLOCK) ON i.Lap_NotiID = lap.NotificationID
+				LEFT JOIN NotificationExtra AS ex WITH (NOLOCK) ON tp.Msg_NotiID = ex.NotificationID
+				OUTER APPLY OPENJSON(ex.ExtraInfo) WITH (
+						HomeNameEN NVARCHAR(500) '$.HomeNameEN'
+						,HomeNameCH NVARCHAR(500) '$.HomeNameCH'
+						,HomeNameCS NVARCHAR(500) '$.HomeNameCS'
+						,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
+						,AwayNameCH NVARCHAR(500) '$.AwayNameCH'
+						,AwayNameCS NVARCHAR(500) '$.AwayNameCS'
+						,NeutralEN NVARCHAR(10) '$.NeutralEN'
+						,NeutralCH NVARCHAR(10) '$.NeutralCH'
+						,NeutralCS NVARCHAR(10) '$.NeutralCS'
+						,SportNameEN NVARCHAR(500) '$.SportNameEN'
+						,SportNameCH NVARCHAR(500) '$.SportNameCH'
+						,SportNameCS NVARCHAR(500) '$.SportNameCS'
+						,IsTest BIT '$.IsTest'
+						,MatchID INT '$.MatchID'
+					) AS mi--OPENJSON case-sensitive
+			WHERE ISJSON(ex.ExtraInfo) = 1
 		)
 		INSERT INTO NotificationExtra (
 			NotificationID
@@ -937,9 +957,24 @@ BEGIN
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT m.Msg_NotiID AS MsgNotiID
 					,m.MatchID
-					,sj.Subject_en
-					,sj.Subject_ch
-					,sj.Subject_cs
+					,m.IsTest
+					,m.HomeNameEN
+					,m.HomeNameCH
+					,m.HomeNameCS
+					,m.AwayNameEN
+					,m.AwayNameCH
+					,m.AwayNameCS
+					,m.NeutralEN
+					,m.NeutralCH
+					,m.NeutralCS
+					,m.SportNameEN
+					,m.SportNameCH
+					,m.SportNameCS
+					---------hardcode LAP Subject------
+					,N'Result Amended' AS Subject_en
+					-- ,N'赛果更正' AS Subject_ch
+					,N'赛果更正' AS Subject_cs
+					----------SettlLog------
 					,sl.LogType
 					,sl.LogDateTime
 					,sl.LogDateTime_en
@@ -949,7 +984,6 @@ BEGIN
 					,sl.ResultName_ch
 					,sl.ResultName_cs
 				FROM CTE_Match AS m
-					LEFT JOIN CTE_Subject AS sj ON sj.Msg_NotiID = m.Msg_NotiID
 					LEFT JOIN #tmpSettlLog AS sl ON sl.Msg_NotiID = m.Msg_NotiID
 				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH

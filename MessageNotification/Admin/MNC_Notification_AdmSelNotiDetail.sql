@@ -31,6 +31,9 @@ BEGIN
 		,MsgID INT
 		,EventDate DATE
 		,EventName NVARCHAR(500)
+		,LAPSubject_en NVARCHAR(500)
+		,LAPSubject_ch NVARCHAR(500)
+		,LAPSubject_cs NVARCHAR(500)
 	)
 	
 	/*****************************************   Prepare for return   *********************************************************/
@@ -94,26 +97,30 @@ BEGIN
 			,MsgID
 			,EventDate
 			,EventName
+			,LAPSubject_en
+			,LAPSubject_ch
+			,LAPSubject_cs
 		)
 		SELECT DISTINCT nLap.NotificationID
-			,nMsg.RefID
-			,neMsg.EventDate
-			,extMsg.HomeNameEN + ISNULL(' ' + extMsg.NeutralEN,'') + ' -vs- ' + extMsg.AwayNameEN AS EventName
+			,nLap.RefID
+			,neLap.EventDate
+			,extLap.HomeNameEN + ISNULL(' ' + extLap.NeutralEN,'') + ' -vs- ' + extLap.AwayNameEN AS EventName
+			,extLap.Subject_en
+			,extLap.Subject_ch
+			,extLap.Subject_cs
 		FROM dbo.Notification AS nLap WITH (NOLOCK)
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON nLap.NotificationID = neLap.NotificationID
 			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
 							MsgNotiID INT '$.MsgNotiID'
-						) AS extLap --OPENJSON case-sensitive
-			INNER JOIN dbo.Notification AS nMsg WITH (NOLOCK) ON extLap.MsgNotiID = nMsg.NotificationID
-			INNER JOIN dbo.NotificationExtra AS neMsg WITH (NOLOCK) ON extLap.MsgNotiID = neMsg.NotificationID
-			OUTER APPLY OPENJSON(neMsg.ExtraInfo) WITH (
-							HomeNameEN NVARCHAR(500) '$.HomeNameEN'
+							,Subject_en NVARCHAR(300) '$.Subject_en'
+							,Subject_ch NVARCHAR(300) '$.Subject_ch'
+							,Subject_cs NVARCHAR(300) '$.Subject_cs'
+							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
-						) AS extMsg --OPENJSON case-sensitive
+						) AS extLap --OPENJSON case-sensitive
 		WHERE nLap.NotificationID = @NotiID
 			AND ISJSON(neLap.ExtraInfo) = 1
-			AND ISJSON(neMsg.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 		
 		INSERT INTO #tmpAffectedTicket (
@@ -173,18 +180,12 @@ BEGIN
 			,s.Status
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
-			,nex.Subject_en + '<br/><br/>' + n.Content_en AS Content_en
-			,nex.Subject_ch + '<br/><br/>' + n.Content_ch AS Content_ch
-			,nex.Subject_cs + '<br/><br/>' + n.Content_cs AS Content_cs
+			,ext.LAPSubject_en + '<br/><br/>' + n.Content_en AS Content_en
+			,ext.LAPSubject_ch + '<br/><br/>' + n.Content_ch AS Content_ch
+			,ext.LAPSubject_cs + '<br/><br/>' + n.Content_cs AS Content_cs
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
-			OUTER APPLY OPENJSON(n.Subject) WITH (
-							Subject_en NVARCHAR(300) '$.Subject_en'
-							,Subject_ch NVARCHAR(300) '$.Subject_ch'
-							,Subject_cs NVARCHAR(300) '$.Subject_cs'
-						) AS nex --OPENJSON case-sensitive
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
-		WHERE ISJSON(n.Subject) = 1
 	END
 	
 	----------Site by NotificationID----------

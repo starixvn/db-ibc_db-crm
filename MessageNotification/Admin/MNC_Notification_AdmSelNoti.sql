@@ -300,33 +300,28 @@ BEGIN
 		)
 		SELECT DISTINCT i.NotiID
 			,nLap.RefID
-			,extMsg.MatchID
+			,extLap.MatchID
 			,neLap.EventDate
-			,extMsg.HomeNameEN + ISNULL(' ' + extMsg.NeutralEN,'') + ' -vs- ' + extMsg.AwayNameEN AS EventName
-			,extMsg.SportNameEN
-			,extMsg.IsTest
+			,extLap.HomeNameEN + ISNULL(' ' + extLap.NeutralEN,'') + ' -vs- ' + extLap.AwayNameEN AS EventName
+			,extLap.SportNameEN
+			,extLap.IsTest
 			,extLap.LapSender
 			,extLap.LapSendDate
 			,neLap.ExtraInfo AS Subject
 		FROM #tmpNoti AS i
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON i.NotiID = neLap.NotificationID
 			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
-							MsgNotiID INT '$.MsgNotiID'
-							,LapSender VARCHAR(50) '$.LapSender'
-							,LapSendDate DATETIME '$.LapSendDate'
-						) AS extLap --OPENJSON case-sensitive
-			INNER JOIN dbo.Notification AS nLap WITH (NOLOCK) ON i.NotiID = nLap.NotificationID
-			INNER JOIN dbo.NotificationExtra AS neMsg WITH (NOLOCK) ON extLap.MsgNotiID = neMsg.NotificationID
-			OUTER APPLY OPENJSON(neMsg.ExtraInfo) WITH (
 							MatchID INT '$.MatchID'
 							,IsTest BIT '$.IsTest'
 							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
 							,SportNameEN NVARCHAR(500) '$.SportNameEN'
-						) AS extMsg --OPENJSON case-sensitive
+							,LapSender VARCHAR(50) '$.LapSender'
+							,LapSendDate DATETIME '$.LapSendDate'
+						) AS extLap --OPENJSON case-sensitive
+			INNER JOIN dbo.Notification AS nLap WITH (NOLOCK) ON i.NotiID = nLap.NotificationID
 		WHERE ISJSON(neLap.ExtraInfo) = 1
-			AND ISJSON(neMsg.ExtraInfo) = 1
 	END
 	ELSE --Msg Notification
 	BEGIN

@@ -135,7 +135,7 @@ BEGIN
 		FROM Notification AS nMsg WITH (NOLOCK)
 			INNER JOIN NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
 			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
-		WHERE nMsg.LastModifiedTime >= DATEADD(HH, - 24, GETDATE())
+		WHERE nMsg.LastModifiedTime >= DATEADD(HH, - 36, GETDATE())
 			AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
 			AND rh.SportType = 50 --Cricket, need modify for others sport
 			AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG
@@ -149,7 +149,7 @@ BEGIN
 			OUTER APPLY OPENJSON(nLapEx.ExtraInfo) WITH (
 					MsgNotiID VARCHAR(MAX) '$.MsgNotiID'
 				) AS ext--OPENJSON case-sensitive
-		WHERE nLap.LastModifiedTime >= DATEADD(HH, - 24, GETDATE())
+		WHERE nLap.LastModifiedTime >= DATEADD(HH, - 36, GETDATE())
 			AND nLap.NotificationType = 2 --2: Result Amendment to LAP
 	)
 	INSERT INTO #tmpPrepareNoti (

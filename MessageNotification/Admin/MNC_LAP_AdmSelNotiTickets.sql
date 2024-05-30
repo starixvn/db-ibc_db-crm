@@ -68,10 +68,6 @@ BEGIN
 		+ CONVERT(VARCHAR,LapEx.EventDate, 101) --MM/DD/YYYY
 	FROM dbo.NotificationExtra AS LapEx WITH (NOLOCK)
 		OUTER APPLY OPENJSON(LapEx.ExtraInfo) WITH (
-						MsgNotiID INT '$.MsgNotiID'
-					) AS Lap --OPENJSON case-sensitive
-		INNER JOIN dbo.NotificationExtra AS MsgEx WITH (NOLOCK) ON Lap.MsgNotiID = MsgEx.NotificationID
-		OUTER APPLY OPENJSON(MsgEx.ExtraInfo) WITH (
 						HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 						,HomeNameCS NVARCHAR(500) '$.HomeNameCS'
 						,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
@@ -81,7 +77,6 @@ BEGIN
 					) AS m --OPENJSON case-sensitive
 	WHERE LapEx.NotificationID = @NotiID
 		AND ISJSON(LapEx.ExtraInfo) = 1
-		AND ISJSON(MsgEx.ExtraInfo) = 1
 	OPTION (RECOMPILE)
 	
 	-----return----

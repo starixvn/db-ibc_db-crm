@@ -182,7 +182,7 @@ Status: FAILED'
 	WHERE a.StatusID = @StsNew
 		AND ext.RefInfo <> 'RuleID'
 	
-	CREATE CLUSTERED INDEX CIX_tmpPrepareEventAlertON #tmpPrepareEventAlert (AlertID)
+	CREATE CLUSTERED INDEX CIX_tmpPrepareEventAlert ON #tmpPrepareEventAlert (AlertID)
 	
 	--write log
 	INSERT INTO [Log] (

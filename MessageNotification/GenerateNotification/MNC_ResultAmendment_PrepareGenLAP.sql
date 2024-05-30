@@ -129,36 +129,38 @@ BEGIN
 		Get List of Msg NotificationID which not EXISTS Lap NotificationID
 			Refer to Data rule #2.Running Status Too Long.sql
 	*/
-	;WITH CTE_Noti AS (
-		SELECT DISTINCT nMsg.NotificationID
+	;WITH CTE_Msg AS (
+		SELECT DISTINCT nMsg.NotificationID AS MsgNotiID
 			,rh.SportType
-			,(CASE WHEN nL.NotificationID IS NOT NULL THEN 1 ELSE 0 END) AS LapCnt
 		FROM Notification AS nMsg WITH (NOLOCK)
 			INNER JOIN NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
 			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
-			OUTER APPLY (
-				SELECT nLap.NotificationID
-				FROM NotiMapping AS mLap WITH (NOLOCK)
-					INNER JOIN Notification AS nLap WITH (NOLOCK) ON mLap.NotificationID = nLap.NotificationID
-				WHERE mLap.SettlementLogID = mMsg.SettlementLogID
-					AND nLap.NotificationType = 2 --2: Result Amendment to LAP
-			) AS nL
 		WHERE nMsg.LastModifiedTime >= DATEADD(HH, - 24, GETDATE())
 			AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
 			AND rh.SportType = 50 --Cricket, need modify for others sport
 			AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG
 			AND nMsg.RefID IS NOT NULL
 	)
+	,CTE_Lap AS (
+		SELECT DISTINCT nLap.NotificationID AS LapNotiID
+			,ext.MsgNotiID
+		FROM Notification AS nLap WITH (NOLOCK)
+			INNER JOIN NotificationExtra AS nLapEx WITH (NOLOCK) ON nLap.NotificationID = nLapEx.NotificationID
+			OUTER APPLY OPENJSON(nLapEx.ExtraInfo) WITH (
+					MsgNotiID VARCHAR(MAX) '$.MsgNotiID'
+				) AS ext--OPENJSON case-sensitive
+		WHERE nLap.LastModifiedTime >= DATEADD(HH, - 24, GETDATE())
+			AND nLap.NotificationType = 2 --2: Result Amendment to LAP
+	)
 	INSERT INTO #tmpPrepareNoti (
 		NotificationID
 		,SportType
 	)
-	SELECT NotificationID
-		,SportType
-	FROM CTE_Noti
-	GROUP BY NotificationID
-		,SportType
-	HAVING SUM(LapCnt) = 0
+	SELECT m.MsgNotiID
+		,m.SportType
+	FROM CTE_Msg AS m
+		LEFT JOIN CTE_Lap AS l ON m.MsgNotiID = l.MsgNotiID
+	WHERE l.MsgNotiID IS NULL
 	
 	CREATE CLUSTERED INDEX CIX_tmpPrepareNoti ON #tmpPrepareNoti(NotificationID)
 	

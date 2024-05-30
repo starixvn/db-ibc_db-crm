@@ -102,7 +102,7 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpAffectedResult (
-		SettlementLogID INT
+		Msg_NotiID INT
 		,ResourceID VARCHAR(50)
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
@@ -246,7 +246,7 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_tmpExtraInfo ON #tmpExtraInfo (Msg_NotiID, SettlementLogID)
 		
 		;WITH CTE_LAP AS (
-			SELECT DISTINCT ntc.NotificationID
+			SELECT DISTINCT ex.Msg_NotiID
 			FROM NotificationTarget AS ntc WITH (NOLOCK)
 				INNER JOIN #tmpExtraInfo AS ex ON ntc.NotificationID = ex.Msg_NotiID
 				INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ntc.TargetSite = s.site AND s.isDeposit = 1 --deposit user
@@ -269,7 +269,7 @@ BEGIN
 			,tp.Content_ch
 			,tp.Content_cs
 		FROM #tmpExtraInfo AS ex
-			INNER JOIN CTE_LAP AS l ON ex.Msg_NotiID = l.NotificationID
+			INNER JOIN CTE_LAP AS l ON ex.Msg_NotiID = l.Msg_NotiID
 			INNER JOIN Notification AS n WITH (NOLOCK) ON ex.Msg_NotiID = n.NotificationID
 			,NotiTemplate AS tp WITH (NOLOCK) --currently, only have 1 message TemplateID for LAP
 		WHERE tp.TemplateID = 6--Cricket Result Amendment - Notification for LAP
@@ -291,7 +291,6 @@ BEGIN
 											SELECT Msg_NotiID
 												,TemplateID
 											FROM #tmpNoti
-											ORDER BY Msg_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -309,7 +308,6 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpNoti
-											ORDER BY Msg_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -317,7 +315,6 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpInputNoti
-											ORDER BY Msg_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -325,8 +322,6 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpExtraInfo
-											ORDER BY Msg_NotiID
-												,SettlementLogID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -476,7 +471,7 @@ BEGIN
 				Load AffectedResult from Msg Noti
 			*/
 			INSERT INTO #tmpAffectedResult (
-				SettlementLogID
+				Msg_NotiID
 				,ResourceID
 				,ResultName_en
 				,ResultName_ch
@@ -488,7 +483,7 @@ BEGIN
 				,WrongValue_ch
 				,WrongValue_cs
 			)
-			SELECT DISTINCT ex.SettlementLogID
+			SELECT DISTINCT ex.Msg_NotiID
 				,af.ResourceID
 				,af.ResultName_en
 				,af.ResultName_ch
@@ -551,7 +546,7 @@ BEGIN
 					,r.WrongValue_ch
 					,r.WrongValue_cs
 				FROM #tmpExtraInfo AS ex
-					LEFT JOIN #tmpAffectedResult AS r ON ex.SettlementLogID = r.SettlementLogID AND ex.ResourceID = r.ResourceID
+					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
 			)
 			,CTE_ReCalc_Raw AS (
 				SELECT DISTINCT Msg_NotiID
@@ -717,7 +712,6 @@ BEGIN
 											SELECT Msg_NotiID
 												,TemplateID
 											FROM #tmpNoti
-											ORDER BY Msg_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -725,7 +719,6 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpTemplateDetl
-											ORDER BY Msg_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -733,15 +726,13 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpAffectedResult
-											ORDER BY SettlementLogID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
-							+ ' - tmpSettlLog('
+							+ ' - #tmpSettlLog('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpSettlLog
-											ORDER BY Msg_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -775,7 +766,6 @@ BEGIN
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
 										FROM #tmpNoti
-										ORDER BY Msg_NotiID
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
@@ -830,7 +820,6 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpInsertedNoti
-											ORDER BY Lap_NotiID
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -946,8 +935,17 @@ BEGIN
 					,sj.Subject_en
 					,sj.Subject_ch
 					,sj.Subject_cs
+					,sl.LogType
+					,sl.LogDateTime
+					,sl.LogDateTime_en
+					,sl.LogDateTime_ch
+					,sl.LogDateTime_cs
+					,sl.ResultName_en
+					,sl.ResultName_ch
+					,sl.ResultName_cs
 				FROM CTE_Match AS m
 					LEFT JOIN CTE_Subject AS sj ON sj.Msg_NotiID = m.Msg_NotiID
+					LEFT JOIN #tmpSettlLog AS sl ON sl.Msg_NotiID = m.Msg_NotiID
 				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH
 			)) AS ExtraInfo
@@ -959,10 +957,11 @@ BEGIN
 		;WITH CTE_Log AS (
 			SELECT i.Lap_NotiID
 				,STRING_AGG(CONVERT(VARCHAR(MAX),nm.SettlementLogID),',') WITHIN GROUP (ORDER BY nm.SettlementLogID) AS SettlIDs
-				,STRING_AGG(CONVERT(VARCHAR(MAX),i.Msg_NotiID),',') AS MsgNotiIDs
+				,i.Msg_NotiID
 			FROM #tmpInsertedNoti AS i
 				INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON i.Lap_NotiID = nm.NotificationID
 			GROUP BY i.Lap_NotiID
+				,i.Msg_NotiID
 		)
 		INSERT INTO [Log] (
 			RefID
@@ -975,7 +974,7 @@ BEGIN
 			,@LogUserID
 			,@InfLogPrefix + '[Generate Lap Noti process - Gen] - Created Notification Lap with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
 							+ ' - NotiMapping.SettlementLogID(' + ISNULL(l.SettlIDs,'NULL') + ')'
-							+ ' - MsgNotiIDs(' + ISNULL(l.MsgNotiIDs,'NULL') + ')'
+							+ ' - MsgNotiIDs(' + ISNULL(CONVERT(VARCHAR,l.Msg_NotiID),'NULL') + ')'
 		FROM #tmpInsertedNoti AS i
 			INNER JOIN Notification AS n WITH (NOLOCK) ON n.NotificationID = i.Lap_NotiID
 			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
@@ -1083,7 +1082,6 @@ BEGIN
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
 										FROM #tmpInsertedNoti
-										ORDER BY Lap_NotiID
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
@@ -1091,7 +1089,6 @@ BEGIN
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
 										FROM #tmpFailedNoti
-										ORDER BY Lap_NotiID
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'

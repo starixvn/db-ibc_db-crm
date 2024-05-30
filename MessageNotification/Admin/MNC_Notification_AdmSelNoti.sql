@@ -299,9 +299,9 @@ BEGIN
 			,Subject
 		)
 		SELECT DISTINCT i.NotiID
-			,nMsg.RefID
+			,nLap.RefID
 			,extMsg.MatchID
-			,neMsg.EventDate
+			,neLap.EventDate
 			,extMsg.HomeNameEN + ISNULL(' ' + extMsg.NeutralEN,'') + ' -vs- ' + extMsg.AwayNameEN AS EventName
 			,extMsg.SportNameEN
 			,extMsg.IsTest
@@ -315,7 +315,7 @@ BEGIN
 							,LapSender VARCHAR(50) '$.LapSender'
 							,LapSendDate DATETIME '$.LapSendDate'
 						) AS extLap --OPENJSON case-sensitive
-			INNER JOIN dbo.Notification AS nMsg WITH (NOLOCK) ON extLap.MsgNotiID = nMsg.NotificationID
+			INNER JOIN dbo.Notification AS nLap WITH (NOLOCK) ON i.NotiID = nLap.NotificationID
 			INNER JOIN dbo.NotificationExtra AS neMsg WITH (NOLOCK) ON extLap.MsgNotiID = neMsg.NotificationID
 			OUTER APPLY OPENJSON(neMsg.ExtraInfo) WITH (
 							MatchID INT '$.MatchID'
@@ -402,7 +402,7 @@ BEGIN
 		END
 		
 		--filter by @Content
-		IF ISNULL(TRIM(@Content),'') <> ''
+		IF ISNULL(@Content,'') <> ''
 		BEGIN
 			DELETE i
 			FROM #tmpNoti AS i
@@ -411,9 +411,9 @@ BEGIN
 				FROM dbo.Notification AS n WITH (NOLOCK)
 				WHERE n.NotificationID = i.NotiID
 					AND (
-						n.Content_en LIKE '%' + TRIM(@Content) + '%'
-						OR n.Content_ch LIKE '%' + TRIM(@Content) + '%'
-						OR n.Content_cs LIKE '%' + TRIM(@Content) + '%'
+						n.Content_en LIKE '%' + @Content + '%'
+						OR n.Content_ch LIKE '%' + @Content + '%'
+						OR n.Content_cs LIKE '%' + @Content + '%'
 					)
 			)
 			

@@ -146,6 +146,7 @@ BEGIN
 	
 	CREATE TABLE #tmpNoti (
 		Msg_NotiID INT NOT NULL
+		,MessageID INT NOT NULL
 		,TemplateID INT NOT NULL
 		,Subject NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
@@ -257,13 +258,15 @@ BEGIN
 				AND ISJSON(ntc.ExtraInfo) = 1
 		)
 		INSERT INTO #tmpNoti (
-			Msg_NotiID 
+			Msg_NotiID
+			,MessageID
 			,TemplateID
 			,Content_en
 			,Content_ch
 			,Content_cs
 		)
 		SELECT DISTINCT ex.Msg_NotiID
+			,n.RefID AS MessageID
 			,tp.TemplateID
 			,tp.Content_en
 			,tp.Content_ch
@@ -782,7 +785,8 @@ BEGIN
 		WHILE EXISTS(SELECT 1 FROM #tmpNoti WHERE Msg_NotiID = @iLoop)
 		BEGIN
 			INSERT INTO Notification (
-				StatusID
+				RefID
+				,StatusID
 				,NotificationType
 				,Subject
 				,Content_en
@@ -795,7 +799,8 @@ BEGIN
 				Lap_NotiID
 				,Msg_NotiID
 			) --Get Inserted
-			SELECT @StsGenerating --need to verify after [DONE] insert realted tables
+			SELECT n.MessageID
+				,@StsGenerating --need to verify after [DONE] insert realted tables
 				,2 AS NotificationType --Result Amendment to LAP
 				,n.Subject
 				,n.Content_en

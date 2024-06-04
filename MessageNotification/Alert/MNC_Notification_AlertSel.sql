@@ -249,7 +249,7 @@ Status: FAILED'
 					RefInfo VARCHAR(50) '$.RefInfo'
 				) AS ext --OPENJSON case-sensitive
 		WHERE ext.RefInfo = 'NotificationID'
-			AND TRY_CONVERT(INT, a.RefID) IS NOT NULL
+			AND TRY_CONVERT(INT, a.RefID) IS NOT NULL
 	)
 	INSERT INTO #tmpAlertByCust (
 		AlertID
@@ -302,7 +302,7 @@ Status: FAILED'
 					RefInfo VARCHAR(50) '$.RefInfo'
 				) AS ext --OPENJSON case-sensitive
 			LEFT JOIN SettlementResultHist AS rs WITH (NOLOCK) ON ext.RefInfo = 'SessionID' AND a.RefID = rs.SessionID
-		WHERE rs.SettlementLogID IS NOT NULL
+		WHERE rs.SettlementLogID IS NOT NULL
 	)
 	INSERT INTO #tmpAlertByCust (
 		AlertID
@@ -453,7 +453,7 @@ Status: FAILED'
 			LEFT JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 		WHERE ev.MatchID IS NULL
 	)
-	BEGIN
+	BEGIN
 		INSERT INTO #tmpEventInfo (
 			MatchID
 			,EventDate
@@ -511,7 +511,7 @@ Status: FAILED'
 		,MIN(CASE WHEN ISNULL(TRIM(a.ChatGroupID),'') = '' THEN 1
 			WHEN a.RuleType IS NULL THEN 2
 			WHEN a.MatchID IS NULL THEN 3
-			WHEN tp.AlertID IS NULL THEN 4
+			WHEN tp.AlertID IS NULL THEN 4
 			ELSE 5 END) AS InvalidType
 	FROM #tmpSendingAlert AS a
 		LEFT JOIN #tmpTemplateDetl AS tp ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
@@ -521,9 +521,9 @@ Status: FAILED'
 			ISNULL(TRIM(a.ChatGroupID),'') = ''
 			OR a.RuleType IS NULL
 			OR a.MatchID IS NULL
-			OR tp.AlertID IS NULL
+			OR tp.AlertID IS NULL
 			OR ev.MatchID IS NULL
-		)
+		)
 	GROUP BY a.AlertID
 	
 	DELETE s
@@ -687,7 +687,7 @@ Refer AlertID: ' + ISNULL(CONVERT(VARCHAR,tp.AlertID),'NULL') ELSE '' END --add 
 			SELECT AlertID
 			FROM #tmpSendingAlert
 		
-			UNION ALL
+			UNION ALL
 			
 			SELECT AlertID
 			FROM #tmpPrepareSystemAlert

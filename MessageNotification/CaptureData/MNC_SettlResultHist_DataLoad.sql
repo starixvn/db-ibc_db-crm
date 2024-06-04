@@ -80,8 +80,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --UATMode
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	/*
@@ -119,7 +119,7 @@ BEGIN
 	END
 	ELSE --both REAL & TEST
 	BEGIN
-		SET @IsTestFlag = NULL
+		SET @IsTestFlag = NULL
 	END
 	
 	--write more info if LogMode = Debug
@@ -829,7 +829,7 @@ BEGIN
 			SELECT SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] - Over Retrieving_WaitSec(' + ISNULL(CONVERT(VARCHAR,@Retrieving_WaitSec),'NULL') +') configuration'
+				,@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] - Over Retrieving_WaitSec(' + ISNULL(CONVERT(VARCHAR,@Retrieving_WaitSec),'NULL') +') configuration'
 			FROM #tmpUpdatedRH AS rh
 			WHERE UpdatedCase = 'Over Retrieving_WaitSec'
 			ORDER BY SettlementLogID

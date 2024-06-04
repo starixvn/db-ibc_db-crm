@@ -1,6 +1,10 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AdmSelNotiDetail
 	@NotiID INT
+	---permission control---
+	,@UserRole TINYINT = 2
+	,@LicenseeType INT = 0
+	,@SitePermission NVARCHAR(MAX) = NULL
 AS
 /*
 	Created: 20231213@Roy
@@ -11,6 +15,15 @@ AS
 	
 	Param's Explanation:
 		@NotiID: Notification.NotificationID
+		-------------permission control-------------
+		@UserRole = 0: Manager
+					1: CN88 staff
+					2: Company staff
+        @LicenseeType = -1: None
+						0: Both
+						1: Credit
+						2: Licensee
+        @SitePermission: Value depend on user's permission and maybe NULL
 	
 	Example:
 		EXEC MessageNotification.dbo.MNC_Notification_AdmSelNotiDetail
@@ -20,7 +33,8 @@ BEGIN
 	SET NOCOUNT ON
 	
 	CREATE TABLE #tmpAffectedTicket (
-		SiteType VARCHAR(100)
+		NotiID INT
+		,SiteType VARCHAR(100)
 		,SiteGroup VARCHAR(50)
 		,SiteName NVARCHAR(50)
 		,TransID BIGINT
@@ -35,6 +49,95 @@ BEGIN
 		,LAPSubject_ch NVARCHAR(500)
 		,LAPSubject_cs NVARCHAR(500)
 	)
+	
+	CREATE TABLE #tmpValidSite (
+		SiteName NVARCHAR(100)
+		,isDeposit BIT
+	)
+	
+	/*
+		Convert permission control to Sites
+	*/
+	---- @UserRole - CN88 ---------
+	;WITH CTE_UserRole AS (
+		SELECT sc.SettingValue AS SiteCategory
+		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+		WHERE sc.SettingName = 'SiteCategory'
+			AND ((@UserRole = 1 AND sc.SettingID = 33002) OR (@UserRole = 2 AND ISNULL(sc.SettingID,0) <> 33002))
+			AND ISNULL(sc.SiteOffer, @UserRole) = @UserRole
+	)
+	INSERT INTO #tmpValidSite (
+		SiteName
+		,isDeposit
+	)
+	SELECT DISTINCT si.SettingValue AS SiteName
+		,(CASE WHEN sc.SettingID = 33000 THEN 1 --Licensee
+			WHEN sc.SettingID = 33001 THEN 0 --Credit
+			-- ELSE -1 END --Unknown
+			END) AS isDeposit
+	FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+		INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
+		INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+	WHERE sc.SettingName = 'SiteCategory'
+		AND sc.SettingValue IN (
+			SELECT SiteCategory FROM CTE_UserRole
+		)
+	
+	---- Filter by Licensee ---------
+	;WITH CTE_Licensee AS (
+		SELECT sc.SettingValue AS SiteCategory
+		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+		WHERE sc.SettingName = 'SiteCategory'
+			AND sc.SettingID = 33000 --Licensee
+			AND (
+				@LicenseeType = 0
+				OR (@LicenseeType = 2 AND ISNULL(TRIM(@SitePermission),'') = '')
+			)
+	)
+	,CTE_CRMLic AS (
+		SELECT DISTINCT si.SettingValue AS SiteName
+		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+			INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
+			INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+		WHERE sc.SettingName = 'SiteCategory'
+			AND sc.SettingValue IN (
+				SELECT SiteCategory FROM CTE_Licensee
+			)
+	)
+	DELETE v
+	FROM #tmpValidSite AS v
+		LEFT JOIN CTE_CRMLic AS lic ON v.SiteName = lic.SiteName
+	WHERE v.isDeposit = 1
+		AND lic.SiteName IS NULL
+	
+	---- Credit ---------
+	;WITH CTE_Credit AS (
+		SELECT sc.SettingValue AS SitePermission
+		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+			LEFT JOIN STRING_SPLIT(@SitePermission, ',') AS sp ON sc.SettingValue = sp.value
+		WHERE sc.SettingName = 'SitePermission'
+			AND (
+				@LicenseeType = 0
+				OR (@LicenseeType = 1 AND sp.value IS NOT NULL)
+			)
+	)
+	,CTE_CRMCredit AS (
+		SELECT DISTINCT si.SettingValue AS SiteName
+		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+			INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
+			INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+		WHERE sc.SettingName = 'SitePermission'
+			AND sc.SettingValue IN (
+				SELECT SitePermission FROM CTE_Credit
+			)
+	)
+	DELETE v
+	FROM #tmpValidSite AS v
+		LEFT JOIN CTE_CRMCredit AS cre ON v.SiteName = cre.SiteName
+	WHERE v.isDeposit = 0
+		AND cre.SiteName IS NULL
+	
+	CREATE CLUSTERED INDEX CIX_tmpValidSite ON #tmpValidSite (SiteName)
 	
 	/*****************************************   Prepare for return   *********************************************************/
 	DECLARE @NotiType TINYINT
@@ -66,12 +169,14 @@ BEGIN
 		OPTION (RECOMPILE)
 		
 		INSERT INTO #tmpAffectedTicket (
-			SiteType
+			NotiID
+			,SiteType
 			,SiteGroup
 			,SiteName
 			,TransID
 		)
-		SELECT DISTINCT (CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
+		SELECT DISTINCT nt.NotificationID
+			,(CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
 			,CASE WHEN s.isDeposit = 1 THEN --Licensee
 				(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
 					WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
@@ -82,6 +187,7 @@ BEGIN
 			,nt.TargetSite
 			,t.TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
+			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							TransID BIGINT '$.TransID'
 						) AS t --OPENJSON case-sensitive
@@ -124,12 +230,14 @@ BEGIN
 		OPTION (RECOMPILE)
 		
 		INSERT INTO #tmpAffectedTicket (
-			SiteType
+			NotiID
+			,SiteType
 			,SiteGroup
 			,SiteName
 			,TransID
 		)
-		SELECT DISTINCT (CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
+		SELECT DISTINCT nt.NotificationID
+			,(CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
 			,CASE WHEN s.isDeposit = 1 THEN --Licensee
 				(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
 					WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
@@ -140,6 +248,7 @@ BEGIN
 			,nt.TargetSite
 			,t.value AS TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
+			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							CustID INT '$.CustID'
 							,TransIDs VARCHAR(MAX) '$.TransIDs'
@@ -171,6 +280,7 @@ BEGIN
 			,n.Content_cs
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
+			INNER JOIN #tmpAffectedTicket AS nt ON n.NotificationID = nt.NotiID
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 	END
 	ELSE --LAP
@@ -180,11 +290,12 @@ BEGIN
 			,s.Status
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
-			,ext.LAPSubject_en + '<br/><br/>' + n.Content_en AS Content_en
-			,ext.LAPSubject_ch + '<br/><br/>' + n.Content_ch AS Content_ch
-			,ext.LAPSubject_cs + '<br/><br/>' + n.Content_cs AS Content_cs
+			,n.Content_en
+			,n.Content_ch
+			,n.Content_cs
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
+			INNER JOIN #tmpAffectedTicket AS nt ON n.NotificationID = nt.NotiID
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 	END
 	
@@ -249,4 +360,5 @@ BEGIN
 	
 	DROP TABLE #tmpNotiExt
 	DROP TABLE #tmpAffectedTicket
+	DROP TABLE #tmpValidSite
 END

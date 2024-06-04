@@ -98,8 +98,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --UATMode
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	/*
@@ -140,7 +140,7 @@ BEGIN
 	END
 	ELSE --both REAL & TEST
 	BEGIN
-		SET @IsTestFlag = NULL
+		SET @IsTestFlag = NULL
 	END
 	
 	--check current status of generate message process

@@ -131,8 +131,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --UATMode
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	/*
@@ -1832,7 +1832,7 @@ BEGIN
 	BEGIN
 		UPDATE #tmpResultHist
 		SET StatusID = @StsGenFailed
-			,NotiLog = NotiLog + '[Generate Msg Noti process - Gen] - Changed SettlementLogID Status from [Generating] to [Failed to Generate] due to ERROR('+ ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ') - ERROR_MESSAGE('+ ISNULL(@ErrMsg,'NULL') + ')'
+			,NotiLog = NotiLog + '[Generate Msg Noti process - Gen] - Changed SettlementLogID Status from [Generating] to [Failed to Generate] due to ERROR('+ ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ') - ERROR_MESSAGE('+ ISNULL(@ErrMsg,'NULL') + ')'
 		
 		--DEL Failed NotiID
 			--Notification

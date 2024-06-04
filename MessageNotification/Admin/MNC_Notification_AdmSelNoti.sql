@@ -232,7 +232,7 @@ BEGIN
 	IF @NotiType IN (1,2)
 		AND (@FNotiID IS NOT NULL OR @TNotiID IS NOT NULL)
 	BEGIN
-		--correct if any NULL
+		--correct if any NULL
 		SELECT @FNotiID = ISNULL(@FNotiID,@TNotiID)
 			,@TNotiID = ISNULL(@TNotiID,@FNotiID)
 		
@@ -363,7 +363,7 @@ BEGIN
 	
 	--apply filter ONLY IF input NotiID NULL
 	IF @FNotiID IS NULL
-	BEGIN
+	BEGIN
 		--filter by @MsgID
 		IF @MsgID IS NOT NULL
 		BEGIN

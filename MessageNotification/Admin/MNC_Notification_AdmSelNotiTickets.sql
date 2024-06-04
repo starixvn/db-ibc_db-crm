@@ -91,7 +91,7 @@ BEGIN
 	
 	--For credit - get Headline
 	IF EXISTS (SELECT 1 FROM #tmpAffectedTicket WHERE SiteType = 'Credit')
-	BEGIN
+	BEGIN
 		DECLARE @CreditCustIDs VARCHAR(MAX)
 		
 		CREATE TABLE #tmpHeadline (
@@ -123,7 +123,7 @@ BEGIN
 	
 	--For licensee - get username2
 	-- IF EXISTS (SELECT 1 FROM #tmpAffectedTicket WHERE SiteType <> 'Credit')
-	-- BEGIN
+	-- BEGIN
 		-- UPDATE a
 		-- SET a.ExtInfo = c.username2
 		-- FROM #tmpAffectedTicket AS a

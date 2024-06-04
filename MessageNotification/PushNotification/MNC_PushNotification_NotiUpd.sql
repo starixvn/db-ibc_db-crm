@@ -63,7 +63,7 @@ BEGIN
 	SELECT @InfLogPrefix = 'Info - '
 	
 	IF ISNULL(@ErrCode,0) <> 0
-	BEGIN
+	BEGIN
 		INSERT INTO [Log] (
 			RefID
 			,ActionID

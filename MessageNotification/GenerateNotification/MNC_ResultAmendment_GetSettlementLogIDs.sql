@@ -100,8 +100,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	INSERT INTO [Log] (
@@ -136,7 +136,7 @@ BEGIN
 	END
 	ELSE --both REAL & TEST
 	BEGIN
-		SET @IsTestFlag = NULL
+		SET @IsTestFlag = NULL
 	END
 	
 	---create temp tables---	
@@ -246,7 +246,7 @@ BEGIN
 	;WITH CTE_SettleID AS (
 		SELECT DISTINCT SettlementLogID
 		FROM #tmpRemotingRefData
-		WHERE SettlementLogID IS NOT NULL
+		WHERE SettlementLogID IS NOT NULL
 	)
 	SELECT @VerifySettleIDs = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),','),'')
 	FROM CTE_SettleID
@@ -402,7 +402,7 @@ BEGIN
 	;WITH CTE_SettleID AS (
 		SELECT DISTINCT SettlementLogID
 		FROM #tmpRemotingRefData
-		WHERE SettlementLogID IS NOT NULL
+		WHERE SettlementLogID IS NOT NULL
 	)
 	INSERT INTO #tmpVerifyList (SettlementLogID, StatusID)
 	SELECT DISTINCT TRY_CONVERT(INT, s.value)

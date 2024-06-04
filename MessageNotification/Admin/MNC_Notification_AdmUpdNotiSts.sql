@@ -102,7 +102,7 @@ BEGIN
 	WHERE s.NotiType = @NotiType
 	
 	/* start verify before update status */
-	IF @NewStatusID IS NULL
+	IF @NewStatusID IS NULL
 		OR NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
 	BEGIN
 		SELECT @ErrCode = 50005
@@ -285,11 +285,11 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Changed NotificationID Status from [' + ISNULL(@CurStatus,'NULL') + '] to [' + ISNULL(@NewStatus,'NULL') + ']'
+			,@InfLogPrefix + 'Changed NotificationID Status from [' + ISNULL(@CurStatus,'NULL') + '] to [' + ISNULL(@NewStatus,'NULL') + ']'
 							+ ' - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ') = ' + @Updater
 							+ ' - NotificationExtra.ExtraInfo '
-								+ CASE WHEN @CExtraInfo IS NULL THEN 'NO Change' ELSE 'before (' + ISNULL(@CExtraInfo,'NULL') + ')' END
-			,CASE WHEN @CExtraInfo IS NOT NULL THEN ISNULL(@NExtraInfo,'NULL') END
+								+ CASE WHEN @CExtraInfo IS NULL THEN 'NO Change' ELSE 'before (' + ISNULL(@CExtraInfo,'NULL') + ')' END
+			,CASE WHEN @CExtraInfo IS NOT NULL THEN ISNULL(@NExtraInfo,'NULL') END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -312,7 +312,7 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + @ErrMsg
-	END CATCH
+	END CATCH
 	
 	DROP TABLE #tmpConsisSts
 END

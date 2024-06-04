@@ -164,7 +164,6 @@ BEGIN
 		LEFT JOIN CTE_CRMLic AS lic ON v.SiteName = lic.SiteName
 	WHERE v.isDeposit = 1
 		AND lic.SiteName IS NULL
-		AND @LicenseeType IN (0,2)
 	
 	---- Credit ---------
 	;WITH CTE_Credit AS (
@@ -192,7 +191,6 @@ BEGIN
 		LEFT JOIN CTE_CRMCredit AS cre ON v.SiteName = cre.SiteName
 	WHERE v.isDeposit = 0
 		AND cre.SiteName IS NULL
-		AND @LicenseeType IN (0,1)
 	
 	CREATE CLUSTERED INDEX CIX_tmpValidSite ON #tmpValidSite (SiteName)
 	
@@ -243,7 +241,7 @@ BEGIN
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpStsByNotiType AS s ON n.NotificationType = s.NotiType AND n.StatusID = s.StatusID
 			--filter by User Permission
-			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON n.NotificationType = nt.NotificationID
+			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON n.NotificationID = nt.NotificationID
 			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 		WHERE n.NotificationID BETWEEN @FNotiID AND @TNotiID
 			AND n.NotificationType = @NotiType
@@ -257,7 +255,7 @@ BEGIN
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN #tmpStsByNotiType AS s ON n.NotificationType = s.NotiType AND n.StatusID = s.StatusID
 			--filter by User Permission
-			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON n.NotificationType = nt.NotificationID
+			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON n.NotificationID = nt.NotificationID
 			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 		WHERE n.InsertedTime >= @FCreatedTime4GMT
 			AND n.InsertedTime < @TCreatedTime4GMT
@@ -555,10 +553,10 @@ BEGIN
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
 			,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
-			,'Result Amendment for' + ISNULL(' ' + ext.SportName, 'NULL') AS Subject
-			,nex.Subject_en + '</b><br/><br/>' + n.Content_en AS Content_en
-			,nex.Subject_ch + '</b><br/><br/>' + n.Content_ch AS Content_ch
-			,nex.Subject_cs + '</b><br/><br/>' + n.Content_cs AS Content_cs
+			,nex.Subject_en + ISNULL(' ' + FORMAT(ext.EventDate, 'MM/dd/yyyy'), 'NULL') AS Subject
+			,n.Content_en
+			,n.Content_ch
+			,n.Content_cs
 			,s.Status
 			,ext.Sender
 			,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8

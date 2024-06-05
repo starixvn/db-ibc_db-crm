@@ -143,14 +143,15 @@ BEGIN
 		,n.Content_cs
 		,(CASE WHEN n.NotificationType = 2 THEN ns.Subject_cs END) AS Subject_cs
 	FROM Notification AS n WITH (NOLOCK)
-		OUTER APPLY OPENJSON(n.Subject) WITH (
+		INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON n.NotificationID = ne.NotificationID
+		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 							Subject_en NVARCHAR(300) '$.Subject_en'
 							,Subject_ch NVARCHAR(300) '$.Subject_ch'
 							,Subject_cs NVARCHAR(300) '$.Subject_cs'
 						) AS ns --OPENJSON case-sensitive
 		LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
-	WHERE NotificationID = @NotiID
-		AND ISJSON(n.Subject) = 1
+	WHERE n.NotificationID = @NotiID
+		AND ISJSON(ne.ExtraInfo) = 1
 	OPTION (RECOMPILE)
 	
 	--parse input to new Notification
@@ -177,7 +178,7 @@ BEGIN
 		,CASE WHEN Content_cs IS NOT NULL THEN '' END
 	FROM CTE_NewNoti
 		
-	IF @NotiType = 2 --LAP
+	IF @NotiType = 23 --LAP
 	BEGIN
 		/*
 			Becasue the LAP Content include [Subject]
@@ -271,7 +272,7 @@ BEGIN
 	END
 	
 	--Subject DIFF
-	IF @NotiType = 2 --LAP
+	IF @NotiType = 23 --LAP
 		AND EXISTS (
 			SELECT 1
 			FROM #tmpNewNoti AS n
@@ -285,9 +286,9 @@ BEGIN
 			,@JSNewSub NVARCHAR(MAX)
 			,@NotiUpdCnt INT
 		
-		SELECT @JSNewSub = TRIM(Subject)
-			,@JSCurSub = TRIM(Subject)
-		FROM Notification WITH (NOLOCK)
+		SELECT @JSNewSub = TRIM(ExtraInfo)
+			,@JSCurSub = TRIM(ExtraInfo)
+		FROM NotificationExtra WITH (NOLOCK)
 		WHERE NotificationID = @NotiID
 		
 		IF EXISTS (
@@ -317,10 +318,10 @@ BEGIN
 			SELECT @JSNewSub = JSON_MODIFY(@JSNewSub,'$[0].Subject_cs', Subject_cs)
 			FROM #tmpNewNoti
 		
-		UPDATE Notification WITH (ROWLOCK,UPDLOCK)
-		SET Subject = TRIM(@JSNewSub)
+		UPDATE NotificationExtra WITH (ROWLOCK,UPDLOCK)
+		SET ExtraInfo = TRIM(@JSNewSub)
 		WHERE NotificationID = @NotiID
-			AND TRIM(Subject) <> TRIM(@JSNewSub)
+			AND TRIM(ExtraInfo) <> TRIM(@JSNewSub)
 		
 		--------------------------
 		SELECT @NotiUpdCnt = @@ROWCOUNT
@@ -337,8 +338,8 @@ BEGIN
 				,@LogActionID
 				,@LogUserID
 				,@InfLogPrefix + 'UPD NotificationID Subject - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
-								+ ' - Notification.Subject before (' + ISNULL(@JSCurSub,'NULL') + ')'
-				,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
+								+ ' - Notification.Subject before (' + ISNULL(@JSCurSub,'NULL') + ')'
+				,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
 		END
 		ELSE
 		BEGIN
@@ -356,14 +357,14 @@ BEGIN
 				,@LogActionID
 				,@LogUserID
 				,@ErrLogPrefix + @ErrMsg
-					+ ' - Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
+					+ ' - Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 					+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 					+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 					+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 					+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 					+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
-				,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
+				,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
 		END
 	END TRY
 	BEGIN CATCH
@@ -381,14 +382,14 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@ErrLogPrefix + @ErrMsg
-				+ ' - Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
+				+ ' - Current Subject(' + ISNULL(@JSCurSub,'NULL') + ')'
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
-			,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
+			,'New Subject(' + ISNULL(@JSNewSub,'NULL') + ')'
 	END CATCH
 	ELSE
 	BEGIN
@@ -436,9 +437,9 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,@InfLogPrefix + 'UPD NotificationID Content - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
-							+ ' - Notification.Content_en before (' + ISNULL(c.Content_en,'NULL') + ')'
-							+ ' - Notification.Content_ch before (' + ISNULL(c.Content_ch,'NULL') + ')'
-							+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')'
+							+ ' - Notification.Content_en before (' + ISNULL(c.Content_en,'NULL') + ')'
+							+ ' - Notification.Content_ch before (' + ISNULL(c.Content_ch,'NULL') + ')'
+							+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')'
 			,'New Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
 				+ ' - New Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
 				+ ' - New Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
@@ -512,7 +513,7 @@ BEGIN
 				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
-	END CATCH
+	END CATCH
 	
 	--debug log
 	INSERT INTO [Log] (

@@ -947,6 +947,25 @@ BEGIN
 					) AS mi--OPENJSON case-sensitive
 			WHERE ISJSON(ex.ExtraInfo) = 1
 		)
+		,CTE_SettlLog AS (
+			SELECT s.Msg_NotiID
+				,CONVERT(NVARCHAR(MAX),(
+					SELECT DISTINCT t.LogType
+						,t.LogDateTime
+						,t.LogDateTime_en
+						,t.LogDateTime_ch
+						,t.LogDateTime_cs
+						,t.ResultName_en
+						,t.ResultName_ch
+						,t.ResultName_cs
+					FROM #tmpSettlLog AS t
+					WHERE t.Msg_NotiID = s.Msg_NotiID
+					ORDER BY t.LogType
+					FOR JSON PATH
+				)) AS SettlLog
+			FROM #tmpSettlLog AS s
+			GROUP BY s.Msg_NotiID
+		)
 		INSERT INTO NotificationExtra (
 			NotificationID
 			,EventDate
@@ -975,16 +994,9 @@ BEGIN
 					-- ,N'赛果更正' AS Subject_ch
 					,N'赛果更正' AS Subject_cs
 					----------SettlLog------
-					,sl.LogType
-					,sl.LogDateTime
-					,sl.LogDateTime_en
-					,sl.LogDateTime_ch
-					,sl.LogDateTime_cs
-					,sl.ResultName_en
-					,sl.ResultName_ch
-					,sl.ResultName_cs
+					,sl.SettlLog
 				FROM CTE_Match AS m
-					LEFT JOIN #tmpSettlLog AS sl ON sl.Msg_NotiID = m.Msg_NotiID
+					LEFT JOIN CTE_SettlLog AS sl ON sl.Msg_NotiID = m.Msg_NotiID
 				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH
 			)) AS ExtraInfo

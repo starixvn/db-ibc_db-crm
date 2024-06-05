@@ -160,7 +160,7 @@ BEGIN
 		,@LastScan = @FromSettlID
 END
 ELSE IF EXISTS (SELECT 1 FROM #tmpSettlError_New WHERE DeleteReason = 0)
-BEGIN
+BEGIN
 	SELECT @JSAlertResult = CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT s.SessionID AS RefID
 					,CONVERT(NVARCHAR(MAX),(
@@ -180,7 +180,7 @@ BEGIN
 	WHERE s.DeleteReason IN (0, 2) --0:Error; 2: NOT enough Site count BUT [Wait time < @WaitSec] => check next schedule
 END
 ELSE IF EXISTS (SELECT 1 FROM #tmpSettlError_New WHERE DeleteReason = 2) --NOT enough Site count BUT [Wait time < @WaitSec] => check next schedule
-BEGIN
+BEGIN
 	SELECT @JSAlertResult = ''
 	
 	SELECT @LastScan = MIN(rh.SettlementLogID) - 1
@@ -189,7 +189,7 @@ BEGIN
 	WHERE s.DeleteReason = 2
 END
 ELSE--EXISTS #tmpSettlError_New but have no ERROR
-BEGIN
+BEGIN
 	SELECT @JSAlertResult = ''
 	
 	SELECT @LastScan = @ToSettlID

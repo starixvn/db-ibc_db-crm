@@ -1,4 +1,4 @@
-/*<info serverAlias="DBACC-bodb02,DBSIG-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBSIG-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_SettlResultHist_GetSessionByDate
 	@Environment VARCHAR(20)
 	,@FDTime DATETIME

@@ -42,10 +42,10 @@ BEGIN
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
-		,MsgType TINYINT DEFAULT 1 --message to customer (personal)
+		,MsgType TINYINT
 		,MsgContentsType TINYINT NOT NULL
-		,IsSticky BIT DEFAULT 0 --Is special Message or not
-		,IsBatch BIT DEFAULT 1 --special message (need to replace the symbol @@ by transid when display)
+		,IsSticky BIT
+		,IsBatch BIT
 		,IsTest BIT NOT NULL
 		,isDeleted BIT NOT NULL
 		,MatchID INT
@@ -92,6 +92,9 @@ BEGIN
 			,MsgContentsType
 			,IsTest
 			,isDeleted
+			,MsgType
+			,IsSticky
+			,IsBatch
 			,MatchID
 			,LeagueGroupID
 			,Creator
@@ -109,6 +112,9 @@ BEGIN
 			,111 AS MsgContentsType --MsgContentsType of Result amendment
 			,1 AS IsTest --tmp value, will update = 0 after everything complete
 			,1 AS isDeleted --tmp value, will update = 0 after everything complete
+			,1 AS MsgType --message to customer (personal)
+			,0 AS IsSticky --Is special Message or not
+			,1 AS IsBatch --special message (need to replace the symbol @@ by transid when display)
 			,MatchID
 			,LeagueGroupID
 			,Creator
@@ -266,7 +272,7 @@ BEGIN
 	
 	--delete data if error
 	IF @ErrCode <> 0 AND @MessageID IS NOT NULL
-	BEGIN
+	BEGIN
 		---DELETE Msg
 		DELETE FROM dbo.Msg
 		WHERE MessageId = @MessageID

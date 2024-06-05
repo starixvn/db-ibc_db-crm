@@ -82,12 +82,13 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --UATMode
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
+	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	
-	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
+	IF ISNULL(@Environment,'NULL') NOT IN ('LIVE', 'UAT')
+		OR (@UATMode = 0 AND @Environment = 'UAT') --no action (RETURN)
 	BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime
@@ -105,7 +106,8 @@ BEGIN
 		SELECT GETDATE() AS LogTime
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Capture process - Initial] - NO Action for UATMode = OFF AND Environment = UAT'
+			,CASE WHEN ISNULL(@Environment,'NULL') NOT IN ('LIVE', 'UAT') THEN @ErrLogPrefix + '[Capture process - Initial] - NO Action for Invalid @Environment(' + ISNULL(@Environment,'NULL') + ')'
+				ELSE @InfLogPrefix + '[Capture process - Initial] - NO Action for UATMode = OFF AND Environment = UAT' END
 		
 		RETURN
 	END

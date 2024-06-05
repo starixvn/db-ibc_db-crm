@@ -63,6 +63,7 @@ AS
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
+        20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
 
     Param's Explanation:
         @Category: <ROOT>
@@ -743,83 +744,131 @@ BEGIN
     -- 7. Write Log --
 
     -- Build XML for old value
+    -- + Deal with field NewCommunicationTools
+    -- + Create variable
+    DECLARE @OldCommunicationTools_LogValue NVARCHAR(MAX)
+    -- + Non Headline
+    IF EXISTS (SELECT 1 FROM @tblOldCommunicationTools WHERE isHeadline = 0)
+    BEGIN
+        SELECT @OldCommunicationTools_LogValue = STRING_AGG(CAST(ISNULL(bodb_CRM.dbo.f_EncodeXMLValue(sc.SettingValue + ': ' + cnc.CommunicationValue), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY sc.SettingValue)
+        FROM @tblOldCommunicationTools cnc
+             LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
+    END
+    -- + Headline
+    IF EXISTS (SELECT 1 FROM @tblOldCommunicationTools WHERE isHeadline = 1)
+    BEGIN
+        ;WITH CTE_Data AS (
+            SELECT bodb_CRM.dbo.f_EncodeXMLValue(cnc.PicInfo) PicInfo,
+                   STRING_AGG(CAST(ISNULL(bodb_CRM.dbo.f_EncodeXMLValue(sc.SettingValue + ': ' + cnc.CommunicationValue), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY sc.SettingValue) CommunicationInfo
+            FROM @tblOldCommunicationTools cnc
+                 LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
+            GROUP BY bodb_CRM.dbo.f_EncodeXMLValue(cnc.PicInfo)
+        )
+        SELECT @OldCommunicationTools_LogValue = STRING_AGG(CAST(ISNULL((PicInfo + '<br/>' + CommunicationInfo), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY PicInfo)
+        FROM CTE_Data
+    END
+    -- + Build log content
     DECLARE @OldValues XML 
     SELECT  @OldValues = '<Acc_CRM_NewManualFeedback_FeedbackUpd>' +
-                         '<TitleID>'               + ISNULL(CONVERT(VARCHAR(5),@TitleID_Old),'')             + '</TitleID>'               +
-                         '<FirstName>'             + ISNULL(dbo.f_EncodeXMLValue(@FirstName_Old),'')         + '</FirstName>'             +
-                         '<LastName>'              + ISNULL(dbo.f_EncodeXMLValue(@LastName_Old),'')          + '</LastName>'              +
-                         '<LanguageID>'            + ISNULL(CONVERT(VARCHAR(10),@LanguageID_Old),'')         + '</LanguageID>'            +
-                         '<CountryID>'             + ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')          + '</CountryID>'             +
-                         '<FeedbackDate>'          + ISNULL(CONVERT(VARCHAR(20),@FeedbackDate_Old),'')       + '</FeedbackDate>'          +
-                         '<SolveDate>'             + ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')          + '</SolveDate>'             +
-                         '<CommunicationID>'       + ISNULL(dbo.f_EncodeXMLValue(@CommunicationID_Old),'')   + '</CommunicationID>'       +
-                         '<StationID>'             + ISNULL(dbo.f_EncodeXMLValue(@StationID_Old),'')         + '</StationID>'             +
-                         '<MainCategoryID>'        + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryID_Old),'')    + '</MainCategoryID>'        +
-                         '<SubCategoryID>'         + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryID_Old),'')     + '</SubCategoryID>'         +
-                         '<SiteID>'                + ISNULL(CONVERT(VARCHAR(10),@SiteID_Old),'')             + '</SiteID>'                +
-                         '<RoleID>'                + ISNULL(CONVERT(VARCHAR(10),@RoleID_Old),'')             + '</RoleID>'                +
-                         '<ProductID>'             + ISNULL(dbo.f_EncodeXMLValue(@ProductID_Old),'')         + '</ProductID>'             +
-                         '<SubProductID>'          + ISNULL(dbo.f_EncodeXMLValue(@SubProductID_Old),'')      + '</SubProductID>'          +
-                         '<BettypeID>'             + ISNULL(dbo.f_EncodeXMLValue(@BettypeID_Old),'')         + '</BettypeID>'             +
-                         '<ResponseID>'            + ISNULL(CONVERT(VARCHAR(10),@ResponseID_Old),'')         + '</ResponseID>'            +
-                         '<StatusID>'              + ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')           + '</StatusID>'              +
-                         '<Remark>'                + ISNULL(dbo.f_EncodeXMLValue(@Remark_Old),'')            + '</Remark>'                +
-                         '<AutoField>'             + ISNULL(dbo.f_EncodeXMLValue(@AutoField_Old),'')         + '</AutoField>'             +
-                         '<Solution>'              + ISNULL(dbo.f_EncodeXMLValue(@Solution_Old),'')          + '</Solution>'              +
-                         '<IsReviewed>'            + ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')          + '</IsReviewed>'            +
-                         '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')            + '</Review>'                +
-                         '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')         + '</Reviewer>'              +
-                         '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject_Old),'')           + '</Subject>'               +
-                         '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')     + '</ResolutionDate>'        +
-                         '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport_Old),'')          + '</Passport>'              +
-                         '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday_Old,107),'')       + '</Birthday>'              +
-                         '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode_Old),'')       + '</BettingCode>'           +
-                         '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2_Old),'')          + '</RefCode2>'              +
-                         '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip_Old),'')              + '</IsVip>'                 +
-                         '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')       + '</LicenseeType>'          +
-                         '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')       + '</NoInquiries>'           +
-                         '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID_Old),'')     + '</RelatedCustID>'         +
-                         '<NewCommunicationTools>' + ISNULL(dbo.f_EncodeXMLValue(@OldCommunicationTools),'') + '</NewCommunicationTools>' +
+                         '<TitleID>'               + ISNULL(CONVERT(VARCHAR(5),@TitleID_Old),'')           + '</TitleID>'               +
+                         '<FirstName>'             + ISNULL(dbo.f_EncodeXMLValue(@FirstName_Old),'')       + '</FirstName>'             +
+                         '<LastName>'              + ISNULL(dbo.f_EncodeXMLValue(@LastName_Old),'')        + '</LastName>'              +
+                         '<LanguageID>'            + ISNULL(CONVERT(VARCHAR(10),@LanguageID_Old),'')       + '</LanguageID>'            +
+                         '<CountryID>'             + ISNULL(CONVERT(VARCHAR(10),@CountryID_Old),'')        + '</CountryID>'             +
+                         '<FeedbackDate>'          + ISNULL(CONVERT(VARCHAR(20),@FeedbackDate_Old),'')     + '</FeedbackDate>'          +
+                         '<SolveDate>'             + ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')        + '</SolveDate>'             +
+                         '<CommunicationID>'       + ISNULL(dbo.f_EncodeXMLValue(@CommunicationID_Old),'') + '</CommunicationID>'       +
+                         '<StationID>'             + ISNULL(dbo.f_EncodeXMLValue(@StationID_Old),'')       + '</StationID>'             +
+                         '<MainCategoryID>'        + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryID_Old),'')  + '</MainCategoryID>'        +
+                         '<SubCategoryID>'         + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryID_Old),'')   + '</SubCategoryID>'         +
+                         '<SiteID>'                + ISNULL(CONVERT(VARCHAR(10),@SiteID_Old),'')           + '</SiteID>'                +
+                         '<RoleID>'                + ISNULL(CONVERT(VARCHAR(10),@RoleID_Old),'')           + '</RoleID>'                +
+                         '<ProductID>'             + ISNULL(dbo.f_EncodeXMLValue(@ProductID_Old),'')       + '</ProductID>'             +
+                         '<SubProductID>'          + ISNULL(dbo.f_EncodeXMLValue(@SubProductID_Old),'')    + '</SubProductID>'          +
+                         '<BettypeID>'             + ISNULL(dbo.f_EncodeXMLValue(@BettypeID_Old),'')       + '</BettypeID>'             +
+                         '<ResponseID>'            + ISNULL(CONVERT(VARCHAR(10),@ResponseID_Old),'')       + '</ResponseID>'            +
+                         '<StatusID>'              + ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')         + '</StatusID>'              +
+                         '<Remark>'                + ISNULL(dbo.f_EncodeXMLValue(@Remark_Old),'')          + '</Remark>'                +
+                         '<AutoField>'             + ISNULL(dbo.f_EncodeXMLValue(@AutoField_Old),'')       + '</AutoField>'             +
+                         '<Solution>'              + ISNULL(dbo.f_EncodeXMLValue(@Solution_Old),'')        + '</Solution>'              +
+                         '<IsReviewed>'            + ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')        + '</IsReviewed>'            +
+                         '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')          + '</Review>'                +
+                         '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')       + '</Reviewer>'              +
+                         '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject_Old),'')         + '</Subject>'               +
+                         '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')   + '</ResolutionDate>'        +
+                         '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport_Old),'')        + '</Passport>'              +
+                         '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday_Old,107),'')     + '</Birthday>'              +
+                         '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode_Old),'')     + '</BettingCode>'           +
+                         '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2_Old),'')        + '</RefCode2>'              +
+                         '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip_Old),'')            + '</IsVip>'                 +
+                         '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')     + '</LicenseeType>'          +
+                         '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')     + '</NoInquiries>'           +
+                         '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID_Old),'')   + '</RelatedCustID>'         +
+                         '<NewCommunicationTools>' + ISNULL(@OldCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
                          '</Acc_CRM_NewManualFeedback_FeedbackUpd>'
 
     -- Build XML for new value
+    -- + Deal with field NewCommunicationTools
+    -- + Create variable
+    DECLARE @NewCommunicationTools_LogValue NVARCHAR(MAX)
+    -- + Non Headline
+    IF EXISTS (SELECT 1 FROM @tblNewCommunicationTools WHERE isHeadline = 0)
+    BEGIN
+        SELECT @NewCommunicationTools_LogValue = STRING_AGG(CAST(ISNULL(bodb_CRM.dbo.f_EncodeXMLValue(sc.SettingValue + ': ' + cnc.CommunicationValue), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY sc.SettingValue)
+        FROM @tblNewCommunicationTools cnc
+             LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
+    END
+    -- + Headline
+    IF EXISTS (SELECT 1 FROM @tblNewCommunicationTools WHERE isHeadline = 1)
+    BEGIN
+        ;WITH CTE_Data AS (
+            SELECT bodb_CRM.dbo.f_EncodeXMLValue(cnc.PicInfo) PicInfo,
+                   STRING_AGG(CAST(ISNULL(bodb_CRM.dbo.f_EncodeXMLValue(sc.SettingValue + ': ' + cnc.CommunicationValue), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY sc.SettingValue) CommunicationInfo
+            FROM @tblNewCommunicationTools cnc
+                 LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
+            GROUP BY bodb_CRM.dbo.f_EncodeXMLValue(cnc.PicInfo)
+        )
+        SELECT @NewCommunicationTools_LogValue = STRING_AGG(CAST(ISNULL((PicInfo + '<br/>' + CommunicationInfo), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY PicInfo)
+        FROM CTE_Data
+    END
+    -- + Build log content
     DECLARE @NewValues XML
     SELECT  @NewValues = '<Acc_CRM_NewManualFeedback_FeedbackUpd>' +
-                         '<TitleID>'               + ISNULL(CONVERT(VARCHAR(5),@TitleID),'')                 + '</TitleID>'               +
-                         '<FirstName>'             + ISNULL(dbo.f_EncodeXMLValue(@FirstName),'')             + '</FirstName>'             +
-                         '<LastName>'              + ISNULL(dbo.f_EncodeXMLValue(@LastName),'')              + '</LastName>'              +
-                         '<LanguageID>'            + ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')             + '</LanguageID>'            +
-                         '<CountryID>'             + ISNULL(CONVERT(VARCHAR(10),@CountryID),'')              + '</CountryID>'             +
-                         '<FeedbackDate>'          + ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')           + '</FeedbackDate>'          +
-                         '<SolveDate>'             + ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')              + '</SolveDate>'             +
-                         '<CommunicationID>'       + ISNULL(dbo.f_EncodeXMLValue(@CommunicationID_New),'')   + '</CommunicationID>'       +
-                         '<StationID>'             + ISNULL(dbo.f_EncodeXMLValue(@StationID_New),'')         + '</StationID>'             +
-                         '<MainCategoryID>'        + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryID_New),'')    + '</MainCategoryID>'        +
-                         '<SubCategoryID>'         + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryID_New),'')     + '</SubCategoryID>'         +
-                         '<SiteID>'                + ISNULL(CONVERT(VARCHAR(10),@SiteID),'')                 + '</SiteID>'                +
-                         '<RoleID>'                + ISNULL(CONVERT(VARCHAR(10),@RoleID),'')                 + '</RoleID>'                +
-                         '<ProductID>'             + ISNULL(dbo.f_EncodeXMLValue(@ProductID_New),'')         + '</ProductID>'             +
-                         '<SubProductID>'          + ISNULL(dbo.f_EncodeXMLValue(@SubProductID_New),'')      + '</SubProductID>'          +
-                         '<BettypeID>'             + ISNULL(dbo.f_EncodeXMLValue(@BettypeID_New),'')         + '</BettypeID>'             +
-                         '<ResponseID>'            + ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')             + '</ResponseID>'            +
-                         '<StatusID>'              + ISNULL(CONVERT(VARCHAR(10),@StatusID),'')               + '</StatusID>'              +
-                         '<Remark>'                + ISNULL(dbo.f_EncodeXMLValue(@Remark),'')                + '</Remark>'                +
-                         '<AutoField>'             + ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')             + '</AutoField>'             +
-                         '<Solution>'              + ISNULL(dbo.f_EncodeXMLValue(@Solution),'')              + '</Solution>'              +
-                         '<IsReviewed>'            + ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')              + '</IsReviewed>'            +
-                         '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review),'')                + '</Review>'                +
-                         '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')             + '</Reviewer>'              +
-                         '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject),'')               + '</Subject>'               +
-                         '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')         + '</ResolutionDate>'        +
-                         '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport),'')              + '</Passport>'              +
-                         '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')           + '</Birthday>'              +
-                         '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode),'')           + '</BettingCode>'           +
-                         '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2),'')              + '</RefCode2>'              +
-                         '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip_crmFeedback),'')      + '</IsVip>'                 +
-                         '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')           + '</LicenseeType>'          +
-                         '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')           + '</NoInquiries>'           +
-                         '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')         + '</RelatedCustID>'         +
-                         '<NewCommunicationTools>' + ISNULL(dbo.f_EncodeXMLValue(@NewCommunicationTools),'') + '</NewCommunicationTools>' +
+                         '<TitleID>'               + ISNULL(CONVERT(VARCHAR(5),@TitleID),'')               + '</TitleID>'               +
+                         '<FirstName>'             + ISNULL(dbo.f_EncodeXMLValue(@FirstName),'')           + '</FirstName>'             +
+                         '<LastName>'              + ISNULL(dbo.f_EncodeXMLValue(@LastName),'')            + '</LastName>'              +
+                         '<LanguageID>'            + ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')           + '</LanguageID>'            +
+                         '<CountryID>'             + ISNULL(CONVERT(VARCHAR(10),@CountryID),'')            + '</CountryID>'             +
+                         '<FeedbackDate>'          + ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')         + '</FeedbackDate>'          +
+                         '<SolveDate>'             + ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')            + '</SolveDate>'             +
+                         '<CommunicationID>'       + ISNULL(dbo.f_EncodeXMLValue(@CommunicationID_New),'') + '</CommunicationID>'       +
+                         '<StationID>'             + ISNULL(dbo.f_EncodeXMLValue(@StationID_New),'')       + '</StationID>'             +
+                         '<MainCategoryID>'        + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryID_New),'')  + '</MainCategoryID>'        +
+                         '<SubCategoryID>'         + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryID_New),'')   + '</SubCategoryID>'         +
+                         '<SiteID>'                + ISNULL(CONVERT(VARCHAR(10),@SiteID),'')               + '</SiteID>'                +
+                         '<RoleID>'                + ISNULL(CONVERT(VARCHAR(10),@RoleID),'')               + '</RoleID>'                +
+                         '<ProductID>'             + ISNULL(dbo.f_EncodeXMLValue(@ProductID_New),'')       + '</ProductID>'             +
+                         '<SubProductID>'          + ISNULL(dbo.f_EncodeXMLValue(@SubProductID_New),'')    + '</SubProductID>'          +
+                         '<BettypeID>'             + ISNULL(dbo.f_EncodeXMLValue(@BettypeID_New),'')       + '</BettypeID>'             +
+                         '<ResponseID>'            + ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')           + '</ResponseID>'            +
+                         '<StatusID>'              + ISNULL(CONVERT(VARCHAR(10),@StatusID),'')             + '</StatusID>'              +
+                         '<Remark>'                + ISNULL(dbo.f_EncodeXMLValue(@Remark),'')              + '</Remark>'                +
+                         '<AutoField>'             + ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')           + '</AutoField>'             +
+                         '<Solution>'              + ISNULL(dbo.f_EncodeXMLValue(@Solution),'')            + '</Solution>'              +
+                         '<IsReviewed>'            + ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')            + '</IsReviewed>'            +
+                         '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review),'')              + '</Review>'                +
+                         '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')           + '</Reviewer>'              +
+                         '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject),'')             + '</Subject>'               +
+                         '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')       + '</ResolutionDate>'        +
+                         '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport),'')            + '</Passport>'              +
+                         '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')         + '</Birthday>'              +
+                         '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode),'')         + '</BettingCode>'           +
+                         '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2),'')            + '</RefCode2>'              +
+                         '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip_crmFeedback),'')    + '</IsVip>'                 +
+                         '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')         + '</LicenseeType>'          +
+                         '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')         + '</NoInquiries>'           +
+                         '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
+                         '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
                          '</Acc_CRM_NewManualFeedback_FeedbackUpd>'
 
     -- Execute sp to write log

@@ -941,14 +941,20 @@ BEGIN
 		;WITH CTE_TeamID AS (
 			SELECT DISTINCT atl.NotiTempID
 				,atl.ResourceID
+				,t.value AS TeamID
+			FROM #tmpResultInfo AS atl
+				OUTER APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
+			WHERE atl.AmendInfo = 'ActualResult'
+				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+		)
+		,CTE_TeamName AS (
+			SELECT atl.NotiTempID
+				,atl.ResourceID
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueEN,'')),', ') AS TeamName_en
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCH,'')),', ') AS TeamName_ch
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCS,'')),', ') AS TeamName_cs
-			FROM #tmpResultInfo AS atl
-				OUTER APPLY STRING_SPLIT(atl.TeamIDs, ',') AS t
-				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
-			WHERE atl.AmendInfo = 'ActualResult'
-				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+			FROM CTE_TeamID AS atl
+				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = atl.TeamID
 			GROUP BY atl.NotiTempID
 				,atl.ResourceID
 		)
@@ -957,7 +963,7 @@ BEGIN
 			,af.ActualValue_ch = t.TeamName_ch
 			,af.ActualValue_cs = t.TeamName_cs
 		FROM #tmpAffectedResult AS af
-			INNER JOIN CTE_TeamID AS t ON af.NotiTempID = t.NotiTempID AND af.ResourceID = t.ResourceID
+			INNER JOIN CTE_TeamName AS t ON af.NotiTempID = t.NotiTempID AND af.ResourceID = t.ResourceID
 		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#2.If HomeValue is number
@@ -976,38 +982,59 @@ BEGIN
 				=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" BUT [TeamIDs=""]
 				=> IGNORE case because very complex to handle (must check bettype, convert this case to Rule#1 template...)
 		*/
+		;WITH CTE_HomeNumber AS (
+			SELECT DISTINCT atl.NotiTempID
+				,atl.ResourceID
+				,atl.HomeValue
+				,atl.AwayValue
+			FROM #tmpResultInfo AS atl
+			WHERE atl.AmendInfo = 'ActualResult'
+				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
+		)
 		UPDATE af
 		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 		FROM #tmpAffectedResult AS af
-			INNER JOIN #tmpResultInfo AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
-		WHERE atl.AmendInfo = 'ActualResult'
-			AND af.ActualValue_en IS NULL --EXCLUDE above rules
-			AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
+			INNER JOIN CTE_HomeNumber AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
+		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#3.If HomeValue is NOT number
+		;WITH CTE_HomeNotNumber AS (
+			SELECT DISTINCT atl.NotiTempID
+				,atl.ResourceID
+				,atl.HomeValue
+				,atl.AwayValue
+			FROM #tmpResultInfo AS atl
+			WHERE atl.AmendInfo = 'ActualResult'
+				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
+		)
 		UPDATE af
 		SET af.ActualValue_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
 			,af.ActualValue_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
 			,af.ActualValue_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
 		FROM #tmpAffectedResult AS af
-			INNER JOIN #tmpResultInfo AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
+			INNER JOIN CTE_HomeNotNumber AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
 			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = atl.HomeValue
 			LEFT JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = atl.AwayValue
-		WHERE atl.AmendInfo = 'ActualResult'
-			AND af.ActualValue_en IS NULL --EXCLUDE above rules
-			AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 0
+		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#final.the rest, value of HomeValue
+		;WITH CTE_Rest AS (
+			SELECT DISTINCT atl.NotiTempID
+				,atl.ResourceID
+				,atl.HomeValue
+				,atl.AwayValue
+			FROM #tmpResultInfo AS atl
+			WHERE atl.AmendInfo = 'ActualResult'
+		)
 		UPDATE af
 		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultInfo AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
-		WHERE atl.AmendInfo = 'ActualResult'
-			AND af.ActualValue_en IS NULL --EXCLUDE above rules
+		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
 		
 		-- IF EXISTS {new_value}
 		UPDATE tp
@@ -1041,16 +1068,22 @@ BEGIN
 		
 		--Rule#1.If exists TeamIDs
 		;WITH CTE_TeamID AS (
+			SELECT DISTINCT wrg.NotiTempID
+				,wrg.ResourceID
+				,t.value AS TeamID
+			FROM #tmpResultInfo AS wrg
+				CROSS APPLY STRING_SPLIT(wrg.TeamIDs, ',') AS t
+			WHERE wrg.AmendInfo = 'WrongResult'
+				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+		)
+		,CTE_TeamName AS (
 			SELECT wrg.NotiTempID
 				,wrg.ResourceID
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueEN,'')),', ') AS TeamName_en
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCH,'')),', ') AS TeamName_ch
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCS,'')),', ') AS TeamName_cs
-			FROM #tmpResultInfo AS wrg
-				CROSS APPLY STRING_SPLIT(wrg.TeamIDs, ',') AS t
-				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = t.value
-			WHERE wrg.AmendInfo = 'WrongResult'
-				AND TRY_CONVERT(INT,t.value) IS NOT NULL
+			FROM CTE_TeamID AS wrg
+				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = wrg.TeamID
 			GROUP BY wrg.NotiTempID
 				,wrg.ResourceID
 		)
@@ -1059,42 +1092,63 @@ BEGIN
 			,af.WrongValue_ch = t.TeamName_ch
 			,af.WrongValue_cs = t.TeamName_cs
 		FROM #tmpAffectedResult AS af
-			INNER JOIN CTE_TeamID AS t ON af.NotiTempID = t.NotiTempID AND af.ResourceID = t.ResourceID
+			INNER JOIN CTE_TeamName AS t ON af.NotiTempID = t.NotiTempID AND af.ResourceID = t.ResourceID
 		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#2.If HomeValue is number
+		;WITH CTE_HomeNumber AS (
+			SELECT DISTINCT wrg.NotiTempID
+				,wrg.ResourceID
+				,wrg.HomeValue
+				,wrg.AwayValue
+			FROM #tmpResultInfo AS wrg
+			WHERE wrg.AmendInfo = 'WrongResult'
+				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
+		)
 		UPDATE af
 		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 		FROM #tmpAffectedResult AS af
-			INNER JOIN #tmpResultInfo AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
-		WHERE wrg.AmendInfo = 'WrongResult'
-			AND af.WrongValue_en IS NULL --EXCLUDE above rules
-			AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
+			INNER JOIN CTE_HomeNumber AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
+		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#3.If HomeValue is NOT number
+		;WITH CTE_HomeNotNumber AS (
+			SELECT DISTINCT wrg.NotiTempID
+				,wrg.ResourceID
+				,wrg.HomeValue
+				,wrg.AwayValue
+			FROM #tmpResultInfo AS wrg
+			WHERE wrg.AmendInfo = 'WrongResult'
+				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0
+		)
 		UPDATE af
 		SET af.WrongValue_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
 			,af.WrongValue_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
 			,af.WrongValue_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
 		FROM #tmpAffectedResult AS af
-			INNER JOIN #tmpResultInfo AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
+			INNER JOIN CTE_HomeNotNumber AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
 			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = wrg.HomeValue
 			LEFT JOIN #tmpRemotingRef AS rfa ON rfa.GroupName = 'RefResource' AND rfa.RefId1 = 'ResultSettlement' AND rfa.RefId2 = wrg.AwayValue
-		WHERE wrg.AmendInfo = 'WrongResult'
-			AND af.WrongValue_en IS NULL --EXCLUDE above rules
-			AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 0
+		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#final.the rest, value of HomeValue
+		;WITH CTE_Rest AS (
+			SELECT DISTINCT wrg.NotiTempID
+				,wrg.ResourceID
+				,wrg.HomeValue
+				,wrg.AwayValue
+			FROM #tmpResultInfo AS wrg
+			WHERE wrg.AmendInfo = 'WrongResult'
+		)
 		UPDATE af
 		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 		FROM #tmpAffectedResult AS af
-			INNER JOIN #tmpResultInfo AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
-		WHERE wrg.AmendInfo = 'WrongResult'
-			AND af.WrongValue_en IS NULL --EXCLUDE above rules
+			INNER JOIN CTE_Rest AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
+		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
 		
 		-- IF EXISTS {old_value}
 		UPDATE tp

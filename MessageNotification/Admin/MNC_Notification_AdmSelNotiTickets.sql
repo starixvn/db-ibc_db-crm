@@ -166,15 +166,11 @@ BEGIN
 			,SiteName
 			,TransID
 			,CustID
-			,Username
-			,ExtInfo
 		)
 		SELECT DISTINCT (CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
 			,nt.TargetSite
 			,t.value AS TransID
 			,nc.CustID
-			,c.Username
-			,(CASE WHEN s.isDeposit = 1 THEN c.username2 END) AS username2 --For licensee - get username2
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
 			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
@@ -182,13 +178,23 @@ BEGIN
 							,TransIDs VARCHAR(MAX) '$.TransIDs'
 						) AS nc --OPENJSON case-sensitive
 			OUTER APPLY STRING_SPLIT(nc.TransIDs, ',') AS t
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nc.CustID = c.CustID
 			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
-			AND c.roleid = 1 --cust only
 			AND TRY_CONVERT(BIGINT,t.value) IS NOT NULL
 			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
+		
+		--Join with Customer later to increase perf
+		UPDATE af
+		SET af.Username = c.Username
+			,af.ExtInfo = c.username2
+		FROM #tmpAffectedTicket AS af
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON af.CustID = c.CustID
+		WHERE af.TransID IS NOT NULL
+			AND c.roleid = 1 --cust only
+		
+		DELETE FROM #tmpAffectedTicket
+		WHERE Username IS NULL
 	END
 	
 	CREATE CLUSTERED INDEX CIX_tmpAffectedTicket ON #tmpAffectedTicket (CustID)
@@ -219,9 +225,10 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_tmpHeadline ON #tmpHeadline (CustID)
 		
 		UPDATE a
-		SET a.ExtInfo = ISNULL(h.HeadlineName,'Not assigned group')
+		SET a.ExtInfo = (CASE WHEN hed.CustID IS NOT NULL AND h.HeadlineName IS NOT NULL THEN h.HeadlineName ELSE 'Not assigned group' END)
 		FROM #tmpAffectedTicket AS a
 			LEFT JOIN #tmpHeadline AS h ON a.CustID = h.CustID
+			LEFT JOIN bodb02.dbo.CustGroupHeadline AS hed WITH (NOLOCK) ON h.HeadlineID = hed.CustID
 		WHERE a.SiteType = 'Credit'
 	END
 	

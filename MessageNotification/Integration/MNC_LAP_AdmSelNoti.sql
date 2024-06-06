@@ -2,6 +2,7 @@
 ALTER PROCEDURE MNC_LAP_AdmSelNoti
 	@FEventDate DATE
 	,@TEventDate DATE
+	,@AgentIDs VARCHAR(MAX) = NULL
 	,@LanguageCode VARCHAR(10) = 'en'
 	,@PageSize INT = 100
 	,@PageIndex INT = 1
@@ -33,7 +34,8 @@ BEGIN
 		RNo INT IDENTITY(1, 1) PRIMARY KEY
 		,LAPNotiID INT
 		,EventDate4GMT DATE
-		,Subject NVARCHAR(1000)
+		,Subject_en NVARCHAR(1000)
+		,Subject_cs NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
 	)
@@ -44,13 +46,15 @@ BEGIN
 	INSERT INTO #tmpResult (
 		LAPNotiID
 		,EventDate4GMT
-		,Subject
+		,Subject_en
+		,Subject_cs
 		,Content_en
 		,Content_cs
 	)
 	SELECT DISTINCT n.NotificationID
 		,ne.EventDate
-		,sj.Subject_cs + ' | ' + sj.Subject_en + ' (' + CONVERT(VARCHAR, ne.EventDate, 106) + ')' AS Subject --dd Mon yyyy
+		,sj.Subject_en
+		,sj.Subject_cs
 		,n.Content_en
 		,n.Content_cs
 	FROM dbo.Notification AS n WITH (NOLOCK)
@@ -89,14 +93,26 @@ BEGIN
 	----------return----------
 	SELECT @TotalRows AS TotalRows
 	
-	SELECT r.LAPNotiID AS NotificationID
-		,CONVERT(VARCHAR, r.EventDate4GMT, 101) AS EventDate --MM/DD/YYYY
-		,r.Subject
-		,CASE WHEN @LanguageCode = 'en' THEN r.Content_en
-			ELSE r.Content_cs END AS Content
-	FROM #tmpResult AS r
-	WHERE r.RNo BETWEEN @RStart AND @REnd
-	ORDER BY RNo
+	IF @LanguageCode = 'en'
+	BEGIN
+		SELECT r.LAPNotiID AS NotificationID
+			,CONVERT(VARCHAR, r.EventDate4GMT, 101) AS EventDate --MM/DD/YYYY
+			,r.Subject_en AS Subject
+			,r.Content_en AS Content
+		FROM #tmpResult AS r
+		WHERE r.RNo BETWEEN @RStart AND @REnd
+		ORDER BY RNo
+	END
+	ELSE
+	BEGIN
+		SELECT r.LAPNotiID AS NotificationID
+			,CONVERT(VARCHAR, r.EventDate4GMT, 101) AS EventDate --MM/DD/YYYY
+			,r.Subject_cs AS Subject
+			,r.Content_cs AS Content
+		FROM #tmpResult AS r
+		WHERE r.RNo BETWEEN @RStart AND @REnd
+		ORDER BY RNo
+	END
 	
 	DROP TABLE #tmpResult
 END

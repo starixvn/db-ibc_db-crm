@@ -774,14 +774,14 @@ BEGIN
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
-							+ ' - #tmpAffectedResult('
+							+ ' - tmpAffectedResult('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpAffectedResult
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
-							+ ' - #tmpSettlLog('
+							+ ' - tmpSettlLog('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpSettlLog
@@ -1067,20 +1067,33 @@ BEGIN
 			INNER JOIN CTE_Valid AS v ON n.NotificationID = v.Lap_NotiID
 		
 		--write log
+		;WITH CTE_Log AS (
+			SELECT Lap_NotiID AS RefID
+				,Lap_NotiID
+				,@InfLogPrefix + '[Generate Lap Noti process - Gen] - Changed NotificationID Status from [Generating] to [New]' AS LogTxt
+			FROM #tmpInsertedNoti
+			
+			UNION ALL
+			
+			SELECT Msg_NotiID AS RefID
+				,Lap_NotiID
+				,@InfLogPrefix + '[Generate Lap Noti process - Gen] - SUCCESSFUL to generate LAP noti' AS LogTxt
+			FROM #tmpInsertedNoti
+		)
 		INSERT INTO [Log] (
 			RefID
 			,ActionID
 			,UserID
 			,LogBef
 		)
-		SELECT i.Lap_NotiID
+		SELECT DISTINCT l.RefID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Lap Noti process - Gen] - Changed NotificationID Status from [Generating] to [New]'
-		FROM #tmpInsertedNoti AS i
-			INNER JOIN Notification AS n WITH (NOLOCK) ON n.NotificationID = i.Lap_NotiID
+			,l.LogTxt
+		FROM CTE_Log AS l
+			INNER JOIN Notification AS n WITH (NOLOCK) ON n.NotificationID = l.Lap_NotiID
 		WHERE n.StatusID = @StsNew
-		ORDER BY i.Lap_NotiID
+		ORDER BY l.RefID
 		
 		/*	the rest, deleted
 				

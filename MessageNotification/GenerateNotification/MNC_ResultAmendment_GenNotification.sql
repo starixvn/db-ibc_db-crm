@@ -763,7 +763,7 @@ BEGIN
 		END
 		
 		/*
-			{affected_result_name}
+			*****Message Template may NOT {affected_result_name} but use it for: gen LAP, chatbot LIC,..*****
 			+ DON'T care ControlGrp
 				+ DON'T care IsSabaFilter
 			=> Build param's value for (GROUP BY) NotiTempID
@@ -774,7 +774,6 @@ BEGIN
 					2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
 				step #3 - If exists [OtherInfo] => put it after the Resource_en
 		*/
-		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{affected_result_name}')
 		BEGIN
 			--step #1 - get Resource_en / Resource_ch / Resource_cs
 			INSERT INTO #tmpAffectedResult (
@@ -805,7 +804,6 @@ BEGIN
 				INNER JOIN #tmpRemotingRef AS rf ON rf.RefId2 = ISNULL(atl.RefBettypeID, wrg.RefBettypeID)
 			WHERE ISNULL(atl.ResourceID, wrg.ResourceID) IS NOT NULL
 				AND ISNULL(atl.RefBettypeID, wrg.RefBettypeID) IS NOT NULL
-				AND tp.RequiredParam = '{affected_result_name}'
 				AND rf.GroupName = 'RefResource'
 				AND rf.RefId1 = 'ResourceCricket'
 			
@@ -896,24 +894,24 @@ BEGIN
 				,af.ResultName_cs = af.ResultName_cs + ' - ' + TRIM(o.r_cs)
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_OtherInfo AS o ON af.NotiTempID = o.NotiTempID AND af.ResourceID = o.ResourceID
-			
-			---------final affected_result_name---------
-			;WITH CTE_Affected AS (
-				SELECT NotiTempID
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') AS ResultName_en
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') AS ResultName_ch
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') AS ResultName_cs
-				FROM #tmpAffectedResult
-				GROUP BY NotiTempID
-			)
-			UPDATE tp
-			SET tp.Content_en = '"' + af.ResultName_en + '"'
-				,tp.Content_ch = '"' + af.ResultName_ch  + '"'
-				,tp.Content_cs = '"' + af.ResultName_cs  + '"'
-			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_Affected AS af ON tp.NotiTempID = af.NotiTempID
-			WHERE tp.RequiredParam = '{affected_result_name}'
 		END
+		
+		-- IF EXISTS {affected_result_name}
+		;WITH CTE_Affected AS (
+			SELECT NotiTempID
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') AS ResultName_en
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') AS ResultName_ch
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') AS ResultName_cs
+			FROM #tmpAffectedResult
+			GROUP BY NotiTempID
+		)
+		UPDATE tp
+		SET tp.Content_en = '"' + af.ResultName_en + '"'
+			,tp.Content_ch = '"' + af.ResultName_ch  + '"'
+			,tp.Content_cs = '"' + af.ResultName_cs  + '"'
+		FROM #tmpTemplateDetl AS tp
+			INNER JOIN CTE_Affected AS af ON tp.NotiTempID = af.NotiTempID
+		WHERE tp.RequiredParam = '{affected_result_name}'
 		
 		/*
 			*****Message Template may NOT {new_value} but use it for: gen LAP, chatbot LIC,..*****

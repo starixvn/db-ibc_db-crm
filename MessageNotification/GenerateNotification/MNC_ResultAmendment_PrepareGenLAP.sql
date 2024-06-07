@@ -116,6 +116,7 @@ BEGIN
 	CREATE TABLE #tmpPrepareNoti (
 		NotificationID INT
 		,SportType SMALLINT
+		,InvalidType TINYINT
 	)
 	
 	CREATE TABLE #tmpRemotingRef (
@@ -177,6 +178,37 @@ BEGIN
 		LEFT JOIN CTE_Valid AS v ON t.NotificationID = v.NotificationID
 	WHERE v.NotificationID IS NULL
 	
+	--verify AffectedResult
+	UPDATE n
+	SET n.InvalidType = (CASE WHEN ext.AffectedResult IS NULL THEN 1 ELSE 0 END)
+	FROM #tmpPrepareNoti AS n
+		LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON n.NotificationID = ne.NotificationID
+		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+					AffectedResult NVARCHAR(MAX) '$.AffectedResult' AS JSON
+				) AS ext--OPENJSON case-sensitive
+	WHERE ISJSON(ne.ExtraInfo) = 1
+	
+	IF EXISTS (
+		SELECT 1
+		FROM #tmpPrepareNoti
+		WHERE InvalidType = 1
+	)
+	BEGIN
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT NotificationID
+			,@LogActionID
+			,@LogUserID
+			,@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - Missing NotificationExtra.ExtraInfo@AffectedResult'
+			FROM #tmpPrepareNoti
+			WHERE InvalidType = 1
+			ORDER BY NotificationID
+	END
+	
 	---write log
 	INSERT INTO [Log] (
 		ActionID
@@ -215,6 +247,7 @@ BEGIN
 		,'SportType' AS RefId1
 		,SportType AS RefId2
 	FROM #tmpPrepareNoti AS n
+	WHERE InvalidType = 0
 	
 	--return for RemotingRef
 	;WITH CTE_Ref AS (

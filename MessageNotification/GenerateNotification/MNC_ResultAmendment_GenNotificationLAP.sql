@@ -84,14 +84,26 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 	-----------------------------------------------
-	-- CREATE TABLE #tmpRemotingRef (
-		-- GroupName VARCHAR(50)
-		-- ,RefId1 VARCHAR(50)
-		-- ,RefId2 VARCHAR(50)
-		-- ,RefValueEN NVARCHAR(500)
-		-- ,RefValueCH NVARCHAR(500)
-		-- ,RefValueCS NVARCHAR(500)
-	-- )
+	CREATE TABLE #tmpEventInfo (
+		Msg_NotiID INT
+		,IsTest BIT
+		,MatchID INT
+		,SportNameEN NVARCHAR(500)
+		,SportNameCH NVARCHAR(500)
+		,SportNameCS NVARCHAR(500)
+		,HomeNameEN NVARCHAR(500)
+		,HomeNameCH NVARCHAR(500)
+		,HomeNameCS NVARCHAR(500)
+		,AwayNameEN NVARCHAR(500)
+		,AwayNameCH NVARCHAR(500)
+		,AwayNameCS NVARCHAR(500)
+		,NeutralEN NVARCHAR(10)
+		,NeutralCH NVARCHAR(10)
+		,NeutralCS NVARCHAR(10)
+		,LeagueNameEN NVARCHAR(500)
+		,LeagueNameCS NVARCHAR(500)
+		,LeagueNameCH NVARCHAR(500)
+	)
 
 	CREATE TABLE #tmpExtraInfo (
 		Msg_NotiID INT
@@ -148,7 +160,6 @@ BEGIN
 		Msg_NotiID INT NOT NULL
 		,MessageID INT NOT NULL
 		,TemplateID INT NOT NULL
-		,Subject NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
@@ -167,7 +178,10 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpInputNoti (
-		Msg_NotiID INT NOT NULL
+		Msg_NotiID INT
+		,SportType INT
+		,TemplateID INT
+		,Subject NVARCHAR(1000)
 	)
 	
 	--write log for LogMode = Debug
@@ -185,41 +199,38 @@ BEGIN
 		#1 - Start to Parse inputed JSON
 	*/
 	BEGIN TRY
-	
-		INSERT INTO #tmpInputNoti (Msg_NotiID)
-		SELECT DISTINCT value AS Msg_NotiID
+		INSERT INTO #tmpInputNoti (
+			Msg_NotiID
+			,SportType
+		)
+		SELECT DISTINCT TRY_CONVERT(INT,i.value) AS Msg_NotiID
+			,SportType
 		FROM OPENJSON(@JSRemotingRef) WITH (
 				NotificationIDs VARCHAR(MAX) '$.NotificationIDs'
+				,SportType SMALLINT '$.RefId2'
 			)--OPENJSON case-sensitive
 			CROSS APPLY STRING_SPLIT(NotificationIDs, ',') AS i
-			INNER JOIN Notification AS n WITH (NOLOCK) ON TRY_CONVERT(INT,i.value) = n.NotificationID
-		WHERE n.NotificationType = 1 --1: Result Amendment to Msg
-		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputNoti ON #tmpInputNoti (Msg_NotiID)
 		
-		--no need info from @JSRemotingRef
-		-- INSERT INTO #tmpRemotingRef(
-			-- GroupName
-			-- ,RefId1
-			-- ,RefId2
-			-- ,RefValueEN
-			-- ,RefValueCH
-			-- ,RefValueCS
-		-- )
-		-- SELECT DISTINCT GroupName
-			-- ,RefId1
-			-- ,RefId2
-			-- ,RefValueEN
-			-- ,RefValueCH
-			-- ,RefValueCS
-		-- FROM OPENJSON(@JSRemotingRef) WITH (
-				-- GroupName VARCHAR(50) '$.GroupName'
-				-- ,RefId1 VARCHAR(50) '$.RefId1'
-				-- ,RefId2 VARCHAR(50) '$.RefId2'
-				-- ,RefValueEN NVARCHAR(500) '$.RefValueEN'
-				-- ,RefValueCH NVARCHAR(500) '$.RefValueCH'
-				-- ,RefValueCS NVARCHAR(500) '$.RefValueCS'
-			-- )--OPENJSON case-sensitive
-		-- CREATE CLUSTERED INDEX CIX_tmpRemotingRef ON #tmpRemotingRef (GroupName, RefId1, RefId2)
+		/*
+			***************************************************<<<!IMPORTANT HARDCODE>>>***************************************************
+			TemplateID for Cricket
+		*/
+		UPDATE i
+		SET i.TemplateID = (CASE WHEN i.SportType = 50 THEN 6 END) --currently, only have 1 message TemplateID for LAP Cricket
+			,i.Subject = N'赛果更正 | Result Amended (' + ISNULL(FORMAT(ne.EventDate, 'dd MMMM yyyy'),'NULL') + ')'
+		FROM #tmpInputNoti AS i
+			LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON i.Msg_NotiID = ne.NotificationID
+		
+		--DELETE invalid NotificationID
+		DELETE i
+		FROM #tmpInputNoti AS i
+			LEFT JOIN Notification AS n WITH (NOLOCK) ON i.Msg_NotiID = n.NotificationID AND n.NotificationType = 1 --1: Result Amendment to Msg
+		WHERE i.Msg_NotiID IS NULL
+			OR n.NotificationID IS NULL
+			OR i.TemplateID IS NULL
+			OR i.Subject IS NULL
+		
+		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputNoti ON #tmpInputNoti (Msg_NotiID)
 		
 		;WITH CTE_Ext AS (
 			SELECT i.Msg_NotiID
@@ -274,12 +285,84 @@ BEGIN
 		FROM #tmpExtraInfo AS ex
 			INNER JOIN CTE_LAP AS l ON ex.Msg_NotiID = l.Msg_NotiID
 			INNER JOIN Notification AS n WITH (NOLOCK) ON ex.Msg_NotiID = n.NotificationID
-			,NotiTemplate AS tp WITH (NOLOCK) --currently, only have 1 message TemplateID for LAP
-		WHERE tp.TemplateID = 6--Cricket Result Amendment - Notification for LAP
-			AND n.NotificationType = 1 --Result Amendment to Msg
+			INNER JOIN #tmpInputNoti AS i WITH (NOLOCK) ON ex.Msg_NotiID = i.Msg_NotiID
+			INNER JOIN NotiTemplate AS tp WITH (NOLOCK) ON i.TemplateID = tp.TemplateID --HARDCODE Above - Cricket Result Amendment - Notification for LAP
+		WHERE n.NotificationType = 1 --Result Amendment to Msg
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNoti ON #tmpNoti (Msg_NotiID)
 		
+		INSERT INTO #tmpEventInfo (
+			Msg_NotiID
+			,MatchID
+			,IsTest
+			
+			,SportNameEN
+			,SportNameCH
+			,SportNameCS
+			
+			,HomeNameEN
+			,HomeNameCH
+			,HomeNameCS
+			
+			,AwayNameEN
+			,AwayNameCH
+			,AwayNameCS
+			
+			,NeutralEN
+			,NeutralCH
+			,NeutralCS
+			
+			,LeagueNameEN
+			,LeagueNameCS
+			,LeagueNameCH
+		)
+		SELECT DISTINCT n.Msg_NotiID
+			,m.MatchID
+			,m.IsTest
+			
+			,m.SportNameEN
+			,m.SportNameCH
+			,m.SportNameCS
+			
+			,m.HomeNameEN
+			,m.HomeNameCH
+			,m.HomeNameCS
+			
+			,m.AwayNameEN
+			,m.AwayNameCH
+			,m.AwayNameCS
+			
+			,m.NeutralEN
+			,m.NeutralCH
+			,m.NeutralCS
+			
+			,m.LeagueNameEN
+			,m.LeagueNameCS
+			,m.LeagueNameCH
+		FROM #tmpNoti AS n
+			INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON n.Msg_NotiID = ex.NotificationID
+			OUTER APPLY OPENJSON(ex.ExtraInfo) WITH (
+					HomeNameEN NVARCHAR(500) '$.HomeNameEN'
+					,HomeNameCH NVARCHAR(500) '$.HomeNameCH'
+					,HomeNameCS NVARCHAR(500) '$.HomeNameCS'
+					,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
+					,AwayNameCH NVARCHAR(500) '$.AwayNameCH'
+					,AwayNameCS NVARCHAR(500) '$.AwayNameCS'
+					,NeutralEN NVARCHAR(10) '$.NeutralEN'
+					,NeutralCH NVARCHAR(10) '$.NeutralCH'
+					,NeutralCS NVARCHAR(10) '$.NeutralCS'
+					,LeagueNameEN NVARCHAR(500) '$.LeagueNameEN'
+					,LeagueNameCS NVARCHAR(500) '$.LeagueNameCS'
+					,LeagueNameCH NVARCHAR(500) '$.LeagueNameCH'
+					,SportNameEN NVARCHAR(500) '$.SportNameEN'
+					,SportNameCH NVARCHAR(500) '$.SportNameCH'
+					,SportNameCS NVARCHAR(500) '$.SportNameCS'
+					,IsTest BIT '$.IsTest'
+					,MatchID INT '$.MatchID'
+				) AS m--OPENJSON case-sensitive
+		WHERE ISJSON(ex.ExtraInfo) = 1
+		
+		CREATE CLUSTERED INDEX CIX_tmpEventInfo ON #tmpEventInfo (Msg_NotiID)
 		--write log--
 		INSERT INTO [Log] (
 			ActionID
@@ -374,30 +457,17 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{match_name}')
 		BEGIN
 			;WITH CTE_Extra AS (
-				SELECT DISTINCT n.Msg_NotiID
-					,m.HomeNameEN
-					,m.HomeNameCH
-					,m.HomeNameCS
-					,m.AwayNameEN
-					,m.AwayNameCH
-					,m.AwayNameCS
-					,m.NeutralEN
-					,m.NeutralCH
-					,m.NeutralCS
-				FROM #tmpNoti AS n
-					INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON n.Msg_NotiID = ex.NotificationID
-					OUTER APPLY OPENJSON(ex.ExtraInfo) WITH (
-							HomeNameEN NVARCHAR(500) '$.HomeNameEN'
-							,HomeNameCH NVARCHAR(500) '$.HomeNameCH'
-							,HomeNameCS NVARCHAR(500) '$.HomeNameCS'
-							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
-							,AwayNameCH NVARCHAR(500) '$.AwayNameCH'
-							,AwayNameCS NVARCHAR(500) '$.AwayNameCS'
-							,NeutralEN NVARCHAR(10) '$.NeutralEN'
-							,NeutralCH NVARCHAR(10) '$.NeutralCH'
-							,NeutralCS NVARCHAR(10) '$.NeutralCS'
-						) AS m--OPENJSON case-sensitive
-				WHERE ISJSON(ex.ExtraInfo) = 1
+				SELECT DISTINCT Msg_NotiID
+					,HomeNameEN
+					,HomeNameCH
+					,HomeNameCS
+					,AwayNameEN
+					,AwayNameCH
+					,AwayNameCS
+					,NeutralEN
+					,NeutralCH
+					,NeutralCS
+				FROM #tmpEventInfo
 			)
 			UPDATE tp
 			SET tp.Content_en = ex.HomeNameEN + ISNULL(' ' + ex.NeutralEN,'') + ' -vs- ' + ex.AwayNameEN
@@ -415,18 +485,11 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{league_name}')
 		BEGIN
 			;WITH CTE_Extra AS (
-				SELECT DISTINCT n.Msg_NotiID
-					,l.LeagueNameEN
-					,l.LeagueNameCS
-					,l.LeagueNameCH
-				FROM #tmpNoti AS n
-					INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON n.Msg_NotiID = ex.NotificationID
-					OUTER APPLY OPENJSON(ex.ExtraInfo) WITH (
-							LeagueNameEN NVARCHAR(500) '$.LeagueNameEN'
-							,LeagueNameCS NVARCHAR(500) '$.LeagueNameCS'
-							,LeagueNameCH NVARCHAR(500) '$.LeagueNameCH'
-						) AS l--OPENJSON case-sensitive
-				WHERE ISJSON(ex.ExtraInfo) = 1
+				SELECT DISTINCT Msg_NotiID
+					,LeagueNameEN
+					,LeagueNameCS
+					,LeagueNameCH
+				FROM #tmpEventInfo
 			)
 			UPDATE tp
 			SET tp.Content_en = ex.LeagueNameEN
@@ -457,9 +520,9 @@ BEGIN
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{notification}')
 		BEGIN
 			UPDATE tp
-			SET tp.Content_en = n.Content_en
-				,tp.Content_ch = n.Content_ch
-				,tp.Content_cs = n.Content_cs
+			SET tp.Content_en = REPLACE(n.Content_en,'@@','')
+				,tp.Content_ch = REPLACE(n.Content_ch,'@@','')
+				,tp.Content_cs = REPLACE(n.Content_cs,'@@','')
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN Notification AS n WITH (NOLOCK) ON tp.Msg_NotiID = n.NotificationID
 			WHERE tp.RequiredParam = '{notification}'
@@ -686,20 +749,6 @@ BEGIN
 			
 			SET @iLoop = @iLoop + 1
 		END
-	
-		/*
-			Build LAP message [Subject]
-		*/
-		;WITH CTE_Subject AS (
-			SELECT lap.Msg_NotiID
-				,(CASE WHEN lap.Content_en IS NOT NULL THEN N'Result Amended' + ISNULL(' (' + CONVERT(VARCHAR, ne.EventDate, 106) + ')','') END) AS Subject
-			FROM #tmpNoti AS lap
-				LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON lap.Msg_NotiID = ne.NotificationID
-		)
-		UPDATE lap
-		SET lap.Subject = sj.Subject
-		FROM #tmpNoti AS lap
-			INNER JOIN CTE_Subject AS sj ON lap.Msg_NotiID = sj.Msg_NotiID
 		
 		--write log
 		INSERT INTO [Log] (
@@ -748,7 +797,6 @@ BEGIN
 		WHERE (n.Content_en IS NULL AND t.Content_en IS NOT NULL)
 			OR (n.Content_ch IS NULL AND t.Content_ch IS NOT NULL)
 			OR (n.Content_cs IS NULL AND t.Content_cs IS NOT NULL)
-			OR n.Subject IS NULL
 		
 	END TRY
 	BEGIN CATCH
@@ -802,11 +850,12 @@ BEGIN
 			SELECT n.MessageID
 				,@StsGenerating --need to verify after [DONE] insert realted tables
 				,2 AS NotificationType --Result Amendment to LAP
-				,n.Subject
+				,i.Subject
 				,n.Content_en
 				,n.Content_ch
 				,n.Content_cs
 			FROM #tmpNoti AS n
+				INNER JOIN #tmpInputNoti AS i ON n.Msg_NotiID = i.Msg_NotiID
 			WHERE n.Msg_NotiID = @iLoop
 			
 			--increase for loop
@@ -911,43 +960,7 @@ BEGIN
 		/*
 			Insert NotificationExtra
 		*/
-		;WITH CTE_Match AS (
-			SELECT DISTINCT tp.Msg_NotiID
-				,mi.MatchID
-				,mi.IsTest
-				,mi.HomeNameEN
-				,mi.HomeNameCH
-				,mi.HomeNameCS
-				,mi.AwayNameEN
-				,mi.AwayNameCH
-				,mi.AwayNameCS
-				,mi.NeutralEN
-				,mi.NeutralCH
-				,mi.NeutralCS
-				,mi.SportNameEN
-				,mi.SportNameCH
-				,mi.SportNameCS
-			FROM #tmpTemplateDetl AS tp
-				LEFT JOIN NotificationExtra AS ex WITH (NOLOCK) ON tp.Msg_NotiID = ex.NotificationID
-				OUTER APPLY OPENJSON(ex.ExtraInfo) WITH (
-						HomeNameEN NVARCHAR(500) '$.HomeNameEN'
-						,HomeNameCH NVARCHAR(500) '$.HomeNameCH'
-						,HomeNameCS NVARCHAR(500) '$.HomeNameCS'
-						,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
-						,AwayNameCH NVARCHAR(500) '$.AwayNameCH'
-						,AwayNameCS NVARCHAR(500) '$.AwayNameCS'
-						,NeutralEN NVARCHAR(10) '$.NeutralEN'
-						,NeutralCH NVARCHAR(10) '$.NeutralCH'
-						,NeutralCS NVARCHAR(10) '$.NeutralCS'
-						,SportNameEN NVARCHAR(500) '$.SportNameEN'
-						,SportNameCH NVARCHAR(500) '$.SportNameCH'
-						,SportNameCS NVARCHAR(500) '$.SportNameCS'
-						,IsTest BIT '$.IsTest'
-						,MatchID INT '$.MatchID'
-					) AS mi--OPENJSON case-sensitive
-			WHERE ISJSON(ex.ExtraInfo) = 1
-		)
-		,CTE_SettlLog AS (
+		;WITH CTE_SettlLog AS (
 			SELECT s.Msg_NotiID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.LogType
@@ -989,14 +1002,14 @@ BEGIN
 					,m.SportNameEN
 					,m.SportNameCH
 					,m.SportNameCS
-					---------hardcode LAP Subject------
-					,N'Result Amended' AS Subject_en
-					-- ,N'赛果更正' AS Subject_ch
-					,N'赛果更正' AS Subject_cs
+					---------TemplateName------
+					,tp.TemplateName
 					----------SettlLog------
 					,sl.SettlLog
-				FROM CTE_Match AS m
-					LEFT JOIN CTE_SettlLog AS sl ON sl.Msg_NotiID = m.Msg_NotiID
+				FROM #tmpEventInfo AS m
+					LEFT JOIN CTE_SettlLog AS sl ON m.Msg_NotiID = sl.Msg_NotiID
+					LEFT JOIN #tmpInputNoti AS ii ON m.Msg_NotiID = ii.Msg_NotiID
+					LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON ii.TemplateID = tp.TemplateID
 				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH
 			)) AS ExtraInfo
@@ -1232,4 +1245,5 @@ BEGIN
 	DROP TABLE #tmpTemplateDetl
 	DROP TABLE #tmpInputNoti
 	DROP TABLE #tmpFailedNoti
+	DROP TABLE #tmpEventInfo
 END

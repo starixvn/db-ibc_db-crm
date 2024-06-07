@@ -152,6 +152,11 @@ CREATE CLUSTERED INDEX [CIX_NotiExtra] ON dbo.NotificationExtra (
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
+CREATE NONCLUSTERED INDEX [IX_NotiExtraEV] ON dbo.NotificationExtra (
+	EventDate
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
+GO
+
 /***** AlertRule ****/
 DROP TABLE IF EXISTS dbo.AlertRule
 

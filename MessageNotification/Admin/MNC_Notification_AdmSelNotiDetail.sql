@@ -45,9 +45,6 @@ BEGIN
 		,MsgID INT
 		,EventDate DATE
 		,EventName NVARCHAR(500)
-		,LAPSubject_en NVARCHAR(500)
-		,LAPSubject_ch NVARCHAR(500)
-		,LAPSubject_cs NVARCHAR(500)
 	)
 	
 	CREATE TABLE #tmpValidSite (
@@ -203,24 +200,15 @@ BEGIN
 			,MsgID
 			,EventDate
 			,EventName
-			,LAPSubject_en
-			,LAPSubject_ch
-			,LAPSubject_cs
 		)
 		SELECT DISTINCT nLap.NotificationID
 			,nLap.RefID
 			,neLap.EventDate
 			,extLap.HomeNameEN + ISNULL(' ' + extLap.NeutralEN,'') + ' -vs- ' + extLap.AwayNameEN AS EventName
-			,extLap.Subject_en
-			,extLap.Subject_ch
-			,extLap.Subject_cs
 		FROM dbo.Notification AS nLap WITH (NOLOCK)
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON nLap.NotificationID = neLap.NotificationID
 			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
 							MsgNotiID INT '$.MsgNotiID'
-							,Subject_en NVARCHAR(300) '$.Subject_en'
-							,Subject_ch NVARCHAR(300) '$.Subject_ch'
-							,Subject_cs NVARCHAR(300) '$.Subject_cs'
 							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
@@ -268,36 +256,19 @@ BEGIN
 	-----------------------------------------Return-------------------------------------------
 	
 	----------Notification----------
-	IF @NotiType = 1 --Msg
-	BEGIN
-		SELECT DISTINCT n.NotificationID
-			,ext.MsgID AS MessageID
-			,s.Status
-			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
-			,ext.EventName
-			,n.Content_en
-			,n.Content_ch
-			,n.Content_cs
-		FROM dbo.Notification AS n WITH (NOLOCK)
-			INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
-			INNER JOIN #tmpAffectedTicket AS nt ON n.NotificationID = nt.NotiID
-			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
-	END
-	ELSE --LAP
-	BEGIN
-		SELECT DISTINCT n.NotificationID
-			,ext.MsgID AS MessageID
-			,s.Status
-			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
-			,ext.EventName
-			,n.Content_en
-			,n.Content_ch
-			,n.Content_cs
-		FROM dbo.Notification AS n WITH (NOLOCK)
-			INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
-			INNER JOIN #tmpAffectedTicket AS nt ON n.NotificationID = nt.NotiID
-			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
-	END
+	SELECT DISTINCT n.NotificationID
+		,ext.MsgID AS MessageID
+		,s.Status
+		,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
+		,ext.EventName
+		,n.Subject
+		,n.Content_en
+		,n.Content_ch
+		,n.Content_cs
+	FROM dbo.Notification AS n WITH (NOLOCK)
+		INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
+		INNER JOIN #tmpAffectedTicket AS nt ON n.NotificationID = nt.NotiID
+		INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 	
 	----------Site by NotificationID----------
 	;WITH CTE_BySite AS (

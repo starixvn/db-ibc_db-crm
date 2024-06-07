@@ -1386,7 +1386,6 @@ BEGIN
 			INSERT INTO Notification (
 				StatusID
 				,NotificationType
-				,Subject
 				,Content_en
 				,Content_ch
 				,Content_cs
@@ -1399,13 +1398,11 @@ BEGIN
 			) --Get Inserted
 			SELECT DISTINCT rh.StatusID --Generating
 				,1 AS NotificationType --Result Amendment to Msg
-				,tp.TemplateName AS Subject
 				,n.Content_en
 				,n.Content_ch
 				,n.Content_cs
 			FROM CTE_InsertNoti AS il
 				INNER JOIN #tmpStagingNoti AS n ON il.NotiTempID = n.NotiTempID AND il.IsSabaFilter = n.IsSabaFilter
-				LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON n.TemplateID = tp.TemplateID
 				INNER JOIN #tmpResultHist AS rh ON il.NotiTempID = rh.NotiTempID
 			WHERE rh.StatusID = @StsGenerating
 			
@@ -1627,6 +1624,7 @@ BEGIN
 					,rfs.RefValueEN AS SportNameEN
 					,rfs.RefValueCH AS SportNameCH
 					,rfs.RefValueCS AS SportNameCS
+					,tp.TemplateName
 				FROM #tmpResultHist AS t
 					LEFT JOIN CTE_AffectedResult AS af ON t.NotiTempID = af.NotiTempID
 					LEFT JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'EventInfo' AND rfh.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfh.RefId2) = t.HomeID
@@ -1634,6 +1632,8 @@ BEGIN
 					LEFT JOIN #tmpRemotingRef AS rfl ON rfl.GroupName = 'EventInfo' AND rfl.RefId1 = 'LeagueID' AND TRY_CONVERT(INT,rfl.RefId2) = t.LeagueID
 					LEFT JOIN #tmpRemotingRef AS rfs ON rfs.GroupName = 'EventInfo' AND rfs.RefId1 = 'SportType' AND TRY_CONVERT(INT,rfs.RefId2) = t.SportType
 					LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.CustID = @LogUserID AND i.SuccessStatusID = @StsSending --Sender = [configurated Executor] if IgnoreReviewContent
+					LEFT JOIN #tmpStagingNoti AS sn ON t.NotiTempID = sn.NotiTempID
+					LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON sn.TemplateID = tp.TemplateID
 				WHERE t.NotiTempID = il.NotiTempID
 				FOR JSON PATH
 			)) AS ExtraInfo

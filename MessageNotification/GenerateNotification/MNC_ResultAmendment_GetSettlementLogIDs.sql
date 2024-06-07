@@ -243,15 +243,15 @@ BEGIN
 	--------------------prepare before Verify foreach SettlementLogID----------------------
 	DECLARE @VerifySettleIDs VARCHAR(MAX)
 	
-	;WITH CTE_SettleID AS (
-		SELECT DISTINCT SettlementLogID
-		FROM #tmpRemotingRefData
-		WHERE SettlementLogID IS NOT NULL
-	)
-	SELECT @VerifySettleIDs = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),','),'')
-	FROM CTE_SettleID
-	
 	BEGIN TRY
+		;WITH CTE_SettleID AS (
+			SELECT DISTINCT SettlementLogID
+			FROM #tmpRemotingRefData
+			WHERE SettlementLogID IS NOT NULL
+		)
+		SELECT @VerifySettleIDs = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),','),'')
+		FROM CTE_SettleID
+		
 		DECLARE @JSResource NVARCHAR(MAX)
 		
 		/*
@@ -391,10 +391,32 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef/RawData format'
+			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse JSON SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
 							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
+							+ ' - @JSResource(' + ISNULL(@JSResource,'NULL') + ')'
+							+ ' - tmpRemotingRefData('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpRemotingRefData
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+							+ ' - tmpResourceRef('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpResourceRef
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+							+ ' - tmpResourceRawData('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpResourceRawData
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		RETURN
 	END CATCH

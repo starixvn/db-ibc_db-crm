@@ -73,7 +73,7 @@ BEGIN
 		,IsTest BIT
 		,Sender VARCHAR(50)
 		,SendDate DATETIME
-		,Subject NVARCHAR(MAX)
+		,TemplateName NVARCHAR(1000)
 	)
 	
 	CREATE TABLE #tmpAffectedSite (
@@ -96,7 +96,7 @@ BEGIN
 		,EventDate4GMT VARCHAR(50)
 		,EventName NVARCHAR(500)
 		,CreatedTimeGMT8 VARCHAR(50)
-		,Subject NVARCHAR(1000)
+		,TemplateName NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
@@ -282,82 +282,47 @@ BEGIN
 				AND s.Status = 'Sent' --push successful
 				AND ISJSON(ne.ExtraInfo) = 1
 		)
-		
-		---Get data from LAP NotificationExtra
-		INSERT INTO #tmpNotiExt (
-			NotiID
-			,MsgID
-			,MatchID
-			,EventDate
-			,EventName
-			,SportName
-			,IsTest
-			,Sender
-			,SendDate
-			,Subject
-		)
-		SELECT DISTINCT i.NotiID
-			,nLap.RefID
-			,extLap.MatchID
-			,neLap.EventDate
-			,extLap.HomeNameEN + ISNULL(' ' + extLap.NeutralEN,'') + ' -vs- ' + extLap.AwayNameEN AS EventName
-			,extLap.SportNameEN
-			,extLap.IsTest
-			,extLap.LapSender
-			,extLap.LapSendDate
-			,neLap.ExtraInfo AS Subject
-		FROM #tmpNoti AS i
-			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON i.NotiID = neLap.NotificationID
-			OUTER APPLY OPENJSON(neLap.ExtraInfo) WITH (
-							MatchID INT '$.MatchID'
-							,IsTest BIT '$.IsTest'
-							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
-							,NeutralEN NVARCHAR(10) '$.NeutralEN'
-							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
-							,SportNameEN NVARCHAR(500) '$.SportNameEN'
-							,LapSender VARCHAR(50) '$.LapSender'
-							,LapSendDate DATETIME '$.LapSendDate'
-						) AS extLap --OPENJSON case-sensitive
-			INNER JOIN dbo.Notification AS nLap WITH (NOLOCK) ON i.NotiID = nLap.NotificationID
-		WHERE ISJSON(neLap.ExtraInfo) = 1
 	END
-	ELSE --Msg Notification
-	BEGIN
-		INSERT INTO #tmpNotiExt (
-			NotiID
-			,MsgID
-			,MatchID
-			,EventDate
-			,EventName
-			,SportName
-			,IsTest
-			,Sender
-			,SendDate
-		)
-		SELECT DISTINCT i.NotiID
-			,n.RefID
-			,ext.MatchID
-			,ne.EventDate
-			,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') + ' -vs- ' + ext.AwayNameEN AS EventName
-			,ext.SportNameEN
-			,ext.IsTest
-			,ext.MsgSender
-			,ext.MsgSendDate
-		FROM #tmpNoti AS i
-			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON i.NotiID = ne.NotificationID
-			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
-							MatchID INT '$.MatchID'
-							,IsTest BIT '$.IsTest'
-							,MsgSender VARCHAR(50) '$.MsgSender'
-							,MsgSendDate DATETIME '$.MsgSendDate'
-							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
-							,NeutralEN NVARCHAR(10) '$.NeutralEN'
-							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
-							,SportNameEN NVARCHAR(500) '$.SportNameEN'
-						) AS ext --OPENJSON case-sensitive
-		WHERE ISJSON(ne.ExtraInfo) = 1
-	END
+	
+	INSERT INTO #tmpNotiExt (
+		NotiID
+		,MsgID
+		,MatchID
+		,EventDate
+		,EventName
+		,SportName
+		,IsTest
+		,Sender
+		,SendDate
+		,TemplateName
+	)
+	SELECT DISTINCT i.NotiID
+		,n.RefID
+		,ext.MatchID
+		,ne.EventDate
+		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') + ' -vs- ' + ext.AwayNameEN AS EventName
+		,ext.SportNameEN
+		,ext.IsTest
+		,CASE WHEN n.NotificationType = 1 THEN ext.MsgSender ELSE ext.LapSender END
+		,CASE WHEN n.NotificationType = 1 THEN ext.MsgSendDate ELSE ext.LapSendDate END
+		,ext.TemplateName
+	FROM #tmpNoti AS i
+		INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
+		INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON i.NotiID = ne.NotificationID
+		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+						MatchID INT '$.MatchID'
+						,IsTest BIT '$.IsTest'
+						,MsgSender VARCHAR(50) '$.MsgSender'
+						,MsgSendDate DATETIME '$.MsgSendDate'
+						,LapSender VARCHAR(50) '$.LapSender'
+						,LapSendDate DATETIME '$.LapSendDate'
+						,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
+						,NeutralEN NVARCHAR(10) '$.NeutralEN'
+						,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
+						,SportNameEN NVARCHAR(500) '$.SportNameEN'
+						,TemplateName NVARCHAR(1000) '$.TemplateName'
+					) AS ext --OPENJSON case-sensitive
+	WHERE ISJSON(ne.ExtraInfo) = 1
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiExt ON #tmpNotiExt (NotiID)
 	
@@ -501,7 +466,7 @@ BEGIN
 			,EventDate4GMT
 			,EventName
 			,CreatedTimeGMT8
-			,Subject
+			,TemplateName
 			,Content_en
 			,Content_ch
 			,Content_cs
@@ -515,7 +480,7 @@ BEGIN
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
 			,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
-			,n.Subject
+			,ext.TemplateName
 			,n.Content_en
 			,n.Content_ch
 			,n.Content_cs
@@ -539,7 +504,7 @@ BEGIN
 			,EventDate4GMT
 			,EventName
 			,CreatedTimeGMT8
-			,Subject
+			,TemplateName
 			,Content_en
 			,Content_ch
 			,Content_cs
@@ -553,7 +518,7 @@ BEGIN
 			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 			,ext.EventName
 			,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
-			,nex.Subject_en + ISNULL(' ' + FORMAT(ext.EventDate, 'MM/dd/yyyy'), 'NULL') AS Subject
+			,ext.TemplateName
 			,n.Content_en
 			,n.Content_ch
 			,n.Content_cs
@@ -564,15 +529,9 @@ BEGIN
 			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
 			INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
 			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			OUTER APPLY OPENJSON(ext.Subject) WITH (
-							Subject_en NVARCHAR(300) '$.Subject_en'
-							,Subject_ch NVARCHAR(300) '$.Subject_ch'
-							,Subject_cs NVARCHAR(300) '$.Subject_cs'
-						) AS nex --OPENJSON case-sensitive
 			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
 			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-		WHERE ISJSON(ext.Subject) = 1
 		ORDER BY n.NotificationID DESC
 	END
 	
@@ -597,7 +556,7 @@ BEGIN
 		,EventDate4GMT AS EventDate
 		,EventName
 		,CreatedTimeGMT8 AS CreatedTime
-		,Subject
+		,TemplateName AS Subject
 		,Content_en
 		,Content_ch
 		,Content_cs

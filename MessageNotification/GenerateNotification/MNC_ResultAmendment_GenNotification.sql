@@ -878,9 +878,9 @@ BEGIN
 			;WITH CTE_OtherInfo AS (
 				SELECT af.NotiTempID
 					,af.ResourceID
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),',') AS r_en
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),',') AS r_ch
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),',') AS r_cs
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),' & ') AS r_en
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),' & ') AS r_ch
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),' & ') AS r_cs
 				FROM #tmpAffectedResult AS af
 					CROSS APPLY STRING_SPLIT(OtherInfo, ',') AS o
 					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = o.value

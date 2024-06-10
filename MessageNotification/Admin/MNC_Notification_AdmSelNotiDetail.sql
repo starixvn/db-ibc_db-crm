@@ -49,90 +49,116 @@ BEGIN
 	
 	CREATE TABLE #tmpValidSite (
 		SiteName NVARCHAR(100)
-		,isDeposit BIT
+		,IsDeposit BIT
+		,SiteLabel VARCHAR(50)
 	)
-	
 	/*
 		Convert permission control to Sites
 	*/
-	---- @UserRole - CN88 ---------
-	;WITH CTE_UserRole AS (
-		SELECT sc.SettingValue AS SiteCategory
-		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
-		WHERE sc.SettingName = 'SiteCategory'
-			AND ((@UserRole = 1 AND sc.SettingID = 33002) OR (@UserRole = 2 AND ISNULL(sc.SettingID,0) <> 33002))
-			AND ISNULL(sc.SiteOffer, @UserRole) = @UserRole
-	)
-	INSERT INTO #tmpValidSite (
-		SiteName
-		,isDeposit
-	)
-	SELECT DISTINCT si.SettingValue AS SiteName
-		,(CASE WHEN sc.SettingID = 33000 THEN 1 --Licensee
-			WHEN sc.SettingID = 33001 THEN 0 --Credit
-			-- ELSE -1 END --Unknown
-			END) AS isDeposit
-	FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
-		INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
-		INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
-	WHERE sc.SettingName = 'SiteCategory'
-		AND sc.SettingValue IN (
-			SELECT SiteCategory FROM CTE_UserRole
-		)
-	
-	---- Filter by Licensee ---------
-	;WITH CTE_Licensee AS (
-		SELECT sc.SettingValue AS SiteCategory
-		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
-		WHERE sc.SettingName = 'SiteCategory'
-			AND sc.SettingID = 33000 --Licensee
-			AND (
-				@LicenseeType = 0
-				OR (@LicenseeType = 2 AND ISNULL(TRIM(@SitePermission),'') = '')
-			)
-	)
-	,CTE_CRMLic AS (
-		SELECT DISTINCT si.SettingValue AS SiteName
-		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
-			INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
-			INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
-		WHERE sc.SettingName = 'SiteCategory'
-			AND sc.SettingValue IN (
-				SELECT SiteCategory FROM CTE_Licensee
-			)
-	)
-	DELETE v
-	FROM #tmpValidSite AS v
-		LEFT JOIN CTE_CRMLic AS lic ON v.SiteName = lic.SiteName
-	WHERE v.isDeposit = 1
-		AND lic.SiteName IS NULL
-	
-	---- Credit ---------
-	;WITH CTE_Credit AS (
+	---- Filter by Credit ---------
+	/* Currently, The SitePermission applied only for Credit */
+	;WITH CTE_Permission AS (
 		SELECT sc.SettingValue AS SitePermission
 		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
 			LEFT JOIN STRING_SPLIT(@SitePermission, ',') AS sp ON sc.SettingValue = sp.value
 		WHERE sc.SettingName = 'SitePermission'
-			AND (
-				@LicenseeType = 0
-				OR (@LicenseeType = 1 AND sp.value IS NOT NULL)
+			AND @LicenseeType IN (0, 1)
+			AND ( ISNULL(TRIM(@SitePermission),'') = ''
+				OR (ISNULL(TRIM(@SitePermission),'') <> '' AND sp.value IS NOT NULL)
 			)
 	)
-	,CTE_CRMCredit AS (
+	,CTE_SiteByPermission AS (
 		SELECT DISTINCT si.SettingValue AS SiteName
+			,si.ExtraInfo AS SiteLabel
 		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
 			INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
 			INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
 		WHERE sc.SettingName = 'SitePermission'
 			AND sc.SettingValue IN (
-				SELECT SitePermission FROM CTE_Credit
+				SELECT SitePermission FROM CTE_Permission
 			)
+	)
+	,CTE_CRMCredit AS (
+		SELECT si.SettingValue AS SiteName
+			,si.ExtraInfo AS SiteLabel
+		FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
+		INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+		INNER JOIN bodb_CRM.dbo.crmSetting si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+		WHERE sr.ParentID = 33001 --Credit
+	)
+	INSERT INTO #tmpValidSite (
+		SiteName
+		,IsDeposit
+		,SiteLabel
+	)
+	SELECT DISTINCT p.SiteName
+		,0 AS IsDeposit
+		,cr.SiteLabel
+	FROM CTE_SiteByPermission AS p
+		INNER JOIN CTE_CRMCredit AS cr ON p.SiteName = cr.SiteName
+	
+	---- Filter by Licensee ---------
+	;WITH CTE_CRMLic AS (
+		SELECT DISTINCT si.SettingValue AS SiteName
+			,1 AS IsDeposit
+		FROM bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK)
+			INNER JOIN bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
+			INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+		WHERE sr.ParentID = 33000 --Licensee
+			AND (
+				@LicenseeType = 0
+				OR (@LicenseeType = 2 AND ISNULL(TRIM(@SitePermission),'') = '') --Exclude @SitePermission for Deposit
+			)
+	)
+	INSERT INTO #tmpValidSite (
+		SiteName
+		,IsDeposit
+		,SiteLabel
+	)
+	SELECT DISTINCT lic.SiteName
+		,lic.IsDeposit
+		,(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
+				WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
+				ELSE 'Normal licensees' END
+		) AS SiteLabel
+	FROM CTE_CRMLic AS lic
+		LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON lic.SiteName = s.site
+		
+	---- @UserRole - CN88 ---------
+	;WITH CTE_SiteByRole AS (
+		SELECT DISTINCT SiteName
+			,IsDeposit
+		FROM (
+			--CN88--
+			SELECT sc.SettingValue AS SiteName
+				,0 AS IsDeposit
+			FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+			WHERE sc.SettingName = 'SiteCategory'
+				AND @UserRole = 1
+				AND sc.SettingID = 33002
+				AND ISNULL(sc.SiteOffer, @UserRole) = @UserRole
+
+			UNION ALL
+
+			SELECT si.SettingValue AS SiteName
+				,(CASE WHEN sc.SettingID = 33000 THEN 1 --Licensee
+						WHEN sc.SettingID = 33001 THEN 0 --Credit
+						-- ELSE -1 END --Unknown
+						END ) AS IsDeposit
+			FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
+				INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
+				INNER JOIN bodb_CRM.dbo.crmSetting AS si WITH (NOLOCK) ON si.SettingName = 'Site' AND sr.SettingID = si.SettingID
+			WHERE sc.SettingName = 'SiteCategory'
+				AND @UserRole = 2
+				AND ISNULL(sc.SettingID, 0) <> 33002
+				AND ISNULL(sc.SiteOffer, @UserRole) = @UserRole
+		) AS s
+		WHERE IsDeposit IN (0, 1)
 	)
 	DELETE v
 	FROM #tmpValidSite AS v
-		LEFT JOIN CTE_CRMCredit AS cre ON v.SiteName = cre.SiteName
-	WHERE v.isDeposit = 0
-		AND cre.SiteName IS NULL
+		LEFT JOIN CTE_SiteByRole AS s ON v.SiteName = s.SiteName AND v.IsDeposit = s.IsDeposit
+	WHERE s.SiteName IS NULL
 	
 	CREATE CLUSTERED INDEX CIX_tmpValidSite ON #tmpValidSite (SiteName)
 	
@@ -173,14 +199,11 @@ BEGIN
 			,TransID
 		)
 		SELECT DISTINCT nt.NotificationID
-			,(CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
-			,CASE WHEN s.isDeposit = 1 THEN --Licensee
-				(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
-					WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
-					ELSE 'Normal licensees' END
-				)
-				ELSE ISNULL(s.SiteLabel,'Others') --Credit
-				END AS SiteGroup
+			,CASE WHEN vs.IsDeposit = 1 THEN 'Licensee' ELSE 'Credit' END AS SiteType
+			,(CASE WHEN vs.IsDeposit = 1 AND vs.SiteLabel IS NULL THEN 'Normal licensees' --Licensee
+				WHEN vs.IsDeposit = 0 AND vs.SiteLabel IS NULL THEN 'Others' --Credit
+				ELSE vs.SiteLabel
+				END) AS SiteGroup
 			,nt.TargetSite
 			,t.TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
@@ -188,7 +211,6 @@ BEGIN
 			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							TransID BIGINT '$.TransID'
 						) AS t --OPENJSON case-sensitive
-			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
 			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
@@ -225,14 +247,11 @@ BEGIN
 			,TransID
 		)
 		SELECT DISTINCT nt.NotificationID
-			,(CASE WHEN s.isDeposit = 1 THEN 'Licensee' ELSE 'Credit' END) AS SiteType
-			,CASE WHEN s.isDeposit = 1 THEN --Licensee
-				(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
-					WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
-					ELSE 'Normal licensees' END
-				)
-				ELSE ISNULL(s.SiteLabel,'Others') --Credit
-				END AS SiteGroup
+			,CASE WHEN vs.IsDeposit = 1 THEN 'Licensee' ELSE 'Credit' END AS SiteType
+			,(CASE WHEN vs.IsDeposit = 1 AND vs.SiteLabel IS NULL THEN 'Normal licensees' --Licensee
+				WHEN vs.IsDeposit = 0 AND vs.SiteLabel IS NULL THEN 'Others' --Credit
+				ELSE vs.SiteLabel
+				END) AS SiteGroup
 			,nt.TargetSite
 			,t.value AS TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
@@ -242,7 +261,6 @@ BEGIN
 							,TransIDs VARCHAR(MAX) '$.TransIDs'
 						) AS nc --OPENJSON case-sensitive
 			CROSS APPLY STRING_SPLIT(nc.TransIDs, ',') AS t
-			LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site
 		WHERE nt.NotificationID = @NotiID
 			AND TRY_CONVERT(BIGINT,t.value) IS NOT NULL
 			AND ISJSON(nt.ExtraInfo) = 1

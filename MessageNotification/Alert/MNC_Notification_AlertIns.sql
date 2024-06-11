@@ -32,6 +32,7 @@ BEGIN
 		,@Params NVARCHAR(1000) = N'@RuleID INT, @LastScan VARCHAR(500) OUTPUT, @JSAlertResult NVARCHAR(MAX) OUTPUT'
 		,@LastScan VARCHAR(500)
 		,@Validation INT
+		,@ExcpInsCnt INT
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -158,6 +159,7 @@ BEGIN
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
 			,@ErrMsg = ERROR_MESSAGE() --output for web
+			,@ExcpInsCnt = 0
 		
 		--send error log
 		INSERT INTO Alert (
@@ -173,6 +175,16 @@ BEGIN
 			,'[{"RefInfo":"RuleID"}]' AS RefExtraInfo --RefInfo=RuleID => only send in IT ChatGroup
 			,'FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 				+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')' AS Content
+		WHERE NOT EXISTS (
+			SELECT 1
+			FROM Alert AS a WITH (NOLOCK)
+			WHERE a.RuleID = @RuleID
+				AND a.RefID = @RuleID
+				AND a.Content = ('FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')' + ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+				AND DATEADD(MI, 5, a.InsertedTime) > GETDATE() --check not Spam - insert after 5 mins
+		)
+		
+		SELECT @ExcpInsCnt = @@ROWCOUNT
 		
 		INSERT INTO [Log] (
 			RefID
@@ -184,6 +196,7 @@ BEGIN
 			,@LogActionID
 			,@LogUserID
 			,'Error - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+					+ ' - @Inssert Exception Count(' + ISNULL(CONVERT(VARCHAR,@ExcpInsCnt),'NULL') + ')'
 					+ ' - @SQLStatement(' + ISNULL(@SQLStatement,'NULL') + ')'
 					+ ' - @Params(' + ISNULL(@Params,'NULL') + ')'
 					+ ' - @LastScan(' + ISNULL(@LastScan,'NULL') + ')'

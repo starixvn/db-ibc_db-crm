@@ -37,5 +37,9 @@ GO
 USE [MessageNotification]
 GO
 
-CREATE USER [bodbAdminNet] FOR LOGIN [bodbAdminNet] WITH DEFAULT_SCHEMA=[dbo]
+CREATE USER [wsv_nap] FOR LOGIN [wsv_nap] WITH DEFAULT_SCHEMA=[dbo]
+GO
+
+/* GRANT wsv_nap to EXEC by sp_executesql*/
+ALTER ROLE [db_datareader] ADD MEMBER [wsv_nap]
 GO

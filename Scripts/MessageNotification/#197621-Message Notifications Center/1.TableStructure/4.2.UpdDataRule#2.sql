@@ -77,13 +77,13 @@ SELECT @FromModifiedTime = TRY_CONVERT(DATETIME,@LastScan)
 IF @FromModifiedTime IS NULL
 BEGIN
 	SELECT @FromModifiedTime = MIN(LastModifiedTime)
-	FROM Notification WITH (NOLOCK)
+	FROM MessageNotification.dbo.Notification WITH (NOLOCK)
 END
 
 -- NOT EXISTS data in SettlementResultHist => ignore check
 IF @FromModifiedTime IS NULL
 	OR @FromModifiedTime >= @ToModifiedTime
-	OR NOT EXISTS (SELECT 1 FROM AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
 BEGIN
 	SELECT @JSAlertResult = ''''
 		,@LastScan = ISNULL(@FromModifiedTime,DATEADD(ms,3,@ToModifiedTime)) --because condition [LastModifiedTime > @FromModifiedTime] => cover PointTime @ToModifiedTime
@@ -108,7 +108,7 @@ CREATE TABLE #tmpNewNoti_Old (
 )
 
 SELECT @StsNew = StatusID
-FROM NotiStatus WITH (NOLOCK)
+FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
 WHERE Status = ''New''
 
 /**************************************************************************************
@@ -126,14 +126,14 @@ SELECT DISTINCT n.NotificationID
 	,rh.SessionID
 	,n.LastModifiedTime
 	,rh.MatchID
-	,CASE WHEN n.NotificationType = 2 THEN ''LAP '' ELSE '''' END
-		+ ''Result Amendment message(s) for SessionID [''+ ISNULL(rh.SessionID,''NULL'') +''] created. Please review it.'' AS Content
-FROM Notification AS n WITH (NOLOCK)
-	LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
-	LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+	,''Result Amendment message(s) for SessionID [''+ ISNULL(rh.SessionID,''NULL'') +''] created. Please review it.'' AS Content
+FROM MessageNotification.dbo.Notification AS n WITH (NOLOCK)
+	LEFT JOIN MessageNotification.dbo.NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 WHERE n.StatusID = @StsNew
 	AND n.LastModifiedTime > @FromModifiedTime
 	AND n.LastModifiedTime <= @ToModifiedTime
+	AND n.NotificationType = 1 --Only for OST, LAP notified by Chatbot LIC
 
 /**************************************************************************************
 	3.Remove EXISTED
@@ -154,7 +154,7 @@ INSERT INTO #tmpNewNoti_Old (
 SELECT DISTINCT RefID AS NotificationID
 	,ext.SessionID
 	,ext.LastModifiedTime
-FROM Alert AS a WITH (NOLOCK)
+FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
 	INNER JOIN #tmpNewNoti_New AS sn ON a.RefID = CONVERT(NVARCHAR, sn.NotificationID)
 	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 			RefInfo VARCHAR(50) ''$.RefInfo''

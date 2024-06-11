@@ -62,7 +62,7 @@ VALUES (1, 'ScanBackHour', '24', 'Int32', 'scan back from current to pull Settle
 	,(13,'LogMode', 'Debug', 'String', 'Normal, Debug')
 	,(14,'OST ChatGroupID', '19:934a887696734ecfbc35dc45521729c4@thread.skype', 'String','Notification Alert - Local')
 	,(15,'777 ChatGroupID', '19:85743ff1eb01435d899cbc1a4f756f47@thread.skype', 'String','Notification Alert (for 777 only) - Local')
-	,(16,'Separate Noti by Site', '777777', 'String','Sites will be separated notifications from OST')
+	,(16,'777 Sites', '777777', 'String','List of SiteLabel [777] with: Non-Saba text and be separated notifications from OST')
 
 /***** NotiTemplate ****/
 TRUNCATE TABLE NotiTemplate

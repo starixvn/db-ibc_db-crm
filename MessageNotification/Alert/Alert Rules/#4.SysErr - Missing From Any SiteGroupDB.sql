@@ -56,11 +56,11 @@ DECLARE @FromSettlID INT
 SELECT @FromSettlID = ISNULL(TRY_CONVERT(INT,@LastScan),0)
 
 SELECT @ToSettlID = MAX(SettlementLogID)
-FROM SettlementResultHist WITH (NOLOCK)
+FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 WHERE SettlementLogID > @FromSettlID
 
 SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
-FROM SystemSetting WITH (NOLOCK)
+FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 WHERE VID = 11 --Retrieving_WaitSec
 
 SELECT @SiteCnt = COUNT(DISTINCT SiteDBGroupID)
@@ -69,7 +69,7 @@ WHERE SiteDBGroupID <> 0
 
 IF @FromSettlID IS NULL
 	OR @ToSettlID IS NULL
-	OR NOT EXISTS (SELECT 1 FROM AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
 	OR ISNULL(@WaitSec ,0) = 0
 	OR ISNULL(@SiteCnt ,0) = 0
 BEGIN
@@ -103,8 +103,8 @@ CREATE TABLE #tmpSettlError_Old (
 	SELECT s.SessionID
 		,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
 		,MIN(rh.InsertedTime) AS Mi_InsertedTime
-	FROM SettlementResultHist AS s WITH (NOLOCK) 
-		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+	FROM MessageNotification.dbo.SettlementResultHist AS s WITH (NOLOCK) 
+		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
 	WHERE s.SettlementLogID > @FromSettlID
 		AND s.SettlementLogID <= @ToSettlID
 	GROUP BY s.SessionID
@@ -136,7 +136,7 @@ CREATE CLUSTERED INDEX CIX_tmpSettlError_New ON #tmpSettlError_New (SessionID)
 
 INSERT INTO #tmpSettlError_Old ( SessionID )
 SELECT DISTINCT a.RefID
-FROM Alert AS a WITH (NOLOCK)
+FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
 	INNER JOIN #tmpSettlError_New AS sn ON a.RefID = sn.SessionID AND sn.DeleteReason = 0
 	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 			RefInfo VARCHAR(50) '$.RefInfo'
@@ -165,7 +165,7 @@ BEGIN
 				SELECT DISTINCT s.SessionID AS RefID
 					,CONVERT(NVARCHAR(MAX),(
 							SELECT 'SessionID' AS RefInfo
-								,(SELECT TOP 1 MatchID FROM SettlementResultHist AS rh WITH (NOLOCK) WHERE s.SessionID = rh.SessionID) AS MatchID
+								,(SELECT TOP 1 MatchID FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) WHERE s.SessionID = rh.SessionID) AS MatchID
 							FOR JSON PATH)
 						) AS RefExtraInfo
 					,'SessionID [' + s.SessionID + '] NOT enough data from SiteDBs, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data] process.' AS Content
@@ -176,7 +176,7 @@ BEGIN
 	
 	SELECT @LastScan = MIN(rh.SettlementLogID) - 1
 	FROM #tmpSettlError_New AS s
-		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
 	WHERE s.DeleteReason IN (0, 2) --0:Error; 2: NOT enough Site count BUT [Wait time < @WaitSec] => check next schedule
 END
 ELSE IF EXISTS (SELECT 1 FROM #tmpSettlError_New WHERE DeleteReason = 2) --NOT enough Site count BUT [Wait time < @WaitSec] => check next schedule
@@ -185,7 +185,7 @@ BEGIN
 	
 	SELECT @LastScan = MIN(rh.SettlementLogID) - 1
 	FROM #tmpSettlError_New AS s
-		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
 	WHERE s.DeleteReason = 2
 END
 ELSE--EXISTS #tmpSettlError_New but have no ERROR

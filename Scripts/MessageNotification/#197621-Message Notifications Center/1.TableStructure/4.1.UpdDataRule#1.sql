@@ -80,19 +80,19 @@ BEGIN
 	SELECT @FromModifiedTime = MIN(Mi_LastModifiedTime)
 	FROM (
 		SELECT MIN(LastModifiedTime) AS Mi_LastModifiedTime
-		FROM SettlementResultHist WITH (NOLOCK)
+		FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 		
 		UNION ALL
 		
 		SELECT MIN(LastModifiedTime) AS Mi_LastModifiedTime
-		FROM Notification WITH (NOLOCK)
+		FROM MessageNotification.dbo.Notification WITH (NOLOCK)
 	) AS t
 END
 
 -- NOT EXISTS data in SettlementResultHist => ignore check
 IF @FromModifiedTime IS NULL
 	OR @FromModifiedTime >= @ToModifiedTime
-	OR NOT EXISTS (SELECT 1 FROM AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
 BEGIN
 	SELECT @JSAlertResult = ''''
 		,@LastScan = CONVERT(VARCHAR, ISNULL(@FromModifiedTime,DATEADD(ms,3,@ToModifiedTime)), 25) --because condition [LastModifiedTime > @FromModifiedTime] => cover PointTime @ToModifiedTime
@@ -126,17 +126,17 @@ CREATE TABLE #tmpNotiNOLap (
 */
 ---1.For [Capture Data] process, [Retrieving] over 2*Configuration_WaitSec---
 SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
-FROM SystemSetting WITH (NOLOCK)
+FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 WHERE VID = 11 --Retrieving_WaitSec
 
 SELECT @Sts = StatusID
-FROM NotiStatus WITH (NOLOCK)
+FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
 WHERE Status = ''Retrieving''
 
 ;WITH CTE_LongSession AS (
 	SELECT SessionID
 		,MIN(LastModifiedTime) AS Mi_LastModifiedTime
-	FROM SettlementResultHist WITH (NOLOCK)
+	FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 	WHERE StatusID = @Sts
 		AND LastModifiedTime > @FromModifiedTime
 		AND LastModifiedTime <= @ToModifiedTime
@@ -157,7 +157,7 @@ SELECT DISTINCT l.SessionID
 	,rh.MatchID
 	,''SessionID ['' + l.SessionID + ''] in [Retrieving] state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Capture Data] process.'' AS Content
 FROM CTE_LongSession AS l
-	INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON l.SessionID = rh.SessionID AND rh.StatusID = @Sts
+	INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON l.SessionID = rh.SessionID AND rh.StatusID = @Sts
 WHERE rh.LastModifiedTime > @FromModifiedTime
 	AND rh.LastModifiedTime <= @ToModifiedTime
 	AND DATEDIFF(SECOND, rh.LastModifiedTime,GETDATE()) > @WaitSec
@@ -165,13 +165,13 @@ WHERE rh.LastModifiedTime > @FromModifiedTime
 ---2.For [Generate Msg Notification] process, [Generating] over 60s---
 SELECT @WaitSec = 60
 SELECT @Sts = StatusID
-FROM NotiStatus WITH (NOLOCK)
+FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
 WHERE Status = ''Generating''
 
 ;WITH CTE_LongSession AS (
 	SELECT SessionID
 		,MIN(LastModifiedTime) AS Mi_LastModifiedTime
-	FROM SettlementResultHist WITH (NOLOCK)
+	FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 	WHERE StatusID = @Sts
 		AND LastModifiedTime > @FromModifiedTime
 		AND LastModifiedTime <= @ToModifiedTime
@@ -191,7 +191,7 @@ SELECT DISTINCT rh.SessionID
 	,rh.LastModifiedTime
 	,rh.MatchID
 	,''SessionID ['' + rh.SessionID + ''] in [Generating] Msg state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Generate Notification] process.'' AS Content
-FROM SettlementResultHist AS rh WITH (NOLOCK)
+FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK)
 WHERE StatusID = @Sts
 	AND LastModifiedTime > @FromModifiedTime
 	AND LastModifiedTime <= @ToModifiedTime
@@ -204,9 +204,9 @@ SELECT @WaitSec = 60
 ;WITH CTE_Msg AS (
 	SELECT DISTINCT nMsg.NotificationID AS MsgNotiID
 		,rh.MatchID
-	FROM Notification AS nMsg WITH (NOLOCK)
-		INNER JOIN NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
-		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
+	FROM MessageNotification.dbo.Notification AS nMsg WITH (NOLOCK)
+		INNER JOIN MessageNotification.dbo.NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
+		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
 	WHERE nMsg.LastModifiedTime > @FromModifiedTime
 		AND nMsg.LastModifiedTime <= @ToModifiedTime
 		AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
@@ -217,8 +217,8 @@ SELECT @WaitSec = 60
 ,CTE_Lap AS (
 	SELECT DISTINCT nLap.NotificationID AS LapNotiID
 		,ext.MsgNotiID
-	FROM Notification AS nLap WITH (NOLOCK)
-		INNER JOIN NotificationExtra AS nLapEx WITH (NOLOCK) ON nLap.NotificationID = nLapEx.NotificationID
+	FROM MessageNotification.dbo.Notification AS nLap WITH (NOLOCK)
+		INNER JOIN MessageNotification.dbo.NotificationExtra AS nLapEx WITH (NOLOCK) ON nLap.NotificationID = nLapEx.NotificationID
 		OUTER APPLY OPENJSON(nLapEx.ExtraInfo) WITH (
 				MsgNotiID VARCHAR(MAX) ''$.MsgNotiID''
 			) AS ext--OPENJSON case-sensitive
@@ -242,7 +242,7 @@ CREATE CLUSTERED INDEX CIX_tmpNotiNOLap ON #tmpNotiNOLap(NotificationID)
 ;WITH CTE_Valid AS (
 	SELECT i.NotificationID
 	FROM #tmpNotiNOLap AS i
-		INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON i.NotificationID = nt.NotificationID --must EXISTS Target
+		INNER JOIN MessageNotification.dbo.NotificationTarget AS nt WITH (NOLOCK) ON i.NotificationID = nt.NotificationID --must EXISTS Target
 		INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
 	GROUP BY i.NotificationID
 )
@@ -265,9 +265,9 @@ SELECT DISTINCT rh.SessionID
 	,ck.MatchID
 	,''LAP Notification of SessionID ['' + rh.SessionID + ''] NOT EXISTS after being approved MessageID ['' + CONVERT(VARCHAR,n.RefID) + ''] for more than ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Generate LAP Notification] process.'' AS Content
 FROM #tmpNotiNOLap AS ck
-	INNER JOIN Notification AS n WITH (NOLOCK) ON n.NotificationID = ck.NotificationID
-	INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
-	INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+	INNER JOIN MessageNotification.dbo.Notification AS n WITH (NOLOCK) ON n.NotificationID = ck.NotificationID
+	INNER JOIN MessageNotification.dbo.NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+	INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 WHERE DATEDIFF(SECOND, n.LastModifiedTime,GETDATE()) > @WaitSec --[after being approved MessageID] => Use Notification.LastModifiedTime
 
 /**************************************************************************************
@@ -289,7 +289,7 @@ INSERT INTO #tmpError_Old (
 SELECT DISTINCT a.RefID AS SessionID
 	,ext.SettlementLogID
 	,ext.LastModifiedTime
-FROM Alert AS a WITH (NOLOCK)
+FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
 	INNER JOIN #tmpError_New AS sn ON a.RefID = sn.SessionID
 	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 			RefInfo VARCHAR(50) ''$.RefInfo''

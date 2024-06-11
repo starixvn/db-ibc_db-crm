@@ -89,13 +89,13 @@ SELECT @FromModifiedTime = TRY_CONVERT(DATETIME,@LastScan)
 IF @FromModifiedTime IS NULL
 BEGIN
 	SELECT @FromModifiedTime = MIN(LastModifiedTime)
-	FROM Notification WITH (NOLOCK)
+	FROM MessageNotification.dbo.Notification WITH (NOLOCK)
 END
 
 -- NOT EXISTS data in SettlementResultHist => ignore check
 IF @FromModifiedTime IS NULL
 	OR @FromModifiedTime >= @ToModifiedTime
-	OR NOT EXISTS (SELECT 1 FROM AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
 BEGIN
 	SELECT @JSAlertResult = ''''
 		,@LastScan = ISNULL(@FromModifiedTime,DATEADD(ms,3,@ToModifiedTime)) --because condition [LastModifiedTime > @FromModifiedTime] => cover PointTime @ToModifiedTime
@@ -119,7 +119,7 @@ CREATE TABLE #tmpFailedSendNoti_Old (
 )
 
 SELECT @StsFailedSend = StatusID
-FROM NotiStatus WITH (NOLOCK)
+FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
 WHERE Status = ''Failed to Send''
 
 /**************************************************************************************
@@ -138,9 +138,9 @@ SELECT DISTINCT n.NotificationID
 	,n.LastModifiedTime
 	,rh.MatchID
 	,''Result Amendment message associated with SessionID [''+ ISNULL(rh.SessionID,''NULL'') +''] was NOT successfully inserted to DBMSG. Please review it.'' AS Content
-FROM Notification AS n WITH (NOLOCK)
-	LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
-	LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+FROM MessageNotification.dbo.Notification AS n WITH (NOLOCK)
+	LEFT JOIN MessageNotification.dbo.NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 WHERE n.StatusID = @StsFailedSend
 	AND n.NotificationType = 1
 	AND n.LastModifiedTime > @FromModifiedTime
@@ -165,7 +165,7 @@ INSERT INTO #tmpFailedSendNoti_Old (
 SELECT DISTINCT a.RefID AS NotificationID
 	,ext.SessionID
 	,ext.LastModifiedTime
-FROM Alert AS a WITH (NOLOCK)
+FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
 	INNER JOIN #tmpFailedSendNoti_New AS sn ON a.RefID = CONVERT(NVARCHAR, sn.NotificationID)
 	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 			RefInfo VARCHAR(50) ''$.RefInfo''

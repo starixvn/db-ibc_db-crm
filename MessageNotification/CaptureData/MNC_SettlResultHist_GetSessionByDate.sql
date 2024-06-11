@@ -75,7 +75,7 @@ BEGIN
 	;WITH CTE_ResultHist AS (
 		SELECT DISTINCT sh.SessionID
 			,sh.MatchID
-			,ISNULL(ISNULL(m.isTestMatch, m14.isTestMatch),0) AS IsTest
+			,l.IsTest
 			,sh.SeqNo
 			,sh.StatusID
 			,sh.ActualResult
@@ -88,6 +88,7 @@ BEGIN
 		FROM SettlementResultHistory AS sh WITH (NOLOCK)
 			LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
 			LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
+			LEFT JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON ISNULL(m.LeagueID, m14.LeagueID) = l.LeagueID
 		WHERE sh.CreatedDate >= @FDTime
 			AND ISNULL(sh.StatusID,0) >= 2 --[StatusID < 2] => not start Result Amendment steps
 	)
@@ -118,7 +119,7 @@ BEGIN
 		,CreatedDate
 		,ExtraInfo
 	FROM CTE_ResultHist
-	WHERE (CASE WHEN ISNULL(@Environment,'UAT') = 'UAT' THEN 1 ELSE IsTest END) = IsTest --If @Environment = UAT, get only TEST Match
+	WHERE (CASE WHEN ISNULL(@Environment,'UAT') = 'UAT' THEN 1 ELSE IsTest END) = IsTest --If @Environment = UAT, get only TEST League
 	
 	INSERT INTO #tmpResultHistDetail (
 		SessionID

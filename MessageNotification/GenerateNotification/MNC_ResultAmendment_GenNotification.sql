@@ -73,7 +73,7 @@ BEGIN
 		,@iLoop INT
 		,@LogMode VARCHAR(500)
 		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151,215'
-		,@SepBySite VARCHAR(500) = ''
+		,@Sites777 VARCHAR(500) = ''
 		,@Saba_en NVARCHAR(10) = N'Saba'
 		,@Saba_ch NVARCHAR(10) = N'沙巴'
 		,@Saba_cs NVARCHAR(10) = N'沙巴'
@@ -119,7 +119,7 @@ BEGIN
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'New'
 	
-	SELECT @SepBySite = ISNULL(VValue,'')
+	SELECT @Sites777 = ISNULL(VValue,'')
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 16 --Separate Noti by Site
 	
@@ -556,7 +556,7 @@ BEGIN
 			,TransID
 		)
 		SELECT DISTINCT rh.NotiTempID
-			,(CASE WHEN (saba.value IS NOT NULL AND (ag.Site = '777777' OR s.IsChinaView = 1 OR s.SpecialPlatfrom > 0)) THEN 1
+			,(CASE WHEN (saba.value IS NOT NULL AND (sep.value IS NOT NULL OR s.IsChinaView = 1 OR s.SpecialPlatfrom > 0)) THEN 1
 				ELSE 0 END) AS IsSabaFilter --0: Normal / 1: Saba
 			,(CASE WHEN (sep.value IS NOT NULL) THEN 1 --configured in SytemSetting
 				ELSE 0 END) AS ControlGrp --0: OST / 1: 777
@@ -572,7 +572,7 @@ BEGIN
 			INNER JOIN bodb02.dbo.Customer AS ag WITH (NOLOCK) ON c.recommend = ag.CustID
 			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ag.Site = s.Site
 			LEFT JOIN STRING_SPLIT(@SabaLeagueGroup, ',') AS saba ON rh.LeagueGroupID = TRY_CONVERT(INT,saba.value)
-			LEFT JOIN STRING_SPLIT(@SepBySite, ',') AS sep ON ag.Site = TRIM(sep.value)
+			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ag.Site = TRIM(sep.value)
 		-- WHERE rh.SportType = 50 --Cricket
 		
 		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (NotiTempID, IsSabaFilter, ControlGrp)
@@ -708,17 +708,17 @@ BEGIN
 					,tp.IsSabaFilter
 					,rfh.RefValueEN + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_en ELSE '' END) AS HomeName_en
 					,rfa.RefValueEN AS AwayName_en
-					,(CASE WHEN tp.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueEN,@Saba_en,'') --REMOVE 'SABA'
+					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueEN END) AS LeagueName_en
 					
 					,rfh.RefValueCH + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_ch ELSE '' END) AS HomeName_ch
 					,rfa.RefValueCH AS AwayName_ch
-					,(CASE WHEN tp.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueCH,@Saba_ch,'') --REMOVE 'SABA'
+					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCH END) AS LeagueName_ch
 					
 					,rfh.RefValueCS + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_cs ELSE '' END) AS HomeName_cs
 					,rfa.RefValueCS AS AwayName_cs
-					,(CASE WHEN tp.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueCS,@Saba_cs,'') --REMOVE 'SABA'
+					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCS END) AS LeagueName_cs
 					
 					,CONVERT(VARCHAR(5),KOTime,103) AS KO_DDMM
@@ -865,14 +865,14 @@ BEGIN
 			
 			----step #2 - 2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
 			UPDATE #tmpAffectedResult
-			SET ResultName_en = REPLACE(REPLACE(ResultName_en,' @G ',' '),'@G','')
-				,ResultName_ch = REPLACE(REPLACE(ResultName_ch,' @G ',' '),'@G','')
-				,ResultName_cs = REPLACE(REPLACE(ResultName_cs,' @G ',' '),'@G','')
+			SET ResultName_en = TRIM(REPLACE(REPLACE(ResultName_en,' @G ',' '),'@G',''))
+				,ResultName_ch = TRIM(REPLACE(REPLACE(ResultName_ch,' @G ',' '),'@G',''))
+				,ResultName_cs = TRIM(REPLACE(REPLACE(ResultName_cs,' @G ',' '),'@G',''))
 			
 			UPDATE #tmpAffectedResult
-			SET ResultName_en = REPLACE(REPLACE(ResultName_en,' @M ',' '),'@M','')
-				,ResultName_ch = REPLACE(REPLACE(ResultName_ch,' @M ',' '),'@M','')
-				,ResultName_cs = REPLACE(REPLACE(ResultName_cs,' @M ',' '),'@M','')
+			SET ResultName_en = TRIM(REPLACE(REPLACE(ResultName_en,' @M ',' '),'@M',''))
+				,ResultName_ch = TRIM(REPLACE(REPLACE(ResultName_ch,' @M ',' '),'@M',''))
+				,ResultName_cs = TRIM(REPLACE(REPLACE(ResultName_cs,' @M ',' '),'@M',''))
 			
 			--step #3 - If exists [OtherInfo] => put it after the Resource_en
 			;WITH CTE_OtherInfo AS (

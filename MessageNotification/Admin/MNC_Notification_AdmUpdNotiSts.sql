@@ -174,7 +174,7 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 50005
 			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sending]'
-						+ ' due to an existing REFID(' + CONVERT(VARCHAR,RefID) + ')'
+						+ ' due to an existing MessageID(' + CONVERT(VARCHAR,RefID) + ')'
 		FROM Notification WITH (NOLOCK)
 		WHERE NotificationID = @NotiID
 			AND RefID IS NOT NULL

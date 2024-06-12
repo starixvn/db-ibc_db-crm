@@ -276,7 +276,7 @@ BEGIN
 	----------Notification----------
 	SELECT DISTINCT n.NotificationID
 		,ext.MsgID AS MessageID
-		,s.Status
+		,(CASE WHEN s.Status = 'Failed to Send' THEN 'Failed' ELSE s.Status END) AS Status
 		,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
 		,ext.EventName
 		,n.Subject

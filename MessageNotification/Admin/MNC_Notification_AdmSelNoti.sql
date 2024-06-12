@@ -86,6 +86,8 @@ BEGIN
 	CREATE TABLE #tmpStsByNotiType (
 		NotiType TINYINT
 		,StatusID TINYINT
+		,RealStatus VARCHAR(50)
+		,ViewStatus VARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpResult (
@@ -241,9 +243,13 @@ BEGIN
 	INSERT INTO #tmpStsByNotiType (
 		NotiType
 		,StatusID
+		,RealStatus
+		,ViewStatus
 	)
 	SELECT 1 AS NotiType--Msg
 		,s.StatusID
+		,s.Status AS RealStatus
+		,(CASE WHEN s.Status = 'Failed to Send' THEN 'Failed' ELSE s.Status END) AS ViewStatus
 	FROM STRING_SPLIT('New,Draft,Cancelled,Sending,Sent,Failed to Send', ',') AS m
 		INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON m.value = s.Status
 	
@@ -251,8 +257,12 @@ BEGIN
 	
 	SELECT 2 AS NotiType--LAP
 		,s.StatusID
+		,s.Status AS RealStatus
+		,s.Status AS ViewStatus
 	FROM STRING_SPLIT('New,Active,Inactive', ',') AS l
 		INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON l.value = s.Status
+	
+	CREATE CLUSTERED INDEX CIX_tmpStsByNotiType ON #tmpStsByNotiType (StatusID)
 	/*****************************************   APPLY filter criterias   *********************************************************/
 	
 	--Get Notifications by @FNotiID, @TNotiID, @NotiType
@@ -304,9 +314,9 @@ BEGIN
 								MsgNotiID INT '$.MsgNotiID'
 							) AS ext --OPENJSON case-sensitive
 				INNER JOIN dbo.Notification AS msgn WITH (NOLOCK) ON ext.MsgNotiID = msgn.NotificationID
-				INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON msgn.StatusID = s.StatusID
+				INNER JOIN #tmpStsByNotiType AS s ON msgn.StatusID = s.StatusID
 			WHERE ne.NotificationID = i.NotiID
-				AND s.Status = 'Sent' --push successful
+				AND s.RealStatus = 'Sent' --push successful
 				AND ISJSON(ne.ExtraInfo) = 1
 		)
 	END
@@ -380,7 +390,7 @@ BEGIN
 			WHERE n.StatusID NOT IN (
 				SELECT s.StatusID
 				FROM STRING_SPLIT(@Status, ',') AS i
-					INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON (CASE WHEN i.value = 'Failed' THEN 'Failed to Send' ELSE i.value END) = s.Status
+					INNER JOIN #tmpStsByNotiType AS s ON i.value = s.ViewStatus
 			)
 			
 			UPDATE STATISTICS #tmpNoti
@@ -507,13 +517,13 @@ BEGIN
 			,n.Content_en
 			,n.Content_ch
 			,n.Content_cs
-			,s.Status
+			,s.ViewStatus AS Status
 			,ext.Sender
 			,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
 		FROM #tmpNoti AS i
 			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
 			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
+			INNER JOIN #tmpStsByNotiType AS s ON n.StatusID = s.StatusID
 			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
 			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 		ORDER BY n.NotificationID DESC
@@ -545,14 +555,14 @@ BEGIN
 			,n.Content_en
 			,n.Content_ch
 			,n.Content_cs
-			,s.Status
+			,s.ViewStatus AS Status
 			,ext.Sender
 			,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
 		FROM #tmpNoti AS i
 			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
 			INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
 			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			INNER JOIN dbo.NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
+			INNER JOIN #tmpStsByNotiType AS s ON n.StatusID = s.StatusID
 			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
 			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 		ORDER BY n.NotificationID DESC

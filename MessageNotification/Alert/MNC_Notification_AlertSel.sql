@@ -222,7 +222,7 @@ Status: FAILED'
 		,conf.VValue AS ChatGroupID
 		,ar.RuleType
 		,ext.MatchID
-		,tp.Template AS Content
+		,(CASE WHEN conf.VValue = @IT_ChatGroupID THEN a.Content ELSE tp.Template END) AS Content --keep content for @IT_ChatGroupID
 		,a.Content AS SystemContent
 	FROM #tmpPrepareEventAlert AS ea
 		INNER JOIN Alert AS a WITH (NOLOCK) ON a.AlertID = ea.AlertID
@@ -365,11 +365,18 @@ Status: FAILED'
 				AND ac.IsTest = 0
 		)
 	
-	-- IT ChatGroupID can receive all message include testing
+	-- IT ChatGroupID can receive all message EXCLUDE testing
 	UPDATE a
 	SET a.ValidToSendChatGroup = 1
 	FROM #tmpSendingAlert AS a
 	WHERE a.ChatGroupID = @IT_ChatGroupID
+		AND EXISTS (
+				SELECT 1
+				FROM #tmpAlertByCust AS ac
+				WHERE ac.AlertID = a.AlertID
+					AND ac.Currency <> 20 --Cust real
+					AND ac.IsTest = 0
+			)
 	
 	-------Change Alert status---------------
 	;WITH CTE_IgnoreSend AS (
@@ -395,7 +402,7 @@ Status: FAILED'
 	SELECT a.AlertID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,a.AlertID),'NULL')+ ') Status from [Sending] to [Sent] - WITHOUT send message out - (may all Target is test)'
+		,@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,a.AlertID),'NULL')+ ') Status from [Sending] to [Sent] - WITHOUT send message out - (Have NO Target OR all Target is test)'
 	FROM Alert AS a WITH (NOLOCK)
 		INNER JOIN #tmpPrepareEventAlert AS ea ON a.AlertID = ea.AlertID
 	WHERE a.StatusID = @StsSucceedSend
@@ -713,9 +720,6 @@ Status: FAILED'
 						,ISNULL(t.ValidToSendChatGroup,0) AS ValidToSendChatGroup
 					FROM #tmpSendingAlert AS t
 					WHERE t.AlertID = s.AlertID
-						AND ((t.ChatGroupID <> @IT_ChatGroupID AND t.ValidToSendChatGroup = 1)
-							OR (t.ChatGroupID = @IT_ChatGroupID)
-						)
 					FOR JSON PATH
 				)) AS SentContent
 				,CONVERT(NVARCHAR(MAX),(
@@ -729,8 +733,6 @@ Status: FAILED'
 					FOR JSON PATH
 				)) AS SystemContent
 			FROM #tmpSendingAlert AS s
-			WHERE (s.ChatGroupID <> @IT_ChatGroupID AND s.ValidToSendChatGroup = 1)
-				OR (s.ChatGroupID = @IT_ChatGroupID)
 			GROUP BY s.AlertID
 	)
 	INSERT INTO [Log] (

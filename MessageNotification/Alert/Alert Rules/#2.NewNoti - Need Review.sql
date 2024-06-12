@@ -6,21 +6,20 @@ Description: Alert rule for [review]
 AlertRule properties
 	RuleType: NewNoti
 	Target: OST/777
-	LastScan: compare with LastModifiedTime
+	Scan Range: LastModifiedTime BETWEEN DATEADD(DD, -1, GETDATE()) AND GETDATE()
 
 Alert rule
-	1.Any [New] Notification(s) of Msg or Lap
+	1.Any [New] Notification(s) of Msg
 
 -----Steps of Rule-----
-1.Define @LastScan
-2.Exec Rule and insert into [Error_New] table with Key Columns
+1.Exec Rule and insert into [Error_New] table with Key Columns
 	- NotificationID
 	- SessionID
 	- LastModifiedTime
-3.Remove EXISTED
+2.Remove EXISTED
 	- Load [Error_Old] by @RuleID
 	- Remove EXISTED from [Error_New] based on [Error_Old]
-4.Return result
+3.Return result
 	- @JSAlertResult
 		+ RefID: NotificationID
 		+ RefExtraInfo
@@ -31,13 +30,11 @@ Alert rule
 				"SessionID": "e230ee02-fa38-42e9-ac76-8c27093a0f48"
 			}]
 		+ Content
-	- @LastScan
 
 --Output Param: 
 
 		--Declaration for Unit Testing
 		DECLARE @RuleID INT = 2
-			,@LastScan VARCHAR(500)
 			,@JSAlertResult NVARCHAR(MAX) = ''
 
 Revision:
@@ -48,34 +45,8 @@ SET NOCOUNT ON
 SELECT @JSAlertResult = ''
 
 DECLARE @StsNew TINYINT
-	,@FromModifiedTime DATETIME
+	,@FromModifiedTime DATETIME = DATEADD(DD, -1, GETDATE())
 	,@ToModifiedTime DATETIME = GETDATE()
-
-/**************************************************************************************
-	1.Define @LastScan
-	
-	in this Rule, @LastScan IS LastModifiedTime
-	
-	Define @FromModifiedTime and @ToModifiedTime
-*/
-SELECT @FromModifiedTime = TRY_CONVERT(DATETIME,@LastScan)
-
-IF @FromModifiedTime IS NULL
-BEGIN
-	SELECT @FromModifiedTime = MIN(LastModifiedTime)
-	FROM MessageNotification.dbo.Notification WITH (NOLOCK)
-END
-
--- NOT EXISTS data in SettlementResultHist => ignore check
-IF @FromModifiedTime IS NULL
-	OR @FromModifiedTime >= @ToModifiedTime
-	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
-BEGIN
-	SELECT @JSAlertResult = ''
-		,@LastScan = ISNULL(@FromModifiedTime,DATEADD(ms,3,@ToModifiedTime)) --because condition [LastModifiedTime > @FromModifiedTime] => cover PointTime @ToModifiedTime
-	
-	RETURN
-END
 
 /******************************************Start to Check****************************************************/
 CREATE TABLE #tmpNewNoti_New (
@@ -120,6 +91,7 @@ WHERE n.StatusID = @StsNew
 	AND n.LastModifiedTime > @FromModifiedTime
 	AND n.LastModifiedTime <= @ToModifiedTime
 	AND n.NotificationType = 1 --Only for OST, LAP notified by Chatbot LIC
+	AND rh.IsTest = 0
 
 /**************************************************************************************
 	3.Remove EXISTED
@@ -131,6 +103,18 @@ WHERE n.StatusID = @StsNew
 
 */
 CREATE CLUSTERED INDEX CIX_tmpNewNoti_New ON #tmpNewNoti_New (NotificationID)
+
+/**************************************************************************************
+	check EXISTS
+*/
+IF NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+	OR NOT EXISTS (SELECT 1 FROM #tmpNewNoti_New)
+BEGIN
+	DROP TABLE #tmpNewNoti_New
+	DROP TABLE #tmpNewNoti_Old
+
+	RETURN
+END
 
 INSERT INTO #tmpNewNoti_Old (
 	NotificationID
@@ -160,12 +144,8 @@ FROM #tmpNewNoti_New AS n
 /**************************************************************************************
 	4.Return result
 */
-IF NOT EXISTS (SELECT 1 FROM #tmpNewNoti_New)
-BEGIN
-	SELECT @JSAlertResult = ''
-		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
-END
-ELSE
+
+IF EXISTS (SELECT 1 FROM #tmpNewNoti_New)
 BEGIN
 	;WITH CTE_Noti AS (
 		SELECT CONVERT(NVARCHAR,s.NotificationID) AS RefID
@@ -189,12 +169,10 @@ BEGIN
 				FROM CTE_Noti
 				FOR JSON PATH
 			))
-		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
 END
 
-DROP TABLE #tmpNewNoti_New
-DROP TABLE #tmpNewNoti_Old
+DROP TABLE IF EXISTS #tmpNewNoti_New
+DROP TABLE IF EXISTS #tmpNewNoti_Old
 
 --Return for Unit Testing
--- SELECT @LastScan AS [@LastScan]
-	-- ,@JSAlertResult AS [@JSAlertResult]
+-- SELECT @JSAlertResult AS [@JSAlertResult]

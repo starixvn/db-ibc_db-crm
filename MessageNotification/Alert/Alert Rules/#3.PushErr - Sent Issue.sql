@@ -6,21 +6,20 @@ Description: Alert rule for [Insert DBMSG]
 AlertRule properties
 	RuleType: PushErr
 	Target: OST/777
-	LastScan: compare with LastModifiedTime
+	Scan Range: LastModifiedTime BETWEEN DATEADD(DD, -1, GETDATE()) AND GETDATE()
 
 Alert rule
 	1.Any [Failed to Send] Notification(s)
 
 -----Steps of Rule-----
-1.Define @LastScan
-2.Exec Rule and insert into [Error_New] table with Key Columns
+1.Exec Rule and insert into [Error_New] table with Key Columns
 	- NotificationID
 	- SessionID
 	- LastModifiedTime
-3.Remove EXISTED
+2.Remove EXISTED
 	- Load [Error_Old] by @RuleID
 	- Remove EXISTED from [Error_New] based on [Error_Old]
-4.Return result
+3.Return result
 	- @JSAlertResult
 		+ RefID: NotificationID
 		+ RefExtraInfo
@@ -31,25 +30,11 @@ Alert rule
 				"SessionID": "e230ee02-fa38-42e9-ac76-8c27093a0f48"
 			}]
 		+ Content
-	- @LastScan
-
-Alert Output:
-	RefID: NotificationID
-	RefExtraInfo:
-		- RefInfo = 'NotificationID'
-		- SessionID
-		- LastModifiedTime
-
-Key to remove EXISTED
-	- NotificationID
-	- SessionID
-	- LastModifiedTime
 
 --Output Param: 
 
 		--Declaration for Unit Testing
 		DECLARE @RuleID INT = 3
-			,@LastScan VARCHAR(500)
 			,@JSAlertResult NVARCHAR(MAX) = ''
 
 Revision:
@@ -60,38 +45,12 @@ SET NOCOUNT ON
 SELECT @JSAlertResult = ''
 
 DECLARE @StsFailedSend TINYINT
-	,@FromModifiedTime DATETIME
+	,@FromModifiedTime DATETIME = DATEADD(DD, -1, GETDATE())
 	,@ToModifiedTime DATETIME = GETDATE()
-
-/**************************************************************************************
-	1.Define @LastScan
-	
-	in this Rule, @LastScan IS LastModifiedTime
-	
-	Define @FromModifiedTime and @ToModifiedTime
-*/
-SELECT @FromModifiedTime = TRY_CONVERT(DATETIME,@LastScan)
-
-IF @FromModifiedTime IS NULL
-BEGIN
-	SELECT @FromModifiedTime = MIN(LastModifiedTime)
-	FROM MessageNotification.dbo.Notification WITH (NOLOCK)
-END
-
--- NOT EXISTS data in SettlementResultHist => ignore check
-IF @FromModifiedTime IS NULL
-	OR @FromModifiedTime >= @ToModifiedTime
-	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
-BEGIN
-	SELECT @JSAlertResult = ''
-		,@LastScan = ISNULL(@FromModifiedTime,DATEADD(ms,3,@ToModifiedTime)) --because condition [LastModifiedTime > @FromModifiedTime] => cover PointTime @ToModifiedTime
-	
-	RETURN
-END
 
 CREATE TABLE #tmpFailedSendNoti_New (
 	NotificationID INT NOT NULL
-	,SessionID VARCHAR(50) NOT NULL
+	,SessionID NVARCHAR(50) NOT NULL
 	,LastModifiedTime DATETIME NOT NULL
 	-----------
 	,MatchID INT NOT NULL
@@ -100,7 +59,7 @@ CREATE TABLE #tmpFailedSendNoti_New (
 
 CREATE TABLE #tmpFailedSendNoti_Old (
 	NotificationID INT
-	,SessionID VARCHAR(50)
+	,SessionID NVARCHAR(50)
 	,LastModifiedTime DATETIME
 )
 
@@ -131,6 +90,7 @@ WHERE n.StatusID = @StsFailedSend
 	AND n.NotificationType = 1
 	AND n.LastModifiedTime > @FromModifiedTime
 	AND n.LastModifiedTime <= @ToModifiedTime
+	AND rh.IsTest = 0
 
 /**************************************************************************************
 	3.Remove EXISTED
@@ -143,6 +103,18 @@ WHERE n.StatusID = @StsFailedSend
 */
 CREATE CLUSTERED INDEX CIX_tmpFailedSendNoti_New ON #tmpFailedSendNoti_New (NotificationID)
 
+/**************************************************************************************
+	check EXISTS
+*/
+IF NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+	OR NOT EXISTS (SELECT 1 FROM #tmpFailedSendNoti_New)
+BEGIN
+	DROP TABLE IF EXISTS #tmpFailedSendNoti_New
+	DROP TABLE IF EXISTS #tmpFailedSendNoti_Old
+
+	RETURN
+END
+
 INSERT INTO #tmpFailedSendNoti_Old (
 	NotificationID
 	,SessionID
@@ -152,10 +124,10 @@ SELECT DISTINCT a.RefID AS NotificationID
 	,ext.SessionID
 	,ext.LastModifiedTime
 FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
-	INNER JOIN #tmpFailedSendNoti_New AS sn ON a.RefID = CONVERT(NVARCHAR, sn.NotificationID)
+	INNER JOIN #tmpFailedSendNoti_New AS sn ON a.RefID = TRY_CONVERT(NVARCHAR, sn.NotificationID)
 	OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 			RefInfo VARCHAR(50) '$.RefInfo'
-			,SessionID INT '$.SessionID'
+			,SessionID NVARCHAR(50) '$.SessionID'
 			,LastModifiedTime DATETIME '$.LastModifiedTime'
 		) AS ext --OPENJSON case-sensitive
 WHERE a.RuleID = @RuleID
@@ -171,12 +143,7 @@ FROM #tmpFailedSendNoti_New AS n
 /**************************************************************************************
 	4.Return result
 */
-IF NOT EXISTS (SELECT 1 FROM #tmpFailedSendNoti_New)
-BEGIN
-	SELECT @JSAlertResult = ''
-		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
-END
-ELSE
+IF EXISTS (SELECT 1 FROM #tmpFailedSendNoti_New)
 BEGIN
 	;WITH CTE_Noti AS (
 		SELECT CONVERT(NVARCHAR,s.NotificationID) AS RefID
@@ -200,12 +167,10 @@ BEGIN
 				FROM CTE_Noti
 				FOR JSON PATH
 			))
-		,@LastScan = CONVERT(VARCHAR, @ToModifiedTime, 25)
 END
 
-DROP TABLE #tmpFailedSendNoti_New
-DROP TABLE #tmpFailedSendNoti_Old
+DROP TABLE IF EXISTS #tmpFailedSendNoti_New
+DROP TABLE IF EXISTS #tmpFailedSendNoti_Old
 
 --Return for Unit Testing
--- SELECT @LastScan AS [@LastScan]
-	-- ,@JSAlertResult AS [@JSAlertResult]
+-- SELECT @JSAlertResult AS [@JSAlertResult]

@@ -40,6 +40,11 @@ CREATE NONCLUSTERED INDEX [IX_RHSessionID] ON dbo.SettlementResultHist (
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
+CREATE NONCLUSTERED INDEX [IX_RHModified] ON dbo.SettlementResultHist (
+	LastModifiedTime
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
+GO
+
 /***** SettlementResultHistDetail ****/
 DROP TABLE IF EXISTS dbo.SettlementResultHistDetail
 
@@ -110,14 +115,24 @@ CREATE TABLE dbo.Notification (
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 GO
 
+DROP INDEX IF EXISTS IX_NotiIns ON dbo.Notification
+GO
 CREATE NONCLUSTERED INDEX [IX_NotiIns] ON dbo.Notification (
 	InsertedTime
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
+DROP INDEX IF EXISTS IX_NotiModified ON dbo.Notification
+CREATE NONCLUSTERED INDEX [IX_NotiModified] ON dbo.Notification (
+	LastModifiedTime
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
+GO
+
+DROP INDEX IF EXISTS IX_NotiRefID ON dbo.Notification
 CREATE NONCLUSTERED INDEX [IX_NotiRefID] ON dbo.Notification (
 	RefID
-) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
+) INCLUDE (NotificationType)
+WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 
 /***** NotificationTarget ****/

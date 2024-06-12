@@ -67,11 +67,21 @@ DECLARE @FromSettlID INT
 	
 	Define @FromSettlID and @ToSettlID
 */
-SELECT @FromSettlID = ISNULL(TRY_CONVERT(INT,@LastScan),0)
+;WITH CTE_FromSettl AS (
+	SELECT ISNULL(TRY_CONVERT(INT,@LastScan),0) AS FromSettlID
+	
+	UNION ALL
+	
+	SELECT MIN(SettlementLogID) AS FromSettlID
+	FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
+	WHERE LastModifiedTime > DATEADD(DD, -1, GETDATE())
+		AND LastModifiedTime <= GETDATE()
+		AND IsTest = 0
+)
+SELECT @FromSettlID = MIN(FromSettlID)
+FROM CTE_FromSettl
 
-SELECT @ToSettlID = MAX(SettlementLogID)
-FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
-WHERE SettlementLogID > @FromSettlID
+SELECT @ToSettlID = ISNULL((SELECT MAX(SettlementLogID) FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID > @FromSettlID), @FromSettlID)
 
 SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
 FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
@@ -80,18 +90,6 @@ WHERE VID = 11 --Retrieving_WaitSec
 SELECT @SiteCnt = COUNT(DISTINCT SiteDBGroupID)
 FROM bodb02.dbo.SiteDBConfig WITH (NOLOCK)
 WHERE SiteDBGroupID <> 0
-
-IF @FromSettlID IS NULL
-	OR @ToSettlID IS NULL
-	OR NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
-	OR ISNULL(@WaitSec ,0) = 0
-	OR ISNULL(@SiteCnt ,0) = 0
-BEGIN
-	SELECT @JSAlertResult = ''''
-		,@LastScan = @FromSettlID
-	
-	RETURN
-END
 
 CREATE TABLE #tmpSettlError_New (
 	SessionID VARCHAR(50) NOT NULL
@@ -109,6 +107,7 @@ CREATE TABLE #tmpSettlError_Old (
 	
 	Get SessionID info
 	DeleteReason
+		0: Error => Insert Alert
 		1: Enough SiteDBs count => Ignore
 		2: NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
 		3: Error BUT EXISTED IN Alert => Ignore
@@ -121,6 +120,7 @@ CREATE TABLE #tmpSettlError_Old (
 		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
 	WHERE s.SettlementLogID > @FromSettlID
 		AND s.SettlementLogID <= @ToSettlID
+		AND s.IsTest = 0
 	GROUP BY s.SessionID
 )
 INSERT INTO #tmpSettlError_New (
@@ -148,6 +148,30 @@ FROM CTE_SessionInfo
 */
 CREATE CLUSTERED INDEX CIX_tmpSettlError_New ON #tmpSettlError_New (SessionID)
 
+/**************************************************************************************
+	check EXISTS
+*/
+IF NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID) --may no need, check @RuleID is null
+BEGIN
+	DROP TABLE IF EXISTS #tmpSettlError_New
+	DROP TABLE IF EXISTS #tmpSettlError_Old
+	
+	SELECT @JSAlertResult = ''''
+		,@LastScan = @FromSettlID
+
+	RETURN
+END
+ELSE IF NOT EXISTS (SELECT 1 FROM #tmpSettlError_New)
+BEGIN
+	DROP TABLE IF EXISTS #tmpSettlError_New
+	DROP TABLE IF EXISTS #tmpSettlError_Old
+	
+	SELECT @JSAlertResult = ''''
+		,@LastScan = ISNULL(@ToSettlID,@FromSettlID) -- may change LastScan to @ToSettlID
+
+	RETURN
+END
+
 INSERT INTO #tmpSettlError_Old ( SessionID )
 SELECT DISTINCT a.RefID
 FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
@@ -168,10 +192,11 @@ WHERE n.DeleteReason = 0
 /**************************************************************************************
 	4.Return result
 */
-IF NOT EXISTS (SELECT 1 FROM #tmpSettlError_New)--have no row in SettlementResultHist
+IF NOT EXISTS (SELECT 1 FROM #tmpSettlError_New WHERE DeleteReason NOT IN (1, 3)) --Make sure everything [Enough SiteDBs count] OR [Error Inserted Alert]
 BEGIN
 	SELECT @JSAlertResult = ''''
-		,@LastScan = @FromSettlID
+	
+	SELECT @LastScan = ISNULL(@ToSettlID,@FromSettlID)
 END
 ELSE IF EXISTS (SELECT 1 FROM #tmpSettlError_New WHERE DeleteReason = 0)
 BEGIN
@@ -188,29 +213,17 @@ BEGIN
 				FOR JSON PATH
 			))
 	
-	SELECT @LastScan = MIN(rh.SettlementLogID) - 1
-	FROM #tmpSettlError_New AS s
-		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
-	WHERE s.DeleteReason IN (0, 2) --0:Error; 2: NOT enough Site count BUT [Wait time < @WaitSec] => check next schedule
+	SELECT @LastScan = @FromSettlID -- re-scan in next schedule
 END
 ELSE IF EXISTS (SELECT 1 FROM #tmpSettlError_New WHERE DeleteReason = 2) --NOT enough Site count BUT [Wait time < @WaitSec] => check next schedule
 BEGIN
 	SELECT @JSAlertResult = ''''
 	
-	SELECT @LastScan = MIN(rh.SettlementLogID) - 1
-	FROM #tmpSettlError_New AS s
-		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
-	WHERE s.DeleteReason = 2
-END
-ELSE--EXISTS #tmpSettlError_New but have no ERROR
-BEGIN
-	SELECT @JSAlertResult = ''''
-	
-	SELECT @LastScan = @ToSettlID
+	SELECT @LastScan = @FromSettlID -- re-scan in next schedule
 END
 
-DROP TABLE #tmpSettlError_New
-DROP TABLE #tmpSettlError_Old
+DROP TABLE IF EXISTS #tmpSettlError_New
+DROP TABLE IF EXISTS #tmpSettlError_Old
 
 
 --Return for Unit Testing

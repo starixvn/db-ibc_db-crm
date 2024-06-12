@@ -133,6 +133,8 @@ BEGIN
 			AND ISJSON(@JSAlertResult) = 1
 		ORDER BY rs.RefID
 		
+		SELECT @ExcpInsCnt = @@ROWCOUNT
+		
 		INSERT INTO [Log] (
 			RefID
 			,ActionID
@@ -147,7 +149,8 @@ BEGIN
 					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')'
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = 13 --LogMode
-			AND (VValue = 'Debug' OR ISNULL(TRIM(@JSAlertResult),'') = '')
+			AND (VValue = 'Debug' OR (ISNULL(TRIM(@JSAlertResult),'') <> '' AND ISNULL(@LastScan,'') <> ''))
+			AND @ExcpInsCnt > 0
 		
 		UPDATE AlertRule WITH (ROWLOCK,UPDLOCK)
 		SET LastScan = @LastScan

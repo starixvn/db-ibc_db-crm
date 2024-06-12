@@ -1971,6 +1971,14 @@ BEGIN
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
 	
+	IF EXISTS (SELECT 1 FROM #tmpInsertedNoti)
+	BEGIN
+		UPDATE STATISTICS Notification
+		UPDATE STATISTICS NotificationTarget
+		UPDATE STATISTICS NotiMapping
+		UPDATE STATISTICS NotificationExtra
+	END
+	
 	INSERT INTO [Log] (
 		ActionID
 		,UserID

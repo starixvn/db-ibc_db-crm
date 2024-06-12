@@ -885,6 +885,13 @@ BEGIN
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
 	
+	IF EXISTS (SELECT 1 FROM #tmpInsertedRH)
+	BEGIN
+		UPDATE STATISTICS SettlementResultHist
+		UPDATE STATISTICS SettlementResultHistDetail
+		UPDATE STATISTICS BalanceNegativeHist
+	END
+	
 	INSERT INTO [Log] (
 		ActionID
 		,UserID

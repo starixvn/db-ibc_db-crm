@@ -871,7 +871,7 @@ BEGIN
 		SELECT Lap_NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Recent insertes LAP Notification (refer Msg Noti[' + ISNULL((CONVERT(VARCHAR,Msg_NotiID)),'NULL')+']) with status = [Generating]'
+			,@InfLogPrefix + '[Generate Lap Noti process - Gen] - Recent insertes LAP Notification (refer Msg Noti[' + ISNULL((CONVERT(VARCHAR,Msg_NotiID)),'NULL')+']) with status = [Generating]'
 		FROM #tmpInsertedNoti AS i
 		WHERE @LogMode = 'Debug'
 		ORDER BY i.Lap_NotiID
@@ -1234,14 +1234,6 @@ BEGIN
 	SET VValue = 'Done'
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
-	
-	IF EXISTS (SELECT 1 FROM #tmpInsertedNoti)
-	BEGIN
-		UPDATE STATISTICS Notification
-		UPDATE STATISTICS NotificationTarget
-		UPDATE STATISTICS NotiMapping
-		UPDATE STATISTICS NotificationExtra
-	END
 	
 	INSERT INTO [Log] (
 		ActionID

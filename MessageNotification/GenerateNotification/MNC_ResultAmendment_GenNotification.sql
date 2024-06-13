@@ -1408,6 +1408,20 @@ BEGIN
 			SET @iLoop = (SELECT MIN(NotiByContID) FROM #tmpNotiByContent WHERE NotiByContID > @iLoop)
 		END
 		
+		INSERT INTO [Log] (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT NotificationID
+			,@LogActionID
+			,@LogUserID
+			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Recent insertes MSG Notification with status = [Generating]'
+		FROM #tmpInsertedNoti AS i
+		WHERE @LogMode = 'Debug'
+		ORDER BY i.NotificationID
+		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInsertedNoti ON #tmpInsertedNoti (NotificationID)
 		
 		---Dynamic StatusID by SystemSetting.VName = 'IgnoreReviewContentBySport'
@@ -1583,7 +1597,7 @@ BEGIN
 		SELECT DISTINCT i.NotificationID
 			,rh.EventDate
 			,CONVERT(NVARCHAR(MAX),(
-				SELECT DISTINCT					
+				SELECT DISTINCT
 					-----support Gen Lap noti-----
 					af.afResult AS AffectedResult
 					,t.AmendedCnt

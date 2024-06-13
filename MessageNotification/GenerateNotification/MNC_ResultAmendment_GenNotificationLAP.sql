@@ -863,21 +863,18 @@ BEGIN
 		END
 		
 		INSERT INTO [Log] (
-			ActionID
+			RefID
+			,ActionID
 			,UserID
 			,LogBef
 		)
-		SELECT @LogActionID
+		SELECT Lap_NotiID
+			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug - [Generate Lap Noti process - Gen] - Recent inserts'
-							+ ' - tmpInsertedNoti('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
-											FROM #tmpInsertedNoti
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')'
+			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Recent insertes LAP Notification (refer Msg Noti[' + ISNULL((CONVERT(VARCHAR,Msg_NotiID)),'NULL')+']) with status = [Generating]'
+		FROM #tmpInsertedNoti AS i
 		WHERE @LogMode = 'Debug'
+		ORDER BY i.Lap_NotiID
 		/*
 			Insert NotificationTarget
 				TargetID: AgentID for LAP

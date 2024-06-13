@@ -131,7 +131,7 @@ FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK)
 WHERE rh.SettlementLogID > @FromSettlID
 	AND rh.SettlementLogID <= @ToSettlID
 	AND rh.IsTest = 0
-	AND st.Status IN (''Failed to Retrieve'',''Failed to Generate'')
+	AND st.Status IN (''Failed to Retrieve'',''Failed to Generate'', ''Unknown'')
 
 /**************************************************************************************
 	3.Remove EXISTED

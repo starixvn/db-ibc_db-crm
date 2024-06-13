@@ -45,7 +45,6 @@ SET NOCOUNT ON
 SELECT @JSAlertResult = ''
 
 DECLARE @WaitSec INT = 0
-	,@Sts TINYINT
 	,@FromModifiedTime DATETIME = DATEADD(DD, -1, GETDATE())
 	,@ToModifiedTime DATETIME = GETDATE()
 
@@ -70,7 +69,7 @@ CREATE TABLE #tmpSettl (
 	,LastModifiedTime DATETIME NOT NULL
 	------------------
 	,MatchID INT NOT NULL
-	,StatusID TINYINT
+	,Status VARCHAR(50) NOT NULL
 )
 
 CREATE TABLE #tmpMsgNoti (
@@ -78,7 +77,7 @@ CREATE TABLE #tmpMsgNoti (
 	,LapNotiID INT
 	,MessageID INT NOT NULL
 	,MatchID INT NOT NULL
-	,StatusID TINYINT NOT NULL
+	,Status VARCHAR(50) NOT NULL
 	,ValidType VARCHAR(50)
 )
 
@@ -88,17 +87,18 @@ INSERT INTO #tmpSettl (
 	,SettlementLogID
 	,LastModifiedTime
 	,MatchID
-	,StatusID
+	,Status
 )
-SELECT SessionID
-	,SettlementLogID
-	,LastModifiedTime
-	,MatchID
-	,StatusID
-FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
-WHERE LastModifiedTime > @FromModifiedTime
-	AND LastModifiedTime <= @ToModifiedTime
-	AND IsTest = 0
+SELECT DISTINCT rh.SessionID
+	,rh.SettlementLogID
+	,rh.LastModifiedTime
+	,rh.MatchID
+	,st.Status
+FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK)
+	LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
+WHERE rh.LastModifiedTime > @FromModifiedTime
+	AND rh.LastModifiedTime <= @ToModifiedTime
+	AND rh.IsTest = 0
 
 CREATE CLUSTERED INDEX CIX_tmpSettl ON #tmpSettl(SessionID)
 
@@ -106,12 +106,12 @@ INSERT INTO #tmpMsgNoti (
 	MsgNotiID
 	,MessageID
 	,MatchID
-	,StatusID
+	,Status
 )
 SELECT DISTINCT nMsg.NotificationID AS MsgNotiID
 	,nMsg.RefID AS MessageID
 	,rh.MatchID
-	,nMsg.StatusID
+	,st.Status
 FROM MessageNotification.dbo.Notification AS nMsg WITH (NOLOCK)
 	LEFT JOIN MessageNotification.dbo.NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
 	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
@@ -121,7 +121,9 @@ WHERE nMsg.LastModifiedTime > @FromModifiedTime
 	AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
 	AND rh.SportType = 50 --Cricket, need modify for others sport
 	AND rh.IsTest = 0
-	AND st.Status IN ( 'Sent', 'Generating') --Sent check LAP
+	AND (st.Status  = 'Sent' --Sent check LAP
+		OR st.Status IN ( 'Generating', 'Sending')
+	)
 	AND nMsg.RefID IS NOT NULL
 
 CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti(MsgNotiID)
@@ -147,15 +149,11 @@ SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
 FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 WHERE VID = 11 --Retrieving_WaitSec
 
-SELECT @Sts = StatusID
-FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
-WHERE Status = 'Retrieving'
-
 ;WITH CTE_LongSession AS (
 	SELECT SessionID
 		,MIN(LastModifiedTime) AS Mi_LastModifiedTime
 	FROM #tmpSettl
-	WHERE StatusID = @Sts
+	WHERE Status = 'Retrieving'
 	GROUP BY SessionID
 	HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),GETDATE()) > @WaitSec
 )
@@ -173,19 +171,16 @@ SELECT DISTINCT l.SessionID
 	,rh.MatchID
 	,'SessionID [' + l.SessionID + '] in [Retrieving] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data] process.' AS Content
 FROM CTE_LongSession AS l
-	LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.StatusID = @Sts
+	LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = 'Retrieving'
 
 ---2.For [Generate Msg Notification] process, [Generating] over 60s---
 SELECT @WaitSec = 60
-SELECT @Sts = StatusID
-FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
-WHERE Status = 'Generating'
 
 ;WITH CTE_LongSession AS (
 	SELECT SessionID
 		,MIN(LastModifiedTime) AS Mi_LastModifiedTime
 	FROM #tmpSettl
-	WHERE StatusID = @Sts
+	WHERE Status = 'Generating'
 	GROUP BY SessionID
 	HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),GETDATE()) > @WaitSec
 )
@@ -203,9 +198,9 @@ SELECT DISTINCT rh.SessionID
 	,rh.MatchID
 	,'SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notification] process.' AS Content
 FROM CTE_LongSession AS l
-	LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.StatusID = @Sts
+	LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = 'Generating'
 
---For Notification.StatusID = Generating
+--For Notification.StatusID = Generating / Sending
 INSERT INTO #tmpError_New (
 	SessionID
 	,SettlementLogID
@@ -218,21 +213,19 @@ SELECT DISTINCT rh.SessionID
 	,rh.SettlementLogID
 	,n.LastModifiedTime
 	,rh.MatchID
-	,'Notification(' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),'NULL') + ') of SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notification] process.' AS Content
+	,(CASE WHEN m.Status = 'Generating' THEN 'Notification(' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),'NULL') + ') of SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notification] process.'
+		ELSE 'Notification(' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),'NULL') + ') of SessionID [' + rh.SessionID + '] in [Sending] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Push Notification] process.'
+	END) AS Content
 FROM #tmpMsgNoti AS m
 	LEFT JOIN MessageNotification.dbo.Notification AS n WITH (NOLOCK) ON m.MsgNotiID = n.NotificationID
 	LEFT JOIN MessageNotification.dbo.NotiMapping AS nm WITH (NOLOCK) ON m.MsgNotiID = nm.NotificationID
 	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-WHERE m.StatusID = @Sts
+WHERE m.Status IN ('Generating', 'Sending')
 	AND DATEDIFF(SECOND, n.LastModifiedTime, GETDATE()) > @WaitSec
 	AND rh.IsTest = 0
 
 ---3.For [Generate Lap Notification] process, over 60s---
 SELECT @WaitSec = 60
-
-SELECT @Sts = StatusID
-FROM MessageNotification.dbo.NotiStatus WITH (NOLOCK)
-WHERE Status = 'Sent'
 
 UPDATE m
 SET m.ValidType = (CASE WHEN nLap.NotificationID IS NULL THEN 'NOLAP'
@@ -242,7 +235,7 @@ SET m.ValidType = (CASE WHEN nLap.NotificationID IS NULL THEN 'NOLAP'
 FROM #tmpMsgNoti AS m
 	LEFT JOIN MessageNotification.dbo.Notification AS nLap WITH (NOLOCK) ON m.MessageID = nLap.RefID AND nLap.NotificationType = 2 --2: Result Amendment to LAP
 	LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON nLap.StatusID = st.StatusID
-WHERE m.StatusID = @Sts
+WHERE m.Status = 'Sent'
 	
 --validate again with Target => must EXISTS [deposit] Target
 UPDATE m

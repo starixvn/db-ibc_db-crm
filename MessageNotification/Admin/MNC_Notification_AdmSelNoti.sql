@@ -108,14 +108,32 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpValidSite (
-		SiteName NVARCHAR(100)
+		CRMSiteName NVARCHAR(100)
+		,MainSiteName NVARCHAR(100)
+		,ViewSiteName NVARCHAR(100)
 		,IsDeposit BIT
 		,SiteLabel VARCHAR(50)
+	)
+	
+	CREATE TABLE #tmpHardcodeSite (
+		CRMSiteName NVARCHAR(100)
+		,MainSiteName NVARCHAR(100)
+		,ViewSiteName NVARCHAR(100)
 	)
 	
 	/*
 		Convert permission control to Sites
 	*/
+	
+	--HARDCODE for Licensee only
+	INSERT INTO #tmpHardcodeSite (
+		CRMSiteName
+		,MainSiteName
+		,ViewSiteName
+	)
+	VALUES ('Kzing', 'IBO', 'Kzing (IBO)')
+		,('LIVV88', 'KeenOcean', 'LIVV88 (KeenOcean)')
+	
 	---- Filter by Credit ---------
 	/* Currently, The SitePermission applied only for Credit */
 	;WITH CTE_Permission AS (
@@ -129,7 +147,7 @@ BEGIN
 			)
 	)
 	,CTE_SiteByPermission AS (
-		SELECT DISTINCT si.SettingValue AS SiteName
+		SELECT DISTINCT si.SettingValue AS CRMSiteName
 			,si.ExtraInfo AS SiteLabel
 		FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
 			INNER JOIN bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK) ON sr.ParentID = sc.SettingID
@@ -140,7 +158,7 @@ BEGIN
 			)
 	)
 	,CTE_CRMCredit AS (
-		SELECT si.SettingValue AS SiteName
+		SELECT si.SettingValue AS CRMSiteName
 			,si.ExtraInfo AS SiteLabel
 		FROM bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK)
 		INNER JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
@@ -148,19 +166,24 @@ BEGIN
 		WHERE sr.ParentID = 33001 --Credit
 	)
 	INSERT INTO #tmpValidSite (
-		SiteName
+		CRMSiteName
 		,IsDeposit
 		,SiteLabel
+		,MainSiteName
+		,ViewSiteName
+		
 	)
-	SELECT DISTINCT p.SiteName
+	SELECT DISTINCT p.CRMSiteName
 		,0 AS IsDeposit
 		,cr.SiteLabel
+		,p.CRMSiteName AS MainSiteName
+		,p.CRMSiteName AS ViewSiteName
 	FROM CTE_SiteByPermission AS p
-		INNER JOIN CTE_CRMCredit AS cr ON p.SiteName = cr.SiteName
+		INNER JOIN CTE_CRMCredit AS cr ON p.CRMSiteName = cr.CRMSiteName
 	
 	---- Filter by Licensee ---------
 	;WITH CTE_CRMLic AS (
-		SELECT DISTINCT si.SettingValue AS SiteName
+		SELECT DISTINCT si.SettingValue AS CRMSiteName
 			,1 AS IsDeposit
 		FROM bodb_CRM.dbo.crmSettingRelation AS sr WITH (NOLOCK)
 			INNER JOIN bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK) ON sc.SettingName = 'SiteCategory' AND sr.ParentID = sc.SettingID
@@ -172,26 +195,33 @@ BEGIN
 			)
 	)
 	INSERT INTO #tmpValidSite (
-		SiteName
+		CRMSiteName
 		,IsDeposit
 		,SiteLabel
+		,MainSiteName
+		,ViewSiteName
+		
 	)
-	SELECT DISTINCT lic.SiteName
+	SELECT DISTINCT lic.CRMSiteName
 		,lic.IsDeposit
 		,(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
 				WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
 				ELSE 'Normal licensees' END
 		) AS SiteLabel
+		,ISNULL(hs.MainSiteName, lic.CRMSiteName) AS MainSiteName
+		,ISNULL(hs.ViewSiteName, lic.CRMSiteName) AS ViewSiteName
 	FROM CTE_CRMLic AS lic
-		LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON lic.SiteName = s.site
-		
+		LEFT JOIN #tmpHardcodeSite AS hs ON lic.CRMSiteName = hs.CRMSiteName --HARDCODE for Licensee only
+		LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ISNULL(hs.MainSiteName, lic.CRMSiteName) = s.site
+	WHERE s.site IS NOT NULL
+	
 	---- @UserRole - CN88 ---------
 	;WITH CTE_SiteByRole AS (
-		SELECT DISTINCT SiteName
+		SELECT DISTINCT CRMSiteName
 			,IsDeposit
 		FROM (
 			--CN88--
-			SELECT sc.SettingValue AS SiteName
+			SELECT sc.SettingValue AS CRMSiteName
 				,0 AS IsDeposit
 			FROM bodb_CRM.dbo.crmSetting AS sc WITH (NOLOCK)
 			WHERE sc.SettingName = 'SiteCategory'
@@ -201,7 +231,7 @@ BEGIN
 
 			UNION ALL
 
-			SELECT si.SettingValue AS SiteName
+			SELECT si.SettingValue AS CRMSiteName
 				,(CASE WHEN sc.SettingID = 33000 THEN 1 --Licensee
 						WHEN sc.SettingID = 33001 THEN 0 --Credit
 						-- ELSE -1 END --Unknown
@@ -218,10 +248,10 @@ BEGIN
 	)
 	DELETE v
 	FROM #tmpValidSite AS v
-		LEFT JOIN CTE_SiteByRole AS s ON v.SiteName = s.SiteName AND v.IsDeposit = s.IsDeposit
-	WHERE s.SiteName IS NULL
+		LEFT JOIN CTE_SiteByRole AS s ON v.CRMSiteName = s.CRMSiteName AND v.IsDeposit = s.IsDeposit
+	WHERE s.CRMSiteName IS NULL
 	
-	CREATE CLUSTERED INDEX CIX_tmpValidSite ON #tmpValidSite (SiteName)
+	CREATE CLUSTERED INDEX CIX_tmpValidSite ON #tmpValidSite (CRMSiteName)
 	
 	-----------------------------------------------------------------
 	DECLARE @FCreatedTime4GMT DATETIME
@@ -279,9 +309,13 @@ BEGIN
 			INNER JOIN #tmpStsByNotiType AS s ON n.NotificationType = s.NotiType AND n.StatusID = s.StatusID
 			--filter by User Permission
 			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON n.NotificationID = nt.NotificationID
-			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 		WHERE n.NotificationID BETWEEN @FNotiID AND @TNotiID
 			AND n.NotificationType = @NotiType
+			AND EXISTS (
+				SELECT 1
+				FROM #tmpValidSite AS vs
+				WHERE nt.TargetSite = vs.MainSiteName
+			)
 		OPTION (RECOMPILE)
 	
 	END
@@ -293,10 +327,14 @@ BEGIN
 			INNER JOIN #tmpStsByNotiType AS s ON n.NotificationType = s.NotiType AND n.StatusID = s.StatusID
 			--filter by User Permission
 			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON n.NotificationID = nt.NotificationID
-			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
 		WHERE n.InsertedTime >= @FCreatedTime4GMT
 			AND n.InsertedTime < @TCreatedTime4GMT
 			AND n.NotificationType = @NotiType
+			AND EXISTS (
+				SELECT 1
+				FROM #tmpValidSite AS vs
+				WHERE nt.TargetSite = vs.MainSiteName
+			)
 		OPTION (RECOMPILE)
 	END
 	
@@ -469,10 +507,11 @@ BEGIN
 				WHEN vs.IsDeposit = 0 AND vs.SiteLabel IS NULL THEN 'Others' --Credit
 				ELSE vs.SiteLabel
 				END) AS SiteGroup
-			,nt.TargetSite
+			,vs.ViewSiteName
 		FROM #tmpNoti AS i
 			INNER JOIN dbo.NotificationTarget AS nt WITH (NOLOCK) ON i.NotiID = nt.NotificationID
-			INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.SiteName
+			LEFT JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.MainSiteName
+		WHERE vs.CRMSiteName IS NOT NULL
 	)
 	INSERT INTO #tmpAffectedSite (
 		NotiID
@@ -483,7 +522,7 @@ BEGIN
 	SELECT NotiID
 		,SiteType
 		,SiteGroup
-		,STRING_AGG(CONVERT(NVARCHAR(MAX),TargetSite),', ') WITHIN GROUP (ORDER BY TargetSite) AS SiteNames --SiteName sort by alphabetical
+		,STRING_AGG(CONVERT(NVARCHAR(MAX),ViewSiteName),', ') WITHIN GROUP (ORDER BY ViewSiteName) AS SiteNames --SiteName sort by alphabetical
 	FROM CTE_Site
 	GROUP BY NotiID
 		,SiteType
@@ -651,4 +690,5 @@ BEGIN
 	DROP TABLE #tmpAffectedSite
 	DROP TABLE #tmpValidSite
 	DROP TABLE #tmpResult
+	DROP TABLE #tmpHardcodeSite
 END

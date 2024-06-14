@@ -472,7 +472,7 @@ BEGIN
 			UPDATE tp
 			SET tp.Content_en = ex.HomeNameEN + ISNULL(' ' + ex.NeutralEN,'') + ' -vs- ' + ex.AwayNameEN
 				,tp.Content_ch = ex.HomeNameCH + ISNULL(' ' + ex.NeutralCH,'') + ' -vs- ' + ex.AwayNameCH
-				,tp.Content_cs = ex.AwayNameCS + ISNULL(' ' + ex.NeutralCS,'') + ' -vs- ' + ex.AwayNameCS
+				,tp.Content_cs = ex.HomeNameCS + ISNULL(' ' + ex.NeutralCS,'') + ' -vs- ' + ex.AwayNameCS
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN CTE_Extra AS ex ON tp.Msg_NotiID = ex.Msg_NotiID
 			WHERE tp.RequiredParam = '{match_name}'

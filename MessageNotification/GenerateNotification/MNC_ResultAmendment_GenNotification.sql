@@ -1616,11 +1616,12 @@ BEGIN
 					,rfa.RefValueCH AS AwayNameCH
 					,rfa.RefValueCS AS AwayNameCS
 					,t.LeagueID
-					,(CASE WHEN il.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueEN,@Saba_en,'') --REMOVE 'SABA'
+					,il.IsSabaFilter AS IsNoneSaba --support AlertSel
+					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueEN END) AS LeagueNameEN
-					,(CASE WHEN il.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueCS,@Saba_en,'') --REMOVE 'SABA'
+					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCS END) AS LeagueNameCS
-					,(CASE WHEN il.IsSabaFilter = 1 THEN REPLACE(rfl.RefValueCH,@Saba_en,'') --REMOVE 'SABA'
+					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCH END) AS LeagueNameCH
 					-----support AdmSelNoti-----
 					,t.MatchID

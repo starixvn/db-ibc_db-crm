@@ -58,6 +58,7 @@ BEGIN
 	CREATE TABLE #tmpSendingAlert (
 		AlertID INT
 		,MatchID INT
+		,IsNoneSaba BIT
 		,RuleID INT
 		,RefID VARCHAR(50)
 		,RefExtraInfo NVARCHAR(MAX)
@@ -86,7 +87,7 @@ BEGIN
 		,EventDate DATE
 		,KOTime DATETIME
 		,LeagueName NVARCHAR(500)
-		,LeagueName_Saba NVARCHAR(500)
+		,LeagueName_NoneSaba NVARCHAR(500)
 		,HomeName NVARCHAR(100)
 		,AwayName NVARCHAR(100)
 	)
@@ -242,6 +243,21 @@ Status: FAILED'
 		AND tp.RuleType IN ('SysErr', 'NewNoti', 'PushErr') --hardcode RuleType
 	
 	CREATE CLUSTERED INDEX CIX_tmpSendingAlert ON #tmpSendingAlert (AlertID)
+	
+	/**/
+	UPDATE a
+	SET a.IsNoneSaba = (CASE WHEN a.ChatGroupID = @777_ChatGroupID THEN 1 --by ChatGroupID
+							WHEN aex.RefInfo = 'NotificationID' THEN ISNULL(nex.IsNoneSaba,1) --by Notification - default non-saba
+						ELSE 0 END)
+	FROM #tmpSendingAlert AS a
+		OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
+				RefInfo VARCHAR(50) '$.RefInfo'
+			) AS aex
+		LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON a.ChatGroupID <> @777_ChatGroupID AND aex.RefInfo = 'NotificationID' AND TRY_CONVERT(INT,a.RefID) = ne.NotificationID
+		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+			IsNoneSaba BIT '$.IsNoneSaba'
+		) AS nex --OPENJSON case-sensitive
+		
 	/*
 		Check Alert target
 			- Get all Targests of AlertID
@@ -438,15 +454,15 @@ Status: FAILED'
 		,EventDate
 		,KOTime
 		,LeagueName
-		,LeagueName_Saba
+		,LeagueName_NoneSaba
 		,HomeName
 		,AwayName
 	)
-	SELECT DISTINCT a.MatchID
+	SELECT a.MatchID
 		,ne.EventDate
 		,ext.KOTime
-		,ext.LeagueNameEN AS LeagueName
-		,ext.LeagueNameEN AS LeagueName_Saba
+		,MAX(CASE WHEN ISNULL(ext.IsNoneSaba,0) = 0 THEN ext.LeagueNameEN END)LeagueName
+		,MAX(CASE WHEN ext.IsNoneSaba = 1 THEN ext.LeagueNameEN END) AS LeagueName_NoneSaba
 		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') AS HomeName
 		,ext.AwayNameEN AS AwayName
 	FROM #tmpMatchBySession AS a
@@ -461,10 +477,16 @@ Status: FAILED'
 				,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 				,NeutralEN NVARCHAR(10) '$.NeutralEN'
 				,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
+				,IsNoneSaba BIT '$.IsNoneSaba'
 			) AS ext --OPENJSON case-sensitive
 	WHERE n.NotificationType = 1 --Msg Noti
 		AND ISJSON(ne.ExtraInfo) = 1
 		AND ext.MatchID = a.MatchID
+	GROUP BY a.MatchID
+		,ne.EventDate
+		,ext.KOTime
+		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'')
+		,ext.AwayNameEN
 	
 	--Event info by match table
 	IF EXISTS (
@@ -479,7 +501,7 @@ Status: FAILED'
 			,EventDate
 			,KOTime
 			,LeagueName
-			,LeagueName_Saba
+			-- ,LeagueName_NoneSaba
 			,HomeName
 			,AwayName
 		)
@@ -487,7 +509,7 @@ Status: FAILED'
 			,ISNULL(m.EventDate, m14.EventDate) AS EventDate
 			,ISNULL(m.KickoffTime, m14.KickoffTime) AS KOTime
 			,l.LeagueName AS LeagueName
-			,REPLACE(l.LeagueName,'Saba','') AS LeagueName_Saba --REMOVE 'SABA'
+			-- ,LeagueName_NoneSaba
 			,th.TeamName + (CASE WHEN ISNULL(m.IsNeutral, m14.IsNeutral) = 1 THEN N' (N)' ELSE '' END) AS HomeName
 			,ta.TeamName AS AwayName
 		FROM #tmpSendingAlert AS a
@@ -508,6 +530,11 @@ Status: FAILED'
 	END
 	
 	CREATE CLUSTERED INDEX CIX_tmpEventInfo ON #tmpEventInfo (MatchID)
+	
+	--Make sure LeagueName_NoneSaba NOT NULL
+	UPDATE #tmpEventInfo
+	SET LeagueName_NoneSaba = TRIM(REPLACE(REPLACE(LeagueName,' Saba ',' '),'Saba',''))
+	WHERE LeagueName_NoneSaba IS NULL
 	------------------------Build Template detail-----------------------------
 	INSERT INTO #tmpTemplateDetl (
 		AlertID
@@ -543,6 +570,8 @@ Status: FAILED'
 			OR a.MatchID IS NULL
 			OR tp.AlertID IS NULL
 			OR ev.MatchID IS NULL
+			OR ev.LeagueName IS NULL
+			OR ev.LeagueName_NoneSaba IS NULL
 		)
 	GROUP BY a.AlertID
 	
@@ -602,7 +631,7 @@ Status: FAILED'
 	WHERE tp.RequiredParam = '{KOTime}'
 	
 	UPDATE tp
-	SET tp.Content = CASE WHEN a.ChatGroupID = @777_ChatGroupID THEN ev.LeagueName_Saba ELSE ev.LeagueName END --saba or not based on target ChatGroupID
+	SET tp.Content = CASE WHEN a.IsNoneSaba = 1 THEN ev.LeagueName_NoneSaba ELSE ev.LeagueName END
 	FROM #tmpTemplateDetl AS tp
 		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID

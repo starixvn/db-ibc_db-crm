@@ -199,6 +199,14 @@ CREATE TABLE dbo.Alert (
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 GO
 
+CREATE NONCLUSTERED INDEX [IX_AlertStatus] ON dbo.Alert (
+	StatusID
+) INCLUDE(
+	RuleID
+	,RefID
+) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
+GO
+
 /***** Status ****/
 DROP TABLE IF EXISTS dbo.NotiStatus
 

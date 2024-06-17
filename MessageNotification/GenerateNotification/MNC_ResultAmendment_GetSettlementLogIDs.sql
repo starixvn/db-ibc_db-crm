@@ -253,7 +253,15 @@ BEGIN
 		FROM CTE_SettleID
 		
 		DECLARE @JSResource NVARCHAR(MAX)
-		
+			,@Params NVARCHAR(4000) = N'@SettlementLogIDs VARCHAR(MAX), @ParseAmendInfo VARCHAR(50) = ''ALL'', @ParseTo VARCHAR(50) = ''RemotingRef'', @OutJSResource NVARCHAR(MAX) OUTPUT, @ErrCode INT OUTPUT, @ErrMsg NVARCHAR(2000) OUTPUT'
+			,@SQLStatement NVARCHAR(MAX) = N'
+				EXEC MNC_ResultAmendment_JSParseResult
+					@SettlementLogIDs = @SettlementLogIDs
+					,@ParseAmendInfo = @ParseAmendInfo
+					,@ParseTo = @ParseTo
+					,@OutJSResource = @OutJSResource OUTPUT
+					,@ErrCode = @ErrCode OUTPUT
+					,@ErrMsg = @ErrMsg OUTPUT'
 		/*
 			---------#tmpResourceRef---------
 		*/
@@ -261,13 +269,23 @@ BEGIN
 			,@ErrCode = 0
 			,@ErrMsg = ''
 		
-		EXEC MNC_ResultAmendment_JSParseResult
-			@SettlementLogIDs = @VerifySettleIDs
-			,@ParseAmendInfo = 'ALL'
-			,@ParseTo = 'RemotingRef'
-			,@OutJSResource = @JSResource OUTPUT
-			,@ErrCode = @ErrCode OUTPUT
-			,@ErrMsg = @ErrMsg OUTPUT
+		/*
+			EXEC MNC_ResultAmendment_JSParseResult
+				@SettlementLogIDs = @VerifySettleIDs
+				,@ParseAmendInfo = 'ALL'
+				,@ParseTo = 'RemotingRef'
+				,@OutJSResource = @JSResource OUTPUT
+				,@ErrCode = @ErrCode OUTPUT
+				,@ErrMsg = @ErrMsg OUTPUT
+			
+			S.T direct EXEC throw EXCEPTION without log inside MNC_ResultAmendment_JSParseResult
+				=> TRY to use sp_executesql
+		*/
+		EXEC sp_executesql @SQLStatement, @Params
+				,@SettlementLogIDs = @VerifySettleIDs
+				,@OutJSResource = @JSResource OUTPUT
+				,@ErrCode = @ErrCode OUTPUT
+				,@ErrMsg = @ErrMsg OUTPUT
 		
 		INSERT INTO [Log] (
 			ActionID
@@ -325,17 +343,38 @@ BEGIN
 		
 		IF @ErrCode = 0
 		BEGIN
+			/*
+				
+				
+				EXEC MNC_ResultAmendment_JSParseResult
+					@SettlementLogIDs = @VerifySettleIDs
+					,@ParseAmendInfo = 'ActualResult,WrongResult'
+					,@ParseTo = 'RawData'
+					,@OutJSResource = @JSResource OUTPUT
+					,@ErrCode = @ErrCode OUTPUT
+					,@ErrMsg = @ErrMsg OUTPUT
+				
+				S.T direct EXEC throw EXCEPTION without log inside MNC_ResultAmendment_JSParseResult
+				=> TRY to use sp_executesql
+			*/
 			SELECT @JSResource = ''
 				,@ErrCode = 0
 				,@ErrMsg = ''
+				,@Params = N'@SettlementLogIDs VARCHAR(MAX), @ParseAmendInfo VARCHAR(50) = ''ActualResult,WrongResult'', @ParseTo VARCHAR(50) = ''RawData'', @OutJSResource NVARCHAR(MAX) OUTPUT, @ErrCode INT OUTPUT, @ErrMsg NVARCHAR(2000) OUTPUT'
+				,@SQLStatement = N'
+					EXEC MNC_ResultAmendment_JSParseResult
+						@SettlementLogIDs = @SettlementLogIDs
+						,@ParseAmendInfo = @ParseAmendInfo
+						,@ParseTo = @ParseTo
+						,@OutJSResource = @OutJSResource OUTPUT
+						,@ErrCode = @ErrCode OUTPUT
+						,@ErrMsg = @ErrMsg OUTPUT'
 			
-			EXEC MNC_ResultAmendment_JSParseResult
-				@SettlementLogIDs = @VerifySettleIDs
-				,@ParseAmendInfo = 'ActualResult,WrongResult'
-				,@ParseTo = 'RawData'
-				,@OutJSResource = @JSResource OUTPUT
-				,@ErrCode = @ErrCode OUTPUT
-				,@ErrMsg = @ErrMsg OUTPUT
+			EXEC sp_executesql @SQLStatement, @Params
+					,@SettlementLogIDs = @VerifySettleIDs
+					,@OutJSResource = @JSResource OUTPUT
+					,@ErrCode = @ErrCode OUTPUT
+					,@ErrMsg = @ErrMsg OUTPUT
 		END
 		
 		--ParseResult Error
@@ -391,7 +430,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse JSON SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
+			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse JSON SettlementLogIDs(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
 							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'

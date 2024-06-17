@@ -76,14 +76,14 @@ BEGIN TRY
 		,@LogActionID SMALLINT
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
-	FROM SystemSetting WITH (NOLOCK)
+	FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
 	SELECT @LogActionID = ActionID
-	FROM LogAction WITH (NOLOCK)
+	FROM MessageNotification.dbo.LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	INSERT INTO [Log] (
+	INSERT INTO MessageNotification.dbo.[Log] (
 		ActionID
 		,UserID
 		,LogBef
@@ -94,7 +94,7 @@ BEGIN TRY
 						+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 						+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
 						+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
-	FROM SystemSetting WITH (NOLOCK)
+	FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
 	
@@ -115,7 +115,7 @@ BEGIN TRY
 	--Parse data only for Cricket
 	INSERT INTO #tmpInputIDs (SettlementLogID)
 	SELECT DISTINCT sh.SettlementLogID
-	FROM SettlementResultHist AS sh WITH (NOLOCK)
+	FROM MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK)
 	WHERE sh.SettlementLogID IN (SELECT TRY_CONVERT(INT,value) FROM STRING_SPLIT(@SettlementLogIDs, ','))
 		AND sh.SportType = 50 --Cricket, need modify for others sport
 	
@@ -149,7 +149,7 @@ BEGIN TRY
 		,ISNULL(m.HomeID, m14.HomeID) AS HomeID
 		,ISNULL(m.AwayID, m14.AwayID) AS AwayID
 		,ISNULL(m.LeagueID, m14.LeagueID) AS LeagueID
-	FROM SettlementResultHist AS sh WITH (NOLOCK)
+	FROM MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK)
 		INNER JOIN #tmpInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
 		LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
 		LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
@@ -230,7 +230,7 @@ BEGIN TRY
 		SELECT sh.SettlementLogID
 			,TRY_CONVERT(XML, sh.ActualResult) AS ActualResultXML
 			,TRY_CONVERT(XML, sh.WrongResult) AS WrongResultXML
-		FROM SettlementResultHist AS sh WITH (NOLOCK)
+		FROM MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK)
 			INNER JOIN #tmpInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
 	)
 	,CTE_Actual AS (
@@ -331,7 +331,7 @@ BEGIN TRY
 			)
 		
 		--write log--
-		INSERT INTO [Log] (
+		INSERT INTO MessageNotification.dbo.[Log] (
 			ActionID
 			,UserID
 			,LogBef
@@ -521,7 +521,7 @@ BEGIN TRY
 			)
 		
 		--write log--
-		INSERT INTO [Log] (
+		INSERT INTO MessageNotification.dbo.[Log] (
 			ActionID
 			,UserID
 			,LogBef
@@ -536,7 +536,7 @@ BEGIN TRY
 	END
 	
 	--write log--
-	INSERT INTO [Log] (
+	INSERT INTO MessageNotification.dbo.[Log] (
 		ActionID
 		,UserID
 		,LogBef
@@ -565,7 +565,7 @@ BEGIN TRY
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
-	FROM SystemSetting WITH (NOLOCK)
+	FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
 	
@@ -577,13 +577,13 @@ BEGIN CATCH
 	SELECT @ErrCode = @@ERROR --output for web
 		,@ErrMsg = ERROR_MESSAGE() --output for web
 	
-	INSERT INTO [Log] (
+	INSERT INTO MessageNotification.dbo.[Log] (
 		ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT (SELECT ActionID FROM LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
-		,(SELECT TRY_CONVERT(INT, VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
+	SELECT (SELECT ActionID FROM MessageNotification.dbo.LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
+		,(SELECT TRY_CONVERT(INT, VValue) FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
 		,'Error - FAILED [Parse SettlementResultHist to JSON]'
 			+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 			+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'

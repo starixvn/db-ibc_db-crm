@@ -299,11 +299,20 @@ BEGIN
 		,@InfLogPrefix + '[Generate Lap Noti process - Prepare] - Completed'
 						+ ' - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT DISTINCT NotificationID
-											,GroupName
-											,RefId1
-											,RefId2
-										FROM #tmpRemotingRef
+										SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rf.NotificationID),',') AS NotificationIDs
+											,rf.GroupName
+											,rf.RefId1
+											,rf.RefId2
+										FROM (
+											SELECT DISTINCT NotificationID
+												,GroupName
+												,RefId1
+												,RefId2
+											FROM #tmpRemotingRef
+										) AS rf
+										GROUP BY rf.GroupName
+											,rf.RefId1
+											,rf.RefId2
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'

@@ -88,6 +88,7 @@ BEGIN
 		Msg_NotiID INT
 		,IsTest BIT
 		,MatchID INT
+		,KOTime DATETIME
 		,SportNameEN NVARCHAR(500)
 		,SportNameCH NVARCHAR(500)
 		,SportNameCS NVARCHAR(500)
@@ -160,6 +161,7 @@ BEGIN
 		Msg_NotiID INT NOT NULL
 		,MessageID INT NOT NULL
 		,TemplateID INT NOT NULL
+		,Subject NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
@@ -181,7 +183,6 @@ BEGIN
 		Msg_NotiID INT
 		,SportType INT
 		,TemplateID INT
-		,Subject NVARCHAR(1000)
 	)
 	
 	--write log for LogMode = Debug
@@ -217,9 +218,7 @@ BEGIN
 		*/
 		UPDATE i
 		SET i.TemplateID = (CASE WHEN i.SportType = 50 THEN 6 END) --currently, only have 1 message TemplateID for LAP Cricket
-			,i.Subject = N'赛果更正 | Result Amended (' + ISNULL(FORMAT(ne.EventDate, 'dd MMMM yyyy'),'NULL') + ')'
 		FROM #tmpInputNoti AS i
-			LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON i.Msg_NotiID = ne.NotificationID
 		
 		--DELETE invalid NotificationID
 		DELETE i
@@ -228,7 +227,6 @@ BEGIN
 		WHERE i.Msg_NotiID IS NULL
 			OR n.NotificationID IS NULL
 			OR i.TemplateID IS NULL
-			OR i.Subject IS NULL
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputNoti ON #tmpInputNoti (Msg_NotiID)
 		
@@ -294,6 +292,7 @@ BEGIN
 		INSERT INTO #tmpEventInfo (
 			Msg_NotiID
 			,MatchID
+			,KOTime
 			,IsTest
 			
 			,SportNameEN
@@ -318,6 +317,7 @@ BEGIN
 		)
 		SELECT DISTINCT n.Msg_NotiID
 			,m.MatchID
+			,m.KOTime
 			,m.IsTest
 			
 			,m.SportNameEN
@@ -359,10 +359,12 @@ BEGIN
 					,SportNameCS NVARCHAR(500) '$.SportNameCS'
 					,IsTest BIT '$.IsTest'
 					,MatchID INT '$.MatchID'
+					,KOTime DATETIME '$.KOTime'
 				) AS m--OPENJSON case-sensitive
 		WHERE ISJSON(ex.ExtraInfo) = 1
 		
 		CREATE CLUSTERED INDEX CIX_tmpEventInfo ON #tmpEventInfo (Msg_NotiID)
+		
 		--write log--
 		INSERT INTO [Log] (
 			ActionID
@@ -456,25 +458,12 @@ BEGIN
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{match_name}')
 		BEGIN
-			;WITH CTE_Extra AS (
-				SELECT DISTINCT Msg_NotiID
-					,HomeNameEN
-					,HomeNameCH
-					,HomeNameCS
-					,AwayNameEN
-					,AwayNameCH
-					,AwayNameCS
-					,NeutralEN
-					,NeutralCH
-					,NeutralCS
-				FROM #tmpEventInfo
-			)
 			UPDATE tp
-			SET tp.Content_en = ex.HomeNameEN + ISNULL(' ' + ex.NeutralEN,'') + ' -vs- ' + ex.AwayNameEN
-				,tp.Content_ch = ex.HomeNameCH + ISNULL(' ' + ex.NeutralCH,'') + ' -vs- ' + ex.AwayNameCH
-				,tp.Content_cs = ex.HomeNameCS + ISNULL(' ' + ex.NeutralCS,'') + ' -vs- ' + ex.AwayNameCS
+			SET tp.Content_en = ev.HomeNameEN + ISNULL(' ' + ev.NeutralEN,'') + ' -vs- ' + ev.AwayNameEN
+				,tp.Content_ch = ev.HomeNameCH + ISNULL(' ' + ev.NeutralCH,'') + ' -vs- ' + ev.AwayNameCH
+				,tp.Content_cs = ev.HomeNameCS + ISNULL(' ' + ev.NeutralCS,'') + ' -vs- ' + ev.AwayNameCS
 			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_Extra AS ex ON tp.Msg_NotiID = ex.Msg_NotiID
+				INNER JOIN #tmpEventInfo AS ev ON tp.Msg_NotiID = ev.Msg_NotiID
 			WHERE tp.RequiredParam = '{match_name}'
 		END
 	
@@ -484,34 +473,27 @@ BEGIN
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{league_name}')
 		BEGIN
-			;WITH CTE_Extra AS (
-				SELECT DISTINCT Msg_NotiID
-					,LeagueNameEN
-					,LeagueNameCS
-					,LeagueNameCH
-				FROM #tmpEventInfo
-			)
 			UPDATE tp
-			SET tp.Content_en = ex.LeagueNameEN
-				,tp.Content_ch = ex.LeagueNameCS
-				,tp.Content_cs = ex.LeagueNameCH
+			SET tp.Content_en = ev.LeagueNameEN
+				,tp.Content_ch = ev.LeagueNameCS
+				,tp.Content_cs = ev.LeagueNameCH
 			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_Extra AS ex ON tp.Msg_NotiID = ex.Msg_NotiID
+				INNER JOIN #tmpEventInfo AS ev ON tp.Msg_NotiID = ev.Msg_NotiID
 			WHERE tp.RequiredParam = '{league_name}'
 		END
 	
 		/*
-			----------{event_date}----------
+			----------{KO_date}----------
 		*/
-		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{event_date}')
+		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{KO_date}')
 		BEGIN
 			UPDATE tp
-			SET tp.Content_en = CONVERT(VARCHAR(5),ex.EventDate,103)
-				,tp.Content_ch = CONVERT(VARCHAR(5),ex.EventDate,103)
-				,tp.Content_cs = CONVERT(VARCHAR(5),ex.EventDate,103)
+			SET tp.Content_en = CONVERT(VARCHAR(5),ev.KOTime,103)
+				,tp.Content_ch = CONVERT(VARCHAR(5),ev.KOTime,103)
+				,tp.Content_cs = CONVERT(VARCHAR(5),ev.KOTime,103)
 			FROM #tmpTemplateDetl AS tp
-				INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON tp.Msg_NotiID = ex.NotificationID
-			WHERE tp.RequiredParam = '{event_date}'
+				INNER JOIN #tmpEventInfo AS ev ON tp.Msg_NotiID = ev.Msg_NotiID
+			WHERE tp.RequiredParam = '{KO_date}'
 		END
 	
 		/*
@@ -733,6 +715,13 @@ BEGIN
 		END
 	
 		/*
+			Build LAP message [Subject]
+		*/
+			UPDATE lap
+			SET lap.Subject = N'赛果更正 | Result Amended (' + ISNULL(FORMAT(ev.KOTime, 'dd MMMM yyyy'),'NULL') + ')'
+			FROM #tmpNoti AS lap
+				INNER JOIN #tmpEventInfo AS ev ON lap.Msg_NotiID = ev.Msg_NotiID
+		/*
 			Build LAP message [Content]
 		*/
 		SET @iLoop = 1
@@ -850,12 +839,11 @@ BEGIN
 			SELECT n.MessageID
 				,@StsGenerating --need to verify after [DONE] insert realted tables
 				,2 AS NotificationType --Result Amendment to LAP
-				,i.Subject
+				,n.Subject
 				,n.Content_en
 				,n.Content_ch
 				,n.Content_cs
 			FROM #tmpNoti AS n
-				INNER JOIN #tmpInputNoti AS i ON n.Msg_NotiID = i.Msg_NotiID
 			WHERE n.Msg_NotiID = @iLoop
 			
 			--increase for loop
@@ -986,6 +974,7 @@ BEGIN
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT m.Msg_NotiID AS MsgNotiID
 					,m.MatchID
+					,m.KOTime
 					,m.IsTest
 					,m.HomeNameEN
 					,m.HomeNameCH

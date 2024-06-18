@@ -344,8 +344,6 @@ BEGIN
 		IF @ErrCode = 0
 		BEGIN
 			/*
-				
-				
 				EXEC MNC_ResultAmendment_JSParseResult
 					@SettlementLogIDs = @VerifySettleIDs
 					,@ParseAmendInfo = 'ActualResult,WrongResult'

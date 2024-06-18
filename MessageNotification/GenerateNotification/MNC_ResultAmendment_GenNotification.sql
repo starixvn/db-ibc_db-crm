@@ -372,7 +372,7 @@ BEGIN
 			,ISNULL(m.IsNeutral, m14.IsNeutral) AS IsNeutral
 			,ISNULL(m.HomeID, m14.HomeID) AS HomeID
 			,ISNULL(m.AwayID, m14.AwayID) AS AwayID
-			,COALESCE(m.kickofftime, m14.kickofftime, m.GlobalShowTime, m14.GlobalShowTime) AS KOTime
+			,COALESCE(m.GlobalShowTime, m14.GlobalShowTime, m.kickofftime, m14.kickofftime) AS KOTime --prefer GlobalShowTime
 			,l.LeagueID
 			,l.LeagueGroupID
 			,l.GameSession
@@ -721,7 +721,7 @@ BEGIN
 					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCS END) AS LeagueName_cs
 					
-					,CONVERT(VARCHAR(5),KOTime,103) AS KO_DDMM
+					,CONVERT(VARCHAR(5),rh.KOTime,103) AS KO_DDMM
 				FROM #tmpTemplateDetl AS tp
 					INNER JOIN #tmpResultHist AS rh ON tp.NotiTempID = rh.NotiTempID
 					INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'EventInfo' AND rfh.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfh.RefId2) = rh.HomeID
@@ -1623,6 +1623,7 @@ BEGIN
 						ELSE rfl.RefValueCS END) AS LeagueNameCS
 					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCH END) AS LeagueNameCH
+					,t.KOTime --support Chatbot LIC, Alert service
 					-----support AdmSelNoti-----
 					,t.MatchID
 					,t.IsTest
@@ -1630,8 +1631,6 @@ BEGIN
 					,CASE WHEN c.username IS NOT NULL THEN GETDATE() END AS MsgSendDate
 					-----support Push Msg Notification-----
 					,t.LeagueGroupID
-					-----Chatbot LIC-----
-					,t.KOTime
 					-----Others-----
 					,t.SportType
 					,rfs.RefValueEN AS SportNameEN

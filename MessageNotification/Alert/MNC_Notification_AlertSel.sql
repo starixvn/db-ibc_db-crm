@@ -548,7 +548,7 @@ Status: FAILED'
 		)
 		SELECT DISTINCT a.MatchID
 			,ISNULL(m.EventDate, m14.EventDate) AS EventDate
-			,ISNULL(m.KickoffTime, m14.KickoffTime) AS KOTime
+			,COALESCE(m.GlobalShowTime, m14.GlobalShowTime, m.kickofftime, m14.kickofftime) AS KOTime ----prefer GlobalShowTime
 			,l.LeagueName AS LeagueName
 			,th.TeamName + (CASE WHEN ISNULL(m.IsNeutral, m14.IsNeutral) = 1 THEN N' (N)' ELSE '' END) AS HomeName
 			,ta.TeamName AS AwayName

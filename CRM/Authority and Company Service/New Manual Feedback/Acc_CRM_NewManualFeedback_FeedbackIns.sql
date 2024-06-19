@@ -834,6 +834,7 @@ BEGIN
                           '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')         + '</NoInquiries>'           +
                           '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
                           '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
+                          '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')          + '</IsOverWrite>'           +
                           '</Acc_CRM_NewManualFeedback_FeedbackIns>'
 
     -- Run sp to write log

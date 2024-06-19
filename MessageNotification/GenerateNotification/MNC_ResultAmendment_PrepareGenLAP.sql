@@ -83,14 +83,14 @@ BEGIN
 			,NULL AS RefId2
 		WHERE 1 = 0
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Another [Generate Lap Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.'
+			,COMPRESS(@ErrLogPrefix + 'Another [Generate Lap Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
 		
 		RETURN
 	END
@@ -101,14 +101,14 @@ BEGIN
 		WHERE VID = @ProcessID
 			AND VValue = 'Done'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Start [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Start [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -194,7 +194,7 @@ BEGIN
 		WHERE InvalidType = 1
 	)
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -203,21 +203,21 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - Missing NotificationExtra.ExtraInfo@AffectedResult'
+			,COMPRESS(@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - Missing NotificationExtra.ExtraInfo@AffectedResult')
 			FROM #tmpPrepareNoti
 			WHERE InvalidType = 1
 			ORDER BY NotificationID
 	END
 	
 	---write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - [Generate Lap Noti process - Prepare]'
+		,COMPRESS(@InfLogPrefix + 'Debug - [Generate Lap Noti process - Prepare]'
 						+ ' - Msg List to Generate Lap ('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT NotificationID
@@ -225,7 +225,7 @@ BEGIN
 											ORDER BY NotificationID
 											FOR JSON PATH
 										))
-									),'NO ROW') + ')'
+									),'NO ROW') + ')')
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
@@ -274,20 +274,20 @@ BEGIN
 		WHERE VID = @ProcessID
 			AND VValue = 'Running'
 	
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Completed [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Completed [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
 	
 	----------------------
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -296,7 +296,7 @@ BEGIN
 	SELECT NotificationID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Generate Lap Noti process - Prepare] - Completed'
+		,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Prepare] - Completed'
 						+ ' - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rf.NotificationID),',') AS NotificationIDs
@@ -315,7 +315,7 @@ BEGIN
 											,rf.RefId2
 										FOR JSON PATH
 									))
-								),'NO ROW') + ')'
+								),'NO ROW') + ')')
 		FROM #tmpRemotingRef
 	
 	DROP TABLE #tmpPrepareNoti

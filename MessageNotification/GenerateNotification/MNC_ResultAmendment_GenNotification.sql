@@ -24,12 +24,11 @@ AS
 		Input
 			@JSRemotingRef NVARCHAR(MAX) = N'
 				[
-					{"SettlementLogIDs":"81","GroupName":"EventInfo","RefId1":"LeagueID","RefId2":"89623","RefValueEN":"Virtual Soccer Euro Cup","RefValueCH":"虛擬足球歐洲盃","RefValueCS":"虚拟足球欧洲杯"},
-					{"SettlementLogIDs":"81,79,78","GroupName":"EventInfo","RefId1":"SportType","RefId2":"50","RefValueEN":"Cricket","RefValueCH":"板球","RefValueCS":"板球"},
-					{"SettlementLogIDs":"81","GroupName":"EventInfo","RefId1":"TeamID","RefId2":"674489","RefValueEN":"England","RefValueCH":"英格兰","RefValueCS":"英格兰"},
-					{"SettlementLogIDs":"81","GroupName":"EventInfo","RefId1":"TeamID","RefId2":"674497","RefValueEN":"Germany","RefValueCH":"德国","RefValueCS":"德国"},
-					{"SettlementLogIDs":"52,64","GroupName":"EventInfo","RefId1":"TeamID","RefId2":"953783","RefValueEN":"Bangalore (V)","RefValueCH":"邦加羅爾虛擬隊","RefValueCS":"邦加罗尔虚拟队"},
-					{"SettlementLogIDs":"173,83,84","GroupName":"RefResource","RefId1":"ResourceCricket","RefId2":"9442","RefValueEN":"@G Highest Opening Partnership","RefValueCH":"@G搭檔開場最高得分盤","RefValueCS":"@G搭档开场最高得分盘"}
+					{"SettlementLogIDs":"4271","NotificationIDs":null,"GroupName":"EventInfo","RefId1":"LeagueID","RefId2":"90084","RefValueEN":"SABA Cricket Ten10 Virtual Tri Nations Game 6 - Over 1 Total Runs","RefValueCH":"沙巴虛擬板球Ten10 三國賽 (第六場) - 第一輪跑位總得分","RefValueCS":"沙巴虚拟板球Ten10 三国赛 (第六场) - 第一轮跑位总得分"}
+					,{"SettlementLogIDs":"4271","NotificationIDs":null,"GroupName":"EventInfo","RefId1":"SportType","RefId2":"50","RefValueEN":"Cricket","RefValueCH":"板球","RefValueCS":"板球"}
+					,{"SettlementLogIDs":"4271","NotificationIDs":null,"GroupName":"EventInfo","RefId1":"TeamID","RefId2":"874483","RefValueEN":"Farhan Javaid","RefValueCH":"Farhan Javaid","RefValueCS":"Farhan Javaid"}
+					,{"SettlementLogIDs":"4271","NotificationIDs":null,"GroupName":"EventInfo","RefId1":"TeamID","RefId2":"874484","RefValueEN":"Raza Fraz","RefValueCH":"Raza Fraz","RefValueCS":"Raza Fraz"}
+					,{"SettlementLogIDs":"4271","NotificationIDs":null,"GroupName":"RefResource","RefId1":"ResourceCricket","RefId2":"00","RefValueEN":"Match Winner","RefValueCH":"比賽獲勝者","RefValueCS":"比赛获胜者"}
 				]'
 		Output
 			None
@@ -149,14 +148,14 @@ BEGIN
 		SELECT @ErrCode = 50001 --user-defined error code
 			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - NO Action for UATMode = OFF AND Environment = UAT'
+			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - NO Action for UATMode = OFF AND Environment = UAT')
 		
 		RETURN
 	END
@@ -235,19 +234,19 @@ BEGIN
 		Create Notification
 			Group by 
 				SessionID / ActionType => SettlementLogID
-				/ IsSabaFilter
+				/ IsNoneSaba
 				/ user control group (OST or 777)
 		
 		1 SettlementLogID in #tmpResultHist
 		can be 3 rows in #tmpStagingNoti
-			- IsSabaFilter = 0: Normal
-			- IsSabaFilter = 1: Saba
+			- IsNoneSaba = 0: Normal
+			- IsNoneSaba = 1: Saba
 				+ User Control Group (OST)
 				+ User Control Group (777)
 	*/
 	CREATE TABLE #tmpStagingNoti (
 		NotiTempID INT NOT NULL
-		,IsSabaFilter BIT NOT NULL --0: Normal / 1: Saba
+		,IsNoneSaba TINYINT NOT NULL --0: Normal / 1: Saba
 		,TemplateID INT NOT NULL
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
@@ -255,12 +254,12 @@ BEGIN
 	)
 	
 	/*
-		1 NotificationID (SettlementLogID / IsSabaFilter / ControlGrp)
+		1 NotificationID (SettlementLogID / IsNoneSaba / ControlGrp)
 		have at least 4 rows in NotificationTarget for (CustID / recommend / mrecommend / srecommend)
 	*/
 	CREATE TABLE #tmpStagingTarget (
 		NotiTempID INT NOT NULL
-		,IsSabaFilter BIT NOT NULL --0: Normal / 1: Saba
+		,IsNoneSaba TINYINT NOT NULL --0: Normal / 1: Saba
 		,ControlGrp TINYINT NOT NULL --0: OST / 1: 777
 		,TargetSite NVARCHAR(30)
 		,CustID INT
@@ -272,7 +271,7 @@ BEGIN
 	
 	CREATE TABLE #tmpTemplateDetl (
 		NotiTempID INT NOT NULL
-		,IsSabaFilter BIT NOT NULL --0: Normal / 1: Saba
+		,IsNoneSaba TINYINT NOT NULL --0: Normal / 1: Saba
 		,RequiredParamID INT
 		,RequiredParam VARCHAR(50)
 		,Content_en NVARCHAR(4000)
@@ -283,7 +282,7 @@ BEGIN
 	CREATE TABLE #tmpNotiByContent (
 		NotiByContID INT
 		,NotiTempID INT
-		,IsSabaFilter BIT
+		,IsNoneSaba TINYINT
 		,ControlGrp TINYINT
 	)
 	
@@ -298,17 +297,17 @@ BEGIN
 	)
 	
 	--write log for LogMode = Debug
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Gen]'
+		,COMPRESS(@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Gen]'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
-						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
+						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 	WHERE @LogMode = 'Debug'
 	/****************************************************************************
 	
@@ -320,15 +319,15 @@ BEGIN
 		,@JSRemotingRef = @JSRemotingRef
 		,@ValidSettlementLogIDs = @ValidSettlementLogIDs OUTPUT
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Start [Generate Msg Noti process - Gen]'
-						+ ' - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Gen]'
+						+ ' - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
 	
 	/****************************************************************************
 		#3.Prepare data to generate message
@@ -532,11 +531,11 @@ BEGIN
 			***************************************************<<<!IMPORTANT HARDCODE>>>***************************************************
 			Mapping SettlementLogID vs TemplateID, output tables:
 				#tmpStagingTarget (SettlementResultHistDetail with SMA + CustID)
-				#tmpStagingNoti (UNIQUE SettlementLogID, IsSabaFilter, ControlGrp, TemplateID)
+				#tmpStagingNoti (UNIQUE SettlementLogID, IsNoneSaba, ControlGrp, TemplateID)
 				#tmpTemplateDetl
 		*/
 		/*----------#tmpNotiTarget------------
-			IsSabaFilter = Saba
+			IsNoneSaba = Saba
 				+ LeagueGroupID IN (@SabaLeagueGroup)
 				+ TargetSite belong to special sites
 		*/
@@ -546,7 +545,7 @@ BEGIN
 		)
 		INSERT INTO #tmpStagingTarget (
 			NotiTempID
-			,IsSabaFilter
+			,IsNoneSaba
 			,ControlGrp
 			,TargetSite
 			,CustID
@@ -557,7 +556,7 @@ BEGIN
 		)
 		SELECT DISTINCT rh.NotiTempID
 			,(CASE WHEN (saba.value IS NOT NULL AND (sep.value IS NOT NULL OR s.IsChinaView = 1 OR s.SpecialPlatfrom > 0)) THEN 1
-				ELSE 0 END) AS IsSabaFilter --0: Normal / 1: Saba
+				ELSE 0 END) AS IsNoneSaba --0: Normal / 1: Saba
 			,(CASE WHEN (sep.value IS NOT NULL) THEN 1 --configured in SytemSetting
 				ELSE 0 END) AS ControlGrp --0: OST / 1: 777
 			,ag.Site AS TargetSite
@@ -575,12 +574,12 @@ BEGIN
 			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ag.Site = TRIM(sep.value)
 		-- WHERE rh.SportType = 50 --Cricket
 		
-		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (NotiTempID, IsSabaFilter, ControlGrp)
+		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (NotiTempID, IsNoneSaba, ControlGrp)
 		
 		/****************************************************<<<!IMPORTANT HARDCODE>>>***************************************************/
 		;WITH CTE_Noti AS (
 			SELECT DISTINCT ntgt.NotiTempID
-				,ntgt.IsSabaFilter
+				,ntgt.IsNoneSaba
 				,(CASE WHEN rh.ActionType = 1 AND rh.AmendedCnt = 1 THEN 3 --CAL to CAL, AmendedCnt=1
 					WHEN rh.ActionType = 1 AND rh.AmendedCnt = 2 THEN 4 --CAL to CAL, AmendedCnt=2
 					WHEN rh.ActionType = 1 AND rh.AmendedCnt > 2 THEN 5 --CAL to CAL, AmendedCnt = more than 2
@@ -592,14 +591,14 @@ BEGIN
 		)
 		INSERT INTO #tmpStagingNoti (
 			NotiTempID
-			,IsSabaFilter
+			,IsNoneSaba
 			,TemplateID
 			,Content_en
 			,Content_ch
 			,Content_cs
 		)
 		SELECT DISTINCT n.NotiTempID
-			,n.IsSabaFilter
+			,n.IsNoneSaba
 			,n.TemplateID
 			,tp.Content_en
 			,tp.Content_ch
@@ -607,17 +606,17 @@ BEGIN
 		FROM CTE_Noti AS n
 			INNER JOIN NotiTemplate AS tp WITH (NOLOCK) ON n.TemplateID = tp.TemplateID
 		
-		CREATE UNIQUE CLUSTERED INDEX CIX_tmpStagingNoti ON #tmpStagingNoti (NotiTempID, IsSabaFilter)
+		CREATE UNIQUE CLUSTERED INDEX CIX_tmpStagingNoti ON #tmpStagingNoti (NotiTempID, IsNoneSaba)
 		
 		----------#tmpTemplateDetl-------------
 		INSERT INTO #tmpTemplateDetl (
 			NotiTempID
-			,IsSabaFilter
+			,IsNoneSaba
 			-- ,ControlGrp --NOT Affect to content
 			,RequiredParam
 		)
 		SELECT DISTINCT n.NotiTempID
-			,nt.IsSabaFilter
+			,nt.IsNoneSaba
 			,TRIM(rq.value) AS RequiredParam
 		FROM #tmpStagingNoti AS n
 			INNER JOIN NotiTemplate AS tp WITH (NOLOCK) ON n.TemplateID = tp.TemplateID
@@ -625,17 +624,17 @@ BEGIN
 			INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID
 		WHERE ISNULL(TRIM(rq.value),'') <> ''
 		
-		CREATE CLUSTERED INDEX CIX_tmpTemplateDetl ON #tmpTemplateDetl (NotiTempID, IsSabaFilter)
+		CREATE CLUSTERED INDEX CIX_tmpTemplateDetl ON #tmpTemplateDetl (NotiTempID, IsNoneSaba)
 		
 		--write log
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug - [Generate Msg Noti process - Gen] - Prepare data'
+			,COMPRESS(@InfLogPrefix + 'Debug - [Generate Msg Noti process - Gen] - Prepare data'
 							+ ' - tmpResultHist('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -677,7 +676,7 @@ BEGIN
 											FROM #tmpRemotingRef
 											FOR JSON PATH
 										))
-									),'NO ROW') + ')'
+									),'NO ROW') + ')')
 		WHERE @LogMode = 'Debug'
 	END TRY
 	BEGIN CATCH
@@ -697,28 +696,28 @@ BEGIN
 		/*
 			----------{match_info}----------
 			+ DON'T care ControlGrp
-			+ IsSabaFilter = 0: Normal / 1: Saba
+			+ IsNoneSaba = 0: Normal / 1: Saba
 				=> handle for special sites - REMOVE 'SABA'
-			=> Build param's value (for) GROUP BY NotiTempID, IsSabaFilter
+			=> Build param's value (for) GROUP BY NotiTempID, IsNoneSaba
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{match_info}')
 		BEGIN
 			;WITH CTE_MatchInfoDetl AS (
 				SELECT DISTINCT tp.NotiTempID
-					,tp.IsSabaFilter
+					,tp.IsNoneSaba
 					,rfh.RefValueEN + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_en ELSE '' END) AS HomeName_en
 					,rfa.RefValueEN AS AwayName_en
-					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
+					,(CASE WHEN tp.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueEN END) AS LeagueName_en
 					
 					,rfh.RefValueCH + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_ch ELSE '' END) AS HomeName_ch
 					,rfa.RefValueCH AS AwayName_ch
-					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
+					,(CASE WHEN tp.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCH END) AS LeagueName_ch
 					
 					,rfh.RefValueCS + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_cs ELSE '' END) AS HomeName_cs
 					,rfa.RefValueCS AS AwayName_cs
-					,(CASE WHEN tp.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
+					,(CASE WHEN tp.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCS END) AS LeagueName_cs
 					
 					,CONVERT(VARCHAR(5),rh.KOTime,103) AS KO_DDMM
@@ -732,20 +731,20 @@ BEGIN
 			,CTE_MatchInfo AS (
 				--Pattern: "@home_name -vs- @away_name" [@league_name - @ko_date]
 				SELECT NotiTempID
-					,IsSabaFilter
+					,IsNoneSaba
 					,MAX('"' + HomeName_en + ' -vs- ' + AwayName_en + '" [' + LeagueName_en + ' - ' + KO_DDMM + ']') AS Content_en
 					,MAX('"' + HomeName_ch + ' -vs- ' + AwayName_ch + '" [' + LeagueName_ch + ' - ' + KO_DDMM + ']') AS Content_ch
 					,MAX('"' + HomeName_cs + ' -vs- ' + AwayName_cs + '" [' + LeagueName_cs + ' - ' + KO_DDMM + ']') AS Content_cs
 				FROM CTE_MatchInfoDetl
-				GROUP BY NotiTempID --GROUP BY to make sure only 1 Content foreach NotiTempID/IsSabaFilter
-					,IsSabaFilter
+				GROUP BY NotiTempID --GROUP BY to make sure only 1 Content foreach NotiTempID/IsNoneSaba
+					,IsNoneSaba
 			)
 			UPDATE tp
 			SET tp.Content_en = m.Content_en
 				,tp.Content_ch = m.Content_ch
 				,tp.Content_cs = m.Content_cs
 			FROM #tmpTemplateDetl AS tp
-				INNER JOIN CTE_MatchInfo AS m ON tp.NotiTempID = m.NotiTempID AND tp.IsSabaFilter = m.IsSabaFilter
+				INNER JOIN CTE_MatchInfo AS m ON tp.NotiTempID = m.NotiTempID AND tp.IsNoneSaba = m.IsNoneSaba
 			WHERE tp.RequiredParam = '{match_info}'
 		END
 		
@@ -765,7 +764,7 @@ BEGIN
 		/*
 			*****Message Template may NOT {affected_result_name} but use it for: gen LAP, chatbot LIC,..*****
 			+ DON'T care ControlGrp
-				+ DON'T care IsSabaFilter
+				+ DON'T care IsNoneSaba
 			=> Build param's value for (GROUP BY) NotiTempID
 			
 				step #1 - get Resource_en / Resource_ch / Resource_cs
@@ -918,7 +917,7 @@ BEGIN
 			
 			{new_value}
 				+ DON'T care ControlGrp
-				+ DON'T care IsSabaFilter
+				+ DON'T care IsNoneSaba
 			=> Build param's value (for) GROUP BY NotiTempID
 			
 			Follow below rules in order
@@ -1048,7 +1047,7 @@ BEGIN
 			
 			{old_value}
 				+ DON'T care ControlGrp
-				+ DON'T care IsSabaFilter
+				+ DON'T care IsNoneSaba
 			=> Build param's value (for) GROUP BY NotiTempID
 			
 			Follow below rules in order
@@ -1163,7 +1162,7 @@ BEGIN
 			
 			List of RequiredParam
 				- {match_info}
-					+ Build param's value (for) GROUP BY NotiTempID, IsSabaFilter
+					+ Build param's value (for) GROUP BY NotiTempID, IsNoneSaba
 				- {new_value}
 					+ Build param's value (for) GROUP BY NotiTempID
 				- {old_value}
@@ -1172,7 +1171,7 @@ BEGIN
 					+ Build param's value (for) GROUP BY NotiTempID
 				- {affected_result_name}
 					+ Build param's value for (GROUP BY) NotiTempID
-			=> Build message content (for) GROUP BY NotiTempID, IsSabaFilter
+			=> Build message content (for) GROUP BY NotiTempID, IsNoneSaba
 		*/
 		DECLARE @iLoopParam VARCHAR(50)
 		SELECT @iLoopParam = MIN(RequiredParam)
@@ -1186,21 +1185,21 @@ BEGIN
 				,ms.Content_ch = REPLACE(ms.Content_ch,tpd.RequiredParam,tpd.Content_ch)
 				,ms.Content_cs = REPLACE(ms.Content_cs,tpd.RequiredParam,tpd.Content_cs)
 			FROM #tmpStagingNoti AS ms
-				INNER JOIN #tmpTemplateDetl AS tpd ON ms.NotiTempID = tpd.NotiTempID AND ms.IsSabaFilter = tpd.IsSabaFilter
+				INNER JOIN #tmpTemplateDetl AS tpd ON ms.NotiTempID = tpd.NotiTempID AND ms.IsNoneSaba = tpd.IsNoneSaba
 			WHERE tpd.RequiredParam = @iLoopParam
 			
 			SET @iLoopParam = (SELECT MIN(RequiredParam) FROM #tmpTemplateDetl WHERE RequiredParam > @iLoopParam )
 		END
 		
 		--write log
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message'
+			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message'
 							+ ' - tmpStagingNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -1221,7 +1220,7 @@ BEGIN
 											FROM #tmpAffectedResult
 											FOR JSON PATH
 										))
-									),'NO ROW') + ')'
+									),'NO ROW') + ')')
 		WHERE EXISTS (SELECT 1 FROM #tmpStagingNoti)
 	END TRY
 	BEGIN CATCH
@@ -1238,7 +1237,7 @@ BEGIN
 		/*
 			Remove duplicate Content_en by [SessionID] / [Content] / [user control group]
 				+ [Session] 						= SessionID, MatchID
-				+ [Content] = [SeqNo,IsSabaFilter] 	= Content_en
+				+ [Content] = [SeqNo,IsNoneSaba] 	= Content_en
 				+ [user control group] 				= ControlGrp
 			
 			=> GROUP BY SessionID, MatchID, Content_en, ControlGrp
@@ -1251,7 +1250,7 @@ BEGIN
 				,ROW_NUMBER() OVER (ORDER BY rh.SessionID, rh.MatchID, n.Content_en, nt.ControlGrp) AS NotiByContID --define [NotiByContID] of message content
 			FROM #tmpResultHist AS rh
 				INNER JOIN #tmpStagingNoti AS n ON rh.NotiTempID = n.NotiTempID
-				INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsSabaFilter = nt.IsSabaFilter
+				INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsNoneSaba = nt.IsNoneSaba
 			WHERE rh.StatusID = @StsGenerating
 				AND ISNULL(TRIM(n.Content_en),'') + ISNULL(TRIM(n.Content_ch),'') + ISNULL(TRIM(n.Content_cs),'') <> '' --Content is not BLANK
 			GROUP BY rh.SessionID
@@ -1262,20 +1261,20 @@ BEGIN
 		INSERT INTO #tmpNotiByContent (
 			NotiByContID
 			,NotiTempID
-			,IsSabaFilter
+			,IsNoneSaba
 			,ControlGrp
 		)
 		--parse CTE_PrepareIns.NotiByContID => UNIQUE KEY OF #tmpNotiByContent
 		SELECT DISTINCT i.NotiByContID
 			,n.NotiTempID
-			,n.IsSabaFilter
+			,n.IsNoneSaba
 			,nt.ControlGrp
 		FROM CTE_PrepareIns AS i
 			INNER JOIN #tmpResultHist AS rh ON rh.SessionID = i.SessionID AND rh.MatchID = i.MatchID
 			INNER JOIN #tmpStagingNoti AS n ON n.Content_en = i.Content_en AND n.NotiTempID = rh.NotiTempID
-			INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsSabaFilter = nt.IsSabaFilter AND i.ControlGrp = nt.ControlGrp
+			INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsNoneSaba = nt.IsNoneSaba AND i.ControlGrp = nt.ControlGrp
 		
-		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiByContent ON #tmpNotiByContent (NotiTempID, IsSabaFilter, ControlGrp)
+		CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiByContent ON #tmpNotiByContent (NotiTempID, IsNoneSaba, ControlGrp)
 		
 		/*
 			Verify #tmpResultHist again before insert (with #tmpNotiByContent)
@@ -1321,14 +1320,14 @@ BEGIN
 	END CATCH
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message & handle duplicate content compelted'
+		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message & handle duplicate content compelted'
 						+ ' - tmpNotiByContent('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -1357,7 +1356,7 @@ BEGIN
 										FROM #tmpStagingNoti
 										FOR JSON PATH
 									))
-								),'NO ROW') + ')'
+								),'NO ROW') + ')')
 	/****************************************************************************
 		#6.Start to insert data
 			Notification
@@ -1376,7 +1375,7 @@ BEGIN
 		BEGIN
 			;WITH CTE_InsertNoti AS (
 				SELECT TOP 1 NotiTempID --only insert 1 Content for group of the same message content
-					,IsSabaFilter
+					,IsNoneSaba
 					,ControlGrp
 				FROM #tmpNotiByContent
 				WHERE NotiByContID = @iLoop
@@ -1400,7 +1399,7 @@ BEGIN
 				,n.Content_ch
 				,n.Content_cs
 			FROM CTE_InsertNoti AS il
-				INNER JOIN #tmpStagingNoti AS n ON il.NotiTempID = n.NotiTempID AND il.IsSabaFilter = n.IsSabaFilter
+				INNER JOIN #tmpStagingNoti AS n ON il.NotiTempID = n.NotiTempID AND il.IsNoneSaba = n.IsNoneSaba
 				INNER JOIN #tmpResultHist AS rh ON il.NotiTempID = rh.NotiTempID
 			WHERE rh.StatusID = @StsGenerating
 			
@@ -1408,7 +1407,7 @@ BEGIN
 			SET @iLoop = (SELECT MIN(NotiByContID) FROM #tmpNotiByContent WHERE NotiByContID > @iLoop)
 		END
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -1417,7 +1416,7 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Recent insertes MSG Notification with status = [Generating]'
+			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Recent insertes MSG Notification with status = [Generating]')
 		FROM #tmpInsertedNoti AS i
 		WHERE @LogMode = 'Debug'
 		ORDER BY i.NotificationID
@@ -1458,7 +1457,7 @@ BEGIN
 				,CONVERT(NVARCHAR(MAX),(
 							SELECT DISTINCT t.TransID
 							FROM #tmpNotiByContent AS st
-								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsSabaFilter = t.IsSabaFilter AND st.ControlGrp = t.ControlGrp
+								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsNoneSaba = t.IsNoneSaba AND st.ControlGrp = t.ControlGrp
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.CustID = ntgt.CustID --TranIDs by CustID
 								AND t.TargetSite = ntgt.TargetSite
@@ -1466,7 +1465,7 @@ BEGIN
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
-				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsSabaFilter = ntgt.IsSabaFilter AND s.ControlGrp = ntgt.ControlGrp
+				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsNoneSaba = ntgt.IsNoneSaba AND s.ControlGrp = ntgt.ControlGrp
 			GROUP BY s.NotiByContID
 				,ntgt.CustID
 				,ntgt.TargetSite
@@ -1480,7 +1479,7 @@ BEGIN
 				,CONVERT(NVARCHAR(MAX),(
 							SELECT DISTINCT t.TransID
 							FROM #tmpNotiByContent AS st
-								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsSabaFilter = t.IsSabaFilter AND st.ControlGrp = t.ControlGrp
+								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsNoneSaba = t.IsNoneSaba AND st.ControlGrp = t.ControlGrp
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.AgentID = ntgt.AgentID --TranIDs by AgentID
 								AND t.TargetSite = ntgt.TargetSite
@@ -1488,7 +1487,7 @@ BEGIN
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
-				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsSabaFilter = ntgt.IsSabaFilter AND s.ControlGrp = ntgt.ControlGrp
+				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsNoneSaba = ntgt.IsNoneSaba AND s.ControlGrp = ntgt.ControlGrp
 			GROUP BY s.NotiByContID
 				,ntgt.AgentID
 				,ntgt.TargetSite
@@ -1502,7 +1501,7 @@ BEGIN
 				,CONVERT(NVARCHAR(MAX),(
 							SELECT DISTINCT t.TransID
 							FROM #tmpNotiByContent AS st
-								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsSabaFilter = t.IsSabaFilter AND st.ControlGrp = t.ControlGrp
+								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsNoneSaba = t.IsNoneSaba AND st.ControlGrp = t.ControlGrp
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.MasterID = ntgt.MasterID --TranIDs by MasterID
 								AND t.TargetSite = ntgt.TargetSite
@@ -1510,7 +1509,7 @@ BEGIN
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
-				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsSabaFilter = ntgt.IsSabaFilter AND s.ControlGrp = ntgt.ControlGrp
+				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsNoneSaba = ntgt.IsNoneSaba AND s.ControlGrp = ntgt.ControlGrp
 			GROUP BY s.NotiByContID
 				,ntgt.MasterID
 				,ntgt.TargetSite
@@ -1524,7 +1523,7 @@ BEGIN
 				,CONVERT(NVARCHAR(MAX),(
 							SELECT DISTINCT t.TransID
 							FROM #tmpNotiByContent AS st
-								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsSabaFilter = t.IsSabaFilter AND st.ControlGrp = t.ControlGrp
+								INNER JOIN #tmpStagingTarget AS t ON st.NotiTempID = t.NotiTempID AND st.IsNoneSaba = t.IsNoneSaba AND st.ControlGrp = t.ControlGrp
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.SuperID = ntgt.SuperID --TranIDs by SuperID
 								AND t.TargetSite = ntgt.TargetSite
@@ -1532,7 +1531,7 @@ BEGIN
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
-				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsSabaFilter = ntgt.IsSabaFilter AND s.ControlGrp = ntgt.ControlGrp
+				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsNoneSaba = ntgt.IsNoneSaba AND s.ControlGrp = ntgt.ControlGrp
 			GROUP BY s.NotiByContID
 				,ntgt.SuperID
 				,ntgt.TargetSite
@@ -1616,12 +1615,12 @@ BEGIN
 					,rfa.RefValueCH AS AwayNameCH
 					,rfa.RefValueCS AS AwayNameCS
 					,t.LeagueID
-					,il.IsSabaFilter AS IsNoneSaba --support AlertSel
-					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
+					,il.IsNoneSaba AS IsNoneSaba --support AlertSel
+					,(CASE WHEN il.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueEN END) AS LeagueNameEN
-					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
+					,(CASE WHEN il.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCS END) AS LeagueNameCS
-					,(CASE WHEN il.IsSabaFilter = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
+					,(CASE WHEN il.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCH END) AS LeagueNameCH
 					,t.KOTime --support Chatbot LIC, Alert service
 					-----support AdmSelNoti-----
@@ -1679,22 +1678,22 @@ BEGIN
 		;WITH CTE_SettLog AS (
 			SELECT NotificationID
 				,STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),',') WITHIN GROUP (ORDER BY SettlementLogID) AS SettlIDs
-				,STRING_AGG(CONVERT(VARCHAR(MAX),IsSabaFilter),',') AS IsSabaFilter
+				,STRING_AGG(CONVERT(VARCHAR(MAX),IsNoneSaba),',') AS IsNoneSaba
 				,STRING_AGG(CONVERT(VARCHAR(MAX),ControlGrp),',') AS ControlGrp
 			FROM (
 				SELECT DISTINCT i.NotificationID
 					,nm.SettlementLogID
-					,nt.IsSabaFilter
+					,nt.IsNoneSaba
 					,(CASE WHEN nt.ControlGrp = 0 THEN 'OST' WHEN n.ControlGrp = 1 THEN '777777' ELSE CONVERT(VARCHAR,nt.ControlGrp) END) AS ControlGrp
 				FROM #tmpInsertedNoti AS i
 					INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON i.NotificationID = nm.NotificationID
 					INNER JOIN #tmpNotiByContent AS n ON i.NotiByContID = n.NotiByContID
-					INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsSabaFilter = nt.IsSabaFilter AND n.ControlGrp = nt.ControlGrp
+					INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsNoneSaba = nt.IsNoneSaba AND n.ControlGrp = nt.ControlGrp
 					
 			) AS t
 			GROUP BY NotificationID
 		)
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -1703,11 +1702,11 @@ BEGIN
 		SELECT i.NotificationID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Created Notification Msg with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
+			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Created Notification Msg with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
 							+ ' - NotiMapping.SettlementLogID(' + ISNULL(s.SettlIDs,'NULL') + ')'
-							+ ' - IsSabaFilter(' + ISNULL(s.IsSabaFilter,'NULL') + ')'
+							+ ' - IsNoneSaba(' + ISNULL(s.IsNoneSaba,'NULL') + ')'
 							+ ' - ControlGrp(' + ISNULL(s.ControlGrp,'NULL') + ')'
-							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
+							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 		FROM #tmpInsertedNoti AS i
 			INNER JOIN Notification AS n WITH (NOLOCK) ON i.NotificationID = n.NotificationID
 			LEFT JOIN CTE_SettLog AS s ON i.NotificationID = s.NotificationID
@@ -1720,7 +1719,7 @@ BEGIN
 				=> SettlementLogID vs NotificationID is Many:Many relationship
 				Ex:
 					---------------|------------|----------			|		---------------|------------|----------
-					SettlementLogID|IsSabaFilter|Status				| 		 NotificationID|IsSabaFilter|Status
+					SettlementLogID|IsNoneSaba|Status				| 		 NotificationID|IsNoneSaba|Status
 					---------------|------------|----------			| 		---------------|------------|----------
 								1  |          0 |Generating			|					8  |          0 |Failed to Generate
 								2  |          0 |Generating			|					   |			|
@@ -1763,7 +1762,7 @@ BEGIN
 						,rh.AmendedCnt
 						,rh.NotiTempID
 						-----------------------
-						,n.IsSabaFilter
+						,n.IsNoneSaba
 						,n.TemplateID
 						,n.Content_en
 						,n.Content_ch
@@ -1778,7 +1777,7 @@ BEGIN
 						,ntgt.TransID
 					FROM #tmpResultHist AS rh
 						LEFT JOIN #tmpStagingNoti AS n ON rh.NotiTempID = n.NotiTempID
-						LEFT JOIN #tmpStagingTarget AS ntgt ON rh.NotiTempID = ntgt.NotiTempID AND n.IsSabaFilter = ntgt.IsSabaFilter
+						LEFT JOIN #tmpStagingTarget AS ntgt ON rh.NotiTempID = ntgt.NotiTempID AND n.IsNoneSaba = ntgt.IsNoneSaba
 					WHERE rh.SettlementLogID = s.SettlementLogID
 					FOR JSON PATH
 				)) AS LTxt
@@ -1846,7 +1845,7 @@ BEGIN
 		WHERE NotificationID IN (SELECT NotificationID FROM #tmpFailedNoti)
 		
 		--write log
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -1855,7 +1854,7 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Msg Noti process - Gen] - Deleted Notification after consistency checking'
+			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Gen] - Deleted Notification after consistency checking')
 		FROM #tmpFailedNoti AS i
 		ORDER BY i.NotificationID
 			
@@ -1866,14 +1865,14 @@ BEGIN
 	END CATCH
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Generate Msg Noti process - Gen] - Inserted new Notification'
+		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Inserted new Notification'
 						+ ' - tmpInsertedNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -1890,7 +1889,7 @@ BEGIN
 										ORDER BY NotificationID
 										FOR JSON PATH
 									))
-								),'NO ROW') + ')'
+								),'NO ROW') + ')')
 	/****************************************************************************
 		Final mark Failed if @ErrCode <> 0
 	****************************************************************************/
@@ -1926,7 +1925,7 @@ BEGIN
 		)
 		BEGIN
 			--write log
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
@@ -1935,7 +1934,7 @@ BEGIN
 			SELECT i.NotificationID
 				,@LogActionID
 				,@LogUserID
-				,@ErrLogPrefix + '[Generate Msg Noti process - Gen] - Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Gen] - Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 			FROM #tmpInsertedNoti AS i
 				LEFT JOIN #tmpFailedNoti AS f ON i.NotificationID = f.NotificationID
 			WHERE f.NotificationID IS NULL --FailedNoti log above
@@ -1943,14 +1942,14 @@ BEGIN
 		END
 		ELSE
 		BEGIN
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				ActionID
 				,UserID
 				,LogBef
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,@ErrLogPrefix + '[Generate Msg Noti process - Gen] - ' + ISNULL(@ErrMsg,'NULL')
+				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Gen] - ' + ISNULL(@ErrMsg,'NULL'))
 		END
 	END
 	
@@ -1962,7 +1961,7 @@ BEGIN
 		INNER JOIN #tmpResultHist AS rh ON sh.SettlementLogID = rh.SettlementLogID
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -1971,7 +1970,7 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,(CASE WHEN StatusID = @StsGenerated THEN @InfLogPrefix ELSE @ErrLogPrefix END) + ISNULL(rh.NotiLog,'SettlementLog NULL')
+		,COMPRESS((CASE WHEN StatusID = @StsGenerated THEN @InfLogPrefix ELSE @ErrLogPrefix END) + ISNULL(rh.NotiLog,'SettlementLog NULL'))
 	FROM #tmpResultHist AS rh
 	ORDER BY SettlementLogID
 	
@@ -1985,14 +1984,14 @@ BEGIN
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Completed [Generate Msg Noti process - Gen] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Completed [Generate Msg Noti process - Gen] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 	

@@ -104,17 +104,17 @@ BEGIN
 	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Verify]'
+		,COMPRESS(@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Verify]'
 						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
-						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
+						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 	WHERE @LogMode = 'Debug'
 	
 	/*
@@ -203,18 +203,18 @@ BEGIN
 		
 		SELECT @ValidSettlementLogIDs = '' --output
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED to Parse JSON Data'
+			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED to Parse JSON Data'
 							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
-							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 	END CATCH
 	
@@ -225,17 +225,17 @@ BEGIN
 	BEGIN
 		SELECT @ValidSettlementLogIDs = ''
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Generate Msg Noti process - Verify] - HAVE NO Valid SettlementLogIDs'
+			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Verify] - HAVE NO Valid SettlementLogIDs'
 							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
-							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
+							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 		
 		RETURN
 	END
@@ -287,32 +287,32 @@ BEGIN
 				,@ErrCode = @ErrCode OUTPUT
 				,@ErrMsg = @ErrMsg OUTPUT
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug - [Generate Msg Noti process - Verify] - Parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
-							+ ' - @JSResource(' + ISNULL(@JSResource,'NULL') + ')'
+			,COMPRESS(@InfLogPrefix + 'Debug - [Generate Msg Noti process - Verify] - Parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
+							+ ' - @JSResource(' + ISNULL(@JSResource,'NULL') + ')')
 		WHERE @LogMode = 'Debug'
 		
 		--ParseResult Error
 		IF @ErrCode <> 0
 		BEGIN
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				ActionID
 				,UserID
 				,LogBef
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
+				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
 								+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
-								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		END
 		ELSE
 		BEGIN
@@ -379,18 +379,18 @@ BEGIN
 		IF @ErrCode <> 0
 		BEGIN
 			
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				ActionID
 				,UserID
 				,LogBef
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RawData format'
+				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RawData format'
 								+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
-								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		END
 		ELSE
 		BEGIN
@@ -421,14 +421,14 @@ BEGIN
 	BEGIN CATCH
 		SELECT @ValidSettlementLogIDs = '' --output
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse JSON SettlementLogIDs(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
+			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse JSON SettlementLogIDs(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
 							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
@@ -454,7 +454,7 @@ BEGIN
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
-							+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
+							+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')')
 		RETURN
 	END CATCH
 	
@@ -1025,7 +1025,7 @@ BEGIN
 	/*
 		write log for Changed [Successfully Generated] / [Failed to Generate] Status
 	*/
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -1034,10 +1034,10 @@ BEGIN
 	SELECT rh.SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + '[Generate Msg Noti process - Verify] - Changed SettlementLogID Status from [Generating] to [Failed to Generate] (' + rh.RHLog + ')'
+		,COMPRESS(CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + '[Generate Msg Noti process - Verify] - Changed SettlementLogID Status from [Generating] to [Failed to Generate] (' + rh.RHLog + ')'
 			WHEN rh.StatusID = @StsGenerated THEN @InfLogPrefix + '[Generate Msg Noti process - Verify] - Changed SettlementLogID Status from [Generating] to [Successfully Generated] (' + rh.RHLog + ')'
 			WHEN rh.StatusID = 0 THEN @InfLogPrefix + '[Generate Msg Noti process - Verify] - Ingore Generate(' + rh.RHLog + ')'
-			ELSE @InfLogPrefix + '[Generate Msg Noti process - Verify] - Verify without error' + ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END
+			ELSE @InfLogPrefix + '[Generate Msg Noti process - Verify] - Verify without error' + ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END)
 	FROM #tmpVerifyList AS rh
 	WHERE rh.SettlementLogID NOT IN (
 			SELECT TRY_CONVERT(INT, value) AS SettlementLogID
@@ -1045,14 +1045,14 @@ BEGIN
 		)
 	ORDER BY rh.SettlementLogID
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Return after verifying - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + 'Debug - Return after verifying - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
 	WHERE @LogMode = 'Debug'
 	
 	DROP TABLE IF EXISTS #tmpResourceRef

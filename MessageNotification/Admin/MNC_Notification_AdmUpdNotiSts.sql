@@ -38,7 +38,7 @@ BEGIN
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
 	----------------------------------------------------------------
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -47,10 +47,10 @@ BEGIN
 	SELECT @NotiID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Start UPD Notification Status'
+		,COMPRESS(@InfLogPrefix + 'Debug - Start UPD Notification Status'
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
-						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')')
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
@@ -108,7 +108,7 @@ BEGIN
 		SELECT @ErrCode = 50005
 			,@ErrMsg = 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') OR NOT EXISTS Status(' + ISNULL(@NewStatus,'NULL') + ')'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -117,11 +117,11 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification Status'
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -129,7 +129,7 @@ BEGIN
 	--current Status = New Status
 	IF @CurStatus = @NewStatus
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -138,9 +138,9 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'UPD Notification status - NO Change because current Status = New Status(' + ISNULL(@NewStatus,'NULL') + ')'
+			,COMPRESS(@InfLogPrefix + 'UPD Notification status - NO Change because current Status = New Status(' + ISNULL(@NewStatus,'NULL') + ')'
 							+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
-							+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+							+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')')
 		RETURN
 	END
 	
@@ -151,7 +151,7 @@ BEGIN
 			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [' + ISNULL(@NewStatus,'NULL') + ']'
 						+ ' due to inconsistent with NotificationType(' + ISNULL(CONVERT(VARCHAR,@NotiType),'NULL') + ')'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -160,10 +160,10 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification Status'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -179,7 +179,7 @@ BEGIN
 		WHERE NotificationID = @NotiID
 			AND RefID IS NOT NULL
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -188,10 +188,10 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification Status'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -204,7 +204,7 @@ BEGIN
 			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sent]'
 						+ ' due to an NOT EXISTS REFID'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -213,10 +213,10 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification Status'
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification Status'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -275,7 +275,7 @@ BEGIN
 		COMMIT TRANSACTION
 		
 		--------------------------
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -285,11 +285,11 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Changed NotificationID Status from [' + ISNULL(@CurStatus,'NULL') + '] to [' + ISNULL(@NewStatus,'NULL') + ']'
+			,COMPRESS(@InfLogPrefix + 'Changed NotificationID Status from [' + ISNULL(@CurStatus,'NULL') + '] to [' + ISNULL(@NewStatus,'NULL') + ']'
 							+ ' - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ') = ' + @Updater
 							+ ' - NotificationExtra.ExtraInfo '
-								+ CASE WHEN @CExtraInfo IS NULL THEN 'NO Change' ELSE 'before (' + ISNULL(@CExtraInfo,'NULL') + ')' END
-			,CASE WHEN @CExtraInfo IS NOT NULL THEN ISNULL(@NExtraInfo,'NULL') END
+								+ CASE WHEN @CExtraInfo IS NULL THEN 'NO Change' ELSE 'before (' + ISNULL(@CExtraInfo,'NULL') + ')' END)
+			,COMPRESS(CASE WHEN @CExtraInfo IS NOT NULL THEN ISNULL(@NExtraInfo,'NULL') END)
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -302,7 +302,7 @@ BEGIN
 		ROLLBACK TRANSACTION
 		
 		--------------------------
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -311,7 +311,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + @ErrMsg)
 	END CATCH
 	
 	DROP TABLE #tmpConsisSts

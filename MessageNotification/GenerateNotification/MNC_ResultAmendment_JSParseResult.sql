@@ -83,26 +83,24 @@ BEGIN TRY
 	FROM MessageNotification.dbo.LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	INSERT INTO MessageNotification.dbo.[Log] (
+	INSERT INTO MessageNotification.dbo.UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,'Info - Debug - Start [Parse SettlementResultHist to JSON]'
+		,COMPRESS(N'Info - Debug - Start [Parse SettlementResultHist to JSON]'
 						+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 						+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
-						+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
+						+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')')
 	FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
 	
 	/*
 		Start to get data to Parse
 		default @ParseAmendInfo = ALL
 	*/
-	
 	SELECT @OutJSResource = ''
 	
 	IF ISNULL(CHARINDEX('SettleMatch',@ParseAmendInfo),0) = 0
@@ -331,18 +329,18 @@ BEGIN TRY
 			)
 		
 		--write log--
-		INSERT INTO MessageNotification.dbo.[Log] (
+		INSERT INTO MessageNotification.dbo.UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,'Info - [Parse SettlementResultHist to JSON]'
+			,COMPRESS(N'Info - [Parse SettlementResultHist to JSON]'
 				+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 				+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
 				+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
-				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')'
+				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')')
 	END
 	ELSE
 	BEGIN
@@ -521,29 +519,29 @@ BEGIN TRY
 			)
 		
 		--write log--
-		INSERT INTO MessageNotification.dbo.[Log] (
+		INSERT INTO MessageNotification.dbo.UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,'Info - [Parse SettlementResultHist to JSON]'
+			,COMPRESS(N'Info - [Parse SettlementResultHist to JSON]'
 				+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 				+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
 				+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
-				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')'
+				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')')
 	END
 	
 	--write log--
-	INSERT INTO MessageNotification.dbo.[Log] (
+	INSERT INTO MessageNotification.dbo.UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,'Info - Debug - [Parse SettlementResultHist to JSON] final'
+		,COMPRESS(N'Info - Debug - [Parse SettlementResultHist to JSON] final'
 						+ ' - tmpResultInfo('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -564,7 +562,7 @@ BEGIN TRY
 											FROM #tmpRemotingRef
 											FOR JSON PATH
 										))
-									),'NO ROW') + ')'
+									),'NO ROW') + ')')
 	FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
@@ -577,17 +575,17 @@ BEGIN CATCH
 	SELECT @ErrCode = @@ERROR --output for web
 		,@ErrMsg = ERROR_MESSAGE() --output for web
 	
-	INSERT INTO MessageNotification.dbo.[Log] (
+	INSERT INTO MessageNotification.dbo.UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT (SELECT ActionID FROM MessageNotification.dbo.LogAction WITH (NOLOCK) WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')) AS ActionID
 		,(SELECT TRY_CONVERT(INT, VValue) FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK) WHERE VID = 2) AS UserID --ID of StarixIT
-		,'Error - FAILED [Parse SettlementResultHist to JSON]'
+		,COMPRESS(N'Error - FAILED [Parse SettlementResultHist to JSON]'
 			+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 			+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
 			+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
 			+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')'
-			+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+			+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 END CATCH

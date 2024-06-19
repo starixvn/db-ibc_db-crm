@@ -119,14 +119,14 @@ BEGIN
 			,NULL AS RefId2
 		WHERE 1 = 0
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + '[Generate Msg Noti process - Prepare] - NO Action for UATMode = OFF AND Environment = UAT'
+			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Prepare] - NO Action for UATMode = OFF AND Environment = UAT')
 		
 		RETURN
 	END
@@ -152,14 +152,14 @@ BEGIN
 			,NULL AS RefId2
 		WHERE 1 = 0
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Another [Generate Msg Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.'
+			,COMPRESS(@ErrLogPrefix + 'Another [Generate Msg Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
 		
 		RETURN
 	END
@@ -170,14 +170,14 @@ BEGIN
 		WHERE VID = @ProcessID
 			AND VValue = 'Done'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Start [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -240,7 +240,7 @@ BEGIN
 		AND sh.SportType = 50 --Cricket, need modify for others sport
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -249,7 +249,7 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Generate Msg Noti process - Prepare] - Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]'
+		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Prepare] - Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]')
 	FROM #tmpUpdatedRH AS rh
 	ORDER BY SettlementLogID
 	
@@ -304,27 +304,29 @@ BEGIN
 		WHERE VID = @ProcessID
 			AND VValue = 'Running'
 	
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Completed [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Completed [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
 	
 	----------------------
-	INSERT INTO [Log] (
-		ActionID
+	INSERT INTO UserLog (
+		RefID
+		,ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT @LogActionID
+	SELECT SettlementLogID
+		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Completed [Generate Msg Noti process - Prepare]'
+		,COMPRESS(@InfLogPrefix + 'Completed [Generate Msg Noti process - Prepare]'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
@@ -341,10 +343,8 @@ BEGIN
 											,rf.RefId2
 										FOR JSON PATH
 									))
-								),'NO ROW') + ')'
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
+								),'NO ROW') + ')')
+	FROM #tmpUpdatedRH AS rh
 	
 	DROP TABLE #tmpUpdatedRH
 	DROP TABLE #tmpEventInfo

@@ -64,7 +64,7 @@ BEGIN
 	
 	IF ISNULL(@ErrCode,0) <> 0
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -73,16 +73,16 @@ BEGIN
 		SELECT @NotificationID AS RefID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FROM [MsgIns] - '
+			,COMPRESS(@ErrLogPrefix + 'FROM [MsgIns] - '
 						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 	END
 	ELSE
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -91,12 +91,12 @@ BEGIN
 		SELECT @NotificationID AS RefID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug - Start [Push Notification Msg process - NotiUpd]'
+			,COMPRESS(@InfLogPrefix + 'Debug - Start [Push Notification Msg process - NotiUpd]'
 						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 						+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-						+' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = 13 --LogMode
 			AND VValue = 'Debug'
@@ -126,7 +126,7 @@ BEGIN
 			AND n.NotificationType = 1 --Result Amendment to Msg
 			AND n.NotificationID = @NotificationID
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -135,8 +135,8 @@ BEGIN
 		SELECT u.NotificationID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + '[Push Notification Msg process - NotiUpd] - Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
-							+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+			,COMPRESS(@InfLogPrefix + '[Push Notification Msg process - NotiUpd] - Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
+							+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')')
 		FROM #tmpUpdNoti AS u
 			INNER JOIN NotiStatus AS s WITH (NOLOCK) ON u.StatusID = s.StatusID
 		ORDER BY u.NotificationID
@@ -170,7 +170,7 @@ BEGIN
 			,@ErrMsg = 'NO affected Notification'
 	END
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -179,10 +179,10 @@ BEGIN
 	SELECT @NotificationID
 		,@LogActionID
 		,@LogUserID
-		,@ErrLogPrefix + '[Push Notification Msg process - NotiUpd] - ' + ISNULL(@ErrMsg,'NULL')
+		,COMPRESS(@ErrLogPrefix + '[Push Notification Msg process - NotiUpd] - ' + ISNULL(@ErrMsg,'NULL')
 						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
-						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')')
 	WHERE @ErrCode <> 0
 	
 	DROP TABLE #tmpUpdNoti

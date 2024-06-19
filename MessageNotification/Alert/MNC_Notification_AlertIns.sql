@@ -80,7 +80,7 @@ BEGIN
 			WHERE a.RuleID = @RuleID
 			
 			--write log
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
@@ -89,8 +89,8 @@ BEGIN
 			SELECT @RuleID
 				,@LogActionID
 				,@LogUserID
-				,'Error - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
-						+ ' - ChatGroupIDs(' + ISNULL(a.ChatGroupIDs,'NULL') + ') may not be configured.'
+				,COMPRESS(N'Error - Alert - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+						+ ' - ChatGroupIDs(' + ISNULL(a.ChatGroupIDs,'NULL') + ') may not be configured.')
 			FROM AlertRule AS a WITH (NOLOCK)
 			WHERE a.RuleID = @RuleID
 			
@@ -135,7 +135,7 @@ BEGIN
 		
 		SELECT @ExcpInsCnt = @@ROWCOUNT
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -144,9 +144,9 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,'Info - EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(N'Info - Alert - EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - @LastScan(' + ISNULL(@LastScan,'NULL') + ')'
-					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')'
+					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')')
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = 13 --LogMode
 			AND (VValue = 'Debug' OR (ISNULL(TRIM(@JSAlertResult),'') <> '' AND ISNULL(@LastScan,'') <> ''))
@@ -189,7 +189,7 @@ BEGIN
 		
 		SELECT @ExcpInsCnt = @@ROWCOUNT
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -198,13 +198,13 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,'Error - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(N'Error - Alert - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - @Inssert Exception Count(' + ISNULL(CONVERT(VARCHAR,@ExcpInsCnt),'NULL') + ')'
 					+ ' - @SQLStatement(' + ISNULL(@SQLStatement,'NULL') + ')'
 					+ ' - @Params(' + ISNULL(@Params,'NULL') + ')'
 					+ ' - @LastScan(' + ISNULL(@LastScan,'NULL') + ')'
 					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')'
-					+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+					+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 		--Continue exec for next RuleID
 		SELECT @RuleID = (SELECT MIN(RuleID) FROM AlertRule WITH (NOLOCK) WHERE RuleID > @RuleID)

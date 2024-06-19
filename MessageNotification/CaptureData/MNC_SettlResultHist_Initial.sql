@@ -87,8 +87,7 @@ BEGIN
 	SELECT @Environment = ISNULL(@Environment,'UAT')
 	
 	
-	IF ISNULL(@Environment,'NULL') NOT IN ('LIVE', 'UAT')
-		OR (@UATMode = 0 AND @Environment = 'UAT') --no action (RETURN)
+	IF @UATMode = 0 AND @Environment = 'UAT'
 	BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime
@@ -97,17 +96,14 @@ BEGIN
 			,NULL AS AGIP
 		WHERE 1 = 0
 			
-		INSERT INTO [Log] (
-			LogTime
-			,ActionID
+		INSERT INTO UserLog (
+			ActionID
 			,UserID
 			,LogBef
 		)
-		SELECT GETDATE() AS LogTime
-			,@LogActionID
+		SELECT @LogActionID
 			,@LogUserID
-			,CASE WHEN ISNULL(@Environment,'NULL') NOT IN ('LIVE', 'UAT') THEN @ErrLogPrefix + '[Capture process - Initial] - NO Action for Invalid @Environment(' + ISNULL(@Environment,'NULL') + ')'
-				ELSE @InfLogPrefix + '[Capture process - Initial] - NO Action for UATMode = OFF AND Environment = UAT' END
+			,COMPRESS(@ErrLogPrefix + '[Capture process - Initial] - NO Action for UATMode = OFF AND Environment = UAT')
 		
 		RETURN
 	END
@@ -122,16 +118,14 @@ BEGIN
 			,NULL AS AGIP
 		WHERE 1 = 0
 		
-		INSERT INTO [Log] (
-			LogTime
-			,ActionID
+		INSERT INTO UserLog (
+			ActionID
 			,UserID
 			,LogBef
 		)
-		SELECT GETDATE() AS LogTime
-			,@LogActionID
+		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Another [Capture process] - Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.'
+			,COMPRESS(@ErrLogPrefix + 'Another [Capture process] - Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
 		
 		RETURN
 	END
@@ -142,19 +136,19 @@ BEGIN
 	WHERE VID = @ProcessID
 		AND VValue = 'Done'
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Start [Capture process - Initial] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Start [Capture process - Initial] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 	
 	--define [FDTime] as timepoint to pull data from SiteDBs
-	SET @FDTime = DATEADD(HH, -ISNULL(@ScanBackHour,0) , GETDATE())
+	SET @FDTime = DATEADD(HH, - ISNULL(@ScanBackHour, 24) , GETDATE())
 	
 	--return for web
 	SELECT @Environment AS Environment
@@ -178,14 +172,14 @@ BEGIN
 					FOR JSON AUTO
 				)) AS LTxt
 	)
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Start [Capture process - Initial] to capture Settlement ResultHistory (' +  LTxt + ')' AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Debug - Start [Capture process - Initial] to capture Settlement ResultHistory (' +  LTxt + ')') AS LogBef
 	FROM CTE_Log
 	WHERE EXISTS (
 		SELECT 1

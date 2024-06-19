@@ -29,8 +29,8 @@ BEGIN
 		,@NotiType TINYINT
 		,@NotiUpdCnt INT
 		,@Updater VARCHAR(50)
-		,@ErrLogPrefix NVARCHAR(150) = 'Error - '
-		,@InfLogPrefix NVARCHAR(150) = 'Info - '
+		,@ErrLogPrefix NVARCHAR(150) = 'Error - Adm - '
+		,@InfLogPrefix NVARCHAR(150) = 'Info - Adm - '
 		,@LogMode VARCHAR(500)
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
@@ -46,7 +46,7 @@ BEGIN
 	WHERE VID = 13 --LogMode
 	
 	----------------------------------------------------------------
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -55,14 +55,14 @@ BEGIN
 	SELECT @NotiID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - Start UPD Notification'
+		,COMPRESS(@InfLogPrefix + 'Debug - Start UPD Notification'
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
 						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
-						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')')
 	WHERE @LogMode = 'Debug'
 	
 	-----------------verify before update Content---------------
@@ -71,7 +71,7 @@ BEGIN
 		SELECT @ErrCode = 50006
 			,@ErrMsg = 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -80,7 +80,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -88,7 +88,7 @@ BEGIN
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -179,7 +179,7 @@ BEGIN
 		SELECT @NotiUpdCnt = @@ROWCOUNT
 		IF @NotiUpdCnt = 1
 		BEGIN
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
@@ -189,11 +189,11 @@ BEGIN
 			SELECT NotiID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'UPD NotificationID Subject - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
+				,COMPRESS(@InfLogPrefix + 'UPD NotificationID Subject - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
 								+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
 								+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-								+ ' - Notification.Subject before (' + ISNULL(c.Subject,'NULL') + ')'
-				,'New Subject(' + ISNULL(n.Subject,'NULL') + ')'
+								+ ' - Notification.Subject before (' + ISNULL(c.Subject,'NULL') + ')')
+				,COMPRESS(N'New Subject(' + ISNULL(n.Subject,'NULL') + ')')
 			FROM #tmpCurNoti AS c
 				INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 			WHERE ISNULL(n.Subject,'') <> ISNULL(c.Subject,'')
@@ -203,7 +203,7 @@ BEGIN
 			SELECT @ErrCode = 50006
 				,@ErrMsg = 'UPD Notification Subject - S.T wrong with NO row affected'
 			
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
@@ -213,7 +213,7 @@ BEGIN
 			SELECT @NotiID
 				,@LogActionID
 				,@LogUserID
-				,@ErrLogPrefix + @ErrMsg
+				,COMPRESS(@ErrLogPrefix + @ErrMsg
 					+ ' - Current @NotiUpdCnt(' + ISNULL(CONVERT(VARCHAR,@NotiUpdCnt),'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 					+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
@@ -231,15 +231,15 @@ BEGIN
 												FROM #tmpCurNoti
 												FOR JSON PATH
 											))
-										),'NO ROW') + ')'
-				,'New Subject(' + ISNULL((SELECT Subject FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID),'NULL') + ')'
+										),'NO ROW') + ')')
+				,COMPRESS(N'Current Subject(' + ISNULL((SELECT Subject FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID),'NULL') + ')')
 		END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR
 			,@ErrMsg = 'FAILED to UPD Notification Subject - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -248,7 +248,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + @ErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -269,11 +269,11 @@ BEGIN
 											FROM #tmpCurNoti
 											FOR JSON PATH
 										))
-									),'NO ROW') + ')'
+									),'NO ROW') + ')')
 	END CATCH
 	ELSE IF @NotiType = 2
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -282,7 +282,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug - UPD Notification.Subject - NO Change'
+			,COMPRESS(@InfLogPrefix + 'Debug - UPD Notification.Subject - NO Change')
 		WHERE @LogMode = 'Debug'
 	END
 	
@@ -309,7 +309,7 @@ BEGIN
 		SELECT @NotiUpdCnt = @@ROWCOUNT
 		IF @NotiUpdCnt = 1
 		BEGIN
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
@@ -319,14 +319,14 @@ BEGIN
 			SELECT c.NotiID
 				,@LogActionID
 				,@LogUserID
-				,@InfLogPrefix + 'UPD NotificationID Content - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
+				,COMPRESS(@InfLogPrefix + 'UPD NotificationID Content - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
 								+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 								+ ' - Notification.Content_en before (' + ISNULL(c.Content_en,'NULL') + ')'
 								+ ' - Notification.Content_ch before (' + ISNULL(c.Content_ch,'NULL') + ')'
-								+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')'
-				,'New Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
+								+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')')
+				,COMPRESS(N'New Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
 					+ ' - New Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
-					+ ' - New Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
+					+ ' - New Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')')
 			FROM #tmpCurNoti AS c
 				INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 			WHERE ISNULL(n.Content_en,'') <> ISNULL(c.Content_en,'')
@@ -338,7 +338,7 @@ BEGIN
 			SELECT @ErrCode = 50006
 				,@ErrMsg = 'UPD Notification Content - S.T wrong with NO row affected'
 			
-			INSERT INTO [Log] (
+			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
@@ -347,7 +347,7 @@ BEGIN
 			SELECT @NotiID
 				,@LogActionID
 				,@LogUserID
-				,@ErrLogPrefix + @ErrMsg
+				,COMPRESS(@ErrLogPrefix + @ErrMsg
 					+ ' - @NotiUpdCnt(' + ISNULL(CONVERT(VARCHAR,@NotiUpdCnt),'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 					+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -369,14 +369,14 @@ BEGIN
 												FROM #tmpCurNoti
 												FOR JSON PATH
 											))
-										),'NO ROW') + ')'
+										),'NO ROW') + ')')
 		END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR
 			,@ErrMsg = 'FAILED to UPD Notification Content - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -385,7 +385,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + @ErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -406,11 +406,11 @@ BEGIN
 											FROM #tmpCurNoti
 											FOR JSON PATH
 										))
-									),'NO ROW') + ')'
+									),'NO ROW') + ')')
 	END CATCH
 	ELSE
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -419,7 +419,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Debug - UPD Notification.Content(en/ch/cs) - NO Change'
+			,COMPRESS(@InfLogPrefix + 'Debug - UPD Notification.Content(en/ch/cs) - NO Change')
 		WHERE @LogMode = 'Debug'
 	END
 	
@@ -437,7 +437,7 @@ BEGIN
 		SELECT @ErrCode = @@ERROR
 			,@ErrMsg = 'FAILED to UPD Notification Status - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			RefID
 			,ActionID
 			,UserID
@@ -446,7 +446,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + @ErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -454,11 +454,11 @@ BEGIN
 				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-				+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+				+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 	END CATCH
 	
 	--debug log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -468,17 +468,17 @@ BEGIN
 	SELECT c.NotiID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - DONE UPD Notification'
+		,COMPRESS(@InfLogPrefix + 'Debug - DONE UPD Notification'
 						+ ' - @NewStatus (' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - Content_en (' + ISNULL(c.Content_en,'NULL') + ')'
 						+ ' - Subject (' + ISNULL(c.Subject,'NULL') + ')'
 						+ ' - Content_ch (' + ISNULL(c.Content_ch,'NULL') + ')'
-						+ ' - Content_cs (' + ISNULL(c.Content_cs,'NULL') + ')'
-		,'Status = ' + ISNULL(s.Status,'NULL')
+						+ ' - Content_cs (' + ISNULL(c.Content_cs,'NULL') + ')')
+		,COMPRESS(N'Status = ' + ISNULL(s.Status,'NULL')
 						+ ', Subject (' + ISNULL(n.Subject,'NULL') + ')'
 						+ ', Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
 						+ ', Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
-						+ ', Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
+						+ ', Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')')
 	FROM #tmpCurNoti AS c
 		INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 		LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID

@@ -84,14 +84,14 @@ BEGIN
 			,NULL AS JSNotification
 		WHERE 1 = 0
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@ErrLogPrefix + 'Another [Push Notification] Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.'
+			,COMPRESS(@ErrLogPrefix + 'Another [Push Notification] Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.')
 		
 		RETURN
 	END
@@ -102,14 +102,14 @@ BEGIN
 		WHERE VID = @ProcessID
 			AND VValue = 'Done'
 		
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,@InfLogPrefix + 'Start [Push Notification Msg process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Start [Push Notification Msg process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -167,14 +167,14 @@ BEGIN
 	WHERE nt.StatusID <> @StsSending
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + 'Debug - [Push Notification Msg process - Prepare]'
+		,COMPRESS(@InfLogPrefix + 'Debug - [Push Notification Msg process - Prepare]'
 						+ ' - NotiIDs('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT NotificationID
@@ -182,7 +182,7 @@ BEGIN
 										ORDER BY NotificationID
 										FOR JSON PATH
 									))
-								),'NO ROW') + ')'
+								),'NO ROW') + ')')
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
@@ -316,14 +316,14 @@ BEGIN
 		-- AND NOT EXISTS (SELECT 1 FROM #tmpResult)
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Push Notification Msg process - Prepare]'
+		,COMPRESS(@InfLogPrefix + '[Push Notification Msg process - Prepare]'
 						+ ' - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT NotificationID
@@ -332,7 +332,7 @@ BEGIN
 										ORDER BY NotificationID
 										FOR JSON PATH
 									))
-								),'NO ROW') + ')'
+								),'NO ROW') + ')')
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpJSData

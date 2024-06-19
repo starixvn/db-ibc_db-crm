@@ -31,32 +31,32 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,'Info - Debug - Start [Push Notification Msg process - Completed]'
+		,COMPRESS(N'Info - Debug - Start [Push Notification Msg process - Completed]'
 			+ '- @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-			+ '- @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+			+ '- @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
 	
 	IF @ErrCode <> 0
 	BEGIN
-		INSERT INTO [Log] (
+		INSERT INTO UserLog (
 			ActionID
 			,UserID
 			,LogBef
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,'Error - [Push Notification Msg process - Completed]'
+			,COMPRESS(N'Error - [Push Notification Msg process - Completed]'
 				+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-				+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+				+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 	END
 	
 	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
@@ -64,14 +64,14 @@ BEGIN
 	WHERE VID = @ProcessID
 		AND VValue = 'Running'
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		ActionID
 		,UserID
 		,LogBef
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,'Info - Completed [Push Notification Msg process - Completed] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' AS LogBef
+		,COMPRESS(N'Info - Completed [Push Notification Msg process - Completed] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 END

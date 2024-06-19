@@ -129,8 +129,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrLogPrefix = 'Error - '
-	SELECT @InfLogPrefix = 'Info - '
+	SELECT @ErrLogPrefix = 'Error - Alert - '
+	SELECT @InfLogPrefix = 'Info - Alert - '
 	
 	SELECT @Sites777 = ISNULL(VValue,'')
 	FROM SystemSetting WITH (NOLOCK)
@@ -233,7 +233,7 @@ Status: FAILED'
 	FROM #tmpPrepareSystemAlert AS sa
 		INNER JOIN #tmpIngoredAlert AS ig ON sa.AlertID = ig.AlertID
 	
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -242,7 +242,7 @@ Status: FAILED'
 	SELECT AlertID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Send Alert process - Prepare] - Changed System AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]'
+		,COMPRESS(@InfLogPrefix + '[Send Alert process - Prepare] - Changed System AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
 	FROM #tmpPrepareSystemAlert
 	ORDER BY AlertID
 	
@@ -254,7 +254,7 @@ Status: FAILED'
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpPrepareEventAlert ON #tmpPrepareEventAlert (AlertID)
 	
 	--write log
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -263,7 +263,7 @@ Status: FAILED'
 	SELECT AlertID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Send Alert process - Prepare] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]'
+		,COMPRESS(@InfLogPrefix + '[Send Alert process - Prepare] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
 	FROM #tmpPrepareEventAlert
 	ORDER BY AlertID
 	
@@ -609,7 +609,7 @@ Status: FAILED'
 	WHERE tp.RequiredParam = '{EventDate}'
 	
 	UPDATE tp
-	SET tp.Content = CONVERT(VARCHAR, DATEADD(HH, 12, ev.KOTime), 25) --KOTime GMT+8
+	SET tp.Content = FORMAT(DATEADD(HH, 12, ev.KOTime),'MMM dd, yyyy hh:mm tt') --KOTime GMT+8
 	FROM #tmpTemplateDetl AS tp
 		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
@@ -812,7 +812,7 @@ Status: FAILED'
 			INNER JOIN #tmpIngoredAlert AS ig ON s.AlertID = ig.AlertID
 		GROUP BY s.AlertID
 	)
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -822,11 +822,11 @@ Status: FAILED'
 	SELECT DISTINCT a.AlertID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,a.AlertID),'NULL')+ ') Status from [Sending] to [Sent]'
+		,COMPRESS(@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,a.AlertID),'NULL')+ ') Status from [Sending] to [Sent]'
 						+ ' - Sent ChatGroupIDs(' + ISNULL(sa.ChatGroupIDs,'NULL')+ ')'
 						+ ISNULL(' - Ignore ChatGroupIDs(' + ia.ChatGroupIDs + ')' , '')
-						+ ISNULL(' - Ignore Log(' + ia.IngoreLog + ')' , '')
-		,'Sent Content(' + ISNULL(sa.SentContent,'Refer Alert.Content')+ ')'
+						+ ISNULL(' - Ignore Log(' + ia.IngoreLog + ')' , ''))
+		,COMPRESS(N'Sent Content(' + ISNULL(sa.SentContent,'Refer Alert.Content')+ ')')
 	FROM #tmpResultSet AS a
 		LEFT JOIN CTE_SentAlert AS sa ON a.AlertID = sa.AlertID
 		LEFT JOIN CTE_IgnoreAlert AS ia ON a.AlertID = ia.AlertID
@@ -855,7 +855,7 @@ Status: FAILED'
 		FROM #tmpIngoredAlert AS s
 		GROUP BY s.AlertID
 	)
-	INSERT INTO [Log] (
+	INSERT INTO UserLog (
 		RefID
 		,ActionID
 		,UserID
@@ -864,9 +864,9 @@ Status: FAILED'
 	SELECT DISTINCT ig.AlertID
 		,@LogActionID
 		,@LogUserID
-		,@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,ig.AlertID),'NULL')+ ') Status from [Sending] to [Ignore]'
+		,COMPRESS(@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,ig.AlertID),'NULL')+ ') Status from [Sending] to [Ignore]'
 						+ ' - Ignore ChatGroupIDs(' + ISNULL(ia.ChatGroupIDs,'NULL')+ ')'
-						+ ' - Ignore Log(' + ISNULL(ia.IngoreLog,'NULL')+ ')'
+						+ ' - Ignore Log(' + ISNULL(ia.IngoreLog,'NULL')+ ')')
 	FROM #tmpIngoredAlert AS ig
 		LEFT JOIN CTE_IgnoreAlert AS ia ON ig.AlertID = ia.AlertID
 	ORDER BY ig.AlertID

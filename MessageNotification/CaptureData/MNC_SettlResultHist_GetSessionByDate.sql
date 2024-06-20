@@ -141,6 +141,13 @@ BEGIN
 		LEFT JOIN bodb02.dbo.bettrans14 AS b14 WITH (NOLOCK) ON d.Transid = b14.Transid
 	WHERE h.StatusID = 2 --2-Completed Result Amendment
 	
+	/*
+		Currently, BalanceNegativeHistory mapped by SessionID
+		
+		BUT SettlementResultHistory break SessionID / SeqNo
+		
+		Paid Attention when handling SessionID / CustID
+	*/
 	INSERT INTO #tmpBalanceNegativeHistory (
 		LogID
 		,ExecDate
@@ -164,7 +171,8 @@ BEGIN
 		,bn.Site
 		,bn.SessionID
 	FROM bodb02.dbo.BalanceNegativeHistory AS bn WITH (NOLOCK)
-		INNER JOIN #tmpResultHistDetail AS d WITH (NOLOCK) ON bn.SessionID = d.SessionID AND bn.CustID = d.CustID
+		INNER JOIN #tmpResultHistDetail AS d ON bn.SessionID = d.SessionID AND bn.CustID = d.CustID
+		INNER JOIN #tmpResultHist AS rh ON d.SessionID = rh.SessionID AND d.SeqNo = rh.SeqNo AND bn.MatchID = rh.MatchID
 	
 	---prepare data
 	INSERT INTO #tmpJSData (ObjectName, JSONData)

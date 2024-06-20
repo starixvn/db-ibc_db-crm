@@ -46,6 +46,7 @@ BEGIN
 		,@SiteDBGroupID SMALLINT
 		,@ProcessID INT
 		,@UATMode BIT = 0
+		,@LogMode VARCHAR(50)
 		,@IsTestFlag BIT
 		,@StsRetrieving TINYINT
 		,@StsRetrieved TINYINT
@@ -79,6 +80,11 @@ BEGIN
 	SELECT @UATMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --UATMode
+	
+	SELECT @LogMode = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
 	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
@@ -122,7 +128,7 @@ BEGIN
 		SET @IsTestFlag = NULL
 	END
 	
-	--write more info if LogMode = Debug
+	--write log
 	INSERT INTO UserLog (
 		ActionID
 		,UserID
@@ -130,12 +136,9 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Start [Capture process - DataLoad] with @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + 'Start [Capture process - DataLoad] with @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ', @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ', @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')')
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
 	
 	CREATE TABLE #tmpJSData (
 		ObjectName NVARCHAR(150)
@@ -162,11 +165,6 @@ BEGIN
 		SettlementLogID INT NOT NULL
 		,SessionID VARCHAR(50)
 		,SeqNo SMALLINT
-	)
-	
-	CREATE TABLE #tmpUpdatedRH (
-		SettlementLogID INT NOT NULL
-		,UpdatedCase VARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpResultHistDetail (
@@ -198,9 +196,16 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpInsertedNB (
-		SettlementLogID INT NOT NULL
-		,LogID BIGINT NOT NULL
+		SessionID VARCHAR(50)
+		,MatchID INT
 		,CustID INT
+		,LogID BIGINT
+	)
+	
+	--keep data incase rollback
+	DECLARE @tmpUpdatedRH TABLE (
+		SettlementLogID INT NOT NULL
+		,UpdatedCase VARCHAR(50)
 	)
 	/*
 		**************************************************Load data from web**************************************************
@@ -290,38 +295,38 @@ BEGIN
 			)--OPENJSON case-sensitive
 		
 		INSERT INTO #tmpBalanceNegativeHistory (
-			LogID
+			SessionID
+			,CustID
+			,Site
+			,LogID
 			,ExecDate
 			,MatchID
 			,ActionID
-			,CustID
 			,GroupID
 			,Balance
 			,TotalBalance
-			,Site
-			,SessionID
 		)
-		SELECT LogID
+		SELECT SessionID
+			,CustID
+			,Site
+			,LogID
 			,ExecDate
 			,MatchID
 			,ActionID
-			,CustID
 			,GroupID
 			,Balance
 			,TotalBalance
-			,Site
-			,SessionID
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'BalanceNegativeHistory')) WITH (
-				LogID BIGINT '$.LogID'
+				SessionID VARCHAR(50) '$.SessionID'
+				,CustID INT '$.CustID'
+				,Site VARCHAR(50) '$.Site'
+				,LogID BIGINT '$.LogID'
 				,ExecDate DATETIME '$.ExecDate'
 				,MatchID INT '$.MatchID'
 				,ActionID INT '$.ActionID'
-				,CustID INT '$.CustID'
 				,GroupID INT '$.GroupID'
 				,Balance MONEY '$.Balance'
 				,TotalBalance MONEY '$.TotalBalance'
-				,Site VARCHAR(50) '$.Site'
-				,SessionID VARCHAR(50) '$.SessionID'
 			)--OPENJSON case-sensitive
 	
 	END TRY
@@ -432,9 +437,7 @@ BEGIN
 			SELECT @LogActionID
 				,@LogUserID
 				,COMPRESS(@InfLogPrefix + 'Debug - NO ROW inserted SettlementResultHist')
-			FROM SystemSetting WITH (NOLOCK)
-			WHERE VID = 13 --LogMode
-				AND VValue = 'Debug'
+			WHERE @LogMode = 'Debug'
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -523,9 +526,11 @@ BEGIN
 		SELECT rh.SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'INSERTED SettlementResultHistDetail (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),d.LTxt),','),'NO ROW')+ ')')
+			,COMPRESS(@InfLogPrefix + (CASE WHEN @LogMode = 'Debug' THEN 'Debug - ' ELSE '' END ) + 'INSERTED SettlementResultHistDetail (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),d.LTxt),','),'NO ROW')+ ')')
 		FROM #tmpInsertedRH AS rh
 			LEFT JOIN CTE_InsertedDetail AS d ON rh.SettlementLogID = d.SettlementLogID
+		WHERE @LogMode = 'Debug'
+			OR EXISTS (SELECT 1 FROM #tmpInsertedRHDetail)
 		GROUP BY rh.SettlementLogID
 		ORDER BY rh.SettlementLogID
 		
@@ -583,36 +588,45 @@ BEGIN
 	*/
 	IF @ErrCode = 0 AND EXISTS (SELECT 1 FROM #tmpInsertedRHDetail)
 	BEGIN TRY
+		/*
+			Currently, BalanceNegativeHistory mapped by SessionID
+			
+			BUT SettlementResultHistory break SessionID / SeqNo
+			
+			Paid Attention when handling SessionID / CustID
+		*/
 		INSERT INTO BalanceNegativeHist (
-			SettlementLogID
+			SessionID
+			,CustID
+			,Site
 			,LogID
 			,ExecDate
 			,MatchID
 			,ActionID
-			,CustID
 			,GroupID
 			,Balance
 			,TotalBalance
-			,Site
 		)
-		OUTPUT INSERTED.SettlementLogID
-			,INSERTED.LogID
+		OUTPUT INSERTED.SessionID
+			,INSERTED.MatchID
 			,INSERTED.CustID
+			,INSERTED.LogID
 		INTO #tmpInsertedNB (
-			SettlementLogID
-			,LogID
+			SessionID
+			,MatchID
 			,CustID
+			,LogID
 		) --Get Inserted Negative
-		SELECT DISTINCT rhd.SettlementLogID
+		SELECT DISTINCT bn.SessionID
+			,bn.CustID
+			,bn.Site
 			,bn.LogID
 			,bn.ExecDate
 			,bn.MatchID
 			,bn.ActionID
-			,bn.CustID
 			,bn.GroupID
 			,bn.Balance
 			,bn.TotalBalance
-			,bn.Site
 		FROM #tmpInsertedRHDetail AS rhd
 			INNER JOIN #tmpInsertedRH AS rh ON rh.SettlementLogID = rhd.SettlementLogID
 			INNER JOIN #tmpResultHist AS rs ON rh.SessionID = rs.SessionID AND rh.SeqNo = rs.SeqNo
@@ -620,24 +634,24 @@ BEGIN
 		WHERE NOT EXISTS (
 				SELECT 1
 				FROM BalanceNegativeHist AS tgt
-				WHERE rhd.SettlementLogID = tgt.SettlementLogID
-					AND bn.LogID = tgt.LogID
+				WHERE bn.SessionID = tgt.SessionID
+					AND bn.MatchID = tgt.MatchID
 					AND bn.CustID = tgt.CustID
+					AND bn.LogID = tgt.LogID
 			)
 		
 		--write log
 		;WITH CTE_InsertedNB AS (
-			SELECT s.SettlementLogID
+			SELECT s.SessionID
 				,CONVERT(NVARCHAR(MAX),(
-								SELECT DISTINCT t.LogID
-									,t.CustID
+								SELECT DISTINCT t.*
 								FROM #tmpInsertedNB AS t
-								WHERE t.SettlementLogID = s.SettlementLogID
+								WHERE t.SessionID = s.SessionID
 								ORDER BY LogID
 								FOR JSON PATH
 							)) AS LTxt
 			FROM #tmpInsertedNB AS s
-			GROUP BY s.SettlementLogID
+			GROUP BY s.SessionID
 		)
 		INSERT INTO UserLog (
 			RefID
@@ -648,9 +662,11 @@ BEGIN
 		SELECT rh.SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),bn.LTxt),','),'NO ROW')+ ')')
+			,COMPRESS(@InfLogPrefix + (CASE WHEN @LogMode = 'Debug' THEN 'Debug - ' ELSE '' END ) + 'INSERTED BalanceNegativeHist (' + ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),bn.LTxt),','),'NO ROW')+ ')')
 		FROM #tmpInsertedRH AS rh
-			LEFT JOIN CTE_InsertedNB AS bn ON rh.SettlementLogID = bn.SettlementLogID
+			LEFT JOIN CTE_InsertedNB AS bn ON rh.SessionID = bn.SessionID
+		WHERE @LogMode = 'Debug'
+			OR EXISTS (SELECT 1 FROM #tmpInsertedNB)
 		GROUP BY rh.SettlementLogID
 		ORDER BY rh.SettlementLogID
 	END TRY
@@ -681,7 +697,11 @@ BEGIN
 		
 		DELETE sh
 		FROM BalanceNegativeHist AS sh
-			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+			INNER JOIN #tmpInsertedRH AS rh ON sh.SessionID = rh.SessionID
+			LEFT JOIN #tmpInsertedNB AS bn ON sh.SessionID = bn.SessionID AND sh.MatchID = bn.MatchID AND sh.CustID = bn.CustID AND sh.LogID = bn.LogID
+			LEFT JOIN #tmpInsertedRHDetail AS rhd ON rh.SettlementLogID = rhd.SettlementLogID AND sh.CustID = rhd.CustID
+		WHERE ISNULL(bn.CustID,rhd.CustID) IS NOT NULL
+			
 		
 		DELETE sh
 		FROM SettlementResultHistDetail AS sh
@@ -768,7 +788,7 @@ BEGIN
 				,sh.LastModifiedTime = GETDATE()
 			OUTPUT INSERTED.SettlementLogID
 				,'Full SiteDBGroupIDs'
-			INTO #tmpUpdatedRH (SettlementLogID, UpdatedCase)
+			INTO @tmpUpdatedRH (SettlementLogID, UpdatedCase)
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 				INNER JOIN CTE_Sts AS sts ON sh.SessionID = sts.SessionID AND sh.MatchID = sts.MatchID AND sh.SeqNo = sts.SeqNo
 			WHERE sts.SiteDBCnt = @SiteDBCnt
@@ -785,12 +805,15 @@ BEGIN
 				,@LogActionID
 				,@LogUserID
 				,COMPRESS(@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] (All data from SiteDBConfig.SiteDBGroupIDs is loaded)')
-			FROM #tmpUpdatedRH AS i
+			FROM @tmpUpdatedRH AS i
 			WHERE UpdatedCase = 'Full SiteDBGroupIDs'
 			ORDER BY i.SettlementLogID
-			
+		
+		COMMIT TRANSACTION
+		
+		BEGIN TRANSACTION
 			/*
-				Update for CASE #1
+				Update for CASE #2
 					SessionID inserted too long (over configuration time in SystemSetting)
 			*/
 			DECLARE @Retrieving_WaitSec INT = 0
@@ -811,7 +834,7 @@ BEGIN
 				,sh.LastModifiedTime = GETDATE()
 			OUTPUT INSERTED.SettlementLogID
 				,'Over Retrieving_WaitSec'
-			INTO #tmpUpdatedRH (SettlementLogID, UpdatedCase)
+			INTO @tmpUpdatedRH (SettlementLogID, UpdatedCase)
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 				INNER JOIN CTE_Session_INSTime AS s ON sh.SessionID = s.SessionID
 			WHERE sh.StatusID = @StsRetrieving
@@ -827,7 +850,7 @@ BEGIN
 				,@LogActionID
 				,@LogUserID
 				,COMPRESS(@InfLogPrefix + 'Changed Status from [Retrieving] to [Successfully Retrieved] - Over Retrieving_WaitSec(' + ISNULL(CONVERT(VARCHAR,@Retrieving_WaitSec),'NULL') +') configuration')
-			FROM #tmpUpdatedRH AS rh
+			FROM @tmpUpdatedRH AS rh
 			WHERE UpdatedCase = 'Over Retrieving_WaitSec'
 			ORDER BY SettlementLogID
 	
@@ -867,6 +890,13 @@ BEGIN
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
 											FROM #tmpInsertedNB
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')'
+							+ ' - Update SettlementResultHist status('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM @tmpUpdatedRH
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -927,20 +957,17 @@ BEGIN
 						+ ' - Updated SettlementResultHist.Status('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
-										FROM #tmpUpdatedRH
+										FROM @tmpUpdatedRH
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')')
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
+	WHERE @LogMode = 'Debug'
 	
 	DROP TABLE #tmpJSData
 	DROP TABLE #tmpResultHist
 	DROP TABLE #tmpInsertedRH
 	DROP TABLE #tmpResultHistDetail
 	DROP TABLE #tmpInsertedRHDetail
-	DROP TABLE #tmpUpdatedRH
 	DROP TABLE #tmpBalanceNegativeHistory
 	DROP TABLE #tmpInsertedNB
 END

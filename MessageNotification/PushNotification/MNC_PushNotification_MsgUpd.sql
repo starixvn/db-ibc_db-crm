@@ -31,6 +31,7 @@ BEGIN
 	----------------Error from MNC_PushNotification_NotiUpd----------------------------------------
 	IF @ErrCode <> 0
 	BEGIN TRY
+		BEGIN TRANSACTION
 		---DELETE Msg
 		DELETE FROM dbo.Msg
 		OUTPUT DELETED.MessageID
@@ -45,6 +46,7 @@ BEGIN
 		FROM dbo.MsgTarget AS mt
 			INNER JOIN #tmpUpdMsg AS d ON d.MessageId = mt.MessageId
 		
+		COMMIT TRANSACTION
 		/*
 			at this state, ErrCode from MNC_PushNotification_NotiUpd is handled
 			=> reset @ErrCode

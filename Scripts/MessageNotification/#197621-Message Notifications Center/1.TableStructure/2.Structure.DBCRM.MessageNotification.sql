@@ -66,21 +66,21 @@ GO
 DROP TABLE IF EXISTS dbo.BalanceNegativeHist
 
 CREATE TABLE dbo.BalanceNegativeHist (
-	SettlementLogID INT NOT NULL
+	SessionID VARCHAR(50) NOT NULL
+	,CustID INT NOT NULL
+	,Site VARCHAR(50)
+	,MatchID INT NOT NULL
 	,LogID BIGINT NOT NULL
 	,ExecDate DATETIME
-	,MatchID INT
 	,ActionID INT
-	,CustID INT NOT NULL
-	,GroupID INT
+	,GroupID TINYINT
 	,Balance MONEY
 	,TotalBalance MONEY
-	,Site VARCHAR(50)
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 GO
 
 CREATE CLUSTERED INDEX [CIX_BalanceNegative] ON dbo.BalanceNegativeHist (
-	SettlementLogID
+	SessionID
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
 	
@@ -234,7 +234,7 @@ CREATE TABLE dbo.UserLog (
 	LogID BIGINT NOT NULL IDENTITY(1, 1)
 	,LogTime DATETIME NOT NULL DEFAULT GETDATE()
 	,RefID INT
-	,ActionID TINYINT
+	,ActionID SMALLINT
 	,UserID INT
 	,LogBef VARBINARY(MAX)
 	,LogAft VARBINARY(MAX)
@@ -255,7 +255,7 @@ GO
 DROP TABLE IF EXISTS dbo.NotiTemplate
 
 CREATE TABLE NotiTemplate (
-	TemplateID TINYINT PRIMARY KEY
+	TemplateID SMALLINT PRIMARY KEY
 	,TemplateName VARCHAR(200)
 	,Content_en NVARCHAR(4000)
 	,Content_ch NVARCHAR(4000)

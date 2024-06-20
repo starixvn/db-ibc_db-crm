@@ -159,7 +159,7 @@ BEGIN
 	FROM bodb02.dbo.SiteDBConfig AS sc WITH (NOLOCK)
 	WHERE SiteDBGroupID <> 0
 	
-	--write more info both PROD/UAT if LogMode = Debug
+	--write log
 	;WITH CTE_Log AS (
 		SELECT CONVERT(NVARCHAR(MAX),(
 					SELECT @Environment AS Environment
@@ -179,12 +179,6 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Start [Capture process - Initial] to capture Settlement ResultHistory (' +  LTxt + ')') AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Completed [Capture process - Initial] - Return(' +  LTxt + ')') AS LogBef
 	FROM CTE_Log
-	WHERE EXISTS (
-		SELECT 1
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
-	)
 END

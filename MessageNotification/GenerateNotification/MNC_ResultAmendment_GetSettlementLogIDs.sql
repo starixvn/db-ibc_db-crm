@@ -111,11 +111,10 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Verify]'
+		,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Verify]'
 						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
-	WHERE @LogMode = 'Debug'
 	
 	/*
 		Filter data by UATMode

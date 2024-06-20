@@ -317,22 +317,18 @@ BEGIN
 	
 	--write log
 	INSERT INTO UserLog (
-		ActionID
+		RefID
+		,ActionID
 		,UserID
 		,LogBef
 	)
-	SELECT @LogActionID
+	SELECT NotificationID
+		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Push Notification Msg process - Prepare]'
-						+ ' - Return('
-							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT NotificationID
-											,JSNotification
-										FROM #tmpResult
-										ORDER BY NotificationID
-										FOR JSON PATH
-									))
-								),'NO ROW') + ')')
+		,COMPRESS(@InfLogPrefix + 'Completed [Push Notification Msg process - Prepare]'
+						+ ' - JSNotification(' + ISNULL(JSNotification,'NO ROW') + ')')
+	FROM #tmpResult
+	ORDER BY NotificationID
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpJSData

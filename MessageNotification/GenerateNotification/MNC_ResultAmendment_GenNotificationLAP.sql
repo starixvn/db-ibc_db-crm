@@ -155,7 +155,7 @@ BEGIN
 	CREATE TABLE #tmpNoti (
 		Msg_NotiID INT NOT NULL
 		,MessageID INT NOT NULL
-		,TemplateID INT NOT NULL
+		,TemplateID SMALLINT NOT NULL
 		,Subject NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
@@ -177,7 +177,7 @@ BEGIN
 	CREATE TABLE #tmpInputNoti (
 		Msg_NotiID INT
 		,SportType INT
-		,TemplateID INT
+		,TemplateID SMALLINT
 	)
 	
 	--write log for LogMode = Debug
@@ -188,9 +188,8 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Start [Generate Lap Noti process - Gen]'
+		,COMPRESS(@InfLogPrefix + 'Start [Generate Lap Noti process - Gen]'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
-	WHERE @LogMode = 'Debug'
 	/*
 		#1 - Start to Parse inputed JSON
 	*/
@@ -368,7 +367,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Start [Generate Lap Noti process - Gen]'
+			,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Gen]'
 							+ ' - tmpNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT Msg_NotiID

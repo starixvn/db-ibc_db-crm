@@ -45,6 +45,10 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 	
+	SELECT @Updater = username
+	FROM bodb02.dbo.Customer WITH (NOLOCK)
+	WHERE CustID = @UpdaterID
+	
 	----------------------------------------------------------------
 	INSERT INTO UserLog (
 		RefID
@@ -54,8 +58,8 @@ BEGIN
 	)
 	SELECT @NotiID
 		,@LogActionID
-		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Start UPD Notification'
+		,(CASE WHEN @Updater IS NULL THEN @LogUserID ELSE @UpdaterID END)
+		,COMPRESS(@InfLogPrefix + 'Start UPD Notification'
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -63,13 +67,14 @@ BEGIN
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')')
-	WHERE @LogMode = 'Debug'
 	
-	-----------------verify before update Content---------------
-	IF NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
+	-----------------verify before update---------------
+	IF @Updater IS NULL
+		OR NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
 	BEGIN
 		SELECT @ErrCode = 50006
-			,@ErrMsg = 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+			,@ErrMsg = CASE WHEN @Updater IS NULL THEN 'INPUT ERROR - NOT EXISTS UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+							ELSE 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')' END
 		
 		INSERT INTO UserLog (
 			RefID
@@ -79,7 +84,7 @@ BEGIN
 		)
 		SELECT @NotiID
 			,@LogActionID
-			,@LogUserID
+			,(CASE WHEN @Updater IS NULL THEN @LogUserID ELSE @UpdaterID END)
 			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -110,8 +115,6 @@ BEGIN
 		,Content_ch NVARCHAR(MAX)
 		,Content_cs NVARCHAR(MAX)
 	)
-	
-	SELECT @Updater = COALESCE((SELECT username FROM bodb02.dbo.Customer WITH (NOLOCK) WHERE CustID = @UpdaterID),CONVERT(VARCHAR,@UpdaterID),'Updater(NULL)')
 	
 	SELECT @NotiType = NotificationType
 	FROM Notification WITH (NOLOCK)
@@ -171,6 +174,7 @@ BEGIN
 	BEGIN TRY
 		UPDATE c
 		SET c.Subject = n.Subject
+			,c.LastModifiedTime = GETDATE()
 		FROM Notification AS c WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN #tmpNewNoti AS n ON c.NotificationID = n.NotiID
 		WHERE ISNULL(n.Subject,'') <> ISNULL(c.Subject,'')
@@ -188,7 +192,7 @@ BEGIN
 			)
 			SELECT NotiID
 				,@LogActionID
-				,@LogUserID
+				,@UpdaterID
 				,COMPRESS(@InfLogPrefix + 'UPD NotificationID Subject - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
 								+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
 								+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
@@ -212,7 +216,7 @@ BEGIN
 			)
 			SELECT @NotiID
 				,@LogActionID
-				,@LogUserID
+				,@UpdaterID
 				,COMPRESS(@ErrLogPrefix + @ErrMsg
 					+ ' - Current @NotiUpdCnt(' + ISNULL(CONVERT(VARCHAR,@NotiUpdCnt),'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
@@ -247,7 +251,7 @@ BEGIN
 		)
 		SELECT @NotiID
 			,@LogActionID
-			,@LogUserID
+			,@UpdaterID
 			,COMPRESS(@ErrLogPrefix + @ErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -281,7 +285,7 @@ BEGIN
 		)
 		SELECT @NotiID
 			,@LogActionID
-			,@LogUserID
+			,@UpdaterID
 			,COMPRESS(@InfLogPrefix + 'Debug - UPD Notification.Subject - NO Change')
 		WHERE @LogMode = 'Debug'
 	END
@@ -302,6 +306,8 @@ BEGIN
 		SET c.Content_en = (CASE WHEN ISNULL(n.Content_en,'') <> ISNULL(c.Content_en,'') THEN ISNULL(n.Content_en,'') ELSE c.Content_en END)
 			,c.Content_ch = (CASE WHEN ISNULL(n.Content_ch,'') <> ISNULL(c.Content_ch,'') THEN ISNULL(n.Content_ch,'') ELSE c.Content_ch END)
 			,c.Content_cs = (CASE WHEN ISNULL(n.Content_cs,'') <> ISNULL(c.Content_cs,'') THEN ISNULL(n.Content_cs,'') ELSE c.Content_cs END)
+			,c.LastModifiedTime = (CASE WHEN (ISNULL(n.Content_en,'') + ISNULL(n.Content_ch,'') + ISNULL(n.Content_cs,'')) <> (ISNULL(c.Content_en,'') + ISNULL(c.Content_ch,'') + ISNULL(c.Content_cs,''))
+										THEN GETDATE() ELSE c.LastModifiedTime END)
 		FROM Notification AS c WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN #tmpNewNoti AS n ON c.NotificationID = n.NotiID
 		
@@ -318,7 +324,7 @@ BEGIN
 			)
 			SELECT c.NotiID
 				,@LogActionID
-				,@LogUserID
+				,@UpdaterID
 				,COMPRESS(@InfLogPrefix + 'UPD NotificationID Content - Updater (' + ISNULL(CONVERT(VARCHAR,@UpdaterID) + '','NULL') + ') = ' + @Updater
 								+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 								+ ' - Notification.Content_en before (' + ISNULL(c.Content_en,'NULL') + ')'
@@ -346,7 +352,7 @@ BEGIN
 			)
 			SELECT @NotiID
 				,@LogActionID
-				,@LogUserID
+				,@UpdaterID
 				,COMPRESS(@ErrLogPrefix + @ErrMsg
 					+ ' - @NotiUpdCnt(' + ISNULL(CONVERT(VARCHAR,@NotiUpdCnt),'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
@@ -384,7 +390,7 @@ BEGIN
 		)
 		SELECT @NotiID
 			,@LogActionID
-			,@LogUserID
+			,@UpdaterID
 			,COMPRESS(@ErrLogPrefix + @ErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -418,7 +424,7 @@ BEGIN
 		)
 		SELECT @NotiID
 			,@LogActionID
-			,@LogUserID
+			,@UpdaterID
 			,COMPRESS(@InfLogPrefix + 'Debug - UPD Notification.Content(en/ch/cs) - NO Change')
 		WHERE @LogMode = 'Debug'
 	END
@@ -445,7 +451,7 @@ BEGIN
 		)
 		SELECT @NotiID
 			,@LogActionID
-			,@LogUserID
+			,@UpdaterID
 			,COMPRESS(@ErrLogPrefix + @ErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -467,7 +473,7 @@ BEGIN
 	)
 	SELECT c.NotiID
 		,@LogActionID
-		,@LogUserID
+		,@UpdaterID
 		,COMPRESS(@InfLogPrefix + 'Debug - DONE UPD Notification'
 						+ ' - @NewStatus (' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - Content_en (' + ISNULL(c.Content_en,'NULL') + ')'

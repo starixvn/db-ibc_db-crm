@@ -38,12 +38,9 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(N'Info - Debug - Start [Push Notification Msg process - Completed]'
+		,COMPRESS(N'Info - Start [Push Notification Msg process - Completed]'
 			+ '- @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
 			+ '- @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
 	
 	IF @ErrCode <> 0
 	BEGIN

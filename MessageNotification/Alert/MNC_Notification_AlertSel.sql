@@ -15,7 +15,7 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @LogActionID TINYINT
+	DECLARE @LogActionID SMALLINT
 		,@LogUserID INT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''

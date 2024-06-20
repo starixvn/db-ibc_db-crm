@@ -247,7 +247,7 @@ BEGIN
 	CREATE TABLE #tmpStagingNoti (
 		NotiTempID INT NOT NULL
 		,IsNoneSaba TINYINT NOT NULL --0: Normal / 1: Saba
-		,TemplateID INT NOT NULL
+		,TemplateID SMALLINT NOT NULL
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
@@ -304,11 +304,10 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Start [Generate Msg Noti process - Gen]'
+		,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Gen]'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
-	WHERE @LogMode = 'Debug'
 	/****************************************************************************
 	
 		#2.Get ValidSettleIDs and write log input params
@@ -326,7 +325,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Gen]'
+		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen]'
 						+ ' - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
 	
 	/****************************************************************************
@@ -427,6 +426,7 @@ BEGIN
 			,@ErrCode = @ErrCode OUTPUT --from SP params
 			,@ErrMsg = @ErrMsg OUTPUT --from SP params
 		
+		--Get actual ticket affected by ResourceID
 		;WITH CTE_DetailXML AS (
 			SELECT rh.SettlementLogID
 				,TRY_CONVERT(XML, bf.ExtraInfo_Before) AS ExtraXML

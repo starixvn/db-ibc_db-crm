@@ -91,15 +91,12 @@ BEGIN
 		SELECT @NotificationID AS RefID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Debug - Start [Push Notification Msg process - NotiUpd]'
+			,COMPRESS(@InfLogPrefix + 'Start [Push Notification Msg process - NotiUpd]'
 						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 						+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
 						+' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 13 --LogMode
-			AND VValue = 'Debug'
 	END
 	
 	CREATE TABLE #tmpUpdNoti (

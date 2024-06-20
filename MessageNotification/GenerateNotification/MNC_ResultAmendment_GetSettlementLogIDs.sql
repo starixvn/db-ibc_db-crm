@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_GetSettlementLogIDs
 	@Environment VARCHAR(20)
 	,@JSRemotingRef NVARCHAR(MAX)

@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpdMultiple] (
 					@UserID						INT		
 				  , @FeedbackID					INT	
@@ -61,6 +65,8 @@ AS
 	Revisions:
 		- 20190814@Winnie: Multiple Edit RedmineID:#99434
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+        - 20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
+
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -387,8 +393,8 @@ BEGIN
 	END;
 
 	-- write log
-	DECLARE	@OldValues	VARCHAR(MAX)
-		,	@NewValues	VARCHAR(MAX)
+	DECLARE	@OldValues NVARCHAR(MAX)
+		,	@NewValues NVARCHAR(MAX)
 		,	@OldValuesXML	XML
 		,	@NewValuesXML	XML
 	SELECT	@OldValues = 				
@@ -619,7 +625,5 @@ BEGIN
 			,	@NewValues = @NewValuesXML
 			,	@OldValues = @OldValuesXML;
 
-END;
-
-
-
+END
+GO

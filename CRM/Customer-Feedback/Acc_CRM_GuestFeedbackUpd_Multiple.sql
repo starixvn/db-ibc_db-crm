@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE	[dbo].[Acc_CRM_GuestFeedbackUpd_Multiple] (
 					@UserID						INT			
 				,	@ListFeedbackID				VARCHAR(MAX)
@@ -63,6 +67,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190813@Winnie: Update multiple enhancement RedmineID: #99434
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+
 	Param's Explanation:
 		
 */
@@ -159,8 +164,5 @@ END;
 	DELETE FROM @tmpFeedbackID WHERE FeedbackID=@FeedbackID
 	END
 
-END;
-GO 
-
-GRANT EXECUTE ON dbo.Acc_CRM_GuestFeedbackUpd_Multiple TO bodbAdminNet;
+END
 GO

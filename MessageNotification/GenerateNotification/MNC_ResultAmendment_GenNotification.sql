@@ -426,7 +426,11 @@ BEGIN
 			,@ErrCode = @ErrCode OUTPUT --from SP params
 			,@ErrMsg = @ErrMsg OUTPUT --from SP params
 		
-		--Get actual ticket affected by ResourceID
+		/*
+			SettlementResultHist@ActualResult / WrongResult show all changed ResourceIDs
+				
+			BUT ACTUAL changed ResourceIDs in SettlementResultHistDetail (associated with ticket)
+		*/
 		;WITH CTE_DetailXML AS (
 			SELECT rh.SettlementLogID
 				,TRY_CONVERT(XML, bf.ExtraInfo_Before) AS ExtraXML
@@ -774,7 +778,13 @@ BEGIN
 				step #3 - If exists [OtherInfo] => put it after the Resource_en
 		*/
 		BEGIN
-			--step #1 - get Resource_en / Resource_ch / Resource_cs
+			/*
+				step #1 - get Resource_en / Resource_ch / Resource_cs
+				
+				SettlementResultHist@ActualResult / WrongResult show all changed ResourceIDs
+				
+				BUT ACTUAL changed ResourceIDs in SettlementResultHistDetail (associated with ticket)
+			*/
 			INSERT INTO #tmpAffectedResult (
 				NotiTempID
 				,ResourceID

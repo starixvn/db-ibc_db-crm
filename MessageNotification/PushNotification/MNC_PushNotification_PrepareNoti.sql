@@ -330,6 +330,26 @@ BEGIN
 	FROM #tmpResult
 	ORDER BY NotificationID
 	
+	--write log
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - Completed [Push Notification Msg process - Prepare]'
+						+ ' - Return('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT *
+										FROM #tmpResult
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')')
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
+	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpJSData
 	DROP TABLE #tmpMsg

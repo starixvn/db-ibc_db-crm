@@ -574,54 +574,20 @@ BEGIN
 							2. [1] 							= #tmpAffectedResult.ActualValue_cs
 			
 			*/
-			;WITH CTE_ResultByNoti AS (
-				SELECT ex.Msg_NotiID
+			;WITH CTE_Calc_Raw AS (
+				SELECT DISTINCT ex.Msg_NotiID
 					,ex.Calc
-					,ex.ReCalc
-					,r.ResultName_en
-					,r.ResultName_ch
-					,r.ResultName_cs
-					,r.ActualValue_en
-					,r.ActualValue_ch
-					,r.ActualValue_cs
-					,r.WrongValue_en
-					,r.WrongValue_ch
-					,r.WrongValue_cs
+					,r.ResultName_en + '; ' + r.WrongValue_en AS ResultName_en
+					,r.ResultName_ch + '; ' + r.WrongValue_ch AS ResultName_ch
+					,r.ResultName_cs + '; ' + r.WrongValue_cs AS ResultName_cs
 				FROM #tmpExtraInfo AS ex
 					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
-			)
-			,CTE_ReCalc_Raw AS (
-				SELECT DISTINCT Msg_NotiID
-					,ReCalc
-					,ResultName_en + '; ' + ActualValue_en AS ResultName_en
-					,ResultName_ch + '; ' + ActualValue_ch AS ResultName_ch
-					,ResultName_cs + '; ' + ActualValue_cs AS ResultName_cs
-				FROM CTE_ResultByNoti
-			)
-			,CTE_ReCalc AS (
-				SELECT Msg_NotiID
-					,ReCalc AS LogDateTime
-					,'ReCalculation' AS LogType
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') AS ResultName_en
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
-				FROM CTE_ReCalc_Raw
-				GROUP BY Msg_NotiID
-					,ReCalc
-			)
-			,CTE_Calc_Raw AS (
-				SELECT DISTINCT Msg_NotiID
-					,Calc
-					,ResultName_en + '; ' + WrongValue_en AS ResultName_en
-					,ResultName_ch + '; ' + WrongValue_ch AS ResultName_ch
-					,ResultName_cs + '; ' + WrongValue_cs AS ResultName_cs
-				FROM CTE_ResultByNoti
 			)
 			,CTE_Calc AS (
 				SELECT Msg_NotiID
 					,Calc AS LogDateTime
 					,'Calculation' AS LogType
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') AS ResultName_en
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResultName_en) AS ResultName_en
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
 				FROM CTE_Calc_Raw
@@ -642,17 +608,45 @@ BEGIN
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
-			FROM CTE_ReCalc
+			FROM CTE_Calc
 			
-			UNION ALL
-			
+			----------------------------------
+			;WITH CTE_ReCalc_Raw AS (
+				SELECT DISTINCT ex.Msg_NotiID
+					,ex.ReCalc
+					,ex.Calc
+					,r.ResultName_en + '; ' + ActualValue_en AS ResultName_en
+					,r.ResultName_ch + '; ' + ActualValue_ch AS ResultName_ch
+					,r.ResultName_cs + '; ' + ActualValue_cs AS ResultName_cs
+				FROM #tmpExtraInfo AS ex
+					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
+			)
+			,CTE_ReCalc AS (
+				SELECT Msg_NotiID
+					,ReCalc AS LogDateTime
+					,'ReCalculation' AS LogType
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY Calc, ResultName_en) AS ResultName_en --order recal result by calc time
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
+				FROM CTE_ReCalc_Raw
+				GROUP BY Msg_NotiID
+					,ReCalc
+			)
+			INSERT INTO #tmpSettlLog (
+				Msg_NotiID
+				,LogType
+				,LogDateTime
+				,ResultName_en
+				,ResultName_ch
+				,ResultName_cs
+			)
 			SELECT Msg_NotiID
 				,LogType
 				,LogDateTime
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
-			FROM CTE_Calc
+			FROM CTE_ReCalc
 			
 			/*
 				Convert LogDateTime to String

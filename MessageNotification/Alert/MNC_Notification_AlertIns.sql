@@ -53,53 +53,6 @@ BEGIN
 	WHILE EXISTS (SELECT 1 FROM AlertRule WITH (NOLOCK) WHERE RuleID = @RuleID)
 	BEGIN TRY
 		
-		--check target ChatGroupID
-		IF NOT EXISTS (
-			SELECT 1
-			FROM AlertRule AS a WITH (NOLOCK)
-				CROSS APPLY STRING_SPLIT(a.ChatGroupIDs, ',') AS i
-				INNER JOIN SystemSetting AS s WITH (NOLOCK) ON TRY_CONVERT(INT,TRIM(i.value)) = s.VID
-			WHERE a.RuleID = @RuleID
-		)
-		BEGIN
-			--send error log
-			INSERT INTO Alert (
-				StatusID
-				,RuleID
-				,RefID
-				,RefExtraInfo
-				,Content
-			)
-			SELECT DISTINCT @StsNew AS StatusID
-				,@RuleID AS RuleID
-				,@RuleID AS RefID
-				,'[{"RefInfo":"RuleID"}]' AS RefExtraInfo --RefInfo=RuleID => only send in IT ChatGroup
-				,'FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
-					+ ' - ChatGroupIDs(' + ISNULL(a.ChatGroupIDs,'NULL') + ') may not be configured.' AS Content
-			FROM AlertRule AS a WITH (NOLOCK)
-			WHERE a.RuleID = @RuleID
-			
-			--write log
-			INSERT INTO UserLog (
-				RefID
-				,ActionID
-				,UserID
-				,LogBef
-			)
-			SELECT @RuleID
-				,@LogActionID
-				,@LogUserID
-				,COMPRESS(N'Error - Alert - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
-						+ ' - ChatGroupIDs(' + ISNULL(a.ChatGroupIDs,'NULL') + ') may not be configured.')
-			FROM AlertRule AS a WITH (NOLOCK)
-			WHERE a.RuleID = @RuleID
-			
-			--Continue exec for next RuleID
-			SELECT @RuleID = (SELECT MIN(RuleID) FROM AlertRule WITH (NOLOCK) WHERE RuleID > @RuleID)
-			
-			CONTINUE
-		END
-		
 		---Start EXEC Rule
 		SELECT @SQLStatement = SQLStatement
 			,@JSAlertResult = ''

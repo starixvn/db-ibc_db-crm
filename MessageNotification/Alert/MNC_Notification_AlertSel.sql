@@ -50,7 +50,6 @@ BEGIN
 		,TargetID INT
 		,TargetSite NVARCHAR(50)
 		,Currency INT
-		,IsTest TINYINT
 	)
 	
 	CREATE TABLE #tmpIngoredAlert (
@@ -61,9 +60,11 @@ BEGIN
 	
 	CREATE TABLE #tmpSendingAlert (
 		AlertID INT
+		,ExistTest TINYINT
+		,ExistReal TINYINT
 		,MatchID INT
 		,IsNoneSaba TINYINT
-		,RuleID INT
+		-- ,RuleID INT
 		,ChatGroupID VARCHAR(50)
 		,RuleType VARCHAR(50)
 		,Content NVARCHAR(MAX)
@@ -77,8 +78,7 @@ BEGIN
 	CREATE TABLE #tmpResultSet (
 		AlertID INT
 		,ChatGroupID VARCHAR(50)
-		,MatchID INT
-		,MsgType VARCHAR(50)
+		,IsTest TINYINT
 		,Content NVARCHAR(MAX)
 	)
 	
@@ -129,23 +129,17 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrLogPrefix = 'Error - Alert - '
-	SELECT @InfLogPrefix = 'Info - Alert - '
+	SELECT @ErrLogPrefix = 'Error - [Send Alert process] - '
+	SELECT @InfLogPrefix = 'Info - [Send Alert process] - '
 	
 	SELECT @Sites777 = ISNULL(VValue,'')
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 16 --Separate Noti by Site
 	
 	-------------------HARD CODE ChatGroupID---------------------------
-	SELECT @OST_ChatGroupID = TRIM(VValue)
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 14 --OST ChatGroupID
-	
-	SELECT @777_ChatGroupID = TRIM(VValue)
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 15 --777 ChatGroupID
-	
-	SELECT @IT_ChatGroupID = ISNULL((SELECT TRIM(VValue) FROM SystemSetting WITH (NOLOCK) WHERE VID = 12),'') --IT ChatGroupID
+	SELECT @IT_ChatGroupID = 'SYS' --IT ChatGroupID
+		,@OST_ChatGroupID = 'OST' --OST ChatGroupID
+		,@777_ChatGroupID = '777' --777 ChatGroupID
 	
 	-------------------HARD CODE Template---------------------------
 	INSERT INTO #tmpAlertTemplate (
@@ -198,14 +192,26 @@ Status: FAILED'
 	FROM Alert AS a WITH (ROWLOCK,UPDLOCK)
 	WHERE a.StatusID = @StsNew
 	
+	INSERT INTO UserLog (
+		RefID
+		,ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT AlertID
+		,@LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Prepare - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
+	FROM #tmpPrepareEventAlert
+	ORDER BY AlertID
+	
 	--Get SystemAlert
 	INSERT INTO #tmpPrepareSystemAlert(
 		AlertID
 		,InvalidSend
 	)
 	SELECT DISTINCT ea.AlertID
-		,(CASE WHEN ISNULL(TRIM(a.Content),'') = '' THEN 'Alert content(BLANK)'
-			WHEN @IT_ChatGroupID = '' THEN 'Configuration [IT ChatGroupID](BLANK)' END) AS InvalidSend
+		,(CASE WHEN ISNULL(TRIM(a.Content),'') = '' THEN 'Alert content(BLANK)'END) AS InvalidSend
 	FROM #tmpPrepareEventAlert AS ea
 		INNER JOIN Alert AS a WITH (NOLOCK) ON a.AlertID = ea.AlertID
 		OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
@@ -233,19 +239,6 @@ Status: FAILED'
 	FROM #tmpPrepareSystemAlert AS sa
 		INNER JOIN #tmpIngoredAlert AS ig ON sa.AlertID = ig.AlertID
 	
-	INSERT INTO UserLog (
-		RefID
-		,ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT AlertID
-		,@LogActionID
-		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Send Alert process - Prepare] - Changed System AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
-	FROM #tmpPrepareSystemAlert
-	ORDER BY AlertID
-	
 	--------Get Event Alert--------
 	DELETE ev
 	FROM #tmpPrepareEventAlert AS ev
@@ -253,23 +246,10 @@ Status: FAILED'
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpPrepareEventAlert ON #tmpPrepareEventAlert (AlertID)
 	
-	--write log
-	INSERT INTO UserLog (
-		RefID
-		,ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT AlertID
-		,@LogActionID
-		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Send Alert process - Prepare] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
-	FROM #tmpPrepareEventAlert
-	ORDER BY AlertID
-	
+	--------Start to build Event Alert--------
 	INSERT INTO #tmpSendingAlert (
 		AlertID
-		,RuleID
+		-- ,RuleID
 		,ChatGroupID
 		,IsNoneSaba
 		,RuleType
@@ -282,12 +262,11 @@ Status: FAILED'
 		,SessionID
 	)
 	SELECT DISTINCT a.AlertID
-		,a.RuleID
-		,conf.VValue AS ChatGroupID
-		,(CASE WHEN conf.VValue = @777_ChatGroupID THEN 1 END) AS IsNoneSaba --by ChatGroupID
+		,TRIM(cg.value) AS ChatGroupID
+		,(CASE WHEN TRIM(cg.value) = @777_ChatGroupID THEN 1 END) AS IsNoneSaba --by ChatGroupID
 		,ar.RuleType
 		,ext.MatchID
-		,(CASE WHEN conf.VValue = @IT_ChatGroupID THEN a.Content ELSE tp.Template END) AS Content --keep content for @IT_ChatGroupID
+		,(CASE WHEN TRIM(cg.value) = @IT_ChatGroupID THEN a.Content ELSE tp.Template END) AS Content --keep content for @IT_ChatGroupID
 		,ext.RefInfo
 		,(CASE WHEN ext.RefInfo = 'NotificationID' THEN TRY_CONVERT(INT, a.RefID) END) AS NotificationID
 		,(CASE WHEN ext.RefInfo = 'SettlementLogID' THEN TRY_CONVERT(INT, a.RefID) END) AS SettlementLogID
@@ -295,30 +274,47 @@ Status: FAILED'
 	FROM #tmpPrepareEventAlert AS ea
 		INNER JOIN Alert AS a WITH (NOLOCK) ON a.AlertID = ea.AlertID
 		INNER JOIN AlertRule AS ar WITH (NOLOCK) ON a.RuleID = ar.RuleID
-		OUTER APPLY STRING_SPLIT(ar.ChatGroupIDs,',') AS cg --all things send to @IT_ChatGroupID
-		LEFT JOIN SystemSetting AS conf WITH (NOLOCK) ON TRY_CONVERT(INT, TRIM(cg.value)) = conf.VID
+		OUTER APPLY STRING_SPLIT(ar.ChatGroupIDs,',') AS cg
 		LEFT JOIN #tmpAlertTemplate AS tp ON ar.RuleType = tp.RuleType
 		OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 				MatchID INT '$.MatchID'
 				,RefInfo VARCHAR(50) '$.RefInfo'
 			) AS ext
-	WHERE conf.VValue IN (
+	WHERE ISJSON(a.RefExtraInfo) = 1
+		AND TRIM(cg.value) IN (
 			@OST_ChatGroupID
 			,@777_ChatGroupID
 			,@IT_ChatGroupID
 		) --hardcode ChatGroupID
-		AND TRIM(conf.VValue) <> ''
+		AND ISNULL(TRIM(cg.value),'') <> ''
 		AND tp.RuleType IN ('SysErr', 'NewNoti', 'PushErr') --hardcode RuleType
 	
 	CREATE CLUSTERED INDEX CIX_tmpSendingAlert ON #tmpSendingAlert (AlertID)
 	
 	-----------------Filter Alert by requried info-----------------
+	/*
+		UPDATE ExistTest / ExistReal
+	*/
+	;WITH CTE_TR AS (
+		SELECT a.AlertID
+			,(CASE WHEN MAX(TRY_CONVERT(TINYINT,rh.IsTest)) = 1 THEN 1 ELSE 0 END) AS ExistTest
+			,(CASE WHEN MIN(TRY_CONVERT(TINYINT,rh.IsTest)) = 0 THEN 1 ELSE 0 END) AS ExistReal
+		FROM #tmpSendingAlert AS a
+			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON nm.NotificationID = a.NotificationID OR nm.SettlementLogID = a.SettlementLogID
+			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON rh.SessionID = a.SessionID OR rh.SettlementLogID = ISNULL(a.SettlementLogID,nm.SettlementLogID)
+		GROUP BY a.AlertID
+	)
 	UPDATE a
-	SET a.ValidToSendChatGroup = 0
+	SET a.ExistTest = rt.ExistTest
+		,a.ExistReal = rt.ExistReal
+		,a.ValidToSendChatGroup = (CASE WHEN (rt.AlertID IS NULL --for ExistTest / ExistReal
+											OR ISNULL(TRIM(a.ChatGroupID),'') = '' --for requried info
+											OR a.RuleType IS NULL
+											OR a.MatchID IS NULL
+										)
+									THEN 0 END)
 	FROM #tmpSendingAlert AS a
-	WHERE ISNULL(TRIM(a.ChatGroupID),'') = ''
-		OR a.RuleType IS NULL
-		OR a.MatchID IS NULL
+		LEFT JOIN CTE_TR AS rt ON rt.AlertID = a.AlertID
 	
 	--Define NotificationID of SettlementLogID / SessionID Alert
 	INSERT INTO #tmpAlertExt (
@@ -339,6 +335,8 @@ Status: FAILED'
 	
 	/*
 		UPDATE IsNoneSaba
+		
+		Just check EXISTS any IsNoneSaba value of AlertID
 	*/
 	;WITH CTE_NotiSaba AS (
 		SELECT ae.AlertID
@@ -352,7 +350,7 @@ Status: FAILED'
 		GROUP BY ae.AlertID
 	)
 	UPDATE a
-	SET a.IsNoneSaba = ISNULL(n.IsNoneSaba,0)
+	SET a.IsNoneSaba = ISNULL(n.IsNoneSaba,0) --Just check EXISTS any IsNoneSaba value of AlertID
 	FROM #tmpSendingAlert AS a
 		LEFT JOIN CTE_NotiSaba AS n ON a.AlertID = n.AlertID
 	WHERE a.IsNoneSaba IS NULL
@@ -360,42 +358,32 @@ Status: FAILED'
 	/*
 		Check Alert target
 			- Get all Targests of AlertID
-			- Filter by Real TargetID: only send message if EXISTS real TargetID
-			- Filter by Real ChatGroupID: for @777_ChatGroupID, only send message if EXISTS 
+			- Filter by ChatGroupID: for @777_ChatGroupID, only send message if EXISTS
+			- Filter by Real Message: only send message if EXISTS real TargetID
 	*/
 	--RefInfo = 'NotificationID'
 	INSERT INTO #tmpAlertByCust (
 		AlertID
 		,TargetSite
 		,Currency
-		,IsTest
 	)
-	SELECT a.AlertID
+	SELECT DISTINCT a.AlertID
 		,nt.TargetSite
 		,c.Currency
-		,MIN(TRY_CONVERT(TINYINT,rh.IsTest)) AS IsTest
 	FROM #tmpAlertExt AS a
 		INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON a.NotificationID = nt.NotificationID
 		LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.CustID = nt.TargetID AND c.roleid = 1 --cust
-		LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON a.NotificationID = nm.NotificationID
-		LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 	WHERE c.currency IS NOT NULL
-		AND rh.IsTest IS NOT NULL
-	GROUP BY a.AlertID
-		,nt.TargetSite
-		,c.Currency
 	
 	--RefInfo = 'SessionID' / 'SettlementLogID'
 	INSERT INTO #tmpAlertByCust (
 		AlertID
 		,TargetSite
 		,Currency
-		,IsTest
 	)
 	SELECT DISTINCT a.AlertID
 		,ag.Site AS TargetSite
 		,c.Currency
-		,MIN(TRY_CONVERT(TINYINT,rh.IsTest)) AS IsTest
 	FROM #tmpAlertExt AS a
 		INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON a.SettlementLogID = rh.SettlementLogID
 		INNER JOIN SettlementResultHistDetail AS rhd WITH (NOLOCK) ON a.SettlementLogID = rhd.SettlementLogID
@@ -406,56 +394,42 @@ Status: FAILED'
 		FROM #tmpAlertByCust AS ac
 		WHERE ac.AlertID = a.AlertID
 	)
-	GROUP BY a.AlertID
-		,ag.Site
-		,c.Currency
 	
 	CREATE CLUSTERED INDEX CIX_tmpAlertByCust ON #tmpAlertByCust (AlertID)
 	
-	-----------------Filter message by OST_ChatGroupID-----------------
+	-----------------Filter message by ChatGroupID-----------------
+	;WITH CTE_ChatGroupFilter AS (
+		SELECT ac.AlertID
+			,MAX(CASE WHEN sep.value IS NULL THEN 1 ELSE 0 END) AS ExistOST
+			,MAX(CASE WHEN sep.value IS NOT NULL THEN 1 ELSE 0 END) AS Exist777
+		FROM #tmpAlertByCust AS ac
+			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ac.TargetSite = TRIM(sep.value)
+		GROUP BY ac.AlertID
+	)
 	UPDATE a
-	SET a.ValidToSendChatGroup = 1
+	SET a.ValidToSendChatGroup = (CASE WHEN a.ChatGroupID = @IT_ChatGroupID AND g.AlertID IS NOT NULL THEN 1 --IT_ChatGroupID can receive all message
+									WHEN a.ChatGroupID = @OST_ChatGroupID AND g.ExistOST = 1 THEN 1 --Exists TargetSite NOT 777?
+									WHEN a.ChatGroupID = @777_ChatGroupID AND g.Exist777 = 1 THEN 1 --Exists TargetSite 777?
+									ELSE 0 END)
 	FROM #tmpSendingAlert AS a
+		LEFT JOIN CTE_ChatGroupFilter AS g ON a.AlertID = g.AlertID
 	WHERE a.ValidToSendChatGroup IS NULL
-		AND a.ChatGroupID = @OST_ChatGroupID
-		AND EXISTS (
-			SELECT 1
-			FROM #tmpAlertByCust AS ac
-				LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ac.TargetSite = TRIM(sep.value)
-			WHERE ac.AlertID = a.AlertID
-				AND ac.Currency <> 20 --Cust real
-				AND ac.IsTest = 0
-				AND sep.value IS NULL --Exclude 777
-		)
-	-----------------Filter message by 777_ChatGroupID-----------------
-	UPDATE a
-	SET a.ValidToSendChatGroup = 1
-	FROM #tmpSendingAlert AS a
-	WHERE a.ValidToSendChatGroup IS NULL
-		AND a.ChatGroupID = @777_ChatGroupID
-		AND EXISTS (
-			SELECT 1
-			FROM #tmpAlertByCust AS ac
-				LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ac.TargetSite = TRIM(sep.value)
-			WHERE ac.AlertID = a.AlertID
-				AND sep.value IS NOT NULL
-				AND ac.Currency <> 20 --Cust real
-				AND ac.IsTest = 0
-		)
 	
-	-----------------IT ChatGroupID can receive all message EXCLUDE testing-----------------
+	-----------------Filter message by Real Message-----------------
+	;WITH CTE_RealCurr AS (
+		SELECT ac.AlertID
+			,MAX(CASE WHEN ac.Currency <> 20 THEN 1 ELSE 0 END) AS ExistRealCust
+		FROM #tmpAlertByCust AS ac
+		GROUP BY ac.AlertID
+	)
 	UPDATE a
-	SET a.ValidToSendChatGroup = 1
+	SET a.ValidToSendChatGroup = (CASE WHEN c.ExistRealCust IS NULL THEN 0 ELSE 1 END) --have NO cust of AlertID
+		,a.ExistTest = (CASE WHEN c.ExistRealCust = 0 THEN 1 ELSE a.ExistTest END) --IF ExistReal = 1 BUT ExistRealCust = 0 => all Test Cust => ExistTest = 1
+		,a.ExistReal = (CASE WHEN c.ExistRealCust = 0 THEN 0 ELSE a.ExistReal END) --IF ExistReal = 1 BUT ExistRealCust = 0 => all Test Cust => ExistReal = 0
 	FROM #tmpSendingAlert AS a
-	WHERE a.ValidToSendChatGroup IS NULL
-		AND a.ChatGroupID = @IT_ChatGroupID
-		AND EXISTS (
-			SELECT 1
-			FROM #tmpAlertByCust AS ac
-			WHERE ac.AlertID = a.AlertID
-				AND ac.Currency <> 20 --Cust real
-				AND ac.IsTest = 0
-		)
+		LEFT JOIN CTE_RealCurr AS c ON a.AlertID = c.AlertID
+	WHERE a.ValidToSendChatGroup = 1
+		AND a.ExistReal = 1
 	
 	-------Add ingored alert------------
 	;WITH CTE_Error AS (
@@ -467,9 +441,6 @@ Status: FAILED'
 				ELSE 'Have NO Target OR all Target is test' END) AS IgnoreLog
 		FROM #tmpSendingAlert AS a
 		WHERE ISNULL(a.ValidToSendChatGroup,0) = 0
-			OR ISNULL(TRIM(a.ChatGroupID),'') = ''
-			OR a.RuleType IS NULL
-			OR a.MatchID IS NULL
 	)
 	INSERT INTO #tmpIngoredAlert (
 		AlertID
@@ -484,17 +455,17 @@ Status: FAILED'
 		,ChatGroupID
 	
 	--Clean ingored alert
-	DELETE sa
-	FROM #tmpSendingAlert AS sa
-		INNER JOIN #tmpIngoredAlert AS ig ON sa.AlertID = ig.AlertID AND sa.ChatGroupID = ISNULL(ig.ChatGroupID,sa.ChatGroupID) --the ChatGroupID can be NULL
-	
 	DELETE ex
 	FROM #tmpAlertExt AS ex
-		LEFT JOIN #tmpSendingAlert AS sa ON ex.AlertID = sa.AlertID AND ex.MatchID = sa.MatchID
-	WHERE ex.AlertID IS NULL
-		
+	WHERE NOT EXISTS (
+		SELECT 1
+		FROM #tmpSendingAlert AS sa
+		WHERE sa.AlertID = ex.AlertID
+			AND sa.MatchID = ex.MatchID
+			AND sa.ValidToSendChatGroup = 1
+	)
+	
 	UPDATE STATISTICS #tmpAlertExt
-	UPDATE STATISTICS #tmpSendingAlert
 	
 	------------------------Build EventInfo-----------------------------
 	--Event info by NotificationID
@@ -587,7 +558,7 @@ Status: FAILED'
 		,TRIM(rq.value) AS RequiredParam
 	FROM #tmpAlertTemplate AS tp
 		CROSS APPLY STRING_SPLIT(tp.RequiredParams, ',') AS rq
-		INNER JOIN #tmpSendingAlert AS a ON tp.RuleType = a.RuleType
+		INNER JOIN #tmpSendingAlert AS a ON tp.RuleType = a.RuleType AND a.ValidToSendChatGroup = 1
 	WHERE ISNULL(TRIM(rq.value),'') <> ''
 	
 	CREATE CLUSTERED INDEX CIX_tmpTemplateDetl ON #tmpTemplateDetl (AlertID)
@@ -597,49 +568,49 @@ Status: FAILED'
 	UPDATE tp
 	SET tp.Content = CONVERT(NVARCHAR,ev.MatchID)
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.ValidToSendChatGroup = 1
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 	WHERE tp.RequiredParam = '{MatchID}'
 	
 	UPDATE tp
 	SET tp.Content = FORMAT(ev.EventDate, 'MMM dd, yyyy') --GMT-4
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.ValidToSendChatGroup = 1
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 	WHERE tp.RequiredParam = '{EventDate}'
 	
 	UPDATE tp
 	SET tp.Content = FORMAT(DATEADD(HH, 12, ev.KOTime),'MMM dd, yyyy hh:mm tt') --KOTime GMT+8
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.ValidToSendChatGroup = 1
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 	WHERE tp.RequiredParam = '{KOTime}'
 	
 	UPDATE tp
 	SET tp.Content = CASE WHEN a.IsNoneSaba = 1 THEN ev.LeagueName_NoneSaba ELSE ev.LeagueName END
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.ValidToSendChatGroup = 1
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 	WHERE tp.RequiredParam = '{LeagueName}'
 	
 	UPDATE tp
 	SET tp.Content = ev.HomeName
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.ValidToSendChatGroup = 1
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 	WHERE tp.RequiredParam = '{HomeName}'
 	
 	UPDATE tp
 	SET tp.Content = ev.AwayName
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.ValidToSendChatGroup = 1
 		INNER JOIN #tmpEventInfo AS ev ON a.MatchID = ev.MatchID
 	WHERE tp.RequiredParam = '{AwayName}'
 	
 	UPDATE tp
 	SET tp.Content = CONVERT(NVARCHAR,a.NotificationID)
 	FROM #tmpTemplateDetl AS tp
-		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.RefInfo = 'NotificationID'
+		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID AND a.RefInfo = 'NotificationID' AND a.ValidToSendChatGroup = 1
 	WHERE tp.RequiredParam = '{NotificationID}'
 	
 	---Replace RequiredParam into Template	
@@ -653,7 +624,7 @@ Status: FAILED'
 		UPDATE a
 		SET a.Content = REPLACE(a.Content,tpd.RequiredParam,tpd.Content)
 		FROM #tmpSendingAlert AS a
-			INNER JOIN #tmpTemplateDetl AS tpd ON a.AlertID = tpd.AlertID AND a.ChatGroupID = tpd.ChatGroupID
+			INNER JOIN #tmpTemplateDetl AS tpd ON a.AlertID = tpd.AlertID AND a.ChatGroupID = tpd.ChatGroupID AND a.ValidToSendChatGroup = 1
 		WHERE tpd.RequiredParam = @iLoopParam
 		
 		SET @iLoopParam = (SELECT MIN(RequiredParam) FROM #tmpTemplateDetl WHERE RequiredParam > @iLoopParam )
@@ -693,49 +664,61 @@ Status: FAILED'
 		,ChatGroupID
 	
 	--Clean ingored alert
-	DELETE sa
+	UPDATE sa
+	SET sa.ValidToSendChatGroup = 0
 	FROM #tmpSendingAlert AS sa
-		INNER JOIN #tmpIngoredAlert AS ig ON sa.AlertID = ig.AlertID AND sa.ChatGroupID = ISNULL(ig.ChatGroupID,sa.ChatGroupID) --the ChatGroupID can be NULL
+		INNER JOIN #tmpIngoredAlert AS ig ON sa.AlertID = ig.AlertID AND sa.ChatGroupID = ig.ChatGroupID
 	
 	/*****************************************
 		Build the result set
 	*******************************************/
-	;WITH CTE_Alert AS (
+	;WITH CTE_AlertRealGrp AS (
 		SELECT AlertID
 			,ChatGroupID
-			,MatchID
-			,RuleType AS MsgType
 			,Content
 		FROM #tmpSendingAlert AS a
+		WHERE a.ValidToSendChatGroup = 1
+			AND a.ExistReal = 1
 		
 		UNION ALL
 		
 		SELECT a.AlertID
 			,@IT_ChatGroupID AS ChatGroupID
-			,ext.MatchID
-			,ar.RuleType AS MsgType
 			,ac.Content
 		FROM #tmpPrepareSystemAlert AS a
 			INNER JOIN Alert AS ac WITH (NOLOCK) ON a.AlertID = ac.AlertID
 			INNER JOIN AlertRule AS ar WITH (NOLOCK) ON ac.RuleID = ar.RuleID
-			OUTER APPLY OPENJSON(ac.RefExtraInfo) WITH (
-					MatchID INT '$.MatchID'
-				) AS ext
 		WHERE ac.StatusID = @StsSending
 	)
+	--for real group
 	INSERT INTO #tmpResultSet (
 		AlertID
 		,ChatGroupID
-		,MatchID
-		,MsgType
+		,IsTest
 		,Content
 	)
 	SELECT DISTINCT AlertID
 		,ChatGroupID
-		,MatchID
-		,MsgType
+		,0 AS IsTest
 		,Content
-	FROM CTE_Alert
+	FROM CTE_AlertRealGrp
+	
+	--for Test group
+	INSERT INTO #tmpResultSet (
+		AlertID
+		,ChatGroupID
+		,IsTest
+		,Content
+	)
+	SELECT a.AlertID
+		,a.ChatGroupID
+		,1 AS IsTest
+		,a.Content
+	FROM #tmpSendingAlert AS a
+		LEFT JOIN #tmpResultSet AS rs ON a.AlertID = rs.AlertID
+	WHERE a.ValidToSendChatGroup = 1
+		AND a.ExistTest = 1
+		AND rs.AlertID IS NULL
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpResultSet ON #tmpResultSet (AlertID, ChatGroupID)
 	
@@ -761,6 +744,12 @@ Status: FAILED'
 			SELECT AlertID
 				,0 AS Succeed
 			FROM #tmpPrepareEventAlert
+			
+			UNION ALL
+			
+			SELECT AlertID
+				,0 AS Succeed
+			FROM #tmpIngoredAlert
 		) AS t
 		GROUP BY AlertID
 	)
@@ -773,43 +762,47 @@ Status: FAILED'
 		Return result set
 	*******************************************/
 	SELECT DISTINCT ChatGroupID
-		,MatchID
-		,MsgType
+		,IsTest
 		,Content
 	FROM #tmpResultSet
 	ORDER BY ChatGroupID
-		,MsgType
+		,IsTest
 	
 	-------------------------------write log-------------------------------
 	;WITH CTE_SentAlert AS (
 		SELECT AlertID
-			,STRING_AGG(CONVERT(NVARCHAR(MAX),(CASE WHEN ChatGroupID = @OST_ChatGroupID THEN 'OST' WHEN ChatGroupID = @777_ChatGroupID THEN '777' ELSE 'IT' END)),', ') AS ChatGroupIDs
+			,STRING_AGG(CONVERT(NVARCHAR(MAX),ChatGroupID),', ') AS ChatGroupIDs
 			,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.ChatGroupID
 						,t.Content
 						,t.MatchID
-						,t.RuleType AS MsgType
+						,t.RuleType
+						,t.ExistReal
+						,t.ExistTest
 						,ISNULL(t.ValidToSendChatGroup,0) AS ValidToSendChatGroup
 					FROM #tmpSendingAlert AS t
-					WHERE t.AlertID = s.AlertID
+						INNER JOIN #tmpResultSet AS st ON t.AlertID = st.AlertID AND t.ChatGroupID = st.ChatGroupID
+					WHERE st.AlertID = s.AlertID
 					FOR JSON PATH
 				)) AS SentContent
 		FROM #tmpResultSet AS s
 		GROUP BY AlertID
 	)
-	,CTE_IgnoreAlert AS (
+	,CTE_IgnoreChatGroup AS (
 		SELECT s.AlertID
-			,STRING_AGG(CONVERT(NVARCHAR(MAX),(CASE WHEN ig.ChatGroupID = @OST_ChatGroupID THEN 'OST' WHEN ig.ChatGroupID = @777_ChatGroupID THEN '777' ELSE 'IT' END)),', ') AS ChatGroupIDs
+			,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(s.ChatGroupID,'NULL')),', ') AS ChatGroupIDs
 			,CONVERT(NVARCHAR(MAX),(
-				SELECT STRING_AGG(CONVERT(NVARCHAR(MAX),(CASE WHEN ChatGroupID = @OST_ChatGroupID THEN 'OST' WHEN ChatGroupID = @777_ChatGroupID THEN '777' ELSE 'IT' END)),', ') AS ChatGroupIDs
-					,t.IgnoreLog
+				SELECT ISNULL(t.IgnoreLog,'NULL') AS IgnoreLog
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(st.ChatGroupID, t.ChatGroupID)),', ') AS ChatGroupIDs
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),st.ExistTest),', ') AS ExistTest
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),st.ExistReal),', ') AS ExistReal
 				FROM #tmpIngoredAlert AS t
+					LEFT JOIN #tmpSendingAlert AS st ON t.AlertID = st.AlertID AND t.ChatGroupID = st.ChatGroupID AND st.ValidToSendChatGroup = 0
 				WHERE t.AlertID = s.AlertID
-				GROUP BY t.IgnoreLog
+				GROUP BY ISNULL(t.IgnoreLog,'NULL')
 				FOR JSON PATH
 			)) AS IngoreLog
-		FROM #tmpResultSet AS s
-			INNER JOIN #tmpIngoredAlert AS ig ON s.AlertID = ig.AlertID
+		FROM #tmpIngoredAlert AS s
 		GROUP BY s.AlertID
 	)
 	INSERT INTO UserLog (
@@ -822,14 +815,14 @@ Status: FAILED'
 	SELECT DISTINCT a.AlertID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,a.AlertID),'NULL')+ ') Status from [Sending] to [Sent]'
+		,COMPRESS(@InfLogPrefix + 'Completed - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,a.AlertID),'NULL')+ ') Status from [Sending] to [Sent]'
 						+ ' - Sent ChatGroupIDs(' + ISNULL(sa.ChatGroupIDs,'NULL')+ ')'
 						+ ISNULL(' - Ignore ChatGroupIDs(' + ia.ChatGroupIDs + ')' , '')
 						+ ISNULL(' - Ignore Log(' + ia.IngoreLog + ')' , ''))
 		,COMPRESS(N'Sent Content(' + ISNULL(sa.SentContent,'Refer Alert.Content')+ ')')
 	FROM #tmpResultSet AS a
 		LEFT JOIN CTE_SentAlert AS sa ON a.AlertID = sa.AlertID
-		LEFT JOIN CTE_IgnoreAlert AS ia ON a.AlertID = ia.AlertID
+		LEFT JOIN CTE_IgnoreChatGroup AS ia ON a.AlertID = ia.AlertID
 	ORDER BY a.AlertID
 	
 	--clear @StsSucceedSend
@@ -843,9 +836,9 @@ Status: FAILED'
 	
 	;WITH CTE_IgnoreAlert AS (
 		SELECT s.AlertID
-			,STRING_AGG(CONVERT(NVARCHAR(MAX),(CASE WHEN ChatGroupID = @OST_ChatGroupID THEN 'OST' WHEN ChatGroupID = @777_ChatGroupID THEN '777' ELSE 'IT' END)),', ') AS ChatGroupIDs
+			,STRING_AGG(CONVERT(NVARCHAR(MAX),ChatGroupID),', ') AS ChatGroupIDs
 			,CONVERT(NVARCHAR(MAX),(
-				SELECT STRING_AGG(CONVERT(NVARCHAR(MAX),(CASE WHEN ChatGroupID = @OST_ChatGroupID THEN 'OST' WHEN ChatGroupID = @777_ChatGroupID THEN '777' ELSE 'IT' END)),', ') AS ChatGroupIDs
+				SELECT STRING_AGG(CONVERT(NVARCHAR(MAX),ChatGroupID),', ') AS ChatGroupIDs
 					,t.IgnoreLog
 				FROM #tmpIngoredAlert AS t
 				WHERE t.AlertID = s.AlertID
@@ -864,7 +857,7 @@ Status: FAILED'
 	SELECT DISTINCT ig.AlertID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Send Alert process - Completed] - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,ig.AlertID),'NULL')+ ') Status from [Sending] to [Ignore]'
+		,COMPRESS(@InfLogPrefix + 'Completed - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,ig.AlertID),'NULL')+ ') Status from [Sending] to [Ignore]'
 						+ ' - Ignore ChatGroupIDs(' + ISNULL(ia.ChatGroupIDs,'NULL')+ ')'
 						+ ' - Ignore Log(' + ISNULL(ia.IngoreLog,'NULL')+ ')')
 	FROM #tmpIngoredAlert AS ig

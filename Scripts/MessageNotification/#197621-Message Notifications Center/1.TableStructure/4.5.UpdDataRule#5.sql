@@ -260,7 +260,7 @@ BEGIN
 			,'SysErr - Failed Status'
 			,'SysErr'
 			,@sqlStm
-			,'12'
+			,'SYS'
 		)
 END
 ELSE

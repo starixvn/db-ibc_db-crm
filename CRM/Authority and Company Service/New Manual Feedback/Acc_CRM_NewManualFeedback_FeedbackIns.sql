@@ -48,6 +48,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns --KEY
                                                           @IsCommunicationLog    BIT            = 0,
                                                           @IsHeadline            BIT            = 0,
                                                           @IsManualMultiple      BIT            = 0,
+                                                          @IsOverwrite           BIT            = 0,
                                                           --LOG
                                                           @UserID                INT,
                                                           @IP                    VARCHAR(45),
@@ -64,6 +65,8 @@ AS
 
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
+        20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
 
     Param's Explanation:
         @Category: <ROOT>
@@ -88,9 +91,10 @@ BEGIN
     -------------------------------------------------------
     -- 1. Check data consistency                         --
     -- 2. Sync related customers not exist on CRM to CRM --
-    -- 3. Process data                                   --
-    -- 4. Insert data to table                           --
-    -- 5. Write Log                                      --
+    -- 3. Overwrite account info                         --
+    -- 4. Process data                                   --
+    -- 5. Insert data to table                           --
+    -- 6. Write Log                                      --
     -------------------------------------------------------
 
 
@@ -274,8 +278,49 @@ BEGIN
     DROP TABLE #tmpSyncRelatedCustomer
 
 
+    -------------------------------
+    -- 3. Overwrite account info --
+
+    IF (@IsOverwrite = 1)
+    BEGIN
+        EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerShortUpd @CustID                 = @CustID,
+                                                      @TitleID                = @TitleID,
+                                                      @FirstName              = @FirstName,
+                                                      @LastName               = @LastName,
+                                                      @Birthday               = @Birthday,
+                                                      @Passport               = @Passport,
+                                                      @BettingCode            = @BettingCode,
+                                                      @RefCode2               = @RefCode2,
+                                                      @IsVip                  = @IsVip,
+                                                      @SiteID                 = @SiteID,
+                                                      @LicenseeType           = @LicenseeType,
+                                                      @Phone                  = NULL,
+                                                      @PhoneCountryCode       = NULL,
+                                                      @PhoneAreaCode          = NULL,
+                                                      @Phone2                 = NULL,
+                                                      @Phone2CountryCode      = NULL,
+                                                      @Phone2AreaCode         = NULL,
+                                                      @Phone3                 = NULL,
+                                                      @Phone3CountryCode      = NULL,
+                                                      @Phone3AreaCode         = NULL,
+                                                      @MobilePhone            = NULL,
+                                                      @MobilePhoneCountryCode = NULL,
+                                                      @MobilePhoneAreaCode    = NULL,
+                                                      @Fax                    = NULL,
+                                                      @FaxCountryCode         = NULL,
+                                                      @FaxAreaCode            = NULL,
+                                                      @Email                  = NULL,
+                                                      @Skype                  = NULL,
+                                                      @MSN                    = NULL,
+                                                      @UserID                 = @UserID,
+                                                      @IP                     = @IP,
+                                                      @ErrCode                = @ErrCode OUTPUT,
+                                                      @ErrMsg                 = @ErrMsg  OUTPUT
+    END
+
+
     ---------------------
-    -- 3. Process data --
+    -- 4. Process data --
 
     --------------
     -- crmFeedback
@@ -528,7 +573,7 @@ BEGIN
 
 
     -----------------------------
-    -- 4. Insert data to table --
+    -- 5. Insert data to table --
 
     -- Create variables
     DECLARE @FeedbackID INT
@@ -723,49 +768,76 @@ BEGIN
 
 
     ------------------
-    -- 5. Write Log --
+    -- 6. Write Log --
 
+    -- Deal with field NewCommunicationTools
+    -- + Create variable
+    DECLARE @NewCommunicationTools_LogValue NVARCHAR(MAX)
+    -- + Non Headline
+    IF (@IsHeadline = 0)
+    BEGIN
+        SELECT @NewCommunicationTools_LogValue = STRING_AGG(CAST(ISNULL(bodb_CRM.dbo.f_EncodeXMLValue(sc.SettingValue + ': ' + cnc.CommunicationValue), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY sc.SettingValue)
+        FROM @tblNewCommunicationTools cnc
+             LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
+    END
+    -- + Headline
+    IF (@IsHeadline = 1)
+    BEGIN
+        ;WITH CTE_Data AS (
+            SELECT bodb_CRM.dbo.f_EncodeXMLValue(cnc.PicInfo) PicInfo,
+                   STRING_AGG(CAST(ISNULL(bodb_CRM.dbo.f_EncodeXMLValue(sc.SettingValue + ': ' + cnc.CommunicationValue), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY sc.SettingValue) CommunicationInfo
+            FROM @tblNewCommunicationTools cnc
+                 LEFT JOIN bodb_CRM.dbo.crmSetting sc WITH (NOLOCK) ON sc.SettingName = 'PICCommunicationTool' AND cnc.CommunicationID = sc.SettingID
+            GROUP BY bodb_CRM.dbo.f_EncodeXMLValue(cnc.PicInfo)
+        )
+        SELECT @NewCommunicationTools_LogValue = STRING_AGG(CAST(ISNULL((PicInfo + '<br/>' + CommunicationInfo), '') AS NVARCHAR(MAX)), '<br/>') WITHIN GROUP (ORDER BY PicInfo)
+        FROM CTE_Data
+    END
+
+    -- Build log content
     DECLARE @LogElement XML
     SELECT  @LogElement = '<Acc_CRM_NewManualFeedback_FeedbackIns>' +
-                          '<TitleID>'               + ISNULL(CONVERT(VARCHAR(5),@TitleID),'')                 + '</TitleID>'               +
-                          '<FirstName>'             + ISNULL(dbo.f_EncodeXMLValue(@FirstName),'')             + '</FirstName>'             +
-                          '<LastName>'              + ISNULL(dbo.f_EncodeXMLValue(@LastName),'')              + '</LastName>'              +
-                          '<LanguageID>'            + ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')             + '</LanguageID>'            +
-                          '<CountryID>'             + ISNULL(CONVERT(VARCHAR(10),@CountryID),'')              + '</CountryID>'             +
-                          '<CreateDate>'            + ISNULL(CONVERT(VARCHAR(20),GETDATE()),'')               + '</CreateDate>'            +
-                          '<Creator>'               + ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')              + '</Creator>'               +
-                          '<FeedbackDate>'          + ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')           + '</FeedbackDate>'          +
-                          '<SolveDate>'             + ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')              + '</SolveDate>'             +
-                          '<CommunicationID>'       + ISNULL(dbo.f_EncodeXMLValue(@CommunicationID_New),'')   + '</CommunicationID>'       +
-                          '<StationID>'             + ISNULL(dbo.f_EncodeXMLValue(@StationID_New),'')         + '</StationID>'             +
-                          '<MainCategoryID>'        + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryID_New),'')    + '</MainCategoryID>'        +
-                          '<SubCategoryID>'         + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryID_New),'')     + '</SubCategoryID>'         +
-                          '<SiteID>'                + ISNULL(CONVERT(VARCHAR(10),@SiteID),'')                 + '</SiteID>'                +
-                          '<RoleID>'                + ISNULL(CONVERT(VARCHAR(10),@RoleID),'')                 + '</RoleID>'                +
-                          '<ProductID>'             + ISNULL(@ProductID_New    ,'')                           + '</ProductID>'             +
-                          '<SubProductID>'          + ISNULL(@SubProductID_New,'')                            + '</SubProductID>'          +
-                          '<BettypeID>'             + ISNULL(@BettypeID_New,'')                               + '</BettypeID>'             +
-                          '<ResponseID>'            + ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')             + '</ResponseID>'            +
-                          '<StatusID>'              + ISNULL(CONVERT(VARCHAR(10),@StatusID),'')               + '</StatusID>'              +
-                          '<Remark>'                + ISNULL(dbo.f_EncodeXMLValue(@Remark),'')                + '</Remark>'                +
-                          '<AutoField>'             + ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')             + '</AutoField>'             +
-                          '<Solution>'              + ISNULL(dbo.f_EncodeXMLValue(@Solution),'')              + '</Solution>'              +
-                          '<IsReviewed>'            + ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')              + '</IsReviewed>'            +
-                          '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review),'')                + '</Review>'                +
-                          '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')             + '</Reviewer>'              +
-                          '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject),'')               + '</Subject>'               +
-                          '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')         + '</ResolutionDate>'        +
-                          '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport),'')              + '</Passport>'              +
-                          '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')           + '</Birthday>'              +
-                          '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode),'')           + '</BettingCode>'           +
-                          '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2),'')              + '</RefCode2>'              +
-                          '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip),'')                  + '</IsVip>'                 +
-                          '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')           + '</LicenseeType>'          +
-                          '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')           + '</NoInquiries>'           +
-                          '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')         + '</RelatedCustID>'         +
-                          '<NewCommunicationTools>' + ISNULL(dbo.f_EncodeXMLValue(@NewCommunicationTools),'') + '</NewCommunicationTools>' +
+                          '<TitleID>'               + ISNULL(CONVERT(VARCHAR(5),@TitleID),'')               + '</TitleID>'               +
+                          '<FirstName>'             + ISNULL(dbo.f_EncodeXMLValue(@FirstName),'')           + '</FirstName>'             +
+                          '<LastName>'              + ISNULL(dbo.f_EncodeXMLValue(@LastName),'')            + '</LastName>'              +
+                          '<LanguageID>'            + ISNULL(CONVERT(VARCHAR(10),@LanguageID),'')           + '</LanguageID>'            +
+                          '<CountryID>'             + ISNULL(CONVERT(VARCHAR(10),@CountryID),'')            + '</CountryID>'             +
+                          '<CreateDate>'            + ISNULL(CONVERT(VARCHAR(20),GETDATE()),'')             + '</CreateDate>'            +
+                          '<Creator>'               + ISNULL(CONVERT(VARCHAR(10),@CreatorID),'')            + '</Creator>'               +
+                          '<FeedbackDate>'          + ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')         + '</FeedbackDate>'          +
+                          '<SolveDate>'             + ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')            + '</SolveDate>'             +
+                          '<CommunicationID>'       + ISNULL(dbo.f_EncodeXMLValue(@CommunicationID_New),'') + '</CommunicationID>'       +
+                          '<StationID>'             + ISNULL(dbo.f_EncodeXMLValue(@StationID_New),'')       + '</StationID>'             +
+                          '<MainCategoryID>'        + ISNULL(dbo.f_EncodeXMLValue(@MainCategoryID_New),'')  + '</MainCategoryID>'        +
+                          '<SubCategoryID>'         + ISNULL(dbo.f_EncodeXMLValue(@SubCategoryID_New),'')   + '</SubCategoryID>'         +
+                          '<SiteID>'                + ISNULL(CONVERT(VARCHAR(10),@SiteID),'')               + '</SiteID>'                +
+                          '<RoleID>'                + ISNULL(CONVERT(VARCHAR(10),@RoleID),'')               + '</RoleID>'                +
+                          '<ProductID>'             + ISNULL(@ProductID_New    ,'')                         + '</ProductID>'             +
+                          '<SubProductID>'          + ISNULL(@SubProductID_New,'')                          + '</SubProductID>'          +
+                          '<BettypeID>'             + ISNULL(@BettypeID_New,'')                             + '</BettypeID>'             +
+                          '<ResponseID>'            + ISNULL(CONVERT(VARCHAR(10),@ResponseID),'')           + '</ResponseID>'            +
+                          '<StatusID>'              + ISNULL(CONVERT(VARCHAR(10),@StatusID),'')             + '</StatusID>'              +
+                          '<Remark>'                + ISNULL(dbo.f_EncodeXMLValue(@Remark),'')              + '</Remark>'                +
+                          '<AutoField>'             + ISNULL(dbo.f_EncodeXMLValue(@AutoField),'')           + '</AutoField>'             +
+                          '<Solution>'              + ISNULL(dbo.f_EncodeXMLValue(@Solution),'')            + '</Solution>'              +
+                          '<IsReviewed>'            + ISNULL(CONVERT(VARCHAR(5),@IsReviewed),'')            + '</IsReviewed>'            +
+                          '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review),'')              + '</Review>'                +
+                          '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')           + '</Reviewer>'              +
+                          '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject),'')             + '</Subject>'               +
+                          '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')       + '</ResolutionDate>'        +
+                          '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport),'')            + '</Passport>'              +
+                          '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')         + '</Birthday>'              +
+                          '<BettingCode>'           + ISNULL(dbo.f_EncodeXMLValue(@BettingCode),'')         + '</BettingCode>'           +
+                          '<RefCode2>'              + ISNULL(dbo.f_EncodeXMLValue(@RefCode2),'')            + '</RefCode2>'              +
+                          '<IsVip>'                 + ISNULL(CONVERT(VARCHAR(10),@IsVip),'')                + '</IsVip>'                 +
+                          '<LicenseeType>'          + ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')         + '</LicenseeType>'          +
+                          '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')         + '</NoInquiries>'           +
+                          '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
+                          '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
+                          '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')          + '</IsOverWrite>'           +
                           '</Acc_CRM_NewManualFeedback_FeedbackIns>'
 
+    -- Run sp to write log
     EXECUTE bodb_CRM.dbo.WriteLog_UserLog_crmLogFeedback @FeedbackID  = @FeedbackID,
                                                          @CustID      = @CustID,
                                                          @Description = @Description,

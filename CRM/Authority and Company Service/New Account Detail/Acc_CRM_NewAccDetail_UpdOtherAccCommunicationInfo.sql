@@ -19,6 +19,7 @@ AS
 
     Revisions:
         20231212@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240621@Ned.Le: Enhance performance
 
     Param's Explanation:
         @CustID:                CustID that its data be manipulated
@@ -100,7 +101,8 @@ BEGIN
             INSERT (CustID, CommunicationID, CommunicationValue)
             VALUES (@CustID, SOURCE.CommunicationID, SOURCE.CommunicationValue)
         WHEN NOT MATCHED BY SOURCE AND TARGET.CustID = @CustID
-            THEN DELETE;
+            THEN DELETE
+        OPTION (RECOMPILE);
     END TRY
     BEGIN CATCH
         SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()

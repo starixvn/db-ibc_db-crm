@@ -52,6 +52,7 @@ AS
 
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
 
     Param's Explanation:
         @Category: <ROOT>
@@ -307,6 +308,7 @@ BEGIN
                                                             @IsCommunicationLog    = 1,
                                                             @IsHeadline            = 0,
                                                             @IsManualMultiple      = 0,
+                                                            @IsOverwrite           = 0,
                                                             --LOG
                                                             @UserID                = @UserID,
                                                             @IP                    = @IP,

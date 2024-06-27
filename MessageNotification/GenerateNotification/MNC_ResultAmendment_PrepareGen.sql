@@ -11,16 +11,16 @@ AS
 	
 	Explanation:
 		@Environment
-			If UATMode = OFF
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 		
 		Steps
 			- Check / Update [Generate Message Process] Status
-			- Change SettlementLogID from [Successfully Retrieved] to [Generating] filter by Environment/UATMode (REAL or TEST data)
+			- Change SettlementLogID from [Successfully Retrieved] to [Generating] filter by Environment/IncludeTestMatch (REAL or TEST data)
 			- Define things need to use RemotingRef Func
 		
 		Output
@@ -48,7 +48,7 @@ BEGIN
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ProcessID INT
 		,@IsTestFlag BIT
-		,@UATMode BIT = 0
+		,@PRODIncludeTest BIT = 0
 	
 	/*
 		Load setting
@@ -64,11 +64,6 @@ BEGIN
 	SELECT @StsGenerating = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Generating'
-	
-	SELECT @ProcessID = (
-		CASE WHEN @Environment = 'LIVE' THEN 5 --Process_GenerateMsgNoti
-			ELSE 8 END --ProcessUAT_GenerateMsgNoti
-		)
 	
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
@@ -94,24 +89,35 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	SELECT @UATMode = VValue
+	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 10 --UATMode
+	WHERE VID = 10 --IncludeTestMatch
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @Environment = ISNULL(@Environment,'UAT')
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 5 --GenerateNotifService
+		SELECT @ErrLogPrefix = 'Error - [GenerateNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [GenerateNotifService - Prepare] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 8 --UAT_GenerateNotifService
+		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Prepare] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	/*
-		Filter data by UATMode
-			If UATMode = OFF
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT NULL AS SettlementLogIDs
 			,NULL AS GroupName
@@ -126,15 +132,15 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Prepare] - NO Action for UATMode = OFF AND Environment = UAT')
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
 		
 		RETURN
 	END
-	ELSE IF @UATMode = 1 AND @Environment = 'LIVE' --REAL data only
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END
-	ELSE IF @UATMode = 1 AND @Environment = 'UAT' --TEST data only
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
 	BEGIN
 		SET @IsTestFlag = 1
 	END
@@ -159,7 +165,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Another [Generate Msg Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
+			,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
 		
 		RETURN
 	END
@@ -177,7 +183,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -236,9 +242,12 @@ BEGIN
 	) --Get Updated SettlementLogID
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 	WHERE sh.StatusID = @StsRetrieved --Captured
-		AND ISNULL(@IsTestFlag,sh.IsTest) = sh.IsTest --filter by Environment/UATMode
 		AND sh.SportType = 50 --Cricket, need modify for others sport
-	
+		AND (
+			@IsTestFlag IS NULL
+			OR sh.IsTest = @IsTestFlag
+		) --filter by Environment/IncludeTestMatch
+		
 	--write log
 	INSERT INTO UserLog (
 		RefID
@@ -249,7 +258,7 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Prepare] - Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]')
+		,COMPRESS(@InfLogPrefix + 'Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]')
 	FROM #tmpUpdatedRH AS rh
 	ORDER BY SettlementLogID
 	
@@ -311,7 +320,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Completed [Generate Msg Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Completed - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -326,9 +335,8 @@ BEGIN
 	SELECT SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Completed [Generate Msg Noti process - Prepare]'
-						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
-						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + 'Completed - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+						+ ' - @IncludeTestMatch(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 						+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
 						+ ' - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(

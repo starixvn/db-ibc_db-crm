@@ -90,12 +90,10 @@ BEGIN TRY
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(N'Info - Debug - Start [Parse SettlementResultHist to JSON]'
+		,COMPRESS(N'Info - [Parse SettlementResultHist to JSON] - Start'
 						+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
 						+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
 						+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')')
-	FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
 	
 	/*
 		Start to get data to Parse
@@ -337,9 +335,6 @@ BEGIN TRY
 		SELECT @LogActionID
 			,@LogUserID
 			,COMPRESS(N'Info - [Parse SettlementResultHist to JSON]'
-				+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
-				+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
-				+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
 				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')')
 	END
 	ELSE
@@ -527,9 +522,6 @@ BEGIN TRY
 		SELECT @LogActionID
 			,@LogUserID
 			,COMPRESS(N'Info - [Parse SettlementResultHist to JSON]'
-				+ ' - @SettlementLogIDs(' + ISNULL(@SettlementLogIDs,'NULL') + ')'
-				+ ' - @ParseAmendInfo(' + ISNULL(@ParseAmendInfo,'NULL') + ')'
-				+ ' - @ParseTo(' + ISNULL(@ParseTo,'NULL') + ')'
 				+ ' - @OutJSResource(' + ISNULL(@OutJSResource,'NULL') + ')')
 	END
 	
@@ -541,7 +533,7 @@ BEGIN TRY
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(N'Info - Debug - [Parse SettlementResultHist to JSON] final'
+		,COMPRESS(N'Info - Debug - [Parse SettlementResultHist to JSON] Final'
 						+ ' - tmpResultInfo('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *

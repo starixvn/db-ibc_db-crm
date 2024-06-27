@@ -14,12 +14,12 @@ AS
 	
 	Explanation:
 		@Environment
-			If UATMode = OFF
-				+ @Environment = LIVE => handle all data
-				+ @Environment = UAT => return
-			If UATMode = ON
-				+ @Environment = LIVE => handle REAL data
-				+ @Environment = UAT => handle TEST data
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
 		
 		Input
 			@JSRemotingRef NVARCHAR(MAX) = N'
@@ -64,7 +64,7 @@ BEGIN
 		,@StsGenFailed TINYINT
 		,@StsSending TINYINT
 		,@StsNew TINYINT
-		,@UATMode BIT = 0
+		,@PRODIncludeTest BIT = 0
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ValidSettlementLogIDs VARCHAR(MAX)
@@ -89,11 +89,6 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ProcessID = (
-		CASE WHEN @Environment = 'LIVE' THEN 5 --Process_GenerateMsgNoti
-			ELSE 8 END --ProcessUAT_GenerateMsgNoti
-		)
-				
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
@@ -126,27 +121,38 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 	
-	SELECT @UATMode = VValue
+	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 10 --UATMode
+	WHERE VID = 10 --IncludeTestMatch
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @Environment = ISNULL(@Environment,'UAT')
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 5 --GenerateNotifService
+		SELECT @ErrLogPrefix = 'Error - [GenerateNotifService - Gen] - '
+		SELECT @InfLogPrefix = 'Info - [GenerateNotifService - Gen] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 8 --UAT_GenerateNotifService
+		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Gen] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Gen] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	/*
-		Filter data by UATMode
-			If UATMode = OFF
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT @ErrCode = 50001 --user-defined error code
-			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
+			,@ErrMsg = 'NO Action for IncludeTestMatch = OFF AND Environment = UAT'
 		
 		INSERT INTO UserLog (
 			ActionID
@@ -155,7 +161,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - NO Action for UATMode = OFF AND Environment = UAT')
+			,COMPRESS(@InfLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
 		
 		RETURN
 	END
@@ -304,9 +310,8 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Gen]'
-						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
-						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + '@Environment(' + ISNULL(@Environment,'NULL') + ')'
+						+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 	/****************************************************************************
 	
@@ -325,8 +330,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen]'
-						+ ' - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
+		,COMPRESS(@InfLogPrefix + '@ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
 	
 	/****************************************************************************
 		#3.Prepare data to generate message
@@ -638,7 +642,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Debug - [Generate Msg Noti process - Gen] - Prepare data'
+			,COMPRESS(@InfLogPrefix + 'Debug - Prepare data'
 							+ ' - tmpResultHist('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -1209,7 +1213,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message'
+			,COMPRESS(@InfLogPrefix + 'Build message'
 							+ ' - tmpStagingNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
@@ -1337,7 +1341,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Build message & handle duplicate content compelted'
+		,COMPRESS(@InfLogPrefix + 'Build message & handle duplicate content compelted'
 						+ ' - tmpNotiByContent('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -1426,7 +1430,7 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Recent insertes MSG Notification with status = [Generating]')
+			,COMPRESS(@InfLogPrefix + 'Recent insertes Msg Notification with status = [Generating]')
 		FROM #tmpInsertedNoti AS i
 		WHERE @LogMode = 'Debug'
 		ORDER BY i.NotificationID
@@ -1712,7 +1716,7 @@ BEGIN
 		SELECT i.NotificationID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Created Notification Msg with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
+			,COMPRESS(@InfLogPrefix + 'Created Notification Msg with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
 							+ ' - NotiMapping.SettlementLogID(' + ISNULL(s.SettlIDs,'NULL') + ')'
 							+ ' - IsNoneSaba(' + ISNULL(s.IsNoneSaba,'NULL') + ')'
 							+ ' - ControlGrp(' + ISNULL(s.ControlGrp,'NULL') + ')'
@@ -1864,7 +1868,7 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Gen] - Deleted Notification after consistency checking')
+			,COMPRESS(@ErrLogPrefix + 'Deleted Notification after consistency checking')
 		FROM #tmpFailedNoti AS i
 		ORDER BY i.NotificationID
 			
@@ -1882,7 +1886,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Gen] - Inserted new Notification'
+		,COMPRESS(@InfLogPrefix + 'Inserted new Notification'
 						+ ' - tmpInsertedNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -1907,7 +1911,7 @@ BEGIN
 	BEGIN
 		UPDATE #tmpResultHist
 		SET StatusID = @StsGenFailed
-			,NotiLog = NotiLog + '[Generate Msg Noti process - Gen] - Changed SettlementLogID Status from [Generating] to [Failed to Generate] due to ERROR('+ ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ') - ERROR_MESSAGE('+ ISNULL(@ErrMsg,'NULL') + ')'
+			,NotiLog = NotiLog + 'Changed SettlementLogID Status from [Generating] to [Failed to Generate] due to ERROR('+ ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ') - ERROR_MESSAGE('+ ISNULL(@ErrMsg,'NULL') + ')'
 		
 		--DEL Failed NotiID
 			--Notification
@@ -1944,7 +1948,7 @@ BEGIN
 			SELECT i.NotificationID
 				,@LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Gen] - Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+				,COMPRESS(@ErrLogPrefix + 'Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 			FROM #tmpInsertedNoti AS i
 				LEFT JOIN #tmpFailedNoti AS f ON i.NotificationID = f.NotificationID
 			WHERE f.NotificationID IS NULL --FailedNoti log above
@@ -1959,7 +1963,7 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Gen] - ' + ISNULL(@ErrMsg,'NULL'))
+				,COMPRESS(@ErrLogPrefix + ISNULL(@ErrMsg,'NULL'))
 		END
 	END
 	
@@ -2001,7 +2005,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Completed [Generate Msg Noti process - Gen] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Completed - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 	

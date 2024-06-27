@@ -13,10 +13,10 @@ AS
 	
 	Param's Explanation:
 		@Environment
-			If UATMode = OFF
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 		
@@ -47,7 +47,7 @@ AS
 				+ For ActionType = 3 (Refund to CAL), ActualResult can NOT blank
 				+ For ActionType = 1 (CAL to CAL), ResourceID between ActualResult and WrongResult must be match 1:1
 			
-			- write #tmpRemotingRefData info if enable UATMode AND any returned NULL value
+			- write #tmpRemotingRefData info if enable IncludeTestMatch AND any returned NULL value
 	
 	Example:
 		EXEC MessageNotification.dbo.MNC_ResultAmendment_GetSettlementLogIDs
@@ -64,7 +64,7 @@ BEGIN
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@IsTestFlag BIT
 		,@InvalidResourceIDType TINYINT
-		,@UATMode BIT = 0
+		,@PRODIncludeTest BIT = 0
 		,@LogMode VARCHAR(500)
 		,@ErrCode INT = 0
 		,@ErrMsg NVARCHAR(2000) = ''
@@ -92,17 +92,26 @@ BEGIN
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Generated'
 	
-	SELECT @UATMode = VValue
+	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 10 --UATMode
+	WHERE VID = 10 --IncludeTestMatch
 	
 	SELECT @LogMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @Environment = ISNULL(@Environment,'UAT')
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ErrLogPrefix = 'Error - [GenerateNotifService - Verify] - '
+		SELECT @InfLogPrefix = 'Info - [GenerateNotifService - Verify] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Verify] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Verify] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	INSERT INTO UserLog (
 		ActionID
@@ -111,25 +120,39 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Start [Generate Msg Noti process - Verify]'
-						+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + '@PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 						+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 	
 	/*
-		Filter data by UATMode
-			If UATMode = OFF
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 1 AND @Environment = 'LIVE' --REAL data only
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		SELECT @ValidSettlementLogIDs = ''
+		
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END
-	ELSE IF @UATMode = 1 AND @Environment = 'UAT' --TEST data only
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
 	BEGIN
 		SET @IsTestFlag = 1
 	END
@@ -209,8 +232,8 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED to Parse JSON Data'
-							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+			,COMPRESS(@ErrLogPrefix + 'FAILED to Parse JSON Data'
+							+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
@@ -231,8 +254,8 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Msg Noti process - Verify] - HAVE NO Valid SettlementLogIDs'
-							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+			,COMPRESS(@InfLogPrefix + 'HAVE NO Valid SettlementLogIDs'
+							+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 		
@@ -293,7 +316,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Debug - [Generate Msg Noti process - Verify] - Parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
+			,COMPRESS(@InfLogPrefix + 'Debug - Parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
 							+ ' - @JSResource(' + ISNULL(@JSResource,'NULL') + ')')
 		WHERE @LogMode = 'Debug'
 		
@@ -307,8 +330,8 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
-								+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+				,COMPRESS(@ErrLogPrefix + 'FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RemotingRef format'
+								+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
@@ -385,8 +408,8 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RawData format'
-								+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+				,COMPRESS(@ErrLogPrefix + 'FAILED parse SettlementLogID(' + ISNULL(@VerifySettleIDs,'NULL') + ') to RawData format'
+								+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 								+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
@@ -427,8 +450,8 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Generate Msg Noti process - Verify] - FAILED Parse JSON SettlementLogIDs(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
-							+ ' - @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+			,COMPRESS(@ErrLogPrefix + 'FAILED Parse JSON SettlementLogIDs(' + ISNULL(@VerifySettleIDs,'NULL') + ')'
+							+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')'
 							+ ' - @JSResource(' + ISNULL(@JSResource,'NULL') + ')'
@@ -953,9 +976,9 @@ BEGIN
 		END
 		
 		/*
-			write more info if enable UATMode
+			write more info if enable IncludeTestMatch
 			
-			write #tmpRemotingRefData if enable UATMode AND any returned NULL value
+			write #tmpRemotingRefData if enable IncludeTestMatch AND any returned NULL value
 				- RefId2 IS NULL
 				- English value IS NULL
 				- match info IS NULL
@@ -1033,7 +1056,7 @@ BEGIN
 	SELECT rh.SettlementLogID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + '[Generate Msg Noti process - Verify] - Changed SettlementLogID Status from [Generating] to [Failed to Generate] (' + rh.RHLog + ')'
+		,COMPRESS(CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Failed to Generate] (' + rh.RHLog + ')'
 			WHEN rh.StatusID = @StsGenerated THEN @InfLogPrefix + '[Generate Msg Noti process - Verify] - Changed SettlementLogID Status from [Generating] to [Successfully Generated] (' + rh.RHLog + ')'
 			WHEN rh.StatusID = 0 THEN @InfLogPrefix + '[Generate Msg Noti process - Verify] - Ingore Generate(' + rh.RHLog + ')'
 			ELSE @InfLogPrefix + '[Generate Msg Noti process - Verify] - Verify without error' + ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END)

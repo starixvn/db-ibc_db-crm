@@ -17,8 +17,8 @@ BEGIN
 	
 	DECLARE @LogActionID SMALLINT
 		,@LogUserID INT
-		,@ErrLogPrefix NVARCHAR(150) = ''
-		,@InfLogPrefix NVARCHAR(150) = ''
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
 		,@StsNew TINYINT
 		,@StsIgnore TINYINT
 		,@StsSending TINYINT
@@ -129,8 +129,8 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrLogPrefix = 'Error - [Send Alert process] - '
-	SELECT @InfLogPrefix = 'Info - [Send Alert process] - '
+	SELECT @ErrLogPrefix = 'Error - [AlertService] - '
+	SELECT @InfLogPrefix = 'Info - [AlertService] - '
 	
 	SELECT @Sites777 = ISNULL(VValue,'')
 	FROM SystemSetting WITH (NOLOCK)
@@ -660,6 +660,23 @@ Status: FAILED'
 		,ChatGroupID
 		,STRING_AGG(CONVERT(NVARCHAR(MAX),IgnoreLog), ', ') AS IgnoreLog
 	FROM CTE_ContentError
+	GROUP BY AlertID
+		,ChatGroupID
+	
+	--Only send real to @IT_ChatGroupID
+	INSERT INTO #tmpIngoredAlert (
+		AlertID
+		,ChatGroupID
+		,IgnoreLog
+	)
+	SELECT AlertID
+		,ChatGroupID
+		,'Only send real to IT ChatGroupID' AS IgnoreLog
+	FROM #tmpSendingAlert
+	WHERE ValidToSendChatGroup = 1
+		AND ExistReal = 0
+		AND ExistTest = 1
+		AND ChatGroupID = @IT_ChatGroupID --Only send real to @IT_ChatGroupID
 	GROUP BY AlertID
 		,ChatGroupID
 	

@@ -97,7 +97,7 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(N'Info - Alert - EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(N'Info - AlertService - EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - @LastScan(' + ISNULL(@LastScan,'NULL') + ')'
 					+ ' - @JSAlertResult(' + ISNULL(@JSAlertResult,'NULL') + ')')
 		FROM SystemSetting WITH (NOLOCK)
@@ -151,7 +151,7 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(N'Error - Alert - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(N'Error - AlertService - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - @Inssert Exception Count(' + ISNULL(CONVERT(VARCHAR,@ExcpInsCnt),'NULL') + ')'
 					+ ' - @SQLStatement(' + ISNULL(@SQLStatement,'NULL') + ')'
 					+ ' - @Params(' + ISNULL(@Params,'NULL') + ')'

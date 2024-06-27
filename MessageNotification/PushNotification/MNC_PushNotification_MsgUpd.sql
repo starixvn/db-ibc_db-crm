@@ -39,7 +39,6 @@ BEGIN
 			MessageID
 		) --Get Updated MessageID
 		WHERE MessageId = @MessageID
-			AND Remark LIKE 'MNC%'
 		---DELETE MsgTarget
 		
 		DELETE mt
@@ -56,7 +55,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [Push Notification Msg process - MsgUpd] - FAILED to DELETE MessageID due to ERROR from NotiUpd'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgUpd] - FAILED to DELETE MessageID due to ERROR from NotiUpd'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
@@ -78,7 +77,6 @@ BEGIN
 		) --Get Updated MessageID
 		FROM dbo.Msg AS m WITH (ROWLOCK,UPDLOCK)
 		WHERE m.MessageID = @MessageID
-			AND m.Remark LIKE 'MNC%'
 		
 		UPDATE t
 		SET t.isDeleted = 0
@@ -89,7 +87,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [Push Notification Msg process - MsgUpd] - FAILED to mark MessageID completed'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgUpd] - FAILED to mark MessageID completed'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
@@ -103,7 +101,7 @@ BEGIN
 		AND @ErrCode = 0
 	BEGIN
 		SELECT @ErrCode = 50004
-			,@ErrMsg = '[Push Notification Msg process - MsgUpd] - NO affected Msg/MsgTarget'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgUpd] - NO affected Msg/MsgTarget'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 	END

@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_PushNotification_NotiUpd
-	@NotificationID INT
+	@Environment VARCHAR(20)
+	,@NotificationID INT
 	,@MessageID INT
 	,@UpdType VARCHAR(50) = 'AfterInsMsg'
 	,@ErrCode INT = 0 OUTPUT
@@ -59,8 +60,18 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	SELECT @ErrLogPrefix = 'Error - '
-	SELECT @InfLogPrefix = 'Info - '
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ErrLogPrefix = 'Error - [InsertNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [InsertNotifService - Prepare] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ErrLogPrefix = 'Error - [UAT_InsertNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_InsertNotifService - Prepare] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	IF ISNULL(@ErrCode,0) <> 0
 	BEGIN
@@ -91,8 +102,8 @@ BEGIN
 		SELECT @NotificationID AS RefID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Start [Push Notification Msg process - NotiUpd]'
-						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+			,COMPRESS(@InfLogPrefix + 'Start NotiUpd'
+						+' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 						+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
@@ -132,7 +143,7 @@ BEGIN
 		SELECT u.NotificationID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Push Notification Msg process - NotiUpd] - Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
+			,COMPRESS(@InfLogPrefix + 'Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
 							+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')')
 		FROM #tmpUpdNoti AS u
 			INNER JOIN NotiStatus AS s WITH (NOLOCK) ON u.StatusID = s.StatusID
@@ -176,7 +187,7 @@ BEGIN
 	SELECT @NotificationID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@ErrLogPrefix + '[Push Notification Msg process - NotiUpd] - ' + ISNULL(@ErrMsg,'NULL')
+		,COMPRESS(@ErrLogPrefix + ISNULL(@ErrMsg,'NULL')
 						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')')

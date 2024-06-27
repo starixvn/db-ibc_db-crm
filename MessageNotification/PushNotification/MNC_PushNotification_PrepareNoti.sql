@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_PushNotification_PrepareNoti
+	@Environment VARCHAR(20)
 AS
 /*
 	Created: 20231213@Roy
@@ -30,13 +31,16 @@ BEGIN
 	SET NOCOUNT ON
 	
 	DECLARE @LogUserID INT
+		,@LogUserName VARCHAR(50)
 		,@LogActionID SMALLINT
 		,@StsSending TINYINT
-		,@ErrLogPrefix NVARCHAR(150) = ''
-		,@InfLogPrefix NVARCHAR(150) = ''
-		,@ProcessID INT = 6 --Process_PushNoti
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
+		,@ProcessID INT
 		,@JSNotification NVARCHAR(MAX)
 		,@iLoop INT = 0
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag BIT
 	
 	/*
 		Load setting
@@ -48,6 +52,10 @@ BEGIN
 	SELECT @StsSending = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Sending'
+	
+	SELECT @PRODIncludeTest = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
 	
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
@@ -73,8 +81,55 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	SELECT @ErrLogPrefix = 'Error - '
-	SELECT @InfLogPrefix = 'Info - '
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 6 --InsertNotifService
+		SELECT @ErrLogPrefix = 'Error - [InsertNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [InsertNotifService - Prepare] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 12 --UAT_InsertNotifService
+		SELECT @ErrLogPrefix = 'Error - [UAT_InsertNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_InsertNotifService - Prepare] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
 	
 	--check current status of [Push Notification] process
 	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_PushNoti
@@ -91,7 +146,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Another [Push Notification] Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.')
+			,COMPRESS(@ErrLogPrefix + 'Another Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.')
 		
 		RETURN
 	END
@@ -109,7 +164,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Start [Push Notification Msg process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -156,6 +211,15 @@ BEGIN
 	WHERE n.StatusID = @StsSending
 		AND n.NotificationType = 1 --Result Amendment to Msg
 		AND EXISTS (SELECT 1 FROM NotificationTarget AS nt WITH (NOLOCK) WHERE nt.NotificationID = n.NotificationID)
+		AND ( @IsTestFlag IS NULL --both REAL & TEST
+			OR EXISTS (
+				SELECT 1
+				FROM NotiMapping AS nm WITH (NOLOCK)
+					INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+				WHERE nm.NotificationID = n.NotificationID
+					AND rh.IsTest = @IsTestFlag
+			)
+		)
 	
 	CREATE CLUSTERED INDEX CIX_tmpSendingNoti ON #tmpSendingNoti(NotificationID)
 	
@@ -174,8 +238,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - [Push Notification Msg process - Prepare]'
-						+ ' - NotiIDs('
+		,COMPRESS(@InfLogPrefix + 'Debug - NotiIDs('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT NotificationID
 										FROM #tmpSendingNoti
@@ -192,11 +255,13 @@ BEGIN
 		SELECT DISTINCT s.NotificationID
 			,nex.MatchID
 			,nex.LeagueGroupID
+			,nex.MsgSender AS CreatorName
 		FROM #tmpSendingNoti AS s
 			INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON ne.NotificationID = s.NotificationID
 			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 				MatchID INT '$.MatchID'
 				,LeagueGroupID SMALLINT '$.LeagueGroupID'
+				,MsgSender VARCHAR(50) '$.MsgSender'
 			) AS nex--OPENJSON case-sensitive
 		WHERE ISJSON(ne.ExtraInfo) = 1
 	)
@@ -207,7 +272,6 @@ BEGIN
 		,Content_cs
 		,MatchID
 		,LeagueGroupID
-		,Creator
 		,CreatorName
 	)
 	SELECT DISTINCT s.NotificationID
@@ -216,12 +280,32 @@ BEGIN
 		,n.Content_cs
 		,ne.MatchID
 		,ne.LeagueGroupID
-		,@LogUserID AS Creator --ID of StarixIT
-		,c.username AS CreatorName --StarixIT
+		,ne.CreatorName
 	FROM #tmpSendingNoti AS s
 		INNER JOIN Notification AS n WITH (NOLOCK) ON s.NotificationID = n.NotificationID
 		LEFT JOIN CTE_NotiExtra AS ne ON s.NotificationID = ne.NotificationID
-		LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.CustID = @LogUserID
+		LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.username = ne.CreatorName
+	
+	--Get Creator / CreatorName
+	SELECT @LogUserName = c.username
+	FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+	WHERE c.CustID = @LogUserID
+	
+	;WITH CTE_Creator AS (
+		SELECT DISTINCT c.CustID AS Creator
+			,c.username AS CreatorName
+		FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+		WHERE c.username IN (
+			SELECT DISTINCT CreatorName
+			FROM #tmpMsg
+		)
+		OR c.username = @LogUserName
+	)
+	UPDATE n
+	SET	n.CreatorName = c.CreatorName
+		,n.Creator = c.Creator
+	FROM #tmpMsg AS n
+		LEFT JOIN CTE_Creator AS c ON ISNULL(n.CreatorName, @LogUserName) = c.CreatorName
 	
 	----------Get NotificationTarget data----------
 	;WITH CTE_NotiTarget AS (
@@ -325,30 +409,9 @@ BEGIN
 	SELECT NotificationID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Completed [Push Notification Msg process - Prepare]'
-						+ ' - JSNotification(' + ISNULL(JSNotification,'NO ROW') + ')')
+		,COMPRESS(@InfLogPrefix + 'Completed - JSNotification(' + ISNULL(JSNotification,'NO ROW') + ')')
 	FROM #tmpResult
 	ORDER BY NotificationID
-	
-	--write log
-	INSERT INTO UserLog (
-		ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT @LogActionID
-		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Completed [Push Notification Msg process - Prepare]'
-						+ ' - Return('
-							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
-										FROM #tmpResult
-										FOR JSON PATH
-									))
-								),'NO ROW') + ')')
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 13 --LogMode
-		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpResult
 	DROP TABLE #tmpJSData

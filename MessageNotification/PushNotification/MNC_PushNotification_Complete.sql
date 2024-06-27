@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_PushNotification_Complete
-	@ErrCode INT = 0 OUTPUT
+	@Environment VARCHAR(20)
+	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
 /*
@@ -18,10 +19,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
-	DECLARE @ProcessID INT = 6 --Process_PushNoti
-		,@SuccessFlag INT = -1
+	DECLARE @ProcessID INT
 		,@LogUserID INT
 		,@LogActionID SMALLINT
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -31,6 +33,21 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 6 --InsertNotifService
+		SELECT @ErrLogPrefix = 'Error - [InsertNotifService - Complete] - '
+		SELECT @InfLogPrefix = 'Info - [InsertNotifService - Complete] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 12 --UAT_InsertNotifService
+		SELECT @ErrLogPrefix = 'Error - [UAT_InsertNotifService - Complete] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_InsertNotifService - Complete] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
 	INSERT INTO UserLog (
 		ActionID
 		,UserID
@@ -38,23 +55,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(N'Info - Start [Push Notification Msg process - Completed]'
-			+ '- @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-			+ '- @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
-	
-	IF @ErrCode <> 0
-	BEGIN
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(N'Error - [Push Notification Msg process - Completed]'
-				+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-				+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
-	END
+		,COMPRESS((CASE WHEN @ErrCode <> 0 THEN @ErrLogPrefix ELSE @InfLogPrefix END) + '@ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')' + '- @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 	
 	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
 	SET VValue = 'Done'
@@ -68,7 +69,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(N'Info - Completed [Push Notification Msg process - Completed] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 END

@@ -155,9 +155,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [Push Notification Msg process - MsgIns] - FAILED parse input JSON'
-						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
-						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgIns] - FAILED parse input JSON'
 						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 	END CATCH
 	
@@ -185,7 +183,6 @@ BEGIN
 				,LastUpdator
 				,LastUpdateName
 				,LastUpdateTime
-				,Remark
 			)
 			OUTPUT INSERTED.MessageID
 			INTO #tmpNewMessage(MessageID)
@@ -207,7 +204,6 @@ BEGIN
 				,LastUpdator
 				,LastUpdateName
 				,LastUpdateTime
-				,'MNC-' + ISNULL(CONVERT(VARCHAR,NotificationID),'NULL') AS Remark
 			FROM #tmpMsg
 		COMMIT TRANSACTION
 		
@@ -216,9 +212,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [Push Notification Msg process - MsgIns] - FAILED Insert Msg'
-						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
-						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgIns] - FAILED Insert Msg'
 						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		ROLLBACK TRANSACTION
 	END CATCH
@@ -248,9 +242,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [Push Notification Msg process - MsgIns] - FAILED Insert MsgTarget'
-						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
-						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgIns] - FAILED Insert MsgTarget'
 						+ ' - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')' --output for web
 		
 		ROLLBACK TRANSACTION
@@ -263,15 +255,15 @@ BEGIN
 				OR NOT EXISTS (SELECT 1 FROM dbo.MsgTarget WITH (NOLOCK) WHERE MessageId = @MessageID)
 		)
 	BEGIN
-		SELECT @ErrMsg = ISNULL(@ErrMsg,'') + 'Invalid @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ') while INSERT'
-				+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
-				+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
+		SELECT @ErrMsg = ISNULL(@ErrMsg,'Error - [UAT/PRO] - [InsertNotifService - MsgIns] - ') + 'Invalid @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+							+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+							+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
 		
 		SELECT @ErrCode = 50002 --user-defined
+		
+		SELECT @MessageID = NULL
 	END
-	
-	--delete data if error
-	IF @ErrCode <> 0 AND @MessageID IS NOT NULL
+	ELSE IF @ErrCode <> 0
 	BEGIN
 		---DELETE Msg
 		DELETE FROM dbo.Msg
@@ -280,8 +272,9 @@ BEGIN
 		DELETE FROM dbo.MsgTarget
 		WHERE MessageId = @MessageID
 		
-		SELECT @ErrMsg = 'Deleted Msg/MsgTarget with @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
-						+ ISNULL(' - ' + @ErrMsg,'')
+		SELECT @ErrMsg = ISNULL(@ErrMsg,'Error - [UAT/PRO] - [InsertNotifService - MsgIns] - ') + 'Deleted Msg/MsgTarget with @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+						+ ' - @JSNotification(' + ISNULL(@JSNotification,'NULL') + ')'
 		
 		SELECT @MessageID = NULL
 	END

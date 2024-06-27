@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_PrepareGenLAP
+	@Environment VARCHAR(20)
 AS
 /*
 	Created: 20231213@Roy
@@ -37,6 +38,8 @@ BEGIN
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@NotificationIDs VARCHAR(MAX)
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag BIT
 	
 	/*
 		Load setting
@@ -45,8 +48,6 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ProcessID = 9 --Process_GenerateLapNoti
-		
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
 	SELECT o.[name]
@@ -71,8 +72,65 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
-	SELECT @ErrLogPrefix = 'Error - '
-	SELECT @InfLogPrefix = 'Info - '
+	SELECT @PRODIncludeTest = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 9 --GenerateLAPNotifService
+		SELECT @ErrLogPrefix = 'Error - [GenerateLAPNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [GenerateLAPNotifService - Prepare] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 14 --UAT_GenerateLAPNotifService
+		SELECT @ErrLogPrefix = 'Error - [UAT_GenerateLAPNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_GenerateLAPNotifService - Prepare] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		SELECT NULL AS NotificationIDs
+			,NULL AS GroupName
+			,NULL AS RefId1
+			,NULL AS RefId2
+		WHERE 1 = 0
+		
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
 	
 	--check current status of generate message process
 	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --Process_GenerateLapNoti
@@ -90,7 +148,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Another [Generate Lap Noti] Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
+			,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
 		
 		RETURN
 	END
@@ -108,7 +166,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Start [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -141,6 +199,10 @@ BEGIN
 			AND rh.SportType = 50 --Cricket, need modify for others sport
 			AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG
 			AND nMsg.RefID IS NOT NULL
+			AND (
+				@IsTestFlag IS NULL
+				OR rh.IsTest = @IsTestFlag
+			) --filter by Environment/IncludeTestMatch
 	)
 	,CTE_Lap AS (
 		SELECT DISTINCT nLap.NotificationID AS LapNotiID
@@ -203,7 +265,7 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Generate Lap Noti process - Prepare] - Missing NotificationExtra.ExtraInfo@AffectedResult')
+			,COMPRESS(@ErrLogPrefix + 'Missing NotificationExtra.ExtraInfo@AffectedResult')
 			FROM #tmpPrepareNoti
 			WHERE InvalidType = 1
 			ORDER BY NotificationID
@@ -217,8 +279,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - [Generate Lap Noti process - Prepare]'
-						+ ' - Msg List to Generate Lap ('
+		,COMPRESS(@InfLogPrefix + 'Debug - Msg List to Generate Lap ('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT NotificationID
 											FROM #tmpPrepareNoti
@@ -281,7 +342,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Completed [Generate Lap Noti process - Prepare] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+			,COMPRESS(@InfLogPrefix + 'Completed - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = @ProcessID
 	END
@@ -296,8 +357,7 @@ BEGIN
 	SELECT NotificationID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Prepare] - Completed'
-						+ ' - Return('
+		,COMPRESS(@InfLogPrefix + 'Completed - Return('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT STRING_AGG(CONVERT(VARCHAR(MAX),rf.NotificationID),',') AS NotificationIDs
 											,rf.GroupName

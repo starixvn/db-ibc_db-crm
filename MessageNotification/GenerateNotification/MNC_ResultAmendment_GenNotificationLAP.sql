@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_GenNotificationLAP
-	@JSRemotingRef NVARCHAR(MAX)
+	@Environment VARCHAR(20)
+	,@JSRemotingRef NVARCHAR(MAX)
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
@@ -13,12 +14,12 @@ AS
 	
 	Explanation:
 		@Environment
-			If UATMode = OFF
-				+ @Environment = LIVE => handle all data
-				+ @Environment = UAT => return
-			If UATMode = ON
-				+ @Environment = LIVE => handle REAL data
-				+ @Environment = UAT => handle TEST data
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
 		
 		Input
 			@JSRemotingRef NVARCHAR(MAX) = N'
@@ -49,13 +50,15 @@ BEGIN
 		,@StsGenerating TINYINT
 		,@SettlIDs NVARCHAR(MAX)
 		,@JSResource NVARCHAR(MAX)
-		,@ErrLogPrefix NVARCHAR(150) = 'Error - '
-		,@InfLogPrefix NVARCHAR(150) = 'Info - '
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
 		,@LogMode VARCHAR(500)
 		,@iLoop INT
 		,@Refund_en NVARCHAR(20) = 'Refund'
 		,@Refund_ch NVARCHAR(20) = N'退款'
 		,@Refund_cs NVARCHAR(20) = N'退款'
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag BIT
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -64,8 +67,6 @@ BEGIN
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
-	
-	SELECT @ProcessID = 9 --Process_GenerateLapNoti
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -78,6 +79,60 @@ BEGIN
 	SELECT @LogMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
+	
+	SELECT @PRODIncludeTest = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 9 --GenerateLAPNotifService
+		SELECT @ErrLogPrefix = 'Error - [GenerateLAPNotifService - Gen] - '
+		SELECT @InfLogPrefix = 'Info - [GenerateLAPNotifService - Gen] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 14 --UAT_GenerateLAPNotifService
+		SELECT @ErrLogPrefix = 'Error - [UAT_GenerateLAPNotifService - Gen] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_GenerateLAPNotifService - Gen] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
 	-----------------------------------------------
 	CREATE TABLE #tmpEventInfo (
 		Msg_NotiID INT
@@ -188,8 +243,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Start [Generate Lap Noti process - Gen]'
-						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
+		,COMPRESS(@InfLogPrefix + 'Input @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 	/*
 		#1 - Start to Parse inputed JSON
 	*/
@@ -218,9 +272,12 @@ BEGIN
 		DELETE i
 		FROM #tmpInputNoti AS i
 			LEFT JOIN Notification AS n WITH (NOLOCK) ON i.Msg_NotiID = n.NotificationID AND n.NotificationType = 1 --1: Result Amendment to Msg
+			LEFT JOIN NotiMapping AS mn WITH (NOLOCK) ON i.Msg_NotiID = mn.NotificationID
+			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON mn.SettlementLogID = rh.SettlementLogID
 		WHERE i.Msg_NotiID IS NULL
 			OR n.NotificationID IS NULL
 			OR i.TemplateID IS NULL
+			OR rh.IsTest <> ISNULL(@IsTestFlag,rh.IsTest)
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputNoti ON #tmpInputNoti (Msg_NotiID)
 		
@@ -360,54 +417,53 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_tmpEventInfo ON #tmpEventInfo (Msg_NotiID)
 		
 		--write log--
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Gen]'
-							+ ' - tmpNoti('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT Msg_NotiID
-												,TemplateID
-											FROM #tmpNoti
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')')
-		
-		--debug log
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Debug - [Generate Lap Noti process - Gen] - Prepare data'
-							+ ' - tmpNoti('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
-											FROM #tmpNoti
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')'
-							+ ' - tmpInputNoti('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
-											FROM #tmpInputNoti
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')'
-							+ ' - tmpExtraInfo('
-								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
-											FROM #tmpExtraInfo
-											FOR JSON PATH
-										))
-									),'NO ROW') + ')')
-		WHERE @LogMode = 'Debug'
+		IF @LogMode = 'Debug'
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Debug - Prepare data'
+								+ ' - tmpNoti('
+									+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+												SELECT *
+												FROM #tmpNoti
+												FOR JSON PATH
+											))
+										),'NO ROW') + ')'
+								+ ' - tmpInputNoti('
+									+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+												SELECT *
+												FROM #tmpInputNoti
+												FOR JSON PATH
+											))
+										),'NO ROW') + ')'
+								+ ' - tmpExtraInfo('
+									+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+												SELECT *
+												FROM #tmpExtraInfo
+												FOR JSON PATH
+											))
+										),'NO ROW') + ')')
+		ELSE
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Prepare data'
+								+ ' - tmpNoti('
+									+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+												SELECT Msg_NotiID
+													,TemplateID
+												FROM #tmpNoti
+												FOR JSON PATH
+											))
+										),'NO ROW') + ')')
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -735,7 +791,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Debug - [Generate Lap Noti process - Gen] - Build message content'
+			,COMPRESS(@InfLogPrefix + 'Debug - Build message content'
 							+ ' - tmpNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT Msg_NotiID
@@ -789,7 +845,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Gen] - Build message completed'
+		,COMPRESS(@InfLogPrefix + 'Build message completed'
 						+ ' - tmpNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -847,7 +903,7 @@ BEGIN
 		SELECT Lap_NotiID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Gen] - Recent insertes LAP Notification (refer Msg Noti[' + ISNULL((CONVERT(VARCHAR,Msg_NotiID)),'NULL')+']) with status = [Generating]')
+			,COMPRESS(@InfLogPrefix + 'Recent insertes LAP Notification (refer Msg Noti[' + ISNULL((CONVERT(VARCHAR,Msg_NotiID)),'NULL')+']) with status = [Generating]')
 		FROM #tmpInsertedNoti AS i
 		WHERE @LogMode = 'Debug'
 		ORDER BY i.Lap_NotiID
@@ -1010,7 +1066,7 @@ BEGIN
 		SELECT i.Lap_NotiID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Gen] - Created Notification Lap with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
+			,COMPRESS(@InfLogPrefix + 'Created Notification Lap with Status = [' + ISNULL(st.Status,CONVERT(VARCHAR,n.StatusID)) + ']'
 							+ ' - NotiMapping.SettlementLogID(' + ISNULL(l.SettlIDs,'NULL') + ')'
 							+ ' - MsgNotiIDs(' + ISNULL(CONVERT(VARCHAR,l.Msg_NotiID),'NULL') + ')')
 		FROM #tmpInsertedNoti AS i
@@ -1044,14 +1100,14 @@ BEGIN
 		;WITH CTE_Log AS (
 			SELECT Lap_NotiID AS RefID
 				,Lap_NotiID
-				,@InfLogPrefix + '[Generate Lap Noti process - Gen] - Changed NotificationID Status from [Generating] to [New]' AS LogTxt
+				,@InfLogPrefix + 'Changed NotificationID Status from [Generating] to [New]' AS LogTxt
 			FROM #tmpInsertedNoti
 			
 			UNION ALL
 			
 			SELECT Msg_NotiID AS RefID
 				,Lap_NotiID
-				,@InfLogPrefix + '[Generate Lap Noti process - Gen] - SUCCESSFUL to generate LAP noti' AS LogTxt
+				,@InfLogPrefix + 'SUCCESSFUL to generate LAP noti' AS LogTxt
 			FROM #tmpInsertedNoti
 		)
 		INSERT INTO UserLog (
@@ -1111,7 +1167,7 @@ BEGIN
 		SELECT Lap_NotiID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Generate Lap Noti process - Gen] - Deleted Notification after consistency checking')
+			,COMPRESS(@ErrLogPrefix + 'Deleted Notification after consistency checking')
 		FROM #tmpFailedNoti
 		ORDER BY Lap_NotiID
 	END TRY
@@ -1128,7 +1184,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '[Generate Lap Noti process - Gen] - Inserted new Notification'
+		,COMPRESS(@InfLogPrefix + 'Inserted new Notification'
 						+ ' - tmpInsertedNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
@@ -1183,7 +1239,7 @@ BEGIN
 			SELECT i.Lap_NotiID
 				,@LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + '[Generate Lap Noti process - Gen] - Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+				,COMPRESS(@ErrLogPrefix + 'Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 			FROM #tmpInsertedNoti AS i
 				LEFT JOIN #tmpFailedNoti AS f ON i.Lap_NotiID = f.Lap_NotiID
 			WHERE f.Lap_NotiID IS NULL --FailedNoti log above
@@ -1198,7 +1254,7 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + '[Generate Lap Noti process - Gen] - ' + ISNULL(@ErrMsg,'NULL'))
+				,COMPRESS(@ErrLogPrefix + ISNULL(@ErrMsg,'NULL'))
 		END
 	END
 	
@@ -1219,7 +1275,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Completed [Generate Lap Noti process - Gen] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Completed - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 	

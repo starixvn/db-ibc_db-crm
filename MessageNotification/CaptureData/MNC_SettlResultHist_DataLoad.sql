@@ -14,10 +14,10 @@ AS
 	
 	Explanation:
 		@Environment
-			If UATMode = OFF
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 		@JSSettlResultHist: data from SiteDBs (output of MNC_SettlResultHist_GetSessionByDate)
@@ -45,7 +45,7 @@ BEGIN
 		,@LogActionID SMALLINT
 		,@SiteDBGroupID SMALLINT
 		,@ProcessID INT
-		,@UATMode BIT = 0
+		,@PRODIncludeTest BIT = 0
 		,@LogMode VARCHAR(50)
 		,@IsTestFlag BIT
 		,@StsRetrieving TINYINT
@@ -60,11 +60,6 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ProcessID = (
-		CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
-			ELSE 7 END --ProcessUAT_CaptureData
-	)
-	
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
@@ -77,32 +72,43 @@ BEGIN
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Retrieved'
 	
-	SELECT @UATMode = VValue
+	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 10 --UATMode
+	WHERE VID = 10 --IncludeTestMatch
 	
 	SELECT @LogMode = VValue
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 13 --LogMode
 		AND VValue = 'Debug'
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @Environment = ISNULL(@Environment,'UAT')
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 4 --CaptureDataService
+		SELECT @ErrLogPrefix = 'Error - [CaptureDataService - DataLoad] - '
+		SELECT @InfLogPrefix = 'Info - [CaptureDataService - DataLoad] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 7 --UAT_CaptureDataService
+		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - DataLoad] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - DataLoad] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	/*
-		Filter data by UATMode
-			If UATMode = OFF
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 	*/
-	IF @UATMode = 0 AND @Environment = 'UAT' --no action (RETURN)
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
 		SELECT @ErrCode = 50001 --user-defined error code
-			,@ErrMsg = 'NO Action for UATMode = OFF AND Environment = UAT'
+			,@ErrMsg = 'NO Action for IncludeTestMatch = ON AND Environment = UAT'
 		
 		INSERT INTO UserLog (
 			ActionID
@@ -111,15 +117,15 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@InfLogPrefix + '[Capture process - DataLoad] - NO Action for UATMode = OFF AND Environment = UAT')
+			,COMPRESS(@InfLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
 		
 		RETURN
 	END
-	ELSE IF @UATMode = 1 AND @Environment = 'LIVE' --REAL data only
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
 		SET @IsTestFlag = 0
 	END
-	ELSE IF @UATMode = 1 AND @Environment = 'UAT' --TEST data only
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
 	BEGIN
 		SET @IsTestFlag = 1
 	END
@@ -136,7 +142,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Start [Capture process - DataLoad] with @UATMode(' + ISNULL(CONVERT(VARCHAR,@UATMode),'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + 'IncludeTestMatch(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
 						+ ', @Environment(' + ISNULL(@Environment,'NULL') + ')'
 						+ ', @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')')
 	
@@ -269,7 +275,8 @@ BEGIN
 				,CreatedDate DATETIME '$.CreatedDate'
 				,ExtraInfo VARCHAR(MAX) '$.ExtraInfo'
 			)--OPENJSON case-sensitive
-		WHERE IsTest = ISNULL(@IsTestFlag,IsTest)
+		WHERE @IsTestFlag IS NULL
+			OR IsTest = @IsTestFlag
 		
 		INSERT INTO #tmpResultHistDetail (
 			SessionID
@@ -341,7 +348,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Capture process - DataLoad] - FAILED to Parse JSON Data'
+			,COMPRESS(@ErrLogPrefix + 'FAILED to Parse JSON Data'
 								+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 								+ ' - @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 								+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
@@ -450,7 +457,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Capture process - DataLoad] - FAILED INSERT INTO SettlementResultHist'
+			,COMPRESS(@ErrLogPrefix + 'FAILED INSERT INTO SettlementResultHist'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 							+ ' - Prepared data('
@@ -546,7 +553,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Capture process - DataLoad] - FAILED INSERT INTO SettlementResultHistDetail'
+			,COMPRESS(@ErrLogPrefix + 'FAILED INSERT INTO SettlementResultHistDetail'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 							+ ' - Prepared data('
@@ -681,7 +688,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Capture process - DataLoad] - FAILED INSERT INTO BalanceNegativeHist'
+			,COMPRESS(@ErrLogPrefix + 'FAILED INSERT INTO BalanceNegativeHist'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSSettlResultHist (' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 							+ ' - Prepared data('
@@ -762,7 +769,8 @@ BEGIN
 					,sh.SiteDBGroupID
 				FROM #tmpResultHist AS rh
 					INNER JOIN SettlementResultHist AS sh ON rh.SessionID = sh.SessionID --case SettlementStatusID=2
-				WHERE sh.IsTest = ISNULL(@IsTestFlag,sh.IsTest)
+				WHERE @IsTestFlag IS NULL
+					OR sh.IsTest = @IsTestFlag
 				
 				UNION ALL
 				
@@ -793,6 +801,10 @@ BEGIN
 				INNER JOIN CTE_Sts AS sts ON sh.SessionID = sts.SessionID AND sh.MatchID = sts.MatchID AND sh.SeqNo = sts.SeqNo
 			WHERE sts.SiteDBCnt = @SiteDBCnt
 				AND sh.StatusID = @StsRetrieving
+				AND (
+					@IsTestFlag IS NULL
+					OR sh.IsTest = @IsTestFlag
+				)
 			
 			--write log
 			INSERT INTO UserLog (
@@ -838,6 +850,10 @@ BEGIN
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 				INNER JOIN CTE_Session_INSTime AS s ON sh.SessionID = s.SessionID
 			WHERE sh.StatusID = @StsRetrieving
+				AND (
+					@IsTestFlag IS NULL
+					OR sh.IsTest = @IsTestFlag
+				)
 			
 			--write log
 			INSERT INTO UserLog (
@@ -869,7 +885,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Capture process - DataLoad] - FAILED UPDATE SettlementResultHist.Status'
+			,COMPRESS(@ErrLogPrefix + 'FAILED UPDATE SettlementResultHist.Status'
 							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
 							+ ' - @JSSettlResultHist(' + ISNULL(@JSSettlResultHist,'NULL') + ')'
 							+ ' - tmpInsertedRH('
@@ -917,8 +933,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Completed [Capture process - DataLoad]'
-						+ ' - @SiteDBGroupID(' + ISNULL(CONVERT(VARCHAR,@SiteDBGroupID),'NULL') + ')'
+		,COMPRESS(@InfLogPrefix + 'Completed - @SiteDBGroupID(' + ISNULL(CONVERT(VARCHAR,@SiteDBGroupID),'NULL') + ')'
 						+ ' - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
@@ -931,7 +946,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - Completed [Capture process - DataLoad]'
+		,COMPRESS(@InfLogPrefix + 'Debug - Completed'
 						+ ' - @SiteDBGroupID(' + ISNULL(CONVERT(VARCHAR,@SiteDBGroupID),'NULL') + ')'
 						+ ' - Inserted SettlementResultHist('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(

@@ -11,10 +11,10 @@ AS
 	
 	Explanation:
 		@Environment
-			If UATMode = OFF
+			If IncludeTestMatch = ON
 			  + @Environment = LIVE => handle all data
 			  + @Environment = UAT => return
-			If UATMode = ON
+			If IncludeTestMatch = OFF
 			  + @Environment = LIVE => handle REAL data
 			  + @Environment = UAT => handle TEST data
 		
@@ -34,7 +34,7 @@ BEGIN
 		,@LogActionID SMALLINT
 		,@ProcessID INT
 		,@ScanBackHour INT
-		,@UATMode BIT = 0
+		,@PRODIncludeTest BIT = 0
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 	
@@ -44,11 +44,6 @@ BEGIN
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
-	
-	SELECT @ProcessID = (
-		CASE WHEN @Environment = 'LIVE' THEN 4 --Process_CaptureData
-			ELSE 7 END --ProcessUAT_CaptureData
-	)
 	
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
@@ -78,16 +73,27 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 1 --ScanBackHour
 	
-	SELECT @UATMode = VValue
+	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = 10 --UATMode
+	WHERE VID = 10 --IncludeTestMatch
 	
-	SELECT @ErrLogPrefix = 'Error - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @InfLogPrefix = 'Info - ' + ISNULL(@Environment,'Environment NULL') + ' - '
-	SELECT @Environment = ISNULL(@Environment,'UAT')
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 4 --CaptureDataService
+		SELECT @ErrLogPrefix = 'Error - [CaptureDataService - Initial] - '
+		SELECT @InfLogPrefix = 'Info - [CaptureDataService - Initial] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 7 --UAT_CaptureDataService
+		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Initial] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Initial] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	
-	IF @UATMode = 0 AND @Environment = 'UAT'
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT'
 	BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime
@@ -103,13 +109,13 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + '[Capture process - Initial] - NO Action for UATMode = OFF AND Environment = UAT')
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
 		
 		RETURN
 	END
 	
 	--check current status of Capture process
-	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_CaptureData
+	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --CaptureDataService
 	BEGIN
 		SELECT NULL AS Environment
 			,NULL AS FDTime
@@ -125,7 +131,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Another [Capture process] - Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
+			,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
 		
 		RETURN
 	END
@@ -143,7 +149,7 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Start [Capture process - Initial] - change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = @ProcessID
 	
@@ -179,6 +185,6 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Completed [Capture process - Initial] - Return(' +  LTxt + ')') AS LogBef
+		,COMPRESS(@InfLogPrefix + 'Completed - Return(' +  LTxt + ')') AS LogBef
 	FROM CTE_Log
 END

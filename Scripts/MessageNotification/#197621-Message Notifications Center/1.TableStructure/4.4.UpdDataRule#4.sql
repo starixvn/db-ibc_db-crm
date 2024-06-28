@@ -76,7 +76,6 @@ DECLARE @FromSettlID INT
 	FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 	WHERE LastModifiedTime > DATEADD(DD, -1, GETDATE())
 		AND LastModifiedTime <= GETDATE()
-		AND IsTest = 0
 )
 SELECT @FromSettlID = MIN(FromSettlID)
 FROM CTE_FromSettl
@@ -120,7 +119,6 @@ CREATE TABLE #tmpSettlError_Old (
 		INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
 	WHERE s.SettlementLogID > @FromSettlID
 		AND s.SettlementLogID <= @ToSettlID
-		AND s.IsTest = 0
 	GROUP BY s.SessionID
 )
 INSERT INTO #tmpSettlError_New (

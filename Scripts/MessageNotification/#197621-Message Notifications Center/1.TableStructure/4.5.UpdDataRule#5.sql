@@ -75,7 +75,6 @@ DECLARE @FromSettlID INT
 	FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 	WHERE LastModifiedTime > DATEADD(DD, -1, GETDATE())
 		AND LastModifiedTime <= GETDATE()
-		AND IsTest = 0
 )
 SELECT @FromSettlID = MIN(FromSettlID)
 FROM CTE_FromSettl
@@ -130,7 +129,6 @@ FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK)
 	LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
 WHERE rh.SettlementLogID > @FromSettlID
 	AND rh.SettlementLogID <= @ToSettlID
-	AND rh.IsTest = 0
 	AND st.Status IN (''Failed to Retrieve'',''Failed to Generate'', ''Unknown'')
 
 /**************************************************************************************
@@ -245,27 +243,6 @@ DROP TABLE IF EXISTS #tmpFailed_Old
 -- SELECT @JSAlertResult AS [@JSAlertResult]
 '
 ----------------------------------
-IF NOT EXISTS (SELECT 1 FROM MessageNotification.dbo.AlertRule WHERE RuleID = @RuleID)
-BEGIN
-	INSERT INTO AlertRule (
-		RuleID
-		,RuleName
-		,RuleType
-		,SQLStatement
-		,ChatGroupIDs
-		-- ,LastScan
-	)
-	VALUES (
-			@RuleID
-			,'SysErr - Failed Status'
-			,'SysErr'
-			,@sqlStm
-			,'SYS'
-		)
-END
-ELSE
-BEGIN
-	UPDATE MessageNotification.dbo.AlertRule
-	SET SQLStatement = @sqlStm
-	WHERE RuleID = @RuleID
-END
+UPDATE MessageNotification.dbo.AlertRule
+SET SQLStatement = @sqlStm
+WHERE RuleID = @RuleID

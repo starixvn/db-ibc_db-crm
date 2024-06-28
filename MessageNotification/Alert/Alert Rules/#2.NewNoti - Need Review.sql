@@ -91,7 +91,6 @@ WHERE n.StatusID = @StsNew
 	AND n.LastModifiedTime > @FromModifiedTime
 	AND n.LastModifiedTime <= @ToModifiedTime
 	AND n.NotificationType = 1 --Only for OST, LAP notified by Chatbot LIC
-	AND rh.IsTest = 0
 
 /**************************************************************************************
 	3.Remove EXISTED

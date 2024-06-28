@@ -112,7 +112,6 @@ FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK)
 	LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
 WHERE rh.LastModifiedTime > @FromModifiedTime
 	AND rh.LastModifiedTime <= @ToModifiedTime
-	AND rh.IsTest = 0
 
 CREATE CLUSTERED INDEX CIX_tmpSettl ON #tmpSettl(SessionID)
 
@@ -134,7 +133,6 @@ WHERE nMsg.LastModifiedTime > @FromModifiedTime
 	AND nMsg.LastModifiedTime <= @ToModifiedTime
 	AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
 	AND rh.SportType = 50 --Cricket, need modify for others sport
-	AND rh.IsTest = 0
 	AND (st.Status  = ''Sent'' --Sent check LAP
 		OR st.Status IN ( ''Generating'', ''Sending'')
 	)
@@ -236,7 +234,6 @@ FROM #tmpMsgNoti AS m
 	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 WHERE m.Status IN (''Generating'', ''Sending'')
 	AND DATEDIFF(SECOND, n.LastModifiedTime, GETDATE()) > @WaitSec
-	AND rh.IsTest = 0
 
 ---3.For [Generate Lap Notification] process, over 60s---
 SELECT @WaitSec = 60

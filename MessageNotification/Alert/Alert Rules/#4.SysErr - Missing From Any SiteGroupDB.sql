@@ -62,7 +62,6 @@ DECLARE @FromSettlID INT
 	FROM MessageNotification.dbo.SettlementResultHist WITH (NOLOCK)
 	WHERE LastModifiedTime > DATEADD(DD, -1, GETDATE())
 		AND LastModifiedTime <= GETDATE()
-		AND IsTest = 0
 )
 SELECT @FromSettlID = MIN(FromSettlID)
 FROM CTE_FromSettl

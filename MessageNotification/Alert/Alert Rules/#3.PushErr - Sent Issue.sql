@@ -90,7 +90,6 @@ WHERE n.StatusID = @StsFailedSend
 	AND n.NotificationType = 1
 	AND n.LastModifiedTime > @FromModifiedTime
 	AND n.LastModifiedTime <= @ToModifiedTime
-	AND rh.IsTest = 0
 
 /**************************************************************************************
 	3.Remove EXISTED

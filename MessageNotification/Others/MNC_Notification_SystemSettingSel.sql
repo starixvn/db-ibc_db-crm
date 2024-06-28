@@ -17,18 +17,27 @@ BEGIN
 
 	SELECT @Environment = ISNULL(@Environment, '')
 	
-	SELECT CONVERT(BIT, VValue) AS ServiceFlag
-	FROM dbo.SystemSetting WITH (NOLOCK)
-	WHERE VName LIKE '%UAT%'
-		AND @Environment = 'UAT'
-		AND VName = 'ServiceFlag'
+	IF @Environment = 'UAT'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM dbo.SystemSetting WITH (NOLOCK)
+			WHERE VName = 'UAT_ServiceFlag'
+		)
+	BEGIN
+		SELECT 1 AS ServiceFlag
+	END
+	ELSE
+	BEGIN
+		SELECT TRY_CONVERT(BIT, VValue) AS ServiceFlag
+		FROM dbo.SystemSetting WITH (NOLOCK)
+		WHERE @Environment = 'UAT'
+			AND VName = 'UAT_ServiceFlag'
 	
-	UNION ALL
+		UNION ALL
 	
-	SELECT CONVERT(BIT, VValue) AS ServiceFlag
-	FROM dbo.SystemSetting WITH (NOLOCK)
-	WHERE VName NOT LIKE '%UAT%'
-		AND @Environment <> 'UAT'
-		AND VName = 'ServiceFlag'
+		SELECT TRY_CONVERT(BIT, VValue) AS ServiceFlag
+		FROM dbo.SystemSetting WITH (NOLOCK)
+		WHERE @Environment <> 'UAT'
+			AND VName = 'ServiceFlag'
+	END
 END
-

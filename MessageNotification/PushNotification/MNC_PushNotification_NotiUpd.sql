@@ -34,6 +34,8 @@ BEGIN
 		,@StsFailedSend TINYINT
 		,@StsSucceedSend TINYINT
 		,@StsSending TINYINT
+		,@PRODIncludeTest BIT
+		,@IsTestFlag BIT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 	
@@ -60,6 +62,10 @@ BEGIN
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
+	SELECT @PRODIncludeTest = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
 	IF @Environment = 'LIVE'
 	BEGIN
 		SELECT @ErrLogPrefix = 'Error - [InsertNotifService - Prepare] - '
@@ -73,42 +79,60 @@ BEGIN
 		SELECT @Environment = ISNULL(@Environment,'UAT')
 	END
 	
-	IF ISNULL(@ErrCode,0) <> 0
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
 	BEGIN
+		SELECT @ErrCode = 50001 --user-defined error code
+			,@ErrMsg = 'NO Action for IncludeTestMatch = ON AND Environment = UAT'
+		
 		INSERT INTO UserLog (
-			RefID
-			,ActionID
+			ActionID
 			,UserID
 			,LogBef
 		)
-		SELECT @NotificationID AS RefID
-			,@LogActionID
+		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'FROM [MsgIns] - '
-						+ ' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
-						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
-						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
-						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
+			,COMPRESS(@InfLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
 	END
-	ELSE
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
 	BEGIN
-		INSERT INTO UserLog (
-			RefID
-			,ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @NotificationID AS RefID
-			,@LogActionID
-			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Start NotiUpd'
-						+' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
-						+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
-						+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
-						+' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
-						+' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
+		SET @IsTestFlag = 0
 	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
+	
+	--write input log
+	INSERT INTO UserLog (
+		RefID
+		,ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @NotificationID AS RefID
+		,@LogActionID
+		,@LogUserID
+		,COMPRESS((CASE WHEN ISNULL(@ErrCode,0) <> 0 THEN @InfLogPrefix + 'Start NotiUpd' ELSE @ErrLogPrefix + 'FROM [MsgIns]' END)
+					+' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
+					+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+					+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
+					+' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ')'
+					+' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')')
 	
 	CREATE TABLE #tmpUpdNoti (
 		NotificationID INT NOT NULL
@@ -133,35 +157,76 @@ BEGIN
 		WHERE n.StatusID = @StsSending --Sending
 			AND n.NotificationType = 1 --Result Amendment to Msg
 			AND n.NotificationID = @NotificationID
+			AND (
+				@IsTestFlag IS NULL
+				OR EXISTS (
+					SELECT 1
+					FROM NotiMapping AS nm WITH (NOLOCK)
+						INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+					WHERE nm.NotificationID = @NotificationID
+						AND rh.IsTest = @IsTestFlag
+				)
+			) --filter by Environment/IncludeTestMatch
 		
-		INSERT INTO UserLog (
-			RefID
-			,ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT u.NotificationID
-			,@LogActionID
-			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
-							+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')')
-		FROM #tmpUpdNoti AS u
-			INNER JOIN NotiStatus AS s WITH (NOLOCK) ON u.StatusID = s.StatusID
-		ORDER BY u.NotificationID
-		
-		UPDATE nt
-		SET nt.StatusID = n.StatusID
-		FROM NotificationTarget AS nt WITH (ROWLOCK,UPDLOCK)
-			INNER JOIN #tmpUpdNoti AS n ON nt.NotificationID = n.NotificationID
+		IF EXISTS (SELECT 1 FROM #tmpUpdNoti)
+		BEGIN
+			INSERT INTO UserLog (
+				RefID
+				,ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT u.NotificationID
+				,@LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Changed NotificationID Status from [Sending] to [' + s.Status + ']' 
+								+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')')
+			FROM #tmpUpdNoti AS u
+				INNER JOIN NotiStatus AS s WITH (NOLOCK) ON u.StatusID = s.StatusID
+			ORDER BY u.NotificationID
+			
+			UPDATE nt
+			SET nt.StatusID = n.StatusID
+			FROM NotificationTarget AS nt WITH (ROWLOCK,UPDLOCK)
+				INNER JOIN #tmpUpdNoti AS n ON nt.NotificationID = n.NotificationID
+			
+			/*
+				at this state, ErrCode from MNC_PushNotification_MsgIns is handled
+				=> reset @ErrCode
+			*/
+			SELECT @ErrCode = 0
+				,@ErrMsg = ''
+		END
+		ELSE
+		BEGIN
+			INSERT INTO UserLog (
+				RefID
+				,ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @NotificationID
+				,@LogActionID
+				,@LogUserID
+				,COMPRESS(@ErrLogPrefix + 'CAN NOT Change NotificationID Status'
+							+ ' - Current StatusID(' + ISNULL(CONVERT(VARCHAR,(SELECT StatusID FROM Notification WITH(NOLOCK) WHERE NotificationID = @NotificationID)),'NULL') + ')'
+							+ ' - Current SettlementResultHist.IsTest(' + ISNULL((
+																		SELECT STRING_AGG(CONVERT(NVARCHAR(MAX),rh.IsTest),',')
+																		FROM NotiMapping AS nm WITH (NOLOCK)
+																			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+																		WHERE nm.NotificationID = @NotificationID
+																	),'NULL') + ')'
+							+ ' - @Environment(' + ISNULL(@Environment,'NULL') + ')'
+							+ ' - IncludeTestMatch(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
+							+ ' - @IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') + ')'
+				)
+			
+			SELECT @ErrCode = 50003 --user-defined
+				,@ErrMsg = 'NO affected Notification'
+		END
 		
 		COMMIT TRANSACTION
 		
-		/*
-			at this state, ErrCode from MNC_PushNotification_MsgIns is handled
-			=> reset @ErrCode
-		*/
-		SELECT @ErrCode = 0
-			,@ErrMsg = ''
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web

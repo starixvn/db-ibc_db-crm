@@ -191,9 +191,18 @@ BEGIN
 	/*
 		Handle LastRunTime
 	*/
-	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-	SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
-	WHERE VID = 18 --LastRunTime
+	IF @Environment = 'LIVE'
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
+		WHERE VID = 18 --LastRunTime
+	END
+	ELSE
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
+		WHERE VID = 20 --UAT_LastRunTime
+	END
 	
 	INSERT INTO UserLog (
 		ActionID

@@ -64,7 +64,9 @@ VALUES (1, 'ScanBackHour', '2', 'Int32', 'scan back from current to pull Settlem
 	,(15,'LastSessionID', '', 'String','Last handled SessionID')
 	,(16,'Market777', '777777', 'String','List of Sites [777] with: Non-Saba text and be separated notifications from OST')
 	,(17,'ServiceFlag', '1', 'Boolean','Turn ON/OFF MNC services')
-	,(18,'LastRunTime', '', 'DateTime','last run time of the CaptureDataService')
+	,(18,'LastRunTime', '', 'DateTime','Last run time of the CaptureDataService')
+	,(19,'UAT_LastSessionID', '', 'String','UAT Last handled SessionID')
+	,(20,'UAT_LastRunTime', '', 'DateTime','UAT Last run time of the CaptureDataService')
 
 /***** NotiTemplate ****/
 TRUNCATE TABLE NotiTemplate

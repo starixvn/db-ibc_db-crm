@@ -998,13 +998,26 @@ BEGIN
 	
 	IF @LastRunTime IS NOT NULL
 	BEGIN
-		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-		SET VValue = @LastSessionID
-		WHERE VID = 15 --LastSessionID
-		
-		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-		SET VValue = CONVERT(VARCHAR, @LastRunTime, 120)
-		WHERE VID = 18 --LastRunTime
+		IF @Environment = 'LIVE'
+		BEGIN
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = @LastSessionID
+			WHERE VID = 15 --LastSessionID
+			
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = CONVERT(VARCHAR, @LastRunTime, 120)
+			WHERE VID = 18 --LastRunTime
+		END
+		ELSE
+		BEGIN
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = @LastSessionID
+			WHERE VID = 19 --UAT_LastSessionID
+			
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = CONVERT(VARCHAR, @LastRunTime, 120)
+			WHERE VID = 20 --UAT_LastRunTime
+		END
 	END
 	
 	INSERT INTO UserLog (

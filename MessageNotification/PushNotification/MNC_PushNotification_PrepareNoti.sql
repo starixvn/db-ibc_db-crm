@@ -393,11 +393,24 @@ BEGIN
 	FROM #tmpResult
 	
 	--Mark completed [Push Notification] process => MNC_PushNotification_Complete
-	-- UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-	-- SET VValue = 'Done'
-	-- WHERE VID = @ProcessID
-		-- AND VValue = 'Running'
-		-- AND NOT EXISTS (SELECT 1 FROM #tmpResult)
+	IF NOT EXISTS (SELECT 1 FROM #tmpResult)
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = 'Done'
+		WHERE VID = @ProcessID
+			AND VValue = 'Running'
+		
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
+	END
 	
 	--write log
 	INSERT INTO UserLog (

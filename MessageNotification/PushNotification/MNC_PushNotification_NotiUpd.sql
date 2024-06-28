@@ -127,7 +127,7 @@ BEGIN
 	SELECT @NotificationID AS RefID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS((CASE WHEN ISNULL(@ErrCode,0) <> 0 THEN @InfLogPrefix + 'Start NotiUpd' ELSE @ErrLogPrefix + 'FROM [MsgIns]' END)
+		,COMPRESS((CASE WHEN ISNULL(@ErrCode,0) <> 0 THEN @ErrLogPrefix + 'FROM [MsgIns]' ELSE @InfLogPrefix + 'Start NotiUpd' END)
 					+' - @NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotificationID),'NULL') + ')'
 					+' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 					+' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'

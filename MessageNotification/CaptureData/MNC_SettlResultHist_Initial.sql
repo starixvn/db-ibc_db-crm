@@ -202,6 +202,6 @@ BEGIN
 	)
 	SELECT @LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE SystemSetting.LastRunTime(' + ISNULL(CONVERT(VARCHAR, @LastRunTime),'NULL') + ')')
+		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE SystemSetting.LastRunTime(' + ISNULL(CONVERT(VARCHAR, GETDATE()),'NULL') + ')')
 	WHERE @LogMode = 'Debug'
 END

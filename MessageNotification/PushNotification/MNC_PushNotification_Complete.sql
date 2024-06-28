@@ -35,15 +35,15 @@ BEGIN
 	
 	IF @Environment = 'LIVE'
 	BEGIN
-		SELECT @ProcessID = 6 --InsertNotifService
-		SELECT @ErrLogPrefix = 'Error - [InsertNotifService - Complete] - '
-		SELECT @InfLogPrefix = 'Info - [InsertNotifService - Complete] - '
+		SELECT @ProcessID = 6 --InsertMessageService
+		SELECT @ErrLogPrefix = 'Error - [InsertMessageService - Complete] - '
+		SELECT @InfLogPrefix = 'Info - [InsertMessageService - Complete] - '
 	END
 	ELSE
 	BEGIN
-		SELECT @ProcessID = 12 --UAT_InsertNotifService
-		SELECT @ErrLogPrefix = 'Error - [UAT_InsertNotifService - Complete] - '
-		SELECT @InfLogPrefix = 'Info - [UAT_InsertNotifService - Complete] - '
+		SELECT @ProcessID = 12 --UAT_InsertMessageService
+		SELECT @ErrLogPrefix = 'Error - [UAT_InsertMessageService - Complete] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_InsertMessageService - Complete] - '
 		
 		SELECT @Environment = ISNULL(@Environment,'UAT')
 	END

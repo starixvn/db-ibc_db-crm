@@ -189,11 +189,11 @@ BEGIN
 	FROM CTE_Log
 	
 	/*
-		Handle LastSessionID & LastRunTime
+		Handle LastRunTime
 	*/
 	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
 	SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
-	WHERE VID = 15 --LastSessionID
+	WHERE VID = 18 --LastRunTime
 	
 	INSERT INTO UserLog (
 		ActionID

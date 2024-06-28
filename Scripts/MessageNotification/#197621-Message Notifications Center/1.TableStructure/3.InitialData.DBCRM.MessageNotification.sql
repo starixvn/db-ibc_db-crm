@@ -50,7 +50,7 @@ VALUES (1, 'ScanBackHour', '2', 'Int32', 'scan back from current to pull Settlem
 	
 	,(4,'CaptureDataService', 'Done', 'String', 'Done, Running')
 	,(5,'GenerateNotifService', 'Done', 'String', 'Done, Running')
-	,(6,'InsertNotifService', 'Done', 'String', 'Done, Running')
+	,(6,'InsertMessageService', 'Done', 'String', 'Done, Running')
 	
 	,(7,'UAT_CaptureDataService', 'Done', 'String', 'Done, Running')
 	,(8,'UAT_GenerateNotifService', 'Done', 'String', 'Done, Running')
@@ -58,7 +58,7 @@ VALUES (1, 'ScanBackHour', '2', 'Int32', 'scan back from current to pull Settlem
 	
 	,(10,'IncludeTestMatch', '0', 'Boolean', 'Turn ON/OFF to handle test data; If IncludeUUSCurrency = OFF, REAL data only; If IncludeUUSCurrency = ON, PRD handle all data; UAT always handle TEST data')
 	,(11,'Retrieving_WaitSec', '30', 'Int32', 'Change Status [Retrieving] -> [Successfully Retrieved] IF the SessionID keep Retrieving over this configuration')
-	,(12,'UAT_InsertNotifService', 'Done', 'String', 'Done, Running')
+	,(12,'UAT_InsertMessageService', 'Done', 'String', 'Done, Running')
 	,(13,'LogMode', 'Debug', 'String', 'Normal, Debug')
 	,(14,'UAT_GenerateLAPNotifService', 'Done', 'String', 'Done, Running')
 	,(15,'LastSessionID', '', 'String','Last handled SessionID')

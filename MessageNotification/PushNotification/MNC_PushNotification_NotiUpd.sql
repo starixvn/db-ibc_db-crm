@@ -68,13 +68,13 @@ BEGIN
 	
 	IF @Environment = 'LIVE'
 	BEGIN
-		SELECT @ErrLogPrefix = 'Error - [InsertNotifService - Prepare] - '
-		SELECT @InfLogPrefix = 'Info - [InsertNotifService - Prepare] - '
+		SELECT @ErrLogPrefix = 'Error - [InsertMessageService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [InsertMessageService - Prepare] - '
 	END
 	ELSE
 	BEGIN
-		SELECT @ErrLogPrefix = 'Error - [UAT_InsertNotifService - Prepare] - '
-		SELECT @InfLogPrefix = 'Info - [UAT_InsertNotifService - Prepare] - '
+		SELECT @ErrLogPrefix = 'Error - [UAT_InsertMessageService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_InsertMessageService - Prepare] - '
 		
 		SELECT @Environment = ISNULL(@Environment,'UAT')
 	END

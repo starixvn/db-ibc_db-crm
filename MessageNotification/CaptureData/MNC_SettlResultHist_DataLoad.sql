@@ -986,7 +986,7 @@ BEGIN
 	
 	;WITH CTE_Last AS (
 		SELECT TOP 1 rh.SessionID
-			,ISNULL(rh.LastModifiedTime,GETDATE())
+			,ISNULL(rh.LastModifiedTime,GETDATE()) AS LastModifiedTime
 		FROM #tmpInsertedRH AS i
 			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON i.SettlementLogID = rh.SettlementLogID
 		ORDER BY ISNULL(rh.LastModifiedTime,GETDATE()) DESC

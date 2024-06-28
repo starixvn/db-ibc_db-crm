@@ -55,7 +55,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgUpd] - FAILED to DELETE MessageID due to ERROR from NotiUpd'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertMessageService - MsgUpd] - FAILED to DELETE MessageID due to ERROR from NotiUpd'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
@@ -87,7 +87,7 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgUpd] - FAILED to mark MessageID completed'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertMessageService - MsgUpd] - FAILED to mark MessageID completed'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
@@ -101,7 +101,7 @@ BEGIN
 		AND @ErrCode = 0
 	BEGIN
 		SELECT @ErrCode = 50004
-			,@ErrMsg = 'Error - [UAT/PRO] - [InsertNotifService - MsgUpd] - NO affected Msg/MsgTarget'
+			,@ErrMsg = 'Error - [UAT/PRO] - [InsertMessageService - MsgUpd] - NO affected Msg/MsgTarget'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 	END

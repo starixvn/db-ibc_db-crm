@@ -203,5 +203,7 @@ BEGIN
 	SELECT @LogActionID
 		,@LogUserID
 		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE SystemSetting.LastRunTime(' + ISNULL(CONVERT(VARCHAR, GETDATE()),'NULL') + ')')
-	WHERE @LogMode = 'Debug'
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 END

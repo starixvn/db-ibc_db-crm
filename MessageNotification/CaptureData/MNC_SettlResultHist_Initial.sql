@@ -187,4 +187,21 @@ BEGIN
 		,@LogUserID
 		,COMPRESS(@InfLogPrefix + 'Completed - Return(' +  LTxt + ')') AS LogBef
 	FROM CTE_Log
+	
+	/*
+		Handle LastSessionID & LastRunTime
+	*/
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
+	WHERE VID = 15 --LastSessionID
+	
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE SystemSetting.LastRunTime(' + ISNULL(CONVERT(VARCHAR, @LastRunTime),'NULL') + ')')
+	WHERE @LogMode = 'Debug'
 END

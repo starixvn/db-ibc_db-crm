@@ -978,6 +978,48 @@ BEGIN
 								),'NO ROW') + ')')
 	WHERE @LogMode = 'Debug'
 	
+	/*
+		Handle LastSessionID & LastRunTime
+	*/
+	DECLARE @LastSessionID VARCHAR(50)
+		,@LastRunTime DATETIME
+	
+	;WITH CTE_Last AS (
+		SELECT TOP 1 rh.SessionID
+			,ISNULL(rh.LastModifiedTime,GETDATE())
+		FROM #tmpInsertedRH AS i
+			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON i.SettlementLogID = rh.SettlementLogID
+		ORDER BY ISNULL(rh.LastModifiedTime,GETDATE()) DESC
+			,rh.SessionID DESC
+	)
+	SELECT @LastSessionID = SessionID
+		,@LastRunTime = LastModifiedTime
+	FROM CTE_Last
+	
+	IF @LastRunTime IS NOT NULL
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = @LastSessionID
+		WHERE VID = 15 --LastSessionID
+		
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, @LastRunTime, 120)
+		WHERE VID = 18 --LastRunTime
+	END
+	
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE LastSessionID/LastRunTime'
+					+ ' - @LastRunTime(' + ISNULL(CONVERT(VARCHAR, @LastRunTime),'NULL') + ')'
+					+ ' - @LastSessionID(' + ISNULL(@LastSessionID,'NULL') + ')'
+		)
+	WHERE @LogMode = 'Debug'
+	
 	DROP TABLE #tmpJSData
 	DROP TABLE #tmpResultHist
 	DROP TABLE #tmpInsertedRH

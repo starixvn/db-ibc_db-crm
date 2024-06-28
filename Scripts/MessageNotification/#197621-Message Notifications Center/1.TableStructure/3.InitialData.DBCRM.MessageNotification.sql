@@ -46,24 +46,25 @@ INSERT INTO SystemSetting (
 )
 VALUES (1, 'ScanBackHour', '2', 'Int32', 'scan back from current to pull SettlementResultHistory')
 	,(2,'Executor', '10278938', 'Int32', 'ID of StarixIT')
-	,(3,'IgnoreReviewContentBySport', '', 'String', 'With these sports, IGNORE review notification before push to Msg/MsgTarget')
+	,(3,'AutoSendNotificationBySport', '', 'String', 'With these sports, IGNORE review notification before push to Msg/MsgTarget')
 	
-	,(4,'Process_CaptureData', 'Done', 'String', 'Done, Running')
-	,(5,'Process_GenerateMsgNoti', 'Done', 'String', 'Done, Running')
-	,(6,'Process_PushNoti', 'Done', 'String', 'Done, Running')
+	,(4,'CaptureDataService', 'Done', 'String', 'Done, Running')
+	,(5,'GenerateNotifService', 'Done', 'String', 'Done, Running')
+	,(6,'InsertNotifService', 'Done', 'String', 'Done, Running')
 	
-	,(7,'ProcessUAT_CaptureData', 'Done', 'String', 'Done, Running')
-	,(8,'ProcessUAT_GenerateMsgNoti', 'Done', 'String', 'Done, Running')
-	,(9,'Process_GenerateLapNoti', 'Done', 'String', 'Done, Running')
+	,(7,'UAT_CaptureDataService', 'Done', 'String', 'Done, Running')
+	,(8,'UAT_GenerateNotifService', 'Done', 'String', 'Done, Running')
+	,(9,'GenerateLAPNotifService', 'Done', 'String', 'Done, Running')
 	
 	,(10,'IncludeTestMatch', '0', 'Boolean', 'Turn ON/OFF to handle test data; If IncludeUUSCurrency = OFF, REAL data only; If IncludeUUSCurrency = ON, PRD handle all data; UAT always handle TEST data')
 	,(11,'Retrieving_WaitSec', '30', 'Int32', 'Change Status [Retrieving] -> [Successfully Retrieved] IF the SessionID keep Retrieving over this configuration')
-	-- ,(12,'IT ChatGroupID', NULL, 'String','IT ChatGroupID')
+	,(12,'UAT_InsertNotifService', 'Done', 'String', 'Done, Running')
 	,(13,'LogMode', 'Debug', 'String', 'Normal, Debug')
-	-- ,(14,'OST ChatGroupID', '19:934a887696734ecfbc35dc45521729c4@thread.skype', 'String','Notification Alert - Local')
-	-- ,(15,'777 ChatGroupID', '19:85743ff1eb01435d899cbc1a4f756f47@thread.skype', 'String','Notification Alert (for 777 only) - Local')
-	,(16,'Sites777', '777777', 'String','List of SiteLabel [777] with: Non-Saba text and be separated notifications from OST')
-	,(17,'ServiceFlag', 1, 'Boolean','Turn ON/OFF MNC services')
+	,(14,'UAT_GenerateLAPNotifService', 'Done', 'String', 'Done, Running')
+	,(15,'LastSessionID', '', 'String','Last handled SessionID')
+	,(16,'Market777', '777777', 'String','List of Sites [777] with: Non-Saba text and be separated notifications from OST')
+	,(17,'ServiceFlag', '1', 'Boolean','Turn ON/OFF MNC services')
+	,(18,'LastRunTime', '', 'DateTime','last run time of the CaptureDataService')
 
 /***** NotiTemplate ****/
 TRUNCATE TABLE NotiTemplate

@@ -17,29 +17,19 @@
 CREATE DATABASE [MessageNotification] ON PRIMARY (
 		NAME = N'MessageNotification'
 		,FILENAME = N'G:\SQLSERVER2019_DEVDB053\IBC_DB\MessageNotification.mdf'
-		,SIZE = 5 MB
-		,FILEGROWTH = 32 MB
+		,SIZE = 512 MB
+		,FILEGROWTH = 512 MB
 	)
 	,FILEGROUP [MNC] (
 		NAME = N'MNC'
 		,FILENAME = N'G:\SQLSERVER2019_DEVDB053\IBC_DB\MNC.ndf'
-		,SIZE = 5 MB
-		,FILEGROWTH = 32 MB
+		,SIZE = 512 MB
+		,FILEGROWTH = 512 MB
 	)
 	LOG ON (
 		NAME = N'MessageNotification_log'
 		,FILENAME = N'G:\SQLSERVER2019_DEVDB053\IBC_DB\MessageNotification_log.ldf'
-		,SIZE = 32 MB
-		,FILEGROWTH = 32 MB
+		,SIZE = 512 MB
+		,FILEGROWTH = 512 MB
 	)
-GO
-
-USE [MessageNotification]
-GO
-
-CREATE USER [wsv_nap] FOR LOGIN [wsv_nap] WITH DEFAULT_SCHEMA=[dbo]
-GO
-
-/* GRANT wsv_nap to EXEC by sp_executesql*/
-ALTER ROLE [db_datareader] ADD MEMBER [wsv_nap]
 GO

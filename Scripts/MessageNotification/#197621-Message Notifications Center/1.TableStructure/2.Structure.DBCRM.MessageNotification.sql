@@ -180,7 +180,7 @@ CREATE TABLE dbo.AlertRule (
 	,RuleName VARCHAR(50)
 	,RuleType VARCHAR(50)
 	,SQLStatement NVARCHAR(MAX)
-	,ChatGroupIDs VARCHAR(50)
+	,ChatGroupIDs VARCHAR(200)
 	,LastScan NVARCHAR(500)
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 GO
@@ -266,7 +266,7 @@ CREATE TABLE NotiTemplate (
 	,LastModifiedBy INT NOT NULL
 	,LastModifiedTime DATETIME DEFAULT GETDATE()
 	,Remark VARCHAR(500)
-)
+) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 
 /***** SystemSetting ****/
 DROP TABLE IF EXISTS dbo.SystemSetting

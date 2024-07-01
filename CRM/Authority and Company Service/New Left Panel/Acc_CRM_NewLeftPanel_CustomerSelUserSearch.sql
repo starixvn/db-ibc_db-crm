@@ -3,7 +3,7 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_NewLeftPanel_CustomerSelUserSearch @SearchInfo NVARCHAR(200),
+ALTER PROCEDURE dbo.Acc_CRM_NewLeftPanel_CustomerSelUserSearch @SearchInfo VARCHAR(200),
                                                                @IsGuest    BIT,
                                                                @UserRole   TINYINT
 AS
@@ -16,6 +16,7 @@ AS
     
     Revisions:
         20231212@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240701@Ned.Le: CRM - Update 2 SPs to increase performance (#207290)
 
     Example:
         EXEC bodb_CRM.dbo.Acc_CRM_NewLeftPanel_CustomerSelUserSearch @SearchInfo = '0919862710',

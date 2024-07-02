@@ -20,6 +20,7 @@ AS
     Revisions:
         20231212@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240621@Ned.Le: Enhance performance
+        20240701@Ned.Le: CRM - Update 2 SPs to increase performance (#207290)
 
     Param's Explanation:
         @CustID:                CustID that its data be manipulated
@@ -91,23 +92,27 @@ BEGIN
     END
 
     -- Update value for Communication Info
-    BEGIN TRY    
-        MERGE bodb_CRM.dbo.crmCustomerNewCommunicationTool AS TARGET
-        USING #tmpNewCommunicationTools AS SOURCE
-        ON TARGET.CustID = @CustID AND TARGET.CommunicationID = SOURCE.CommunicationID
-        WHEN MATCHED THEN
-            UPDATE SET TARGET.CommunicationValue = SOURCE.CommunicationValue
-        WHEN NOT MATCHED BY TARGET THEN
-            INSERT (CustID, CommunicationID, CommunicationValue)
-            VALUES (@CustID, SOURCE.CommunicationID, SOURCE.CommunicationValue)
-        WHEN NOT MATCHED BY SOURCE AND TARGET.CustID = @CustID
-            THEN DELETE
-        OPTION (RECOMPILE);
-    END TRY
-    BEGIN CATCH
-        SELECT @ErrCode = ERROR_NUMBER(), @ErrMsg = ERROR_MESSAGE()
-        RETURN
-    END CATCH
+    -- + UPDATE
+    UPDATE tar
+    SET tar.CommunicationValue = sou.CommunicationValue
+    FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool tar WITH (NOLOCK)
+         INNER JOIN #tmpNewCommunicationTools sou ON tar.CommunicationID = sou.CommunicationID
+    WHERE tar.CustID = @CustID
+    -- + INSERT
+    INSERT INTO bodb_CRM.dbo.crmCustomerNewCommunicationTool (CustID, CommunicationID, CommunicationValue)
+    SELECT @CustID, sou.CommunicationID, sou.CommunicationValue
+    FROM #tmpNewCommunicationTools sou
+    WHERE NOT EXISTS (SELECT TOP 1 1
+                      FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool tar WITH (NOLOCK)
+                      WHERE tar.CustID = @CustID
+                            AND tar.CommunicationID = sou.CommunicationID)
+    -- + DELETE
+    DELETE tar
+    FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool tar WITH (NOLOCK)
+    WHERE tar.CustID = @CustID
+          AND NOT EXISTS (SELECT TOP 1 1
+                          FROM #tmpNewCommunicationTools sou
+                          WHERE sou.CommunicationID = tar.CommunicationID)
     
     -- Get new value of Communication Info
     DECLARE @CommunicationInfoNewValue XML

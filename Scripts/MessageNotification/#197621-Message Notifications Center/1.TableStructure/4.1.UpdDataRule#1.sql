@@ -22,8 +22,8 @@ AlertRule properties
 	Scan Range: LastModifiedTime BETWEEN DATEADD(DD, -1, GETDATE()) AND GETDATE()
 
 Alert rule for [Running] status
-	1.For [Capture Data] process, [Retrieving] over 2*Configuration_WaitSec
-	2.For [Generate Msg Notification] process, [Generating] over 60s
+	1.For [Capture Data Service] process, [Retrieving] over 2*Configuration_WaitSec
+	2.For [Generate Notif Service] process, [Generating] over 60s
 	3.For [Generate Lap Notification] process, over 60s
 
 -----Steps of Rule-----
@@ -133,9 +133,7 @@ WHERE nMsg.LastModifiedTime > @FromModifiedTime
 	AND nMsg.LastModifiedTime <= @ToModifiedTime
 	AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
 	AND rh.SportType = 50 --Cricket, need modify for others sport
-	AND (st.Status  = ''Sent'' --Sent check LAP
-		OR st.Status IN ( ''Generating'', ''Sending'')
-	)
+	AND st.Status IN ( ''Generating'', ''Sending'')
 	AND nMsg.RefID IS NOT NULL
 
 CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti(MsgNotiID)
@@ -156,7 +154,7 @@ END
 /**************************************************************************************
 	2.Exec Rule and insert into [Error_New] table with Key Columns
 */
----1.For [Capture Data] process, [Retrieving] over 2*Configuration_WaitSec---
+---1.For [Capture Data Service] process, [Retrieving] over 2*Configuration_WaitSec---
 SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
 FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
 WHERE VID = 11 --Retrieving_WaitSec
@@ -181,11 +179,11 @@ SELECT DISTINCT l.SessionID
 	,rh.SettlementLogID
 	,rh.LastModifiedTime
 	,rh.MatchID
-	,''SessionID ['' + l.SessionID + ''] in [Retrieving] state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Capture Data] process.'' AS Content
+	,''SessionID ['' + l.SessionID + ''] in [Retrieving] state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Capture Data Service] process.'' AS Content
 FROM CTE_LongSession AS l
 	LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = ''Retrieving''
 
----2.For [Generate Msg Notification] process, [Generating] over 60s---
+---2.For [Generate Notif Service] process, [Generating] over 60s---
 SELECT @WaitSec = 60
 
 ;WITH CTE_LongSession AS (
@@ -208,7 +206,7 @@ SELECT DISTINCT rh.SessionID
 	,rh.SettlementLogID
 	,rh.LastModifiedTime
 	,rh.MatchID
-	,''SessionID ['' + rh.SessionID + ''] in [Generating] Msg state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Generate Notification] process.'' AS Content
+	,''SessionID ['' + rh.SessionID + ''] in [Generating] Msg state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Generate Notif Service] process.'' AS Content
 FROM CTE_LongSession AS l
 	LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = ''Generating''
 
@@ -226,7 +224,7 @@ SELECT DISTINCT rh.SessionID
 	,n.LastModifiedTime
 	,rh.MatchID
 	,(CASE WHEN m.Status = ''Generating'' THEN ''Notification('' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),''NULL'') + '') of SessionID ['' + rh.SessionID + ''] in [Generating] Msg state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Generate Notification] process.''
-		ELSE ''Notification('' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),''NULL'') + '') of SessionID ['' + rh.SessionID + ''] in [Sending] state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Push Notification] process.''
+		ELSE ''Notification('' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),''NULL'') + '') of SessionID ['' + rh.SessionID + ''] in [Sending] state too long, exceeding ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Insert Message Service] process.''
 	END) AS Content
 FROM #tmpMsgNoti AS m
 	LEFT JOIN MessageNotification.dbo.Notification AS n WITH (NOLOCK) ON m.MsgNotiID = n.NotificationID
@@ -234,50 +232,6 @@ FROM #tmpMsgNoti AS m
 	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
 WHERE m.Status IN (''Generating'', ''Sending'')
 	AND DATEDIFF(SECOND, n.LastModifiedTime, GETDATE()) > @WaitSec
-
----3.For [Generate Lap Notification] process, over 60s---
-SELECT @WaitSec = 60
-
-UPDATE m
-SET m.ValidType = (CASE WHEN nLap.NotificationID IS NULL THEN ''NOLAP''
-						WHEN st.Status = ''Generating'' THEN ''GeneratingLAP''
-						ELSE ''CreatedLAP'' END) --st.Status = ''Successfully Generated''
-	,m.LapNotiID = nLap.NotificationID
-FROM #tmpMsgNoti AS m
-	LEFT JOIN MessageNotification.dbo.Notification AS nLap WITH (NOLOCK) ON m.MessageID = nLap.RefID AND nLap.NotificationType = 2 --2: Result Amendment to LAP
-	LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON nLap.StatusID = st.StatusID
-WHERE m.Status = ''Sent''
-	
---validate again with Target => must EXISTS [deposit] Target
-UPDATE m
-SET m.ValidType = ''CreatedLAP''
-FROM #tmpMsgNoti AS m
-	LEFT JOIN MessageNotification.dbo.NotificationTarget AS nt WITH (NOLOCK) ON m.MsgNotiID = nt.NotificationID --must EXISTS Target
-	LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
-WHERE m.ValidType = ''NOLAP'' -- NOT create LAP yet
-	AND s.site IS NULL --NOT EXISTS [deposit] Target
-
-INSERT INTO #tmpError_New (
-	SessionID
-	,SettlementLogID
-	,LastModifiedTime
-	,MatchID
-	--------------
-	,Content
-)
-SELECT DISTINCT rh.SessionID
-	,rh.SettlementLogID
-	,n.LastModifiedTime --[after being approved MessageID]
-	,ck.MatchID
-	,(CASE WHEN ck.ValidType = ''NOLAP'' THEN ''LAP Notification of SessionID ['' + rh.SessionID + ''] NOT EXISTS after being approved MessageID ['' + CONVERT(VARCHAR,n.RefID) + ''] for more than ''+ ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'')+'' seconds. Please double check [Generate LAP Notification] process.''
-		ELSE ''LAP Notification('' + ISNULL(CONVERT(VARCHAR, ck.LapNotiID),''NULL'') + '') of SessionID ['' + rh.SessionID + ''] in [Generating] state too long, exceeding '' + ISNULL(CONVERT(VARCHAR, @WaitSec),''NULL'') + '' seconds. Please double check [Generate LAP Notification] process.''
-	END) AS Content
-FROM #tmpMsgNoti AS ck
-	LEFT JOIN MessageNotification.dbo.Notification AS n WITH (NOLOCK) ON ck.MsgNotiID = n.NotificationID
-	LEFT JOIN MessageNotification.dbo.NotiMapping AS nm WITH (NOLOCK) ON ck.MsgNotiID = nm.NotificationID
-	LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-WHERE ck.ValidType IN (''NOLAP'', ''GeneratingLAP'')
-	AND DATEDIFF(SECOND, n.LastModifiedTime,GETDATE()) > @WaitSec --[after being approved MessageID] => Use Notification.LastModifiedTime
 
 /**************************************************************************************
 	3.Remove EXISTED

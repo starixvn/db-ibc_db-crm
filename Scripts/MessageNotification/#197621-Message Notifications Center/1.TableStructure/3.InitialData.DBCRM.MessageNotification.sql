@@ -166,7 +166,7 @@ INSERT INTO AlertRule (
 )
 VALUES (
 		1
-		,'SysErr - Running Status Too Long'
+		,'SysErr - Running Status Too Long - OST'
 		,'SysErr'
 		,''
 		,'SYS,OST,777'
@@ -195,6 +195,13 @@ VALUES (
 	,(
 		5
 		,'SysErr - Failed Status'
+		,'SysErr'
+		,''
+		,'SYS'
+	)
+	,(
+		6
+		,'SysErr - Running Status Too Long - SYS'
 		,'SysErr'
 		,''
 		,'SYS'

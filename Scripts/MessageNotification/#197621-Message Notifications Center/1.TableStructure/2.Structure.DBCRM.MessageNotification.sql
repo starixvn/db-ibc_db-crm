@@ -30,6 +30,7 @@ CREATE TABLE dbo.SettlementResultHist (
 	,WrongResult VARCHAR(MAX)
 	,ExtraInfo VARCHAR(MAX)
 	,CreatedTime DATETIME NOT NULL DEFAULT GETDATE()
+	,IsDeleted BIT
 	,InsertedTime DATETIME NOT NULL DEFAULT GETDATE()
 	,LastModifiedTime DATETIME NOT NULL DEFAULT GETDATE()
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
@@ -54,6 +55,7 @@ CREATE TABLE dbo.SettlementResultHistDetail (
 	,CustID INT
 	,ExtraInfo_Before VARCHAR(MAX)
 	,ExtraInfo_After VARCHAR(MAX)
+	,IsDeleted BIT
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
 GO
 

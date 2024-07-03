@@ -58,8 +58,8 @@ BEGIN
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@StsGenerating TINYINT
-		,@StsGenerated TINYINT
 		,@StsGenFailed TINYINT
+		,@StsIgnore TINYINT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@IsTestFlag BIT
@@ -88,9 +88,9 @@ BEGIN
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Failed to Generate'
 	
-	SELECT @StsGenerated = StatusID
+	SELECT @StsIgnore = StatusID
 	FROM NotiStatus WITH (NOLOCK)
-	WHERE Status = 'Successfully Generated'
+	WHERE Status = 'Ignore'
 	
 	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
@@ -504,7 +504,7 @@ BEGIN
 		---------Start to verify----------------------------------------------------------
 		
 		--Check EXISTS SettlementResultHist
-		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WHERE SettlementLogID = @iSettleID)
+		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)
 		BEGIN
 			UPDATE #tmpVerifyList
 			SET StatusID = @StsGenFailed
@@ -516,8 +516,34 @@ BEGIN
 			CONTINUE
 		END
 		
+		--Check IsDeleted
+		IF EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID AND IsDeleted = 1)
+		BEGIN
+			UPDATE #tmpVerifyList
+			SET StatusID = @StsIgnore
+				,RHLog = RHLog + 'Marked for deletion'
+			WHERE SettlementLogID = @iSettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+		
+		--check for NOT Generating (KEEP Current Status but ignore valid List)
+		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID AND StatusID = @StsGenerating)
+		BEGIN
+			UPDATE #tmpVerifyList
+			SET StatusID = 0
+				,RHLog = RHLog + 'StatusID ('+ ISNULL(CONVERT(NVARCHAR,StatusID),'NULL') + ') - NOT Generating'
+			WHERE SettlementLogID = @iSettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+		
 		--Check IsTestFlag (NOT Failed Status but ignore valid List)
-		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WHERE SettlementLogID = @iSettleID AND ISNULL(@IsTestFlag,IsTest) = IsTest)
+		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID AND ISNULL(@IsTestFlag,IsTest) = IsTest)
 		BEGIN
 			UPDATE v
 			SET StatusID = 0
@@ -532,26 +558,11 @@ BEGIN
 		END
 		
 		--Check Generated
-		IF EXISTS (SELECT 1 FROM NotiMapping WHERE SettlementLogID = @iSettleID)
-		BEGIN
-			UPDATE v
-			SET v.StatusID = 0
-				,v.RHLog = v.RHLog + 'SettlementLogID is Generated - EXISTS in NotiMapping'
-			FROM #tmpVerifyList AS v
-				INNER JOIN NotiMapping AS nm WITH (NOLOCK) ON v.SettlementLogID = nm.SettlementLogID
-			WHERE v.SettlementLogID = @iSettleID
-			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
-			
-			CONTINUE
-		END
-		
-		--check for NOT Generating (KEEP Current Status but ignore valid List)
-		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WHERE SettlementLogID = @iSettleID AND StatusID = @StsGenerating)
+		IF EXISTS (SELECT 1 FROM NotiMapping WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)
 		BEGIN
 			UPDATE #tmpVerifyList
-			SET StatusID = 0
-				,RHLog = RHLog + 'StatusID ('+ ISNULL(CONVERT(NVARCHAR,StatusID),'NULL') + ') - NOT Generating'
+			SET StatusID = @StsGenFailed
+				,RHLog = RHLog + 'SettlementLogID is Generated - EXISTS in NotiMapping'
 			WHERE SettlementLogID = @iSettleID
 			
 			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
@@ -560,11 +571,61 @@ BEGIN
 		END
 		
 		--verify SettlementResultHistDetail
-		IF NOT EXISTS (SELECT 1 FROM SettlementResultHistDetail WHERE SettlementLogID = @iSettleID)
+		IF NOT EXISTS (SELECT 1 FROM SettlementResultHistDetail WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)
 		BEGIN
 			UPDATE #tmpVerifyList
-			SET StatusID = @StsGenerated
+			SET StatusID = @StsIgnore
 				,RHLog = RHLog + 'have NO affected TransID'
+			WHERE SettlementLogID = @iSettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+		
+		--Check Invalid CustID
+		IF EXISTS (
+			SELECT 1
+			FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
+				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
+			WHERE rhd.SettlementLogID = @iSettleID
+				AND c.CustID IS NULL
+		)
+		BEGIN
+			;WITH CTE_LogTxt AS (
+				SELECT @iSettleID AS SettleID
+					,STRING_AGG(CONVERT(VARCHAR(MAX),CustID),',') AS LTxt
+				FROM (
+					SELECT DISTINCT ISNULL(CONVERT(VARCHAR,rhd.CustID),'NULL') AS CustID
+					FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
+						LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
+					WHERE rhd.SettlementLogID = @iSettleID
+						AND c.CustID IS NULL
+				) AS t
+			)
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'Invalid CustID(' + l.LTxt + ') OR TransID may NOT EXISTS IN bettrans/bettrans14'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpVerifyList AS v
+				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+		
+		--All Test Currency
+		IF NOT EXISTS (
+			SELECT 1
+			FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
+				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
+			WHERE rhd.SettlementLogID = @iSettleID
+				AND c.currency <> 20
+		)
+		BEGIN
+			UPDATE #tmpVerifyList
+			SET StatusID = @StsIgnore
+				,RHLog = RHLog + 'All Test tickets'
 			WHERE SettlementLogID = @iSettleID
 			
 			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
@@ -635,37 +696,6 @@ BEGIN
 			)
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
-				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
-				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
-			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
-			
-			CONTINUE
-		END
-		
-		--Check Invalid CustID
-		IF EXISTS (
-			SELECT 1
-			FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
-				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
-			WHERE rhd.SettlementLogID = @iSettleID
-				AND c.CustID IS NULL
-		)
-		BEGIN
-			;WITH CTE_LogTxt AS (
-				SELECT @iSettleID AS SettleID
-					,STRING_AGG(CONVERT(VARCHAR(MAX),CustID),',') AS LTxt
-				FROM (
-					SELECT DISTINCT ISNULL(CONVERT(VARCHAR,rhd.CustID),'NULL') AS CustID
-					FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
-						LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
-					WHERE rhd.SettlementLogID = @iSettleID
-						AND c.CustID IS NULL
-				) AS t
-			)
-			UPDATE v
-			SET v.RHLog = v.RHLog + 'Invalid CustID(' + l.LTxt + ') OR TransID may NOT EXISTS IN bettrans/bettrans14'
 				,v.StatusID = @StsGenFailed
 			FROM #tmpVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
@@ -1027,7 +1057,7 @@ BEGIN
 		AND sh.StatusID = @StsGenerating
 	
 	/*
-		Failed to Verify
+		Failed / Ignore
 	*/
 	UPDATE sh
 	SET sh.StatusID = rh.StatusID
@@ -1045,7 +1075,7 @@ BEGIN
 		)
 	
 	/*
-		write log for Changed [Successfully Generated] / [Failed to Generate] Status
+		write log for Changed [Ignore] / [Failed to Generate] Status
 	*/
 	INSERT INTO UserLog (
 		RefID
@@ -1057,9 +1087,11 @@ BEGIN
 		,@LogActionID
 		,@LogUserID
 		,COMPRESS(CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Failed to Generate] (' + rh.RHLog + ')'
-			WHEN rh.StatusID = @StsGenerated THEN @InfLogPrefix + '[Generate Msg Noti process - Verify] - Changed SettlementLogID Status from [Generating] to [Successfully Generated] (' + rh.RHLog + ')'
-			WHEN rh.StatusID = 0 THEN @InfLogPrefix + '[Generate Msg Noti process - Verify] - Ingore Generate(' + rh.RHLog + ')'
-			ELSE @InfLogPrefix + '[Generate Msg Noti process - Verify] - Verify without error' + ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END)
+			WHEN rh.StatusID = @StsIgnore THEN @InfLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Ignore] (' + rh.RHLog + ')'
+			WHEN rh.StatusID = 0 THEN @InfLogPrefix + 'Ingore Generate(' + rh.RHLog + ')'
+			WHEN rh.StatusID = @StsGenerating THEN @InfLogPrefix + 'Verify without error'
+			ELSE @ErrLogPrefix + 'Unknown Status(' + ISNULL(CONVERT(VARCHAR,rh.StatusID),'NULL') + ') error'+ ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END
+		)
 	FROM #tmpVerifyList AS rh
 	WHERE rh.SettlementLogID NOT IN (
 			SELECT TRY_CONVERT(INT, value) AS SettlementLogID

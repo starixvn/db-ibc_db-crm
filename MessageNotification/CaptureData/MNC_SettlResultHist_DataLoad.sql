@@ -165,6 +165,7 @@ BEGIN
 		,SportType INT
 		,CreatedTime DATETIME
 		,ExtraInfo VARCHAR(MAX)
+		,IsDeleted BIT
 	)
 	
 	CREATE TABLE #tmpInsertedRH (
@@ -180,6 +181,7 @@ BEGIN
 		,CustID INT
 		,ExtraInfo_Before VARCHAR(MAX)
 		,ExtraInfo_After VARCHAR(MAX)
+		,IsDeleted BIT
 	)
 	
 	CREATE TABLE #tmpInsertedRHDetail (
@@ -247,6 +249,7 @@ BEGIN
 			,SportType
 			,CreatedTime
 			,ExtraInfo
+			,IsDeleted
 		)
 		SELECT @SiteDBGroupID
 			,SessionID
@@ -261,6 +264,7 @@ BEGIN
 			,SportType
 			,CreatedDate
 			,ExtraInfo
+			,IsDeleted
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory')) WITH (
 				SessionID VARCHAR(50) '$.SessionID'
 				,MatchID INT '$.MatchID'
@@ -274,6 +278,7 @@ BEGIN
 				,SportType INT '$.SportType'
 				,CreatedDate DATETIME '$.CreatedDate'
 				,ExtraInfo VARCHAR(MAX) '$.ExtraInfo'
+				,IsDeleted BIT '$.IsDeleted'
 			)--OPENJSON case-sensitive
 		WHERE @IsTestFlag IS NULL
 			OR IsTest = @IsTestFlag
@@ -285,6 +290,7 @@ BEGIN
 			,CustID
 			,ExtraInfo_Before
 			,ExtraInfo_After
+			,IsDeleted
 		)
 		SELECT SessionID
 			,SeqNo
@@ -292,6 +298,7 @@ BEGIN
 			,CustID
 			,ExtraInfo_Before
 			,ExtraInfo_After
+			,IsDeleted
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory_TicketDetails')) WITH (
 				SessionID VARCHAR(50) '$.SessionID'
 				,SeqNo SMALLINT '$.SeqNo'
@@ -299,6 +306,7 @@ BEGIN
 				,CustID INT '$.CustID'
 				,ExtraInfo_Before VARCHAR(MAX) '$.ExtraInfo_Before'
 				,ExtraInfo_After VARCHAR(MAX) '$.ExtraInfo_After'
+				,IsDeleted BIT '$.IsDeleted'
 			)--OPENJSON case-sensitive
 		
 		INSERT INTO #tmpBalanceNegativeHistory (
@@ -385,6 +393,7 @@ BEGIN
 			,SportType
 			,CreatedTime
 			,ExtraInfo
+			,IsDeleted
 			,InsertedTime
 		)
 		OUTPUT INSERTED.SettlementLogID
@@ -408,6 +417,7 @@ BEGIN
 			,SportType
 			,CreatedTime
 			,ExtraInfo
+			,IsDeleted
 			,GETDATE() AS InsertedTime
 		FROM #tmpResultHist AS rh
 		WHERE rh.SettlementStatusID = 2 --2-Completed Result Amendment
@@ -482,6 +492,7 @@ BEGIN
 			,CustID
 			,ExtraInfo_Before
 			,ExtraInfo_After
+			,IsDeleted
 		)
 		OUTPUT INSERTED.SettlementLogID
 			,INSERTED.Transid
@@ -496,6 +507,7 @@ BEGIN
 			,rhd.CustID
 			,rhd.ExtraInfo_Before
 			,rhd.ExtraInfo_After
+			,rhd.IsDeleted
 		FROM #tmpInsertedRH AS rh
 			INNER JOIN #tmpResultHistDetail AS rhd ON rh.SessionID = rhd.SessionID AND rh.SeqNo = rhd.SeqNo
 		WHERE NOT EXISTS (
@@ -514,6 +526,7 @@ BEGIN
 									,t.CustID
 									,t.ExtraInfo_Before
 									,t.ExtraInfo_After
+									,t.IsDeleted
 								FROM #tmpResultHistDetail AS t
 									INNER JOIN #tmpInsertedRH AS rh ON rh.SessionID = t.SessionID AND rh.SeqNo = t.SeqNo
 								WHERE rh.SettlementLogID = s.SettlementLogID

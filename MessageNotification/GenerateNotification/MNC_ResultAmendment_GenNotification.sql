@@ -580,7 +580,8 @@ BEGIN
 			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ag.Site = s.Site
 			LEFT JOIN STRING_SPLIT(@SabaLeagueGroup, ',') AS saba ON rh.LeagueGroupID = TRY_CONVERT(INT,saba.value)
 			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ag.Site = TRIM(sep.value)
-		-- WHERE rh.SportType = 50 --Cricket
+		WHERE c.currency <> 20 --NOT create for UUS tickets
+			AND ISNULL(rhd.IsDeleted,0) <> 1
 		
 		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (NotiTempID, IsNoneSaba, ControlGrp)
 		

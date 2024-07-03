@@ -48,6 +48,7 @@ BEGIN
 		,SportType INT
 		,CreatedDate DATETIME
 		,ExtraInfo VARCHAR(MAX)
+		,IsDeleted BIT
 	)
 	
 	CREATE TABLE #tmpResultHistDetail (
@@ -57,6 +58,7 @@ BEGIN
 		,CustID INT
 		,ExtraInfo_Before VARCHAR(MAX)
 		,ExtraInfo_After VARCHAR(MAX)
+		,IsDeleted BIT
 	)
 	
 	CREATE TABLE #tmpBalanceNegativeHistory (
@@ -72,55 +74,77 @@ BEGIN
 		,SessionID VARCHAR(50)
 	)
 	
-	;WITH CTE_ResultHist AS (
-		SELECT DISTINCT sh.SessionID
-			,sh.MatchID
-			,l.IsTest
-			,sh.SeqNo
-			,sh.StatusID
-			,sh.ActualResult
-			,sh.WrongResult
-			,sh.ActionType
-			,sh.ResultType
-			,sh.SportType
-			,sh.CreatedDate
-			,sh.ExtraInfo
-		FROM SettlementResultHistory AS sh WITH (NOLOCK)
-			LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON sh.MatchID = m.MatchID
-			LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
-			LEFT JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON ISNULL(m.LeagueID, m14.LeagueID) = l.LeagueID
-		WHERE sh.CreatedDate >= @FDTime
-			AND ISNULL(sh.StatusID,0) >= 2 --[StatusID < 2] => not start Result Amendment steps
-	)
+	--Get data by NonClustered / Clustered
 	INSERT INTO #tmpResultHist (
 		SessionID
 		,MatchID
-		,IsTest
 		,SeqNo
-		,StatusID
-		,ActualResult
-		,WrongResult
-		,ActionType
-		,ResultType
-		,SportType
 		,CreatedDate
-		,ExtraInfo
 	)
-	SELECT SessionID
-		,MatchID
-		,IsTest
-		,SeqNo
-		,StatusID
-		,ActualResult
-		,WrongResult
-		,ActionType
-		,ResultType
-		,SportType
-		,CreatedDate
-		,ExtraInfo
-	FROM CTE_ResultHist
-	WHERE (CASE WHEN ISNULL(@Environment,'UAT') = 'UAT' THEN 1 ELSE IsTest END) = IsTest --If @Environment = UAT, get only TEST League
+	SELECT DISTINCT sh.SessionID
+		,sh.MatchID
+		,sh.SeqNo
+		,sh.CreatedDate
+	FROM SettlementResultHistory AS sh WITH (NOLOCK)
+	WHERE sh.CreatedDate >= @FDTime
+	OPTION (RECOMPILE)
 	
+	CREATE CLUSTERED INDEX CIX_tmpResultHist ON #tmpResultHist (MatchID, SessionID, SeqNo)
+	
+	--Get any data with the same SessionID
+	INSERT INTO #tmpResultHist (
+		SessionID
+		,MatchID
+		,SeqNo
+		,CreatedDate
+	)
+	SELECT DISTINCT sh.SessionID
+		,sh.MatchID
+		,sh.SeqNo
+		,sh.CreatedDate
+	FROM #tmpResultHist AS i
+		LEFT JOIN SettlementResultHistory AS sh WITH (NOLOCK) ON i.MatchID = sh.MatchID AND i.SessionID = sh.SessionID
+	WHERE sh.SessionID IS NOT NULL
+		AND NOT EXISTS (
+			SELECT 1
+			FROM #tmpResultHist AS tg
+			WHERE tg.SessionID = sh.SessionID
+				AND tg.MatchID = sh.MatchID
+				AND tg.SeqNo = sh.SeqNo
+		)
+	
+	--Get additional info
+	UPDATE i
+	SET i.StatusID = sh.StatusID
+		,i.ActualResult = sh.ActualResult
+		,i.WrongResult = sh.WrongResult
+		,i.ActionType = sh.ActionType
+		,i.ResultType = sh.ResultType
+		,i.SportType = sh.SportType
+		,i.ExtraInfo = sh.ExtraInfo
+		,i.IsDeleted = sh.IsDeleted
+	FROM #tmpResultHist AS i
+		LEFT JOIN SettlementResultHistory AS sh WITH (NOLOCK) ON i.SessionID = sh.SessionID AND i.MatchID = sh.MatchID AND i.SeqNo = sh.SeqNo
+	WHERE sh.StatusID >= 2 --[StatusID < 2] => not start Result Amendment steps
+	
+	--If @Environment = UAT, get only TEST League
+	UPDATE i
+	SET i.IsTest = l.IsTest
+	FROM #tmpResultHist AS i
+		LEFT JOIN bodb02.dbo.match AS m WITH (NOLOCK) ON i.MatchID = m.MatchID
+		LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON i.MatchID = m14.MatchID
+		LEFT JOIN bodb02.dbo.league AS l WITH (NOLOCK) ON ISNULL(m.LeagueID, m14.LeagueID) = l.LeagueID
+	WHERE (CASE WHEN ISNULL(@Environment,'UAT') = 'UAT' THEN 1 ELSE l.IsTest END) = l.IsTest --If @Environment = UAT, get only TEST League
+	
+	DELETE FROM #tmpResultHist
+	WHERE IsTest IS NULL
+		OR SessionID IS NULL
+		OR ActualResult IS NULL
+		OR WrongResult IS NULL
+		OR StatusID IS NULL
+		OR ActionType IS NULL
+	
+	-----------------------------------
 	INSERT INTO #tmpResultHistDetail (
 		SessionID
 		,SeqNo
@@ -128,6 +152,7 @@ BEGIN
 		,CustID
 		,ExtraInfo_Before
 		,ExtraInfo_After
+		,IsDeleted
 	)
 	SELECT DISTINCT d.SessionID
 		,d.SeqNo
@@ -135,6 +160,7 @@ BEGIN
 		,COALESCE(b.CustID, b14.CustID, -1) AS CustID
 		,d.ExtraInfo_Before
 		,d.ExtraInfo_After
+		,d.IsDeleted
 	FROM SettlementResultHistory_TicketDetails AS d WITH (NOLOCK)
 		INNER JOIN #tmpResultHist AS h ON d.SessionID = h.SessionID AND d.SeqNo = h.SeqNo
 		LEFT JOIN bodb02.dbo.bettrans AS b WITH (NOLOCK) ON d.Transid = b.Transid

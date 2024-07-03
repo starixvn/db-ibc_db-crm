@@ -10,7 +10,7 @@ ALTER PROCEDURE MNC_Notification_AdmSelNoti
 	,@Content NVARCHAR(MAX) = NULL
 	,@Status VARCHAR(MAX) = NULL
 	,@Sender VARCHAR(50) = NULL
-	,@IncludeTest BIT = NULL
+	,@TestOnly BIT = NULL
 	---permission control---
 	,@UserRole TINYINT = 2
 	,@LicenseeType INT = 0
@@ -39,7 +39,7 @@ AS
 					Licensee CSD: New, Active, Inactive
 		@Sender: who confirm to push notification to Msg (NotificationExtra.ExtraInfo.MsgSender)
 								OR Active LAP Noti (NotificationExtra.ExtraInfo.LapSender)
-		@IncludeTest: NotificationExtra.ExtraInfo.IsTest
+		@TestOnly: NotificationExtra.ExtraInfo.IsTest
 		@PageSize ,@PageIndex ,@TotalRows: handle paging
 		
 		-------------permission control-------------
@@ -296,12 +296,13 @@ BEGIN
 	/*****************************************   APPLY filter criterias   *********************************************************/
 	
 	--Get Notifications by @FNotiID, @TNotiID, @NotiType
-	IF @NotiType IN (1,2)
-		AND (@FNotiID IS NOT NULL OR @TNotiID IS NOT NULL)
+	IF @FNotiID IS NOT NULL
+		OR @TNotiID IS NOT NULL
 	BEGIN
 		--correct if any NULL
 		SELECT @FNotiID = ISNULL(@FNotiID,@TNotiID)
 			,@TNotiID = ISNULL(@TNotiID,@FNotiID)
+			,@MsgID = NULL --Clear MsgID
 		
 		INSERT INTO #tmpNoti (NotiID)
 		SELECT DISTINCT n.NotificationID
@@ -319,7 +320,32 @@ BEGIN
 		OPTION (RECOMPILE)
 	
 	END
-	ELSE IF @NotiType IN (1,2) --get by @FCreatedDate, @TCreatedDate, @NotiType
+	ELSE IF @MsgID IS NOT NULL
+	BEGIN
+		-- SELECT @FNotiID = NULL --Clear FNotiID
+		
+		INSERT INTO #tmpNoti (NotiID)
+		SELECT DISTINCT n.NotificationID
+		FROM dbo.Notification AS n WITH (NOLOCK)
+		WHERE n.RefID = @MsgID
+			AND n.NotificationType = @NotiType
+			AND EXISTS (
+				SELECT 1
+				FROM #tmpStsByNotiType AS s
+				WHERE s.NotiType = n.NotificationType
+					AND s.StatusID = n.StatusID
+			)
+			AND EXISTS (
+				--filter by User Permission
+				SELECT 1
+				FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
+					INNER JOIN #tmpValidSite AS vs ON nt.TargetSite = vs.MainSiteName
+				WHERE nt.NotificationID = n.NotificationID
+			)
+		OPTION (RECOMPILE)
+	
+	END
+	ELSE --get by @FCreatedDate, @TCreatedDate, @NotiType
 	BEGIN
 		INSERT INTO #tmpNoti (NotiID)
 		SELECT DISTINCT n.NotificationID
@@ -355,6 +381,7 @@ BEGIN
 				INNER JOIN #tmpStsByNotiType AS s ON msgn.StatusID = s.StatusID
 			WHERE ne.NotificationID = i.NotiID
 				AND s.RealStatus = 'Sent' --push successful
+				AND msgn.RefID IS NOT NULL --push successful
 				AND ISJSON(ne.ExtraInfo) = 1
 		)
 	END
@@ -401,24 +428,13 @@ BEGIN
 	
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpNotiExt ON #tmpNotiExt (NotiID)
 	
-	--apply filter ONLY IF input NotiID NULL
-	IF @FNotiID IS NULL
-	BEGIN
-		--filter by @MsgID
-		IF @MsgID IS NOT NULL
-		BEGIN
-			DELETE i
-			FROM #tmpNoti AS i
-			WHERE NOT EXISTS (
-				SELECT 1
-				FROM dbo.Notification AS n WITH (NOLOCK)
-				WHERE n.NotificationID = i.NotiID
-					AND n.RefID = @MsgID
-			)
-			
-			UPDATE STATISTICS #tmpNoti
-		END
-		
+	/*
+		apply filter ONLY IF
+			- input NotiID NULL
+			- input MsgID NULL
+	*/
+	IF @FNotiID IS NULL AND @MsgID IS NULL
+	BEGIN		
 		--filter by @Status
 		IF ISNULL(TRIM(@Status),'') <> ''
 		BEGIN
@@ -468,16 +484,15 @@ BEGIN
 			UPDATE STATISTICS #tmpNoti
 		END
 		
-		--filter by @IncludeTest
-		IF @IncludeTest IS NOT NULL
+		--filter by @TestOnly
+		IF @TestOnly IS NOT NULL
 		BEGIN
 			DELETE i
 			FROM #tmpNoti AS i
-			WHERE NOT EXISTS (
-				SELECT 1
-				FROM #tmpNotiExt AS ext
-				WHERE ext.NotiID = i.NotiID
-					AND ext.IsTest IN (0, @IncludeTest)
+				LEFT JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
+			WHERE ext.IsTest = (
+				CASE WHEN @TestOnly = 1 THEN 0 	--@TestOnly = 1 => Keep Test, DELETE IsTest = 0
+				ELSE 1 END						--@TestOnly = 0 => Keep Real, DELETE IsTest = 1
 			)
 			
 			UPDATE STATISTICS #tmpNoti

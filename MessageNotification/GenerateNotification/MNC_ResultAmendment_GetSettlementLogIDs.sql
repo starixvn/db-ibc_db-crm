@@ -615,7 +615,13 @@ BEGIN
 		END
 		
 		--All Test Currency
-		IF NOT EXISTS (
+		IF EXISTS (
+			SELECT 1
+			FROM SettlementResultHist WITH (NOLOCK)
+			WHERE SettlementLogID = @iSettleID
+				AND IsTest = 0
+		)
+		AND NOT EXISTS (
 			SELECT 1
 			FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
 				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
@@ -625,7 +631,7 @@ BEGIN
 		BEGIN
 			UPDATE #tmpVerifyList
 			SET StatusID = @StsIgnore
-				,RHLog = RHLog + 'All Test tickets'
+				,RHLog = RHLog + 'Real Match but All Test tickets'
 			WHERE SettlementLogID = @iSettleID
 			
 			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)

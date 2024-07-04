@@ -370,6 +370,13 @@ BEGIN
 			WHERE NotificationID = @NotiID
 		END
 		
+		IF @NotiUpdCnt = 1
+		BEGIN
+			UPDATE NotificationTarget WITH (ROWLOCK,UPDLOCK)
+			SET StatusID = @NewStatusID
+			WHERE NotificationID = @NotiID
+				AND StatusID <> @NewStatusID
+		END
 		--------------------------
 		INSERT INTO UserLog (
 			RefID

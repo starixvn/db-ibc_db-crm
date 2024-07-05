@@ -153,56 +153,126 @@ VALUES (
 		,@StarixIT
 		,'Result Amendment for Cricket - Notification for LAP with HTML format - {cal_time} can be multi rows'
 	)
+	,(
+		7
+		,'Result Amendment - Alert for Error (Message 1)'
+		,N'Match ID: {MatchID}
+Event Date: {EventDate}
+Event Time (GMT+8): {KOTime}
+League: {LeagueName}
+Match: {HomeName} -vs- {AwayName}
 
+Due to an error, the system could not create the new notification. Please pay attention and contact the IT team for further details. Thank you!'
+		,NULL
+		,NULL
+		,N'{MatchID},{EventDate},{KOTime},{LeagueName},{HomeName},{AwayName}'
+		,@StarixIT
+		,@StarixIT
+		,'Result Amendment for Cricket - Alert for Error (Message 1)'
+	)
+	,(
+		8
+		,'Result Amendment - Alert for new Notification created (Message 2)'
+		,N'**RESULT AMENDMENT NOTIFICATION**
+
+Please REVIEW and SEND this notification of the following event:
+
+Match ID: {MatchID}
+Event Date: {EventDate}
+Event Time (GMT+8): {KOTime}
+League: {LeagueName}
+Match: {HomeName} -vs- {AwayName}
+
+**Notification ID: {NotificationID}**
+**Status: NEW**
+
+**English**
+{Content_en}
+
+**Simplified Chinese**
+{Content_cs}
+
+**Traditional Chinese**
+{Content_ch}'
+		,NULL
+		,NULL
+		,N'{MatchID},{EventDate},{KOTime},{LeagueName},{HomeName},{AwayName},{NotificationID},{Content_en},{Content_cs},{Content_ch}'
+		,@StarixIT
+		,@StarixIT
+		,'Result Amendment for Cricket - Alert for new Notification created (Message 2)'
+	)
+	,(
+		9
+		,'Result Amendment - Alert for inserted failed to DBMSG (Message 3)'
+		,N'**RESULT AMENDMENT NOTIFICATION**
+
+Failed to SEND the following notification. Please try to RESEND and contact the IT team for support. Thank you!
+
+Match ID: {MatchID}
+Event Date: {EventDate}
+Event Time (GMT+8): {KOTime}
+League: {LeagueName}
+Match: {HomeName} -vs- {AwayName}
+
+**Notification ID: {NotificationID}**
+**Status: FAILED**'
+		,NULL
+		,NULL
+		,N'{MatchID},{EventDate},{KOTime},{LeagueName},{HomeName},{AwayName},{NotificationID}'
+		,@StarixIT
+		,@StarixIT
+		,'Result Amendment for Cricket - Alert for inserted failed to DBMSG (Message 3)'
+	)
+	
 /***** AlertRule ****/
 TRUNCATE TABLE AlertRule
 INSERT INTO AlertRule (
 	RuleID
 	,RuleName
-	,RuleType
+	,TemplateID
 	,SQLStatement
 	,ChatGroupIDs
 	-- ,LastScan
 )
 VALUES (
 		1
-		,'SysErr - Running Status Too Long - OST'
-		,'SysErr'
+		,'RA_SysErr - Running Status Too Long - OST'
+		,7
 		,''
 		,'SYS,OST,777'
 	)
 	,(
 		2
-		,'NewNoti - Need Review'
-		,'NewNoti'
+		,'RA_NewNoti - Need Review'
+		,8
 		,''
 		,'OST,777'
 	)
 	,(
 		3
-		,'PushErr - Sent Issue'
-		,'PushErr'
+		,'RA_PushErr - Sent Issue'
+		,9
 		,''
 		,'SYS,OST,777'
 	)
 	,(
 		4
-		,'SysErr - Missing From Any SiteGroupDB'
-		,'SysErr'
+		,'RA_SysErr - Missing From Any SiteGroupDB'
+		,7
 		,''
 		,'SYS,OST,777'
 	)
 	,(
 		5
-		,'SysErr - Failed Status'
-		,'SysErr'
+		,'RA_SysErr - Failed Status'
+		,7
 		,''
 		,'SYS'
 	)
 	,(
 		6
-		,'SysErr - Running Status Too Long - SYS'
-		,'SysErr'
+		,'RA_SysErr - Running Status Too Long - SYS'
+		,7
 		,''
 		,'SYS'
 	)

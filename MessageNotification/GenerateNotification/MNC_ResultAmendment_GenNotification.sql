@@ -583,7 +583,7 @@ BEGIN
 		WHERE ISNULL(rhd.IsDeleted,0) <> 1
 			AND (
 				rh.IsTest = 1
-				OR (rh.IsTest = 0 AND c.currency <> 20) --NOT create for UUS tickets for Real Match
+				OR (rh.IsTest = 0 AND c.currency <> 20) --NOT create for UUS tickets of Real Match
 			)
 		
 		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (NotiTempID, IsNoneSaba, ControlGrp)

@@ -3,7 +3,7 @@
 Created: Roy@20240327
 Description:
 AlertRule properties
-	RuleType: SysErr
+	Template: Message 1
 	Target: OST / 777
 	LastScan: compare with SettlementLogID
 

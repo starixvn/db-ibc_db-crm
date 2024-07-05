@@ -106,6 +106,39 @@ BEGIN
 		RETURN
 	END
 	
+	-----------------verify @@ in [General Notification] (OST)---------------
+	IF EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND NotificationType = 1)
+		AND (
+			ISNULL(CHARINDEX ('@@', @NewContentEN),0) = 0
+			OR ISNULL(CHARINDEX ('@@', @NewContentCH),0) = 0
+			OR ISNULL(CHARINDEX ('@@', @NewContentCS),0) = 0
+		)
+	BEGIN
+		SELECT @ErrCode = 50006
+			,@ErrMsg = 'Missing ''@@'' in Notification content.'
+		
+		INSERT INTO UserLog (
+			RefID
+			,ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @NotiID
+			,@LogActionID
+			,(CASE WHEN @Updater IS NULL THEN @LogUserID ELSE @UpdaterID END)
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
+						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
+						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
+						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
+						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
+						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
+						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+			)
+		
+		RETURN
+	END
+	
 	-----------------load info---------------
 	CREATE TABLE #tmpNewNoti (
 		NotiID INT
@@ -507,8 +540,7 @@ BEGIN
 		ROLLBACK TRANSACTION
 		
 		--return error message
-		SELECT @ErrCode = 50006
-			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+		SELECT @ErrMsg = 'An error has occurred. Please close this page and try again.'
 		
 		--write log
 		INSERT INTO UserLog (

@@ -29,6 +29,7 @@ BEGIN
 		,@TranCount INT
 		,@ErrLogPrefix NVARCHAR(150) = 'Error - Adm - '
 		,@InfLogPrefix NVARCHAR(150) = 'Info - Adm - '
+		,@LocalErrMsg NVARCHAR(MAX)
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -143,7 +144,8 @@ BEGIN
 		OR NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
 	BEGIN
 		SELECT @ErrCode = 50005
-			,@ErrMsg = CASE WHEN @Updater IS NULL THEN 'INPUT ERROR - NOT EXISTS UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = CASE WHEN @Updater IS NULL THEN 'INPUT ERROR - NOT EXISTS UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 							WHEN @NewStatusID IS NULL THEN 'INPUT ERROR - NOT EXISTS Status(' + ISNULL(@NewStatus,'NULL') + ')'
 							ELSE 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')' END
 		
@@ -160,7 +162,7 @@ BEGIN
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+						+ ' - ERROR_MESSAGE(' + ISNULL(@LocalErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -187,7 +189,8 @@ BEGIN
 	IF NOT EXISTS (SELECT 1 FROM #tmpConsisStsByNotiType WHERE StatusID = @NewStatusID)
 	BEGIN
 		SELECT @ErrCode = 50005
-			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [' + ISNULL(@NewStatus,'NULL') + ']'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [' + ISNULL(@NewStatus,'NULL') + ']'
 						+ ' due to inconsistent with NotificationType(' + ISNULL(CONVERT(VARCHAR,@NotiType),'NULL') + ')'
 		
 		INSERT INTO UserLog (
@@ -202,7 +205,7 @@ BEGIN
 			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification Status'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+						+ ' - ERROR_MESSAGE(' + ISNULL(@LocalErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -211,7 +214,8 @@ BEGIN
 	IF NOT EXISTS (SELECT 1 FROM #tmpConsisStsByAction WHERE FStatus = @CurStatus AND ValidChange = @NewStatus)
 	BEGIN
 		SELECT @ErrCode = 50005
-			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status'
 						+ ' from [' + ISNULL(@CurStatus,'NULL') + ']'
 						+ ' to [' + ISNULL(@NewStatus,'NULL') + ']'
 		
@@ -228,7 +232,7 @@ BEGIN
 						+ ' - @CurStatus(' + ISNULL(@CurStatus,'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+						+ ' - ERROR_MESSAGE(' + ISNULL(@LocalErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -238,7 +242,8 @@ BEGIN
 		AND EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND RefID IS NOT NULL)
 	BEGIN
 		SELECT @ErrCode = 50005
-			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sending]'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sending]'
 						+ ' due to an existing MessageID(' + CONVERT(VARCHAR,RefID) + ')'
 		FROM Notification WITH (NOLOCK)
 		WHERE NotificationID = @NotiID
@@ -257,7 +262,7 @@ BEGIN
 						+ ' - @CurStatus(' + ISNULL(@CurStatus,'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+						+ ' - ERROR_MESSAGE(' + ISNULL(@LocalErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -267,7 +272,8 @@ BEGIN
 		AND EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND RefID IS NULL)
 	BEGIN
 		SELECT @ErrCode = 50005
-			,@ErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sent]'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'Unable to modify NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ') status to [Sent]'
 						+ ' due to an NOT EXISTS REFID'
 		
 		INSERT INTO UserLog (
@@ -283,7 +289,7 @@ BEGIN
 						+ ' - @CurStatus(' + ISNULL(@CurStatus,'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+						+ ' - ERROR_MESSAGE(' + ISNULL(@LocalErrMsg,'NULL') + ')')
 		
 		RETURN
 	END
@@ -401,7 +407,8 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
-			,@ErrMsg = 'FAILED to UPD Notification status'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'FAILED to UPD Notification status'
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @CurStatus(' + ISNULL(@CurStatus,'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -427,7 +434,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@UpdaterID
-			,COMPRESS(@ErrLogPrefix + 'ROLLBACK EXECUTING Update Noti Status - ' + @ErrMsg)
+			,COMPRESS(@ErrLogPrefix + 'ROLLBACK EXECUTING Update Noti Status - ' + @LocalErrMsg)
 	END CATCH
 	
 	DROP TABLE #tmpConsisStsByNotiType

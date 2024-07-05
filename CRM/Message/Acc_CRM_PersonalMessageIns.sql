@@ -1,6 +1,6 @@
-/*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBMSG-bodb_Message" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageIns]
-	@UserName			VARCHAR(MAX),		--max 50 users
+	@CustList			VARCHAR(MAX),		--max 50 users
 	@Title				VARCHAR(300) = NULL,
 	@Content_en			NVARCHAR(4000),
 	@Content_cs			NVARCHAR(4000),
@@ -23,6 +23,7 @@ AS
 	Revisions:
 		- 20230308@Tacy: Create SP [RedmineID: #184753]
 		- 20230509@Tacy: Write log into [crmUserLog_RunSP] instead of [UserLog_RunSP] [redmineID: #187957]
+		- 20240705@Luke: Remove linked-server on DBCust [Redmine: #206895]
 
 	Param's Explanation:
 		- @MsgContentsType: to identify normal message or changed settings message
@@ -46,15 +47,13 @@ BEGIN
 	
 	SET @StartRun=GETDATE()
 
-	;WITH tbUser AS (
-		SELECT DISTINCT RTRIM(LTRIM(value)) UserName
-		FROM string_split(@UserName,',')
-	)
-	INSERT INTO #tbUser (custid, UserName)
-	SELECT c.CustID, c.UserName
-	FROM tbUser t
-	INNER JOIN DBCUST.CustDB.dbo.Customer c WITH (NOLOCK)
-		ON c.username=t.UserName
+	INSERT INTO #tbUser(custid, UserName)
+	SELECT custid, username 
+	FROM OPENJSON(@CustList) WITH (
+		custid		INT			'$.id',
+		username	VARCHAR(30)	'$.name' 
+	) --OPENJSON case-sensitive
+	WHERE ISJSON(@CustList) = 1
 	
 	--Insert Msg
 	INSERT INTO Msg (Content_ch, Content_cs, Content_th, Content_en, Content_vn,

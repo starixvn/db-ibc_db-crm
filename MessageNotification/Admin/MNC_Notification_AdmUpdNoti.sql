@@ -32,6 +32,7 @@ BEGIN
 		,@ErrLogPrefix NVARCHAR(150) = 'Error - Adm - '
 		,@InfLogPrefix NVARCHAR(150) = 'Info - Adm - '
 		,@LogMode VARCHAR(500)
+		,@LocalErrMsg NVARCHAR(MAX)
 	
 	DECLARE @tmpUserLog TABLE (
 		LogTime DATETIME DEFAULT GETDATE()
@@ -81,7 +82,9 @@ BEGIN
 		OR NOT EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID)
 	BEGIN
 		SELECT @ErrCode = 50006
-			,@ErrMsg = CASE WHEN @Updater IS NULL THEN 'INPUT ERROR - NOT EXISTS UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
+			,@ErrMsg = (CASE WHEN @Updater IS NULL THEN 'Invalid Updater' ELSE 'Invalid Input NotiID' END)
+					+ '. Please close this page and try again.'
+			,@LocalErrMsg = CASE WHEN @Updater IS NULL THEN 'INPUT ERROR - NOT EXISTS UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 							ELSE 'INPUT ERROR - NOT EXISTS NotificationID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')' END
 		
 		INSERT INTO UserLog (
@@ -93,7 +96,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,(CASE WHEN @Updater IS NULL THEN @LogUserID ELSE @UpdaterID END)
-			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @LocalErrMsg
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -116,6 +119,7 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 50006
 			,@ErrMsg = 'Missing ''@@'' in Notification content.'
+			,@LocalErrMsg = 'Missing ''@@'' in Notification content.'
 		
 		INSERT INTO UserLog (
 			RefID
@@ -126,7 +130,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,(CASE WHEN @Updater IS NULL THEN @LogUserID ELSE @UpdaterID END)
-			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + 'FAILED while UPD Notification - ' + @LocalErrMsg
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -252,7 +256,8 @@ BEGIN
 		ELSE
 		BEGIN
 			SELECT @ErrCode = 50006
-				,@ErrMsg = 'UPD Notification Subject - S.T wrong with NO row affected'
+				,@ErrMsg = 'An error has occurred while updating Subject. Please close this page and try again.'
+				,@LocalErrMsg = 'UPD Notification Subject - S.T wrong with NO row affected'
 			
 			INSERT INTO @tmpUserLog (
 				RefID
@@ -264,7 +269,7 @@ BEGIN
 			SELECT @NotiID
 				,@LogActionID
 				,@UpdaterID
-				,COMPRESS(@ErrLogPrefix + @ErrMsg
+				,COMPRESS(@ErrLogPrefix + @LocalErrMsg
 					+ ' - Current @NotiUpdCnt(' + ISNULL(CONVERT(VARCHAR,@NotiUpdCnt),'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 					+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
@@ -288,7 +293,8 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = 'FAILED to UPD Notification Subject - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'FAILED to UPD Notification Subject - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
 		INSERT INTO @tmpUserLog (
 			RefID
@@ -299,7 +305,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@UpdaterID
-			,COMPRESS(@ErrLogPrefix + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + @LocalErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -389,7 +395,8 @@ BEGIN
 		ELSE
 		BEGIN
 			SELECT @ErrCode = 50006
-				,@ErrMsg = 'UPD Notification Content - S.T wrong with NO row affected'
+				,@ErrMsg = 'An error has occurred while updating Content. Please close this page and try again.'
+				,@LocalErrMsg = 'UPD Notification Content - S.T wrong with NO row affected'
 			
 			INSERT INTO @tmpUserLog (
 				RefID
@@ -400,7 +407,7 @@ BEGIN
 			SELECT @NotiID
 				,@LogActionID
 				,@UpdaterID
-				,COMPRESS(@ErrLogPrefix + @ErrMsg
+				,COMPRESS(@ErrLogPrefix + @LocalErrMsg
 					+ ' - @NotiUpdCnt(' + ISNULL(CONVERT(VARCHAR,@NotiUpdCnt),'NULL') + ')'
 					+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 					+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
@@ -427,7 +434,8 @@ BEGIN
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = 'FAILED to UPD Notification Content - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'FAILED to UPD Notification Content - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
 		INSERT INTO @tmpUserLog (
 			RefID
@@ -438,7 +446,7 @@ BEGIN
 		SELECT @NotiID
 			,@LogActionID
 			,@UpdaterID
-			,COMPRESS(@ErrLogPrefix + @ErrMsg
+			,COMPRESS(@ErrLogPrefix + @LocalErrMsg
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -484,10 +492,11 @@ BEGIN
 			,@NewStatus = @NewStatus
 			,@UpdaterID = @UpdaterID
 			,@ErrCode = @ErrCode OUTPUT
-			,@ErrMsg = @ErrMsg OUTPUT
+			,@ErrMsg = @LocalErrMsg OUTPUT
 			
 			IF ISNULL(@ErrCode,0) <> 0
 			BEGIN
+				SELECT @ErrMsg = 'An error has occurred while updating Status. Please close this page and try again.'
 				INSERT INTO @tmpUserLog (
 					RefID
 					,ActionID
@@ -498,7 +507,7 @@ BEGIN
 					,@LogActionID
 					,@UpdaterID
 					,COMPRESS(@ErrLogPrefix + 'ROLLBACK AFTER Update Noti Status'
-						+ ' - @ErrMsg(' + ISNULL(@ErrMsg,'NULL') + ')'
+						+ ' - @ErrMsg(' + ISNULL(@LocalErrMsg,'NULL') + ')'
 						+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 						+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 						+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -506,12 +515,13 @@ BEGIN
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
-						+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+					)
 			END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR
-			,@ErrMsg = 'FAILED to UPD Notification Status - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
+			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
+			,@LocalErrMsg = 'FAILED to UPD Notification Status - ERROR_MESSAGE(' + ISNULL(ERROR_MESSAGE(),'NULL') + ')'
 		
 		INSERT INTO @tmpUserLog (
 			RefID
@@ -523,7 +533,7 @@ BEGIN
 			,@LogActionID
 			,@UpdaterID
 			,COMPRESS(@ErrLogPrefix + 'ROLLBACK WHILE Update Noti Status'
-				+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
+				+ ' - ERROR_MESSAGE(' + ISNULL(@LocalErrMsg,'NULL') + ')'
 				+ ' - @NotiID(' + ISNULL(CONVERT(VARCHAR,@NotiID),'NULL') + ')'
 				+ ' - @NewStatus(' + ISNULL(@NewStatus,'NULL') + ')'
 				+ ' - @NewSubject(' + ISNULL(@NewSubject,'NULL') + ')'
@@ -540,7 +550,7 @@ BEGIN
 		ROLLBACK TRANSACTION
 		
 		--return error message
-		SELECT @ErrMsg = 'An error has occurred. Please close this page and try again.'
+		SELECT @ErrMsg = ISNULL(@ErrMsg,'An error has occurred. Please close this page and try again.')
 		
 		--write log
 		INSERT INTO UserLog (

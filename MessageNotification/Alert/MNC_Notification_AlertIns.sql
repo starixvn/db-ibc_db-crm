@@ -136,8 +136,7 @@ BEGIN
 			FROM Alert AS a WITH (NOLOCK)
 			WHERE a.RuleID = @RuleID
 				AND a.RefID = @RuleID
-				AND a.Content = ('FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')' + ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
-				AND DATEADD(MI, 5, a.InsertedTime) > GETDATE() --check not Spam - insert after 5 mins
+				AND DATEADD(MI, 30, a.InsertedTime) > GETDATE() --Not Spam - insert after 30 mins
 		)
 		
 		SELECT @ExcpInsCnt = @@ROWCOUNT

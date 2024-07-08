@@ -265,14 +265,14 @@ VALUES (
 	,(
 		5
 		,'RA_SysErr - Failed Status'
-		,7
+		,NULL
 		,''
 		,'SYS'
 	)
 	,(
 		6
 		,'RA_SysErr - Running Status Too Long - SYS'
-		,7
+		,NULL
 		,''
 		,'SYS'
 	)

@@ -25,6 +25,9 @@ BEGIN
 	DECLARE @LogActionID SMALLINT
 		,@LogUserID INT
 		,@StsNew TINYINT
+		,@ChatGroupIDs VARCHAR(200)
+		,@IT_ChatGroupID VARCHAR(50) = 'SYS' --IT ChatGroupID
+		,@TemplateID SMALLINT
 		,@RuleID INT
 		,@ITRuleID INT = 1 --this RuleID config to receive all message
 		,@SQLStatement NVARCHAR(MAX)
@@ -57,9 +60,19 @@ BEGIN
 		SELECT @SQLStatement = SQLStatement
 			,@JSAlertResult = ''
 			,@LastScan = LastScan
+			,@ChatGroupIDs = ChatGroupIDs
+			,@TemplateID = TemplateID
 		FROM AlertRule WITH (NOLOCK)
 		WHERE RuleID = @RuleID
 		
+		--Check before EXEC
+		IF ISNULL(TRIM(@ChatGroupIDs),'') = '' --NULL/BLANK
+			OR (@TemplateID IS NULL AND REPLACE(TRIM(@ChatGroupIDs),',','') <> @IT_ChatGroupID) --TemplateID NULL but NOT only SYS
+		BEGIN
+			RAISERROR (N'Invalid ChatGroupIDs.', 16, 0)
+		END
+		
+		--EXEC
 		EXEC sp_executesql @SQLStatement, @Params
 					,@RuleID = @RuleID
 					,@LastScan = @LastScan OUTPUT

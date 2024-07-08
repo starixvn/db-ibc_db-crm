@@ -228,7 +228,7 @@ BEGIN
 		SELECT a.AlertID
 			,a.MatchID
 			,nm.NotificationID
-			,nm.SettlementLogID
+			,rs.SettlementLogID
 		FROM #tmpSendingAlert AS a
 			LEFT JOIN SettlementResultHist AS rs WITH (NOLOCK) ON a.SessionID = rs.SessionID
 			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON nm.SettlementLogID = rs.SettlementLogID
@@ -345,7 +345,7 @@ BEGIN
 	SET sa.ValidToSendChatGroup = 0
 		,sa.IgnoreReason = ISNULL(sa.IgnoreReason + ', EventAlert - ','EventAlert - ')
 			+ (CASE WHEN sa.MatchID IS NULL THEN 'Missing Alert.RefExtraInfo.MatchID'
-				WHEN sa.TemplateID IS NULL THEN 'Can NOT retrieve TemplateID from AlertRule'
+				WHEN (sa.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID) THEN 'TemplateID(NULL) for User group'
 				ELSE 'TemplateID(' + ISNULL(CONVERT(NVARCHAR,sa.TemplateID),'NULL') + ') NOT EXISTS in NotiTemplate' END
 			)
 	FROM #tmpSendingAlert AS sa
@@ -354,7 +354,7 @@ BEGIN
 		AND sa.AlertType = 'EventAlert'
 		AND (
 			sa.MatchID IS NULL
-			OR sa.TemplateID IS NULL
+			OR (sa.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID)
 			OR ntp.TemplateID IS NULL
 		)
 	

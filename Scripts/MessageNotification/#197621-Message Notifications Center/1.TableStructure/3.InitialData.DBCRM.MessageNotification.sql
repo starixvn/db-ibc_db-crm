@@ -145,7 +145,7 @@ VALUES (
 	,(
 		6
 		,'Result Amendment for Cricket'
-		,N'<b>Dear Valued Customers,</b><br/><br/>Please be informed that the match between "{match_name}" [{league_name} - {KO_date}], result has been amended. Please refer to below for more information:<br/><br/><b>English Message:-</b><br/>{notification}<br/><br/><b>Settlement log:<br/>(System Time)</b><br/>{cal_time}<br/>{recal_time}<br/><br/><b style="color:red">Kindly refer to the attached file for those affected customers & tickets.</b><br/><br/>Sorry for the inconvenience caused and thank you for your kind attention!<br/><br/><b>Best Regards,</b><br/>(CS input name here for the one who check)<br/><b>Customer Service Team</b>'
+		,N'<b>Dear Valued Customers,</b><br/><br/>Please be informed that the match between "{match_name}" [{league_name} - {KO_date}], result has been amended. Please refer to below for more information:<br/><br/><b>English Message:-</b><br/>{notification}<br/><br/><b>Settlement log:<br/>(System Time)</b><br/>{cal_time}<br/>{recal_time}<br/><br/><b style="color:red">Kindly refer to the attached file for those affected customers & tickets.</b><br/><br/>Sorry for the inconvenience caused and thank you for your kind attention!<br/><br/><b>Best Regards,</b><br/><b>Customer Service Team</b>'
 		,NULL
 		,N'<b>亲爱的客户，</b><br/><br/>请注意, 赛事 "{match_name}" [{league_name} - {KO_date}], 赛果已重新结算。有关详情，请参考以下资讯：<br/><br/><b>中文信息:-</b><br/>{notification}<br/><br/><b>结算日志:<br/>(系统时间)</b><br/>{cal_time}<br/>{recal_time}<br/><br/><b style="color:red">有关受影响的会员和注单请参阅附件。</b><br/><br/>不便之处, 敬请见谅。谢谢!<br/>'
 		,N'{match_name},{league_name},{KO_date},{notification},{cal_time},{recal_time}'

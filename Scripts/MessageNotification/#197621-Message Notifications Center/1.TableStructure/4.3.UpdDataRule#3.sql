@@ -18,7 +18,7 @@ Created: Roy@20240327
 Description: Alert rule for [Insert DBMSG]
 
 AlertRule properties
-	RuleType: RA_PushErr
+	Template: Message 3
 	Target: OST/777
 	Scan Range: LastModifiedTime BETWEEN DATEADD(DD, -1, GETDATE()) AND GETDATE()
 

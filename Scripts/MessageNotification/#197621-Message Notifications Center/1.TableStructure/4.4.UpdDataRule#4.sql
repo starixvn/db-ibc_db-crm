@@ -17,7 +17,7 @@ SELECT @sqlStm =
 Created: Roy@20240327
 Description:
 AlertRule properties
-	RuleType: RA_SysErr
+	Template: Message 1
 	Target: OST / 777
 	LastScan: compare with SettlementLogID
 

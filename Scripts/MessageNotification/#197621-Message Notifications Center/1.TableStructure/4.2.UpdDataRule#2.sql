@@ -18,7 +18,7 @@ Created: Roy@20240327
 Description: Alert rule for [review]
 
 AlertRule properties
-	RuleType: RA_NewNoti
+	Template: Message 2
 	Target: OST/777
 	Scan Range: LastModifiedTime BETWEEN DATEADD(DD, -1, GETDATE()) AND GETDATE()
 

@@ -156,7 +156,9 @@ VALUES (
 	,(
 		7
 		,'Result Amendment - Alert for Error (Message 1)'
-		,N'Match ID: {MatchID}
+		,N'**RESULT AMENDMENT NOTIFICATION**
+
+Match ID: {MatchID}
 Event Date: {EventDate}
 Event Time (GMT+8): {KOTime}
 League: {LeagueName}

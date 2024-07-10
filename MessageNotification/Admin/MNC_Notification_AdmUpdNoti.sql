@@ -111,6 +111,7 @@ BEGIN
 	
 	-----------------verify @@ in [General Notification] (OST)---------------
 	IF EXISTS (SELECT 1 FROM Notification WITH (NOLOCK) WHERE NotificationID = @NotiID AND NotificationType = 1)
+		AND @NewStatus = 'Sending'
 		AND (
 			ISNULL(CHARINDEX ('@@', @NewContentEN),0) = 0
 			OR ISNULL(CHARINDEX ('@@', @NewContentCH),0) = 0

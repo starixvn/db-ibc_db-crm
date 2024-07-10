@@ -440,6 +440,12 @@ BEGIN
 				,TRY_CONVERT(XML, bf.ExtraInfo_Before) AS ExtraXML
 			FROM SettlementResultHistDetail AS bf WITH (NOLOCK)
 				INNER JOIN #tmpResultHist AS rh ON bf.SettlementLogID = rh.SettlementLogID
+				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON bf.CustID = c.CustID
+			WHERE rh.IsTest = 1
+				OR (
+					rh.IsTest = 0
+					AND c.currency <> 20
+				) --generate only for real cust if real match
 					
 			UNION ALL
 					
@@ -447,6 +453,12 @@ BEGIN
 				,TRY_CONVERT(XML, af.ExtraInfo_After) AS ExtraXML
 			FROM SettlementResultHistDetail AS af WITH (NOLOCK)
 				INNER JOIN #tmpResultHist AS rh ON af.SettlementLogID = rh.SettlementLogID
+				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON af.CustID = c.CustID
+			WHERE rh.IsTest = 1
+				OR (
+					rh.IsTest = 0
+					AND c.currency <> 20
+				) --generate only for real cust if real match
 
 		)
 		,CTE_ResourceID AS (
@@ -1689,6 +1701,7 @@ BEGIN
 		)
 		UPDATE n
 		SET n.StatusID = v.SuccessStatusID --based on IgnoreReviewContentBySport
+			-- ,n.LastModifiedTime = GETDATE() --no Need, just validate StatusID after inserted => leave it as is
 		FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN CTE_Valid AS v ON n.NotificationID = v.NotificationID
 		

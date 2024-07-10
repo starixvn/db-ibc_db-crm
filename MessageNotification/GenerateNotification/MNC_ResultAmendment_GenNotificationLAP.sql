@@ -1093,6 +1093,7 @@ BEGIN
 		)
 		UPDATE n
 		SET n.StatusID = @StsNew
+			-- ,n.LastModifiedTime = GETDATE() --no Need, just validate StatusID after inserted => leave it as is
 		FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN CTE_Valid AS v ON n.NotificationID = v.Lap_NotiID
 		

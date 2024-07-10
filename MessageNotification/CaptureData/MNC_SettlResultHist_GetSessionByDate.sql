@@ -174,31 +174,34 @@ BEGIN
 		
 		Paid Attention when handling SessionID / CustID
 	*/
-	INSERT INTO #tmpBalanceNegativeHistory (
-		LogID
-		,ExecDate
-		,MatchID
-		,ActionID
-		,CustID
-		,GroupID
-		,Balance
-		,TotalBalance
-		,Site
-		,SessionID
-	)
-	SELECT DISTINCT bn.LogID
-		,bn.ExecDate
-		,bn.MatchID
-		,bn.ActionID
-		,bn.CustID
-		,bn.GroupID
-		,bn.Balance
-		,bn.TotalBalance
-		,bn.Site
-		,bn.SessionID
-	FROM bodb02.dbo.BalanceNegativeHistory AS bn WITH (NOLOCK)
-		INNER JOIN #tmpResultHistDetail AS d ON bn.SessionID = d.SessionID AND bn.CustID = d.CustID
-		INNER JOIN #tmpResultHist AS rh ON d.SessionID = rh.SessionID AND d.SeqNo = rh.SeqNo AND bn.MatchID = rh.MatchID
+	IF OBJECT_ID(N'bodb02.dbo.BalanceNegativeHistory') IS NOT NULL
+	BEGIN
+		INSERT INTO #tmpBalanceNegativeHistory (
+			LogID
+			,ExecDate
+			,MatchID
+			,ActionID
+			,CustID
+			,GroupID
+			,Balance
+			,TotalBalance
+			,Site
+			,SessionID
+		)
+		SELECT DISTINCT bn.LogID
+			,bn.ExecDate
+			,bn.MatchID
+			,bn.ActionID
+			,bn.CustID
+			,bn.GroupID
+			,bn.Balance
+			,bn.TotalBalance
+			,bn.Site
+			,bn.SessionID
+		FROM bodb02.dbo.BalanceNegativeHistory AS bn WITH (NOLOCK)
+			INNER JOIN #tmpResultHistDetail AS d ON bn.SessionID = d.SessionID AND bn.CustID = d.CustID
+			INNER JOIN #tmpResultHist AS rh ON d.SessionID = rh.SessionID AND d.SeqNo = rh.SeqNo AND bn.MatchID = rh.MatchID
+	END
 	
 	---prepare data
 	INSERT INTO #tmpJSData (ObjectName, JSONData)

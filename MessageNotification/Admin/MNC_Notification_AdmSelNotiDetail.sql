@@ -43,7 +43,7 @@ BEGIN
 	CREATE TABLE #tmpNotiExt (
 		NotiID INT
 		,MsgID INT
-		,EventDate DATE
+		,KOTime DATETIME
 		,EventName NVARCHAR(500)
 	)
 	
@@ -204,12 +204,12 @@ BEGIN
 		INSERT INTO #tmpNotiExt (
 			NotiID
 			,MsgID
-			,EventDate
+			,KOTime
 			,EventName
 		)
 		SELECT DISTINCT n.NotificationID
 			,n.RefID
-			,ne.EventDate
+			,ext.KOTime
 			,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') + ' -vs- ' + ext.AwayNameEN AS EventName
 		FROM dbo.Notification AS n WITH (NOLOCK)
 			INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON n.NotificationID = ne.NotificationID
@@ -217,6 +217,7 @@ BEGIN
 							HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
+							,KOTime DATETIME '$.KOTime'
 						) AS ext --OPENJSON case-sensitive
 		WHERE n.NotificationID = @NotiID
 			AND ISJSON(ne.ExtraInfo) = 1
@@ -251,12 +252,12 @@ BEGIN
 		INSERT INTO #tmpNotiExt (
 			NotiID
 			,MsgID
-			,EventDate
+			,KOTime
 			,EventName
 		)
 		SELECT DISTINCT nLap.NotificationID
 			,nLap.RefID
-			,neLap.EventDate
+			,extLap.KOTime
 			,extLap.HomeNameEN + ISNULL(' ' + extLap.NeutralEN,'') + ' -vs- ' + extLap.AwayNameEN AS EventName
 		FROM dbo.Notification AS nLap WITH (NOLOCK)
 			INNER JOIN dbo.NotificationExtra AS neLap WITH (NOLOCK) ON nLap.NotificationID = neLap.NotificationID
@@ -265,6 +266,7 @@ BEGIN
 							,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 							,NeutralEN NVARCHAR(10) '$.NeutralEN'
 							,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
+							,KOTime DATETIME '$.KOTime'
 						) AS extLap --OPENJSON case-sensitive
 		WHERE nLap.NotificationID = @NotiID
 			AND ISJSON(neLap.ExtraInfo) = 1
@@ -308,7 +310,7 @@ BEGIN
 	SELECT DISTINCT n.NotificationID
 		,ext.MsgID AS MessageID
 		,(CASE WHEN s.Status = 'Failed to Send' THEN 'Failed' ELSE s.Status END) AS Status
-		,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
+		,FORMAT(DATEADD(HH, 12, ext.KOTime),'MMM dd, yyyy hh:mm tt') AS EventTime --GMT+8
 		,ext.EventName
 		,n.Subject
 		,n.Content_en

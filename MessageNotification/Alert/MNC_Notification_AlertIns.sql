@@ -2,6 +2,7 @@
 ALTER PROCEDURE MNC_Notification_AlertIns
 	@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
+WITH EXECUTE AS 'sqllink'
 AS
 /*
 	Created: 20231213@Roy

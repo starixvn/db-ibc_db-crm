@@ -149,7 +149,7 @@ BEGIN
 			SELECT 1
 			FROM Alert AS a WITH (NOLOCK)
 			WHERE a.RuleID = @RuleID
-				AND a.RefID = @RuleID
+				AND a.RefID = CONVERT(VARCHAR,@RuleID)
 				AND DATEADD(MI, 30, a.InsertedTime) > GETDATE() --Not Spam - insert after 30 mins
 		)
 		

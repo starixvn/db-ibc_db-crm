@@ -271,7 +271,7 @@ BEGIN
 	
 	IF NULLIF(TRIM(@SettlIDs), '') IS NOT NULL
 	BEGIN
-		EXEC MNC_ResultAmendment_JSParseResult
+		EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
 			@SettlementLogIDs = @SettlIDs
 			,@ParseTo = 'RemotingRef'
 			,@OutJSResource = @JSResource OUTPUT

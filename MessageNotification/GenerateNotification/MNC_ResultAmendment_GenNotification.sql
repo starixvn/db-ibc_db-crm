@@ -422,7 +422,7 @@ BEGIN
 			Parse data from ActualResult / WrongResult
 				#tmpResultInfo
 		*/
-		EXEC MNC_ResultAmendment_JSParseResult
+		EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
 			@SettlementLogIDs = @ValidSettlementLogIDs
 			,@ParseAmendInfo = 'ActualResult,WrongResult'
 			,@ParseTo = 'RawData'

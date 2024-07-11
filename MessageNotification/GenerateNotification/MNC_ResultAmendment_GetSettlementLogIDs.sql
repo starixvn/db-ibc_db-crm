@@ -277,7 +277,7 @@ BEGIN
 		DECLARE @JSResource NVARCHAR(MAX)
 			,@Params NVARCHAR(4000) = N'@SettlementLogIDs VARCHAR(MAX), @ParseAmendInfo VARCHAR(50) = ''ALL'', @ParseTo VARCHAR(50) = ''RemotingRef'', @OutJSResource NVARCHAR(MAX) OUTPUT, @ErrCode INT OUTPUT, @ErrMsg NVARCHAR(2000) OUTPUT'
 			,@SQLStatement NVARCHAR(MAX) = N'
-				EXEC MNC_ResultAmendment_JSParseResult
+				EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
 					@SettlementLogIDs = @SettlementLogIDs
 					,@ParseAmendInfo = @ParseAmendInfo
 					,@ParseTo = @ParseTo
@@ -382,7 +382,7 @@ BEGIN
 				,@ErrMsg = ''
 				,@Params = N'@SettlementLogIDs VARCHAR(MAX), @ParseAmendInfo VARCHAR(50) = ''ActualResult,WrongResult'', @ParseTo VARCHAR(50) = ''RawData'', @OutJSResource NVARCHAR(MAX) OUTPUT, @ErrCode INT OUTPUT, @ErrMsg NVARCHAR(2000) OUTPUT'
 				,@SQLStatement = N'
-					EXEC MNC_ResultAmendment_JSParseResult
+					EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
 						@SettlementLogIDs = @SettlementLogIDs
 						,@ParseAmendInfo = @ParseAmendInfo
 						,@ParseTo = @ParseTo

@@ -355,7 +355,7 @@ BEGIN
 		AND (
 			sa.MatchID IS NULL
 			OR (sa.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID)
-			OR ntp.TemplateID IS NULL
+			OR (ntp.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID)
 		)
 	
 	-----------------EventAlert - Verify and UPDATE ExistTest / ExistReal-----------------

@@ -446,8 +446,8 @@ BEGIN
 		UPDATE #tmpError_New
 		SET RefID = (
 			CASE WHEN RuleID = 1 THEN SessionID
-				WHEN RuleID = 2 THEN CONVERT(VARCHAR,NotificationID)
-				WHEN RuleID = 3 THEN CONVERT(VARCHAR,NotificationID)
+				WHEN RuleID = 2 THEN CONVERT(NVARCHAR,NotificationID)
+				WHEN RuleID = 3 THEN CONVERT(NVARCHAR,NotificationID)
 				WHEN RuleID = 4 THEN SessionID
 				WHEN RuleID = 5 THEN SessionID
 				WHEN RuleID = 6 THEN SessionID

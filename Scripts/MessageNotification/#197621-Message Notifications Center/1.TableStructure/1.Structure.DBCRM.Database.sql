@@ -33,3 +33,18 @@ CREATE DATABASE [MessageNotification] ON PRIMARY (
 		,FILEGROWTH = 512 MB
 	)
 GO
+
+USE MessageNotification
+GO
+
+CREATE USER [wsv_nap] FOR LOGIN [wsv_nap] WITH DEFAULT_SCHEMA=[dbo]
+GO
+
+CREATE USER [wsv_lap] FOR LOGIN [wsv_lap] WITH DEFAULT_SCHEMA=[dbo]
+GO
+
+CREATE USER [vnteam] FOR LOGIN [vnteam] WITH DEFAULT_SCHEMA=[dbo]
+GO
+
+ALTER ROLE [db_datareader] ADD MEMBER [vnteam]
+GO

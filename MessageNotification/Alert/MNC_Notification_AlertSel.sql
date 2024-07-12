@@ -123,13 +123,8 @@ BEGIN
 	
 	-----------------------------Start to get Alert with [RefInfo <> RuleID] and mark [Sending]-----------------
 	DECLARE @OutJSAlertInfo NVARCHAR(MAX)
-			,@Params NVARCHAR(4000) = N'@OutJSAlertInfo NVARCHAR(MAX) OUTPUT'
-			,@SQLStatement NVARCHAR(MAX) = N'
-				EXEC MessageNotification.dbo.MNC_Notification_GetAlertInfo
-					@JSAlertInfo = @OutJSAlertInfo OUTPUT'
-					
-	EXEC sp_executesql @SQLStatement, @Params
-		,@OutJSAlertInfo = @OutJSAlertInfo OUTPUT
+	EXEC MessageNotification.dbo.MNC_Notification_GetAlertInfo
+		@JSAlertInfo = @OutJSAlertInfo OUTPUT
 	
 	--SendingAlert
 	INSERT INTO #tmpSendingAlert (

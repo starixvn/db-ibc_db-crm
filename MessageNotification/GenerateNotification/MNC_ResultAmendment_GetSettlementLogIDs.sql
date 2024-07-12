@@ -47,7 +47,7 @@ AS
 				+ For ActionType = 3 (Refund to CAL), ActualResult can NOT blank
 				+ For ActionType = 1 (CAL to CAL), ResourceID between ActualResult and WrongResult must be match 1:1
 			
-			- write #tmpRemotingRefData info if enable IncludeTestMatch AND any returned NULL value
+			- write #tmpGSIRemotingRefData info if enable IncludeTestMatch AND any returned NULL value
 	
 	Example:
 		EXEC MessageNotification.dbo.MNC_ResultAmendment_GetSettlementLogIDs
@@ -161,15 +161,21 @@ BEGIN
 		SET @IsTestFlag = NULL
 	END
 	
+	/*
+		Faced to Issues When Using Temporary Tables in Nested Stored Procedures
+		
+		Use Prefix #tmpGSI (GSI = Get Settlement IDs) in Nested SP instead of #tmp when using temporary table
+		Make sure to use a different naming convention
+	*/
 	---create temp tables---	
-	CREATE TABLE #tmpResourceRef (
+	CREATE TABLE #tmpGSIResourceRef (
 		SettlementLogID INT
 		,GroupName VARCHAR(50)
 		,RefId1 VARCHAR(50)
 		,RefId2 VARCHAR(50)
 	)
 	
-	CREATE TABLE #tmpResourceRawData (
+	CREATE TABLE #tmpGSIResourceRawData (
 		SettlementLogID INT
 		,AmendInfo VARCHAR(50)
 		,ResourceID VARCHAR(50)
@@ -177,13 +183,13 @@ BEGIN
 		,HomeValue VARCHAR(50)
 	)
 	
-	CREATE TABLE #tmpVerifyList (
+	CREATE TABLE #tmpGSIVerifyList (
 		SettlementLogID INT
 		,StatusID TINYINT
 		,RHLog NVARCHAR(MAX) DEFAULT ''
 	)
 	
-	CREATE TABLE #tmpRemotingRefData (
+	CREATE TABLE #tmpGSIRemotingRefData (
 		SettlementLogID INT
 		,GroupName VARCHAR(50)
 		,RefId1 VARCHAR(50)
@@ -194,7 +200,7 @@ BEGIN
 	)
 	
 	BEGIN TRY
-		INSERT INTO #tmpRemotingRefData (
+		INSERT INTO #tmpGSIRemotingRefData (
 			SettlementLogID
 			,GroupName
 			,RefId1
@@ -243,7 +249,7 @@ BEGIN
 	/*
 		Start to verfy info before generate message
 	*/
-	IF NOT EXISTS (SELECT 1 FROM #tmpRemotingRefData WHERE SettlementLogID IS NOT NULL)
+	IF NOT EXISTS (SELECT 1 FROM #tmpGSIRemotingRefData WHERE SettlementLogID IS NOT NULL)
 	BEGIN
 		SELECT @ValidSettlementLogIDs = ''
 		
@@ -268,7 +274,7 @@ BEGIN
 	BEGIN TRY
 		;WITH CTE_SettleID AS (
 			SELECT DISTINCT SettlementLogID
-			FROM #tmpRemotingRefData
+			FROM #tmpGSIRemotingRefData
 			WHERE SettlementLogID IS NOT NULL
 		)
 		SELECT @VerifySettleIDs = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),','),'')
@@ -276,7 +282,7 @@ BEGIN
 		
 		DECLARE @JSResource NVARCHAR(MAX)
 		/*
-			---------#tmpResourceRef---------
+			---------#tmpGSIResourceRef---------
 		*/
 		SELECT @JSResource = ''
 			,@ErrCode = 0
@@ -320,7 +326,7 @@ BEGIN
 		ELSE
 		BEGIN
 			------load data for ResourceRef
-			INSERT INTO #tmpResourceRef (
+			INSERT INTO #tmpGSIResourceRef (
 				SettlementLogID
 				,GroupName
 				,RefId1
@@ -337,11 +343,11 @@ BEGIN
 					,RefId2 VARCHAR(50) '$.RefId2'
 				)--OPENJSON case-sensitive
 			
-			CREATE CLUSTERED INDEX CIX_tmpResourceRef ON #tmpResourceRef (SettlementLogID)
+			CREATE CLUSTERED INDEX CIX_tmpResourceRef ON #tmpGSIResourceRef (SettlementLogID)
 		END
 		
 		/*
-			---------#tmpResourceRawData---------
+			---------#tmpGSIResourceRawData---------
 		*/
 		
 		IF @ErrCode = 0
@@ -379,7 +385,7 @@ BEGIN
 		ELSE
 		BEGIN
 			------load data for ResourceRawData
-			INSERT INTO #tmpResourceRawData (
+			INSERT INTO #tmpGSIResourceRawData (
 				SettlementLogID
 				,AmendInfo
 				,ResourceID
@@ -399,7 +405,7 @@ BEGIN
 					,HomeValue VARCHAR(50) '$.HomeValue'
 				)--OPENJSON case-sensitive
 			
-			CREATE CLUSTERED INDEX CIX_tmpResourceRawData ON #tmpResourceRawData (SettlementLogID)
+			CREATE CLUSTERED INDEX CIX_tmpResourceRawData ON #tmpGSIResourceRawData (SettlementLogID)
 		END
 	END TRY
 	BEGIN CATCH
@@ -420,21 +426,21 @@ BEGIN
 							+ ' - tmpRemotingRefData('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
-											FROM #tmpRemotingRefData
+											FROM #tmpGSIRemotingRefData
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpResourceRef('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
-											FROM #tmpResourceRef
+											FROM #tmpGSIResourceRef
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpResourceRawData('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 											SELECT *
-											FROM #tmpResourceRawData
+											FROM #tmpGSIResourceRawData
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
@@ -444,22 +450,22 @@ BEGIN
 	
 	;WITH CTE_SettleID AS (
 		SELECT DISTINCT SettlementLogID
-		FROM #tmpRemotingRefData
+		FROM #tmpGSIRemotingRefData
 		WHERE SettlementLogID IS NOT NULL
 	)
-	INSERT INTO #tmpVerifyList (SettlementLogID, StatusID)
+	INSERT INTO #tmpGSIVerifyList (SettlementLogID, StatusID)
 	SELECT DISTINCT TRY_CONVERT(INT, s.value)
 		,sh.StatusID
 	FROM STRING_SPLIT(@VerifySettleIDs, ',') AS s
 		LEFT JOIN SettlementResultHist AS sh ON TRY_CONVERT(INT, s.value) = sh.SettlementLogID
 	
-	CREATE CLUSTERED INDEX CIX_tmpVerifyList ON #tmpVerifyList (SettlementLogID)
+	CREATE CLUSTERED INDEX CIX_tmpVerifyList ON #tmpGSIVerifyList (SettlementLogID)
 	
 	--loop foreach SettlementLogID
 	DECLARE @iSettleID INT
 	
 	SELECT @iSettleID = MIN(SettlementLogID)
-	FROM #tmpVerifyList
+	FROM #tmpGSIVerifyList
 	
 	WHILE (@iSettleID IS NOT NULL)
 	BEGIN TRY
@@ -468,12 +474,12 @@ BEGIN
 		--Check EXISTS SettlementResultHist
 		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET StatusID = @StsGenFailed
 				,RHLog = 'NOT EXISTS in SettlementResultHist'
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -481,12 +487,12 @@ BEGIN
 		--Check IsDeleted
 		IF EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID AND IsDeleted = 1)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET StatusID = @StsIgnore
 				,RHLog = RHLog + 'Marked for deletion'
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -494,12 +500,12 @@ BEGIN
 		--check for NOT Generating (KEEP Current Status but ignore valid List)
 		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID AND StatusID = @StsGenerating)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET StatusID = 0
 				,RHLog = RHLog + 'StatusID ('+ ISNULL(CONVERT(NVARCHAR,StatusID),'NULL') + ') - NOT Generating'
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -510,11 +516,11 @@ BEGIN
 			UPDATE v
 			SET StatusID = 0
 				,v.RHLog = v.RHLog + '@IsTestFlag('+ ISNULL(CONVERT(VARCHAR,@IsTestFlag),'both REAL & TEST') +') NOT match with SettlementResultHist.IsTest('+ ISNULL(CONVERT(VARCHAR,sh.IsTest),'NULL') +')'
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN SettlementResultHist AS sh WITH (NOLOCK) ON v.SettlementLogID = sh.SettlementLogID
 			WHERE v.SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -522,12 +528,12 @@ BEGIN
 		--Check Generated
 		IF EXISTS (SELECT 1 FROM NotiMapping WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET StatusID = @StsGenFailed
 				,RHLog = RHLog + 'SettlementLogID is Generated - EXISTS in NotiMapping'
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -535,12 +541,12 @@ BEGIN
 		--verify SettlementResultHistDetail
 		IF NOT EXISTS (SELECT 1 FROM SettlementResultHistDetail WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET StatusID = @StsIgnore
 				,RHLog = RHLog + 'have NO affected TransID'
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -568,10 +574,10 @@ BEGIN
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid CustID(' + l.LTxt + ') OR TransID may NOT EXISTS IN bettrans/bettrans14'
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -591,12 +597,12 @@ BEGIN
 				AND c.currency <> 20
 		)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET StatusID = @StsIgnore
 				,RHLog = RHLog + 'Real Match but All Test tickets'
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -633,10 +639,10 @@ BEGIN
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -644,7 +650,7 @@ BEGIN
 		--Invalid EventInfo (AwayID/HomeID..)
 		IF EXISTS (
 			SELECT 1
-			FROM #tmpResourceRef AS rh WITH (NOLOCK)
+			FROM #tmpGSIResourceRef AS rh WITH (NOLOCK)
 				LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1)
 			WHERE rh.SettlementLogID = @iSettleID
 				AND rh.RefId1 = 'TeamID'
@@ -655,7 +661,7 @@ BEGIN
 			;WITH CTE_LogTxt AS (
 				SELECT rh.SettlementLogID AS SettleID
 					,'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') NOT EXISTS IN [team] table' AS LTxt
-				FROM #tmpResourceRef AS rh WITH (NOLOCK)
+				FROM #tmpGSIResourceRef AS rh WITH (NOLOCK)
 					LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1)
 				WHERE rh.SettlementLogID = @iSettleID
 					AND rh.RefId1 = 'TeamID'
@@ -665,10 +671,10 @@ BEGIN
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -681,12 +687,12 @@ BEGIN
 				AND ActionType NOT IN (1,2,3) --1 (CAL to CAL) / 2 (CAL to Refund) / 3 (Refund to CAL)
 		)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET RHLog = RHLog + 'ActionType NOT IN (1,2,3)'
 				,StatusID = @StsGenFailed
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -707,12 +713,12 @@ BEGIN
 				) = 0
 		)
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET RHLog = RHLog + 'Failed to convert ActualResult/WrongResult to XML'
 				,StatusID = @StsGenFailed
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -770,7 +776,7 @@ BEGIN
 		
 		IF @InvalidResourceIDType <> 0
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET RHLog = RHLog + 'Invalid ResourceID'
 							+ CASE WHEN @InvalidResourceIDType = 1 THEN ' - Actual/Wrong NOT EXISTS ResourceID'
 									WHEN @InvalidResourceIDType = 2 THEN ' - SettlementResultHistDetail.ExtraInfo_Before/ExtraInfo_After NOT EXISTS ResourceID'
@@ -779,7 +785,7 @@ BEGIN
 				,StatusID = @StsGenFailed
 			WHERE SettlementLogID = @iSettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -787,8 +793,8 @@ BEGIN
 		--ResourceData NOT EXISTS in RemotingRef
 		IF EXISTS (
 			SELECT 1
-			FROM #tmpResourceRef AS rs
-				LEFT JOIN #tmpRemotingRefData AS rf
+			FROM #tmpGSIResourceRef AS rs
+				LEFT JOIN #tmpGSIRemotingRefData AS rf
 					ON rs.GroupName = rf.GroupName
 						AND rs.RefId1 = rf.RefId1
 						AND rs.RefId2 = rf.RefId2
@@ -805,7 +811,7 @@ BEGIN
 							,t.RefValueEN
 							,t.RefValueCH
 							,t.RefValueCS
-						FROM #tmpRemotingRefData AS t
+						FROM #tmpGSIRemotingRefData AS t
 						WHERE t.SettlementLogID = @iSettleID
 						ORDER BY t.GroupName
 							,t.RefId1
@@ -816,7 +822,7 @@ BEGIN
 						SELECT DISTINCT t.GroupName
 							,t.RefId1
 							,t.RefId2
-						FROM #tmpResourceRef AS t
+						FROM #tmpGSIResourceRef AS t
 						WHERE t.SettlementLogID = @iSettleID
 						ORDER BY t.GroupName
 							,t.RefId1
@@ -829,10 +835,10 @@ BEGIN
 									+ ' - ResourceData('+ ISNULL(l.ResTxt,'NULL') + ')'
 									+ ' - RemotingRef('+ ISNULL(l.RefTxt,'NULL') +')'
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -847,7 +853,7 @@ BEGIN
 		IF EXISTS (
 			SELECT 1
 			FROM SettlementResultHist AS sh WITH (NOLOCK)
-				LEFT JOIN #tmpResourceRawData AS r ON sh.SettlementLogID = r.SettlementLogID AND r.AmendInfo = 'WrongResult'
+				LEFT JOIN #tmpGSIResourceRawData AS r ON sh.SettlementLogID = r.SettlementLogID AND r.AmendInfo = 'WrongResult'
 			WHERE sh.SettlementLogID = @iSettleID
 				AND sh.ActionType = 2
 				AND (r.SettlementLogID IS NULL
@@ -862,7 +868,7 @@ BEGIN
 							,r.ResourceID
 							,r.RefBettypeID
 							,r.HomeValue
-						FROM #tmpResourceRawData AS r
+						FROM #tmpGSIResourceRawData AS r
 						WHERE r.SettlementLogID = @iSettleID
 						ORDER BY r.AmendInfo
 							,r.ResourceID
@@ -874,10 +880,10 @@ BEGIN
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid [CAL to Refund], WrongResult NULL (' + ISNULL(l.LTxt,'NULL') + ')'
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -886,7 +892,7 @@ BEGIN
 		IF EXISTS (
 			SELECT 1
 			FROM SettlementResultHist AS sh WITH (NOLOCK)
-				LEFT JOIN #tmpResourceRawData AS r ON sh.SettlementLogID = r.SettlementLogID AND r.AmendInfo = 'ActualResult'
+				LEFT JOIN #tmpGSIResourceRawData AS r ON sh.SettlementLogID = r.SettlementLogID AND r.AmendInfo = 'ActualResult'
 			WHERE sh.SettlementLogID = @iSettleID
 				AND sh.ActionType = 3
 				AND (r.SettlementLogID IS NULL
@@ -901,7 +907,7 @@ BEGIN
 							,r.ResourceID
 							,r.RefBettypeID
 							,r.HomeValue
-						FROM #tmpResourceRawData AS r
+						FROM #tmpGSIResourceRawData AS r
 						WHERE r.SettlementLogID = @iSettleID
 						ORDER BY r.AmendInfo
 							,r.ResourceID
@@ -913,10 +919,10 @@ BEGIN
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid [Refund to CAL], ActualResult NULL (' + ISNULL(l.LTxt,'NULL') + ')'
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -930,8 +936,8 @@ BEGIN
 		)
 		AND EXISTS (
 			SELECT 1
-			FROM (SELECT * FROM #tmpResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'WrongResult') AS w
-				FULL OUTER JOIN (SELECT * FROM #tmpResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'ActualResult') AS a
+			FROM (SELECT * FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'WrongResult') AS w
+				FULL OUTER JOIN (SELECT * FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'ActualResult') AS a
 					ON w.SettlementLogID = a.SettlementLogID
 						AND a.ResourceID = w.ResourceID
 						AND a.RefBettypeID = w.RefBettypeID
@@ -946,7 +952,7 @@ BEGIN
 							,t.ResourceID
 							,t.RefBettypeID
 							,t.HomeValue
-						FROM #tmpResourceRawData AS t
+						FROM #tmpGSIResourceRawData AS t
 						WHERE t.SettlementLogID = ISNULL(w.SettlementLogID, a.SettlementLogID)
 						ORDER BY t.AmendInfo
 							,t.ResourceID
@@ -954,8 +960,8 @@ BEGIN
 							,t.HomeValue
 						FOR JSON AUTO
 					)) AS LTxt
-				FROM (SELECT * FROM #tmpResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'WrongResult') AS w
-					FULL OUTER JOIN (SELECT * FROM #tmpResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'ActualResult') AS a
+				FROM (SELECT * FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'WrongResult') AS w
+					FULL OUTER JOIN (SELECT * FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'ActualResult') AS a
 						ON w.SettlementLogID = a.SettlementLogID
 							AND a.ResourceID = w.ResourceID
 							AND a.RefBettypeID = w.RefBettypeID
@@ -965,10 +971,10 @@ BEGIN
 			UPDATE v
 			SET v.RHLog = v.RHLog + 'Invalid [CAL to CAL], NOT match ResourceID 1:1 between ActualResult and WrongResult (' + ISNULL(l.LTxt,'NULL') + ')'
 				,v.StatusID = @StsGenFailed
-			FROM #tmpVerifyList AS v
+			FROM #tmpGSIVerifyList AS v
 				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
 			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 			
 			CONTINUE
 		END
@@ -976,14 +982,14 @@ BEGIN
 		/*
 			write more info if enable IncludeTestMatch
 			
-			write #tmpRemotingRefData if enable IncludeTestMatch AND any returned NULL value
+			write #tmpGSIRemotingRefData if enable IncludeTestMatch AND any returned NULL value
 				- RefId2 IS NULL
 				- English value IS NULL
 				- match info IS NULL
 		*/
-		IF EXISTS (SELECT 1 FROM #tmpRemotingRefData WHERE SettlementLogID = @iSettleID AND (RefId2 IS NULL OR RefValueEN IS NULL) AND @LogMode = 'Debug')
+		IF EXISTS (SELECT 1 FROM #tmpGSIRemotingRefData WHERE SettlementLogID = @iSettleID AND (RefId2 IS NULL OR RefValueEN IS NULL) AND @LogMode = 'Debug')
 		BEGIN
-			UPDATE #tmpVerifyList
+			UPDATE #tmpGSIVerifyList
 			SET RHLog = RHLog + 'RemotingRef Returned NULL value ('
 							+ (SELECT CONVERT(NVARCHAR(MAX)
 									,(SELECT ISNULL(GroupName,'NULL') AS GroupName
@@ -992,7 +998,7 @@ BEGIN
 										,ISNULL(RefValueEN,'NULL') AS RefValueEN
 										,ISNULL(RefValueCH,'NULL') AS RefValueCH
 										,ISNULL(RefValueCS,'NULL') AS RefValueCS
-									FROM #tmpRemotingRefData
+									FROM #tmpGSIRemotingRefData
 									WHERE SettlementLogID = @iSettleID
 									FOR JSON AUTO
 									))
@@ -1002,24 +1008,24 @@ BEGIN
 		END
 		
 		----reset for loop------
-		SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+		SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 	END TRY
 	BEGIN CATCH
 		
 		--update Failed
-		UPDATE #tmpVerifyList
+		UPDATE #tmpGSIVerifyList
 		SET StatusID = @StsGenFailed
 			,RHLog = RHLog + 'FAILED while Verifing SettlementResultHist - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')'
 		WHERE SettlementLogID = @iSettleID
 		
 		----reset for loop------
-		SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpVerifyList WHERE SettlementLogID > @iSettleID)
+		SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 	END CATCH
 	
 	--return Valid as list
 	SELECT @ValidSettlementLogIDs = ''
 	SELECT @ValidSettlementLogIDs = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),rh.SettlementLogID),','),'')
-	FROM #tmpVerifyList AS rh
+	FROM #tmpGSIVerifyList AS rh
 		INNER JOIN SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK) ON rh.SettlementLogID = sh.SettlementLogID
 	WHERE rh.StatusID = @StsGenerating
 		AND sh.StatusID = @StsGenerating
@@ -1031,7 +1037,7 @@ BEGIN
 	SET sh.StatusID = rh.StatusID
 		,sh.LastModifiedTime = GETDATE()
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
-		INNER JOIN #tmpVerifyList AS rh ON rh.SettlementLogID = sh.SettlementLogID
+		INNER JOIN #tmpGSIVerifyList AS rh ON rh.SettlementLogID = sh.SettlementLogID
 	WHERE sh.StatusID = @StsGenerating
 		AND rh.SettlementLogID NOT IN (
 			SELECT TRY_CONVERT(INT, value) AS SettlementLogID
@@ -1060,7 +1066,7 @@ BEGIN
 			WHEN rh.StatusID = @StsGenerating THEN @InfLogPrefix + 'Verify without error'
 			ELSE @ErrLogPrefix + 'Unknown Status(' + ISNULL(CONVERT(VARCHAR,rh.StatusID),'NULL') + ') error'+ ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END
 		)
-	FROM #tmpVerifyList AS rh
+	FROM #tmpGSIVerifyList AS rh
 	WHERE rh.SettlementLogID NOT IN (
 			SELECT TRY_CONVERT(INT, value) AS SettlementLogID
 			FROM STRING_SPLIT(@ValidSettlementLogIDs, ',')
@@ -1077,8 +1083,8 @@ BEGIN
 		,COMPRESS(@InfLogPrefix + 'Debug - Return after verifying - @ValidSettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
 	WHERE @LogMode = 'Debug'
 	
-	DROP TABLE IF EXISTS #tmpResourceRef
-	DROP TABLE IF EXISTS #tmpResourceRawData
-	DROP TABLE IF EXISTS #tmpVerifyList
-	DROP TABLE IF EXISTS #tmpRemotingRefData
+	DROP TABLE IF EXISTS #tmpGSIResourceRef
+	DROP TABLE IF EXISTS #tmpGSIResourceRawData
+	DROP TABLE IF EXISTS #tmpGSIVerifyList
+	DROP TABLE IF EXISTS #tmpGSIRemotingRefData
 END

@@ -16,10 +16,21 @@ BEGIN
 	
 	DECLARE @KeepTime DATETIME = DATEADD(DD, - 30, GETDATE())
 	
+	--Clear UserLog
 	WHILE (1 = 1)
 	BEGIN
 		DELETE TOP (3000) dbo.UserLog
 		WHERE LogTime < @KeepTime
+
+		IF @@ROWCOUNT = 0
+			BREAK
+	END
+	
+	--Clear Alert
+	WHILE (1 = 1)
+	BEGIN
+		DELETE TOP (500) dbo.Alert
+		WHERE InsertedTime < @KeepTime
 
 		IF @@ROWCOUNT = 0
 			BREAK

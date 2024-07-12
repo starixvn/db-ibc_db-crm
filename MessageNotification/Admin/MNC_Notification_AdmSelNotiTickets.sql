@@ -32,6 +32,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	DECLARE @LicLabelCV VARCHAR(20) = 'CV'
+		,@LicLabelJS VARCHAR(20) = 'JollySports'
+		,@LicLabelJSCV VARCHAR(20) = 'JollySportsCV'
+		,@LicLabelN VARCHAR(20) = 'Normal'
+	
 	CREATE TABLE #tmpAffectedTicket (
 		SiteType NVARCHAR(50) NOT NULL
 		,SiteName NVARCHAR(50) NOT NULL
@@ -138,9 +143,10 @@ BEGIN
 	)
 	SELECT DISTINCT lic.CRMSiteName
 		,lic.IsDeposit
-		,(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
-				WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
-				ELSE 'Normal licensees' END
+		,(CASE WHEN s.IsChinaView = 1 THEN @LicLabelCV
+				WHEN s.SpecialPlatfrom = 3 THEN @LicLabelJSCV
+				WHEN s.SpecialPlatfrom > 0 THEN @LicLabelJS
+				ELSE @LicLabelN END
 		) AS SiteLabel
 		,ISNULL(hs.MainSiteName, lic.CRMSiteName) AS MainSiteName
 		,ISNULL(hs.ViewSiteName, lic.CRMSiteName) AS ViewSiteName

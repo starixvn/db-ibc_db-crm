@@ -59,6 +59,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	DECLARE @LicLabelCV VARCHAR(20) = 'CV'
+		,@LicLabelJS VARCHAR(20) = 'JollySports'
+		,@LicLabelJSCV VARCHAR(20) = 'JollySportsCV'
+		,@LicLabelN VARCHAR(20) = 'Normal'
+	
 	CREATE TABLE #tmpNoti (
 		NotiID INT
 	)
@@ -204,9 +209,10 @@ BEGIN
 	)
 	SELECT DISTINCT lic.CRMSiteName
 		,lic.IsDeposit
-		,(CASE WHEN s.IsChinaView = 1 THEN 'CV licensees'
-				WHEN s.SpecialPlatfrom > 0 THEN 'JS licensees'
-				ELSE 'Normal licensees' END
+		,(CASE WHEN s.IsChinaView = 1 THEN @LicLabelCV
+				WHEN s.SpecialPlatfrom = 3 THEN @LicLabelJSCV
+				WHEN s.SpecialPlatfrom > 0 THEN @LicLabelJS
+				ELSE @LicLabelN END
 		) AS SiteLabel
 		,ISNULL(hs.MainSiteName, lic.CRMSiteName) AS MainSiteName
 		,ISNULL(hs.ViewSiteName, lic.CRMSiteName) AS ViewSiteName
@@ -518,7 +524,7 @@ BEGIN
 	;WITH CTE_Site AS (
 		SELECT DISTINCT i.NotiID
 			,CASE WHEN vs.IsDeposit = 1 THEN 'Licensee' ELSE 'Credit' END AS SiteType
-			,(CASE WHEN vs.IsDeposit = 1 AND vs.SiteLabel IS NULL THEN 'Normal licensees' --Licensee
+			,(CASE WHEN vs.IsDeposit = 1 AND vs.SiteLabel IS NULL THEN @LicLabelN --Licensee
 				WHEN vs.IsDeposit = 0 AND vs.SiteLabel IS NULL THEN 'Others' --Credit
 				ELSE vs.SiteLabel
 				END) AS SiteGroup
@@ -665,13 +671,15 @@ BEGIN
 			,(CASE WHEN s.SiteType = 'Credit' THEN 1 ELSE 2 END) AS Ord1
 			/*
 				Rule 2 - Licensee: hardcode follow order
-					1.Normal licensees
-					2.JS licensees
-					3.CV licensees
+					1.Normal
+					2.CV
+					3.JollySports
+					4.JollySportsCV
 			*/
-			,(CASE WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'CV licensees' THEN 3
-					WHEN s.SiteType = 'Licensee' AND s.SiteGroup = 'JS licensees' THEN 2
-					WHEN s.SiteType = 'Licensee' THEN 1 --Normal licensees
+			,(CASE WHEN s.SiteType = 'Licensee' AND s.SiteGroup = @LicLabelJSCV THEN 4
+					WHEN s.SiteType = 'Licensee' AND s.SiteGroup = @LicLabelJS THEN 3
+					WHEN s.SiteType = 'Licensee' AND s.SiteGroup = @LicLabelCV THEN 2
+					WHEN s.SiteType = 'Licensee' THEN 1 --Normal
 			END) AS Ord2
 			/*
 				Rule 3 - Credit: Sort by alphabetical

@@ -318,7 +318,7 @@ BEGIN
 		#2.Get ValidSettleIDs and write log input params
 		
 	****************************************************************************/	
-	EXEC MNC_ResultAmendment_GetSettlementLogIDs
+	EXEC MessageNotification.dbo.MNC_ResultAmendment_GetSettlementLogIDs
 		@Environment = @Environment
 		,@JSRemotingRef = @JSRemotingRef
 		,@ValidSettlementLogIDs = @ValidSettlementLogIDs OUTPUT

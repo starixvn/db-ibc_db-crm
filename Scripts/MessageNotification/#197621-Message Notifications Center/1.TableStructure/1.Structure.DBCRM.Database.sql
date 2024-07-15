@@ -5,6 +5,7 @@
 	Task: Create tables for NotificationCenter
 	Steps:
 		1. Create new Database
+		2. Create user and grant permission
 */
 
 /***** Create new Database ****/

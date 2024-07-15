@@ -488,7 +488,7 @@ BEGIN
 	-------------------------- Status DIFF --------------------------
 	IF @ErrCode = 0
 	BEGIN TRY
-		EXEC MNC_Notification_AdmUpdNotiSts
+		EXEC MessageNotification.dbo.MNC_Notification_AdmUpdNotiSts
 			@NotiID = @NotiID
 			,@NewStatus = @NewStatus
 			,@UpdaterID = @UpdaterID

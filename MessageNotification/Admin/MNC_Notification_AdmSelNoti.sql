@@ -550,84 +550,42 @@ BEGIN
 		,SiteGroup
 	
 	----------Notification----------
-	IF @NotiType = 1 --Msg
-	BEGIN
-		INSERT INTO #tmpResult (
-			NotificationID
-			,MessageID
-			,SessionID
-			,EventDate4GMT
-			,EventName
-			,CreatedTimeGMT8
-			,TemplateName
-			,Content_en
-			,Content_ch
-			,Content_cs
-			,Status
-			,Sender
-			,SendDateGMT8
-		)
-		SELECT DISTINCT n.NotificationID
-			,ext.MsgID AS MessageID
-			,rh.SessionID
-			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
-			,ext.EventName
-			,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
-			,ext.TemplateName
-			,n.Content_en
-			,n.Content_ch
-			,n.Content_cs
-			,s.ViewStatus AS Status
-			,ext.Sender
-			,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
-		FROM #tmpNoti AS i
-			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
-			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			INNER JOIN #tmpStsByNotiType AS s ON n.StatusID = s.StatusID
-			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
-			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-		ORDER BY n.NotificationID DESC
-	END
-	ELSE --LAP
-	BEGIN
-		INSERT INTO #tmpResult (
-			NotificationID
-			,MessageID
-			,SessionID
-			,EventDate4GMT
-			,EventName
-			,CreatedTimeGMT8
-			,TemplateName
-			,Content_en
-			,Content_ch
-			,Content_cs
-			,Status
-			,Sender
-			,SendDateGMT8
-		)
-		SELECT DISTINCT n.NotificationID
-			,ext.MsgID AS MessageID
-			,rh.SessionID
-			,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
-			,ext.EventName
-			,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
-			,ext.TemplateName
-			,n.Content_en
-			,n.Content_ch
-			,n.Content_cs
-			,s.ViewStatus AS Status
-			,ext.Sender
-			,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
-		FROM #tmpNoti AS i
-			INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
-			INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
-			INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
-			INNER JOIN #tmpStsByNotiType AS s ON n.StatusID = s.StatusID
-			INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
-			INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-		ORDER BY n.NotificationID DESC
-	END
-	
+	INSERT INTO #tmpResult (
+		NotificationID
+		,MessageID
+		,SessionID
+		,EventDate4GMT
+		,EventName
+		,CreatedTimeGMT8
+		,TemplateName
+		,Content_en
+		,Content_ch
+		,Content_cs
+		,Status
+		,Sender
+		,SendDateGMT8
+	)
+	SELECT DISTINCT n.NotificationID
+		,ext.MsgID AS MessageID
+		,rh.SessionID
+		,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
+		,ext.EventName
+		,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
+		,ext.TemplateName
+		,n.Content_en
+		,n.Content_ch
+		,n.Content_cs
+		,s.ViewStatus AS Status
+		,ext.Sender
+		,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
+	FROM #tmpNoti AS i
+		INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
+		INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
+		INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON i.NotiID = n.NotificationID
+		INNER JOIN #tmpStsByNotiType AS s ON n.StatusID = s.StatusID
+		INNER JOIN dbo.NotiMapping AS nm WITH (NOLOCK) ON i.NotiID = nm.NotificationID
+		INNER JOIN dbo.SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+	ORDER BY n.NotificationID DESC
 	-----------------------------------------Return-------------------------------------------
 	----------Paging----------
 	DECLARE @RStart INT = @PageSize * (@PageIndex - 1) + 1

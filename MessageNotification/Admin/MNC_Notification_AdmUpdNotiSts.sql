@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE MNC_Notification_AdmUpdNotiSts
 	@NotiID INT
 	,@NewStatus VARCHAR(50)
@@ -43,12 +43,18 @@ BEGIN
 	FROM bodb02.dbo.Customer WITH (NOLOCK)
 	WHERE CustID = @UpdaterID
 	
-	CREATE TABLE #tmpConsisStsByAction (
+	/*
+		Faced to Issues When Using Temporary Tables in Nested Stored Procedures
+		
+		Use Prefix #tmpUNS (UN = Upd Noti Status) in Nested SP instead of #tmp when using temporary table
+		Make sure to use a different naming convention
+	*/
+	CREATE TABLE #tmpUNSConsisStsByAction (
 		FStatus VARCHAR(50)
 		,ValidChange VARCHAR(50)
 	)
 	
-	CREATE TABLE #tmpConsisStsByNotiType (
+	CREATE TABLE #tmpUNSConsisStsByNotiType (
 		NotiType TINYINT
 		,StatusID TINYINT
 		,Status VARCHAR(50)
@@ -70,7 +76,7 @@ BEGIN
 		FROM STRING_SPLIT('New,Active,Inactive', ',') AS l
 			INNER JOIN NotiStatus AS s WITH (NOLOCK) ON l.value = s.Status
 	)
-	INSERT INTO #tmpConsisStsByNotiType (
+	INSERT INTO #tmpUNSConsisStsByNotiType (
 		NotiType
 		,StatusID
 		,Status
@@ -81,7 +87,7 @@ BEGIN
 	FROM CTE_Sts
 	
 	--hard code valid status to change
-	INSERT INTO #tmpConsisStsByAction (
+	INSERT INTO #tmpUNSConsisStsByAction (
 		FStatus
 		,ValidChange
 	)
@@ -135,7 +141,7 @@ BEGIN
 	WHERE n.NotificationID = @NotiID
 	
 	--hard code status based on NotiType - follow MNC_Notification_AdmSelNoti
-	DELETE FROM #tmpConsisStsByNotiType
+	DELETE FROM #tmpUNSConsisStsByNotiType
 	WHERE NotiType <> @NotiType
 	
 	/* start verify before update status */
@@ -186,7 +192,7 @@ BEGIN
 	END
 	
 	--consistency by NotiType
-	IF NOT EXISTS (SELECT 1 FROM #tmpConsisStsByNotiType WHERE StatusID = @NewStatusID)
+	IF NOT EXISTS (SELECT 1 FROM #tmpUNSConsisStsByNotiType WHERE StatusID = @NewStatusID)
 	BEGIN
 		SELECT @ErrCode = 50005
 			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
@@ -211,7 +217,7 @@ BEGIN
 	END
 	
 	--consistency by Action change
-	IF NOT EXISTS (SELECT 1 FROM #tmpConsisStsByAction WHERE FStatus = @CurStatus AND ValidChange = @NewStatus)
+	IF NOT EXISTS (SELECT 1 FROM #tmpUNSConsisStsByAction WHERE FStatus = @CurStatus AND ValidChange = @NewStatus)
 	BEGIN
 		SELECT @ErrCode = 50005
 			,@ErrMsg = 'An error has occurred. Please close this page and try again.'
@@ -437,6 +443,6 @@ BEGIN
 			,COMPRESS(@ErrLogPrefix + 'ROLLBACK EXECUTING Update Noti Status - ' + @LocalErrMsg)
 	END CATCH
 	
-	DROP TABLE #tmpConsisStsByNotiType
-	DROP TABLE #tmpConsisStsByAction
+	DROP TABLE #tmpUNSConsisStsByNotiType
+	DROP TABLE #tmpUNSConsisStsByAction
 END

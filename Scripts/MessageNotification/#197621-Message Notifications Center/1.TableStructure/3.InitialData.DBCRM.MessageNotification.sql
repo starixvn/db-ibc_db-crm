@@ -101,8 +101,8 @@ VALUES (
 	,(
 		2
 		,'Result Amendment for Cricket - Calculate to Refund or Refund to Calculate (Over 2 amended results)'
-		,N'Attn:[{sport_name}] Due to wrong calculation, all bets place on {match_info} has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused!'
-		,N'請注意:[{sport_name}] 由於成績結算有誤, 所有注單投注於 {match_info} 注單: "@@"已重新結算. 請重新檢查您的帳目. 不便之處 敬請見諒!'		
+		,N'Attn:[{sport_name}] Due to wrong calculation, all bets place on {match_info} as a result bet ID: "@@" has been re-settled. Kindly double check your statement again. Sorry for the inconvenience caused!'
+		,N'請注意:[{sport_name}] 由於成績結算有誤, 所有注單投注於 {match_info} 注單: "@@" 已重新結算. 請重新檢查您的帳目. 不便之處 敬請見諒!'		
 		,N'请注意:[{sport_name}] 由于成绩结算有误, 所有注单投注于 {match_info} 注單: "@@" 已重新结算. 请重新检查您的帐目. 不便之处 敬请见谅!'
 		,N'{sport_name},{match_info}'
 		,@StarixIT

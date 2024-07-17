@@ -20,6 +20,12 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@NotiType TINYINT
@@ -27,8 +33,8 @@ BEGIN
 		,@CurStatus VARCHAR(50)
 		,@Updater VARCHAR(50)
 		,@TranCount INT
-		,@ErrLogPrefix NVARCHAR(150) = 'Error - Adm - '
-		,@InfLogPrefix NVARCHAR(150) = 'Info - Adm - '
+		,@ErrLogPrefix NVARCHAR(150) = 'Error - [AdmUpdSts] - '
+		,@InfLogPrefix NVARCHAR(150) = 'Info - [AdmUpdSts] - '
 		,@LocalErrMsg NVARCHAR(MAX)
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)

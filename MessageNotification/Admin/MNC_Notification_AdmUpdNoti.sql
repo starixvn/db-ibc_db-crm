@@ -24,13 +24,19 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@NotiType TINYINT
 		,@NotiUpdCnt INT
 		,@Updater VARCHAR(50)
-		,@ErrLogPrefix NVARCHAR(150) = 'Error - Adm - '
-		,@InfLogPrefix NVARCHAR(150) = 'Info - Adm - '
+		,@ErrLogPrefix NVARCHAR(150) = 'Error - [AdmUpdNoti] - '
+		,@InfLogPrefix NVARCHAR(150) = 'Info - [AdmUpdNoti] - '
 		,@LogMode VARCHAR(500)
 		,@LocalErrMsg NVARCHAR(MAX)
 	

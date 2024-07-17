@@ -55,6 +55,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ValidSettlementLogIDs = ''
+	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@StsGenerating TINYINT
@@ -107,8 +112,8 @@ BEGIN
 	END
 	ELSE
 	BEGIN
-		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Verify] - '
-		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Verify] - '
+		SELECT @ErrLogPrefix = 'Error - [UAT_GenerateNotifService - Verify] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_GenerateNotifService - Verify] - '
 		
 		SELECT @Environment = ISNULL(@Environment,'UAT')
 	END
@@ -225,7 +230,8 @@ BEGIN
 				,RefValueCH NVARCHAR(500) '$.RefValueCH'
 				,RefValueCS NVARCHAR(500) '$.RefValueCS'
 			)--OPENJSON case-sensitive
-		CROSS APPLY STRING_SPLIT(SettlementLogIDs, ',')
+			CROSS APPLY STRING_SPLIT(SettlementLogIDs, ',')
+		WHERE ISJSON(@JSRemotingRef) = 1
 	END TRY
 	BEGIN CATCH
 		
@@ -342,6 +348,7 @@ BEGIN
 					,RefId1 VARCHAR(50) '$.RefId1'
 					,RefId2 VARCHAR(50) '$.RefId2'
 				)--OPENJSON case-sensitive
+			WHERE ISJSON(@JSResource) = 1
 			
 			CREATE CLUSTERED INDEX CIX_tmpResourceRef ON #tmpGSIResourceRef (SettlementLogID)
 		END
@@ -404,6 +411,7 @@ BEGIN
 					,RefBettypeID VARCHAR(50) '$.RefBettypeID'
 					,HomeValue VARCHAR(50) '$.HomeValue'
 				)--OPENJSON case-sensitive
+			WHERE ISJSON(@JSResource) = 1
 			
 			CREATE CLUSTERED INDEX CIX_tmpResourceRawData ON #tmpGSIResourceRawData (SettlementLogID)
 		END

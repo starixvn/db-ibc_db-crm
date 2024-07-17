@@ -36,6 +36,13 @@ BEGIN TRY
 	SET NOCOUNT ON
 	
 	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+		,@OutJSResource = ''
+	
+	/*
 		Faced to Issues When Using Temporary Tables in Nested Stored Procedures
 		
 		Use Prefix #tmpJSParse in Nested SP instead of #tmp when using temporary table

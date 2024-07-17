@@ -102,8 +102,8 @@ BEGIN
 	ELSE
 	BEGIN
 		SELECT @ProcessID = 8 --UAT_GenerateNotifService
-		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Prepare] - '
-		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Prepare] - '
+		SELECT @ErrLogPrefix = 'Error - [UAT_GenerateNotifService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_GenerateNotifService - Prepare] - '
 		
 		SELECT @Environment = ISNULL(@Environment,'UAT')
 	END
@@ -292,6 +292,7 @@ BEGIN
 				,RefId1 VARCHAR(50) '$.RefId1'
 				,RefId2 VARCHAR(50) '$.RefId2'
 			)--OPENJSON case-sensitive
+		WHERE ISJSON(@JSResource) = 1
 	END
 	
 	--return for RemotingRef

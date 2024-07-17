@@ -22,6 +22,12 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+	
 	DECLARE @LogActionID SMALLINT
 		,@LogUserID INT
 		,@StsNew TINYINT
@@ -455,12 +461,12 @@ BEGIN
 		)
 		
 		/*
-			RuleID 1 n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.SettlementLogID = o.SettlementLogID
-			RuleID 2 n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID
-			RuleID 3 n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID
-			RuleID 4 n.SessionID = o.SessionID
-			RuleID 5 n.SettlementLogID = o.SettlementLogID AND n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime
-			RuleID 6 n.SessionID = o.SessionID AND n.SettlementLogID = o.SettlementLogID AND n.LastModifiedTime = o.LastModifiedTime
+			RuleID 1: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.SettlementLogID = o.SettlementLogID
+			RuleID 2: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID
+			RuleID 3: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID
+			RuleID 4: n.SessionID = o.SessionID
+			RuleID 5: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.SettlementLogID = o.SettlementLogID
+			RuleID 6: n.SessionID = o.SessionID AND n.SettlementLogID = o.SettlementLogID AND n.LastModifiedTime = o.LastModifiedTime
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpError_New)
 		BEGIN
@@ -562,11 +568,8 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(N'Error - AlertService - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(N'Error - [AlertService] - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
-		
-		--Continue exec for next RuleID
-		SELECT @RuleID = (SELECT MIN(RuleID) FROM AlertRule WITH (NOLOCK) WHERE RuleID > @RuleID)
 	END CATCH
 	
 	DROP TABLE #tmpSettl

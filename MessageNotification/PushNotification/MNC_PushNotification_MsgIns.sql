@@ -30,6 +30,13 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+		,@MessageID = NULL
+	
 	DECLARE @DefaultDateTime DATETIME = GETDATE()
 	
 	CREATE TABLE #tmpJSData (
@@ -83,6 +90,7 @@ BEGIN
 				ObjectName NVARCHAR(150) '$.ObjectName'
 				,JSONData NVARCHAR(MAX) '$.JSONData'
 			)--OPENJSON case-sensitive
+		WHERE ISJSON(@JSNotification) = 1
 		
 		INSERT INTO #tmpMsg (
 			NotificationID
@@ -124,7 +132,7 @@ BEGIN
 			,@DefaultDateTime AS PostTime
 			,@DefaultDateTime AS CreateTime
 			,@DefaultDateTime AS LastUpdateTime
-		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'Notification')) WITH (
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'Notification' AND ISJSON(JSONData) = 1)) WITH (
 				NotificationID INT '$.NotificationID'
 				,Content_en NVARCHAR(4000) '$.Content_en'
 				,Content_ch NVARCHAR(4000) '$.Content_ch'
@@ -147,7 +155,7 @@ BEGIN
 			,BetTransID
 			,1 AS isDeleted --tmp value, will update = 0 after everything complete
 			,@DefaultDateTime AS PostTime
-		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'NotificationTarget')) WITH (
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'NotificationTarget' AND ISJSON(JSONData) = 1)) WITH (
 				TargetID INT '$.TargetID'
 				,TargetName NVARCHAR(30) '$.TargetName'
 				,BetTransID VARCHAR(MAX) '$.BetTransID'

@@ -214,6 +214,7 @@ BEGIN
 				) AS ext--OPENJSON case-sensitive
 		WHERE nLap.LastModifiedTime >= DATEADD(HH, - 36, GETDATE())
 			AND nLap.NotificationType = 2 --2: Result Amendment to LAP
+			AND ISJSON(nLapEx.ExtraInfo) = 1
 	)
 	INSERT INTO #tmpPrepareNoti (
 		NotificationID

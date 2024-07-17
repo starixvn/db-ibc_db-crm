@@ -43,6 +43,12 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@ProcessID INT
@@ -259,7 +265,7 @@ BEGIN
 				,SportType SMALLINT '$.RefId2'
 			)--OPENJSON case-sensitive
 			CROSS APPLY STRING_SPLIT(NotificationIDs, ',') AS i
-		
+		WHERE ISJSON(@JSRemotingRef) = 1
 		/*
 			***************************************************<<<!IMPORTANT HARDCODE>>>***************************************************
 			TemplateID for Cricket

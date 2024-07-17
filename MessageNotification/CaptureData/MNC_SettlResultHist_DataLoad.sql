@@ -41,6 +41,12 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@SiteDBGroupID SMALLINT
@@ -229,6 +235,7 @@ BEGIN
 				ObjectName NVARCHAR(150) '$.ObjectName'
 				,JSONData NVARCHAR(MAX) '$.JSONData'
 			)--OPENJSON case-sensitive
+		WHERE ISJSON(@JSSettlResultHist) = 1
 		
 		--get @SiteDBGroupID
 		SELECT @SiteDBGroupID = TRY_CONVERT(SMALLINT,JSONData)
@@ -265,7 +272,7 @@ BEGIN
 			,CreatedDate
 			,ExtraInfo
 			,IsDeleted
-		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory')) WITH (
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory' AND ISJSON(JSONData) = 1)) WITH (
 				SessionID VARCHAR(50) '$.SessionID'
 				,MatchID INT '$.MatchID'
 				,IsTest BIT '$.IsTest'
@@ -299,7 +306,7 @@ BEGIN
 			,ExtraInfo_Before
 			,ExtraInfo_After
 			,IsDeleted
-		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory_TicketDetails')) WITH (
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'SettlementResultHistory_TicketDetails' AND ISJSON(JSONData) = 1)) WITH (
 				SessionID VARCHAR(50) '$.SessionID'
 				,SeqNo SMALLINT '$.SeqNo'
 				,Transid BIGINT '$.Transid'
@@ -331,7 +338,7 @@ BEGIN
 			,GroupID
 			,Balance
 			,TotalBalance
-		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'BalanceNegativeHistory')) WITH (
+		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'BalanceNegativeHistory' AND ISJSON(JSONData) = 1)) WITH (
 				SessionID VARCHAR(50) '$.SessionID'
 				,CustID INT '$.CustID'
 				,Site VARCHAR(50) '$.Site'

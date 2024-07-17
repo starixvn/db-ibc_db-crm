@@ -59,6 +59,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @TotalRows = 0
+	
 	DECLARE @LicLabelCV VARCHAR(20) = 'CV'
 		,@LicLabelJS VARCHAR(20) = 'JollySports'
 		,@LicLabelJSCV VARCHAR(20) = 'JollySportsCV'

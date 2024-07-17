@@ -17,6 +17,11 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @JSAlertInfo = ''
+	
 	DECLARE @LogActionID SMALLINT
 		,@LogUserID INT
 		-- ,@ErrLogPrefix NVARCHAR(150)

@@ -56,6 +56,12 @@ AS
 BEGIN
 	SET NOCOUNT ON
 	
+	/*
+		Reset OUTPUT
+	*/
+	SELECT @ErrCode = 0
+		,@ErrMsg = ''
+	
 	DECLARE @LogUserID INT
 		,@ProcessID INT
 		,@LogActionID SMALLINT
@@ -134,8 +140,8 @@ BEGIN
 	ELSE
 	BEGIN
 		SELECT @ProcessID = 8 --UAT_GenerateNotifService
-		SELECT @ErrLogPrefix = 'Error - [UAT_CaptureDataService - Gen] - '
-		SELECT @InfLogPrefix = 'Info - [UAT_CaptureDataService - Gen] - '
+		SELECT @ErrLogPrefix = 'Error - [UAT_GenerateNotifService - Gen] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_GenerateNotifService - Gen] - '
 		
 		SELECT @Environment = ISNULL(@Environment,'UAT')
 	END
@@ -414,7 +420,8 @@ BEGIN
 				,RefValueCS NVARCHAR(500) '$.RefValueCS'
 			) AS rf--OPENJSON case-sensitive
 		CROSS APPLY STRING_SPLIT(rf.SettlementLogIDs, ',') AS SettID
-		WHERE TRY_CONVERT(INT, SettID.value) IN ( SELECT SettlementLogID FROM #tmpResultHist )
+		WHERE ISJSON(@JSRemotingRef) = 1
+			AND TRY_CONVERT(INT, SettID.value) IN ( SELECT SettlementLogID FROM #tmpResultHist )
 		
 		CREATE CLUSTERED INDEX CIX_tmpRemotingRef ON #tmpRemotingRef (GroupName, RefId1, RefId2)
 		

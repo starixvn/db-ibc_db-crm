@@ -103,9 +103,7 @@ BEGIN
 		,@OST_ChatGroupID = 'OST' --OST ChatGroupID
 		,@777_ChatGroupID = '777' --777 ChatGroupID
 	
-	-----------------------------Start to get Alert with [RefInfo <> RuleID] and mark [Sending]-----------------
-	SELECT @JSAlertInfo = ''
-	
+	-----------------------------Start to get Alert with [RefInfo <> RuleID] and mark [Sending]-----------------	
 	UPDATE a
 	SET a.StatusID = @StsSending
 	OUTPUT INSERTED.AlertID

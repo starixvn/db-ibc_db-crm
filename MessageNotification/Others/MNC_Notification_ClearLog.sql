@@ -29,7 +29,7 @@ BEGIN
 	--Clear Alert
 	WHILE (1 = 1)
 	BEGIN
-		DELETE TOP (500) dbo.Alert
+		DELETE TOP (3000) dbo.Alert
 		WHERE InsertedTime < @KeepTime
 
 		IF @@ROWCOUNT = 0

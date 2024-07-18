@@ -1,8 +1,11 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_CRM_WinLimit_AutoFeedbackInfoIns] 
-	@xml XML	
+USE bodb_CRM
+GO
+
+ALTER PROCEDURE [dbo].[Acc_CRM_WinLimit_AutoFeedbackInfoIns] @xml XML
 AS
+
 /*
 	Created: 20201015@Johnson
 	Task : import list customers reach win/loss limit into CRM
@@ -17,13 +20,17 @@ AS
 		- 20210507@Johnson: dont get sports for VS,VS2,NG mapping NA for them [redmine:#154722]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 		- 20230214@Tacy:	CRM - Split 789y site [RedmineID: #182438]
+        - 20240927@Ned.Le: CRM - Incorporate new product - Virtual Sports 5 (#207712)
+
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" product="21" group="Allbet Casino" level="Orange" limitsetting="20000" winamount="25000" winamountRM="25000" time="2020-10-10 10:15:12" bettype="2401,2403" />
 					<r logid="2" custid="1001" hl="101" hlname="XT" related="1001" product="21" group="Allbet Casino" level="Yellow" limitsetting="30000" winamount="35000" winamountRM="35000" time="2020-10-10 10:15:25" bettype="2401,2403" />
 				</ROOT>
 */
+
 BEGIN
+
 	SET NOCOUNT ON
 	
 	DECLARE @tmpCust TABLE (LogID		INT,
@@ -158,17 +165,25 @@ BEGIN
 					FROM #Result
 						CROSS APPLY (SELECT val from dbo.f_crm_strSplit(BettypeIDList,','))t
 					)
-	
+
+    ;WITH
+    CTE_ProductID AS (
+        SELECT oa.ProductID
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK)
+             OUTER APPLY (SELECT TRIM(value) ProductID FROM STRING_SPLIT(s.ExtraInfo, ',')) oa
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Group'
+        UNION ALL
+        SELECT 3 ProductID
+    )
 	SELECT DISTINCT LogID, s.SportType, s.SportName
 	FROM bodb02.dbo.SportBettypeMatrix mt WITH(NOLOCK)		
 		INNER JOIN (SELECT LogID, productid, val as bettype
 					FROM #Result 
 						CROSS APPLY dbo.f_CRM_strSplit(BettypeIDList,',') t
-					WHERE productid NOT IN (3,5,27)) rs on mt.ProductID = rs.productid and mt.BetType = rs.bettype
+					WHERE productid NOT IN (SELECT ProductID FROM CTE_ProductID)) rs on mt.ProductID = rs.productid and mt.BetType = rs.bettype
 		INNER JOIN bodb02.dbo.Sports s ON mt.sporttype = s.sporttype		
 					
 	DROP TABLE #Result
 END	
-	
-	
-	
+GO

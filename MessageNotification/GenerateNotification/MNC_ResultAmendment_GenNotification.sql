@@ -308,6 +308,15 @@ BEGIN
 		NotificationID INT NOT NULL PRIMARY KEY
 	)
 	
+	CREATE TABLE #tmpCustomer (
+		CustID INT NOT NULL
+		,AgentID INT
+		,MasterID INT
+		,SuperID INT
+		,TargetSite NVARCHAR(50)
+		,UUSCurrency BIT
+	)
+	
 	--write log for LogMode = Debug
 	INSERT INTO UserLog (
 		ActionID
@@ -426,6 +435,35 @@ BEGIN
 		CREATE CLUSTERED INDEX CIX_tmpRemotingRef ON #tmpRemotingRef (GroupName, RefId1, RefId2)
 		
 		/*
+			Get Cust info - tuning performance
+		*/
+		INSERT INTO #tmpCustomer (CustID)
+		SELECT DISTINCT rhd.CustID
+		FROM SettlementResultHistDetail AS rhd WITH (NOLOCK)
+			INNER JOIN #tmpResultHist AS rh ON rhd.SettlementLogID = rh.SettlementLogID
+		
+		CREATE UNIQUE CLUSTERED INDEX CIX_tmpCustomer ON #tmpCustomer (CustID)
+		
+		--Get SMA info
+		UPDATE tc
+		SET tc.UUSCurrency = (CASE WHEN c.Currency = 20 THEN 1 ELSE 0 END)
+			,tc.AgentID = c.recommend
+			,tc.MasterID = c.mrecommend
+			,tc.SuperID = c.srecommend
+		FROM #tmpCustomer AS tc
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON tc.CustID = c.CustID
+		
+		--Get TargetSite
+		UPDATE tc
+		SET tc.TargetSite = ag.Site
+		FROM #tmpCustomer AS tc
+			LEFT JOIN bodb02.dbo.Customer AS ag WITH (NOLOCK) ON tc.AgentID = ag.CustID
+		
+		DELETE FROM #tmpCustomer
+		WHERE TargetSite IS NULL
+		
+		UPDATE STATISTICS #tmpCustomer
+		/*
 			Parse data from ActualResult / WrongResult
 				#tmpResultInfo
 		*/
@@ -447,11 +485,11 @@ BEGIN
 				,TRY_CONVERT(XML, bf.ExtraInfo_Before) AS ExtraXML
 			FROM SettlementResultHistDetail AS bf WITH (NOLOCK)
 				INNER JOIN #tmpResultHist AS rh ON bf.SettlementLogID = rh.SettlementLogID
-				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON bf.CustID = c.CustID
+				LEFT JOIN #tmpCustomer AS c ON bf.CustID = c.CustID
 			WHERE rh.IsTest = 1
 				OR (
 					rh.IsTest = 0
-					AND c.currency <> 20
+					AND c.UUSCurrency = 0
 				) --generate only for real cust if real match
 					
 			UNION ALL
@@ -460,13 +498,12 @@ BEGIN
 				,TRY_CONVERT(XML, af.ExtraInfo_After) AS ExtraXML
 			FROM SettlementResultHistDetail AS af WITH (NOLOCK)
 				INNER JOIN #tmpResultHist AS rh ON af.SettlementLogID = rh.SettlementLogID
-				LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON af.CustID = c.CustID
+				LEFT JOIN #tmpCustomer AS c ON af.CustID = c.CustID
 			WHERE rh.IsTest = 1
 				OR (
 					rh.IsTest = 0
-					AND c.currency <> 20
+					AND c.UUSCurrency = 0
 				) --generate only for real cust if real match
-
 		)
 		,CTE_ResourceID AS (
 			SELECT DISTINCT SettlementLogID
@@ -586,23 +623,22 @@ BEGIN
 				ELSE 0 END) AS IsNoneSaba --0: Normal / 1: Saba
 			,(CASE WHEN (sep.value IS NOT NULL) THEN 1 --configured in SytemSetting
 				ELSE 0 END) AS ControlGrp --0: OST / 1: 777
-			,ag.Site AS TargetSite
+			,c.TargetSite
 			,rhd.CustID
-			,c.recommend AS AgentID
-			,c.mrecommend AS MasterID
-			,c.srecommend AS SuperID
+			,c.AgentID
+			,c.MasterID
+			,c.SuperID
 			,rhd.TransID
 		FROM #tmpResultHist AS rh
 			INNER JOIN SettlementResultHistDetail AS rhd WITH (NOLOCK) ON rhd.SettlementLogID = rh.SettlementLogID
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON rhd.CustID = c.CustID
-			INNER JOIN bodb02.dbo.Customer AS ag WITH (NOLOCK) ON c.recommend = ag.CustID
-			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ag.Site = s.Site
+			INNER JOIN #tmpCustomer AS c ON rhd.CustID = c.CustID
+			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON c.TargetSite = s.Site
 			LEFT JOIN STRING_SPLIT(@SabaLeagueGroup, ',') AS saba ON rh.LeagueGroupID = TRY_CONVERT(INT,saba.value)
-			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ag.Site = TRIM(sep.value)
+			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON c.TargetSite = TRIM(sep.value)
 		WHERE ISNULL(rhd.IsDeleted,0) <> 1
 			AND (
 				rh.IsTest = 1
-				OR (rh.IsTest = 0 AND c.currency <> 20) --NOT create for UUS tickets of Real Match
+				OR (rh.IsTest = 0 AND c.UUSCurrency = 0) --NOT create for UUS tickets of Real Match
 			)
 		
 		CREATE CLUSTERED INDEX CIX_tmpStagingTarget ON #tmpStagingTarget (NotiTempID, IsNoneSaba, ControlGrp)
@@ -2043,4 +2079,5 @@ BEGIN
 	DROP TABLE #tmpResultInfo
 	DROP TABLE #tmpAffectedResult
 	DROP TABLE #tmpFailedNoti
+	DROP TABLE #tmpCustomer
 END

@@ -197,30 +197,6 @@ BEGIN
 	
 	CREATE TABLE #tmpUpdatedRH (
 		SettlementLogID INT NOT NULL
-		,StatusID TINYINT NOT NULL
-		,ActualResult VARCHAR(MAX)
-		,ActualResultXML XML
-		,WrongResult VARCHAR(MAX)
-		,WrongResultXML XML
-	)
-	
-	CREATE TABLE #tmpEventInfo (
-		SettlementLogID INT
-		,MatchID INT
-		,SportType INT
-		,HomeID INT
-		,AwayID INT
-		,LeagueID INT
-	)
-	
-	CREATE TABLE #tmpAffectedResult (
-		SettlementLogID INT
-		,HomeValue VARCHAR(50) DEFAULT ''
-		,AwayValue VARCHAR(50) DEFAULT ''
-		,RefBettypeID VARCHAR(50) DEFAULT ''
-		,OtherInfo VARCHAR(200) DEFAULT ''
-		,TeamIDs VARCHAR(200) DEFAULT ''
-		,G VARCHAR(50) DEFAULT ''
 	)
 	
 	/*
@@ -231,14 +207,8 @@ BEGIN
 	SET sh.StatusID = @StsGenerating
 		,sh.LastModifiedTime = GETDATE()
 	OUTPUT INSERTED.SettlementLogID
-		,INSERTED.StatusID
-		,INSERTED.ActualResult
-		,INSERTED.WrongResult
 	INTO #tmpUpdatedRH (
 		SettlementLogID
-		,StatusID
-		,ActualResult
-		,WrongResult
 	) --Get Updated SettlementLogID
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 	WHERE sh.StatusID = @StsRetrieved --Captured
@@ -356,7 +326,5 @@ BEGIN
 	FROM #tmpUpdatedRH AS rh
 	
 	DROP TABLE #tmpUpdatedRH
-	DROP TABLE #tmpEventInfo
 	DROP TABLE #tmpRemotingRef
-	DROP TABLE #tmpAffectedResult
 END

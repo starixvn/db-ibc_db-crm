@@ -95,13 +95,9 @@ BEGIN
 
 
     -------------------------------------------------------
-    -- Prepare data from table TicketVoiding_VoidingHistory | Get data from yesterday until 5 second before current to sure that all tickets be voided
-    --                                                      | Get data that not exists on table VoidingHistoryCollectionDetail
-    --                                                      | Pay more attention to the condition #3
-    --                                                      | --> We need this condition to deal with case VoidingHistoryId be voided and after that be recovered
-    --                                                      | --> VoidingHistoryId be voided successfully must exist in both table TicketVoiding_VoidingHistory and TicketVoiding_VoidedTransaction and have StatusId=2
-    --                                                      | --> We need to take all StatusId to handle the problem of collecting data within 1 minute in the next code section
+    -- Prepare data from table TicketVoiding_VoidingHistory
 
+    -- Create temp table
     CREATE TABLE #tmpTicketVoiding_VoidingHistory (
         BroadcastSessionId VARCHAR(100),
         RequestId          INT,
@@ -114,8 +110,14 @@ BEGIN
         ModifiedDate       DATETIME
     )
 
+    -- Process to get data to temp table
     ;WITH
-    -- + Get all data base on CreatedDate and data must be not exist on table VoidingHistoryCollectionDetail
+    -- + Get initial data | Get data from yesterday
+    --                    | Get data that not exists on table VoidingHistoryCollectionDetail
+    --                    | Pay more attention to the condition #3
+    --                    | --> We need this condition to deal with case VoidingHistoryId be voided and after that be recovered
+    --                    | --> VoidingHistoryId be voided successfully must exist in both table TicketVoiding_VoidingHistory and TicketVoiding_VoidedTransaction and have StatusId=2
+    --                    | --> We need to take all StatusId to handle the problem of collecting data within 1 minute in the next code section
     CTE_initial AS (
         SELECT vh.BroadcastSessionId,
                vh.RequestId,
@@ -125,10 +127,11 @@ BEGIN
                vh.SiteDBGroupID,
                vh.StatusId,
                cvb.username VoIdBy,
-               vh.ModifiedDate
+               vh.ModifiedDate,
+               vh.CreatedDate
         FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
              LEFT JOIN bodb02.dbo.Customer cvb WITH (NOLOCK) ON vh.UserId = cvb.custid
-        WHERE vh.CreatedDate >= DATEADD(DAY, -1, @CurrentDate) AND vh.CreatedDate < DATEADD(SECOND, -5, @CurrentDate)
+        WHERE vh.CreatedDate >= DATEADD(DAY, -1, @CurrentDate)
               AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.VoidingHistoryCollectionDetail d WITH (NOLOCK) WHERE d.VoidingHistoryId = vh.VoidingHistoryId)
               AND (
                    (StatusId = 2 AND EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK) WHERE vt.VoidingHistoryId = vh.VoidingHistoryId))
@@ -146,7 +149,8 @@ BEGIN
                SiteDBGroupID,
                StatusId,
                VoIdBy,
-               ModifiedDate
+               ModifiedDate,
+               CreatedDate
         FROM CTE_initial
     ),
     -- + Just get data of special message
@@ -159,7 +163,8 @@ BEGIN
                SiteDBGroupID,
                StatusId,
                VoIdBy,
-               ModifiedDate
+               ModifiedDate,
+               CreatedDate
         FROM CTE_initial
     ),
     -- + Union data of normal message and special message
@@ -172,7 +177,8 @@ BEGIN
                SiteDBGroupID,
                StatusId,
                VoIdBy,
-               ModifiedDate
+               ModifiedDate,
+               CreatedDate
         FROM CTE_normal
         UNION ALL
         SELECT BroadcastSessionId,
@@ -183,8 +189,18 @@ BEGIN
                SiteDBGroupID,
                StatusId,
                VoIdBy,
-               ModifiedDate
+               ModifiedDate,
+               CreatedDate
         FROM CTE_special
+    ),
+    -- + Clean data | Get BroadcastSessionId be created on around 5 seconds from the current time
+    --              | Later they will be removed to sure that not get sessions that have not yet been voided
+    CTE_clean AS (
+        SELECT BroadcastSessionId BroadcastSessionId,
+               MIN(CreatedDate)   CreatedDate
+        FROM CTE_union
+        GROUP BY BroadcastSessionId
+        HAVING MIN(CreatedDate) > DATEADD(SECOND, -5, @CurrentDate)
     )
     -- + Finalize to insert data to temp table
     INSERT INTO #tmpTicketVoiding_VoidingHistory (
@@ -208,6 +224,7 @@ BEGIN
            VoIdBy,
            ModifiedDate
     FROM CTE_union
+    WHERE BroadcastSessionId NOT IN (SELECT BroadcastSessionId FROM CTE_clean)
 
 
     ---------------------------------------------------------------

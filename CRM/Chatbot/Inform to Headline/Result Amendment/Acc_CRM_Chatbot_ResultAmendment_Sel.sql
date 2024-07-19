@@ -1,4 +1,4 @@
-/*<info serverAlias="DBEXT-bodb02" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBEXT-bodb02" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb02
 GO
@@ -19,6 +19,7 @@ AS
 		- 20210731@Malcolm: Initialize SP [RedmineID: #151509]
 		- 20210922@Malcolm: notify for Settled Ticket to Refund/Running and Missing Actual/Wrong Result [RedmineID: #161524]
         - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
+		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
 
 	Param's Explanation:
 		Type = 1: Result Amendment Template - Sportsbook	
@@ -151,7 +152,7 @@ BEGIN
             INNER JOIN bodb02.dbo.League l WITH (NOLOCK) ON m.leagueid = l.leagueid
 		WHERE e.EventType = 1
 	END
-	-- VS
+	-- VS 
 	IF EXISTS (SELECT 1 FROM #TicketEvent WHERE EventType = 3)
 	BEGIN
 		UPDATE e
@@ -175,14 +176,30 @@ BEGIN
 		WHERE EventType = 0
 	END
 
+	-- VS5
+	IF EXISTS (SELECT 1 FROM #TicketEvent WHERE EventType = 5)
+	BEGIN
+		UPDATE e
+			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.League3rdId, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
+		FROM #TicketEvent e
+			INNER JOIN dbo.match3rd m WITH(NOLOCK) ON m.Match3rdId = e.MatchId
+		WHERE e.EventType = 5
+
+		UPDATE e
+			SET e.HomeId = m.Homeid, e.AwayId = m.Awayid, e.LeagueId = m.League3rdId, e.Sporttype = m.Sporttype, e.EventDate = m.eventdate, e.MatchCode = m.matchcode
+		FROM #TicketEvent e
+			INNER JOIN dbo.match3rd14 m WITH(NOLOCK) ON m.Match3rdId = e.MatchId
+		WHERE e.EventType = 5
+	END
+
 	-- Update template
 	UPDATE t
 		SET t.Type = CASE WHEN	t.EventType IN (2, 9) THEN 5
 						  WHEN  t.ProductId = 1  AND t.MessageId IS NULL THEN 1
-						  WHEN  t.ProductId = 27 AND t.MessageId IS NULL THEN 2
+						  WHEN  t.ProductId IN (27, 88) AND t.MessageId IS NULL THEN 2
 						  WHEN  t.ProductId = 5  THEN 3
 						  WHEN  t.ProductId = 3  THEN 4
-						  WHEN t.ProductId IN (1, 27) AND t.MessageId IS NOT NULL THEN 7
+						  WHEN t.ProductId IN (1, 27, 88) AND t.MessageId IS NOT NULL THEN 7
 				     END
 	FROM #TicketEvent t
 

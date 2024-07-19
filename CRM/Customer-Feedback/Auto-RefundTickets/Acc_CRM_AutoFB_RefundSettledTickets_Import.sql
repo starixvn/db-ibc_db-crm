@@ -21,6 +21,7 @@ AS
 		- 20210731@Malcolm: Initialize SP [RedmineId: #195404]
         - 20240318@Ned.Le: Fix bug relate to table crmSettingMapping
         - 20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
 		
 	Param's Explanation:
 		. @MessageContent = 
@@ -308,6 +309,12 @@ BEGIN
 		SET m.MainDBSportTypeId = mt.sporttype
 	FROM #Message m		
 		INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
+
+	--VS5
+	UPDATE m
+		SET m.MainDBSportTypeId = mt.sporttype
+	FROM #Message m		
+		INNER JOIN bodb02.dbo.Match3rd mt WITH(NOLOCK) ON mt.Match3rdId = m.MatchId
 	
 	/*Sub-Product*/
 	;WITH CTE_Sporttype AS (
@@ -451,7 +458,7 @@ BEGIN
 			CONVERT(NVARCHAR(MAX), 
 				N'Dear Sir, Customer Support would like to inform the below announcement:<br/>'
 				+ N'您好，客服部在此通知以下的通告：<br/><br/>' 
-				+ N'{message_content_en}<br/>'                    
+				+ N'{message_content_en}<br/>'
 				+ N'{message_content_sc}<br/><br/>'
 				+ N'Affected user/受影响会员: {affected_list}'
 			) AS SolutionENSC
@@ -469,7 +476,7 @@ BEGIN
 		SELECT
 			m.MatchId
 			,FORMAT(mt.eventdate, 'dd-MMM-yyyy') AS EventDate
-			,FORMAT(mt.GlobalShowTime, 'hh:mm tt') AS KO_time
+			,FORMAT(DATEADD(HH, 12, mt.GlobalShowTime), 'hh:mm tt') AS KO_time
 			,h.teamname + ' -vs- ' + a.teamname AS Match
 			,s.SportName
 		FROM (
@@ -478,6 +485,22 @@ BEGIN
 			INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
 			INNER JOIN bodb02.dbo.Team h WITH(NOLOCK) ON h.teamId = mt.homeId
 			INNER JOIN bodb02.dbo.Team a WITH(NOLOCK) ON a.teamId = mt.awayId
+			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
+
+		UNION ALL
+
+		SELECT
+			m.MatchId
+			,FORMAT(mt.eventdate, 'dd-MMM-yyyy') AS EventDate
+			,FORMAT(DATEADD(HH, 12, mt.StartTime), 'hh:mm tt') AS KO_time
+			,h.teamname + ' -vs- ' + a.teamname AS Match
+			,s.SportName
+		FROM (
+			SELECT DISTINCT MatchId FROM CTE_Result
+		) AS m	
+			INNER JOIN bodb02.dbo.Match3rd mt WITH(NOLOCK) ON mt.Match3rdId = m.MatchId
+			INNER JOIN bodb02.dbo.Team3rd h WITH(NOLOCK) ON h.Team3rdId = mt.homeId
+			INNER JOIN bodb02.dbo.Team3rd a WITH(NOLOCK) ON a.Team3rdId = mt.awayId
 			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
 	), CTE_CommonInfo AS (
 		SELECT 

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -18,7 +18,7 @@ AS
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
         - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
-
+		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
 	Parameter's Explanation:
 		
 */
@@ -147,6 +147,31 @@ BEGIN
 		INNER JOIN bodb02.dbo.Outright m WITH(NOLOCK) ON r.MatchId = m.orid
 		INNER JOIN bodb02.dbo.League t WITH(NOLOCK) ON t.leagueid = m.leagueid
 	WHERE 	r.EventType = 2 
+
+	-- Get data from Match when EventType = 5
+	Update r
+	SET r.sporttype = m.Sporttype
+		,r.homeid = m.homeid
+		,r.awayid = m.awayid
+		,r.leagueid = m.League3rdId
+		,r.KO_time = m.StartTime
+		,r.eventdate = m.eventdate
+		,r.MatchCode = m.MatchCode
+	FROM #ResultDetail r
+		INNER JOIN bodb02.dbo.Match3rd m WITH(NOLOCK) ON r.MatchId = m.Match3rdId
+	WHERE 	r.EventType = 5
+
+	Update r
+	SET r.sporttype = m.Sporttype
+		,r.homeid = m.homeid
+		,r.awayid = m.awayid
+		,r.leagueid = m.League3rdId
+		,r.KO_time = m.StartTime
+		,r.eventdate = m.eventdate
+		,r.MatchCode = m.MatchCode
+	FROM #ResultDetail r
+		INNER JOIN bodb02.dbo.Match3rd14 m WITH(NOLOCK) ON r.MatchId = m.Match3rdId
+	WHERE 	r.EventType = 5 AND r.Sporttype IS NULL
 	
 	Update r
 	SET r.SportName_Sort = CAST(CASE WHEN r.Sporttype = 1 THEN 1 WHEN r.Sporttype = 2 THEN 2 ELSE 3 END AS VARCHAR(5)) + '_' + ISNULL(c.SportName,'')

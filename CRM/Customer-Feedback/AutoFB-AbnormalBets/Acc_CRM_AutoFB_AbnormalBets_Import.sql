@@ -25,6 +25,7 @@ AS
         - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
         - 20240404@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
+        - 20240825@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
 		
 	Param's Explanation:
 		. @Message = 
@@ -56,7 +57,7 @@ BEGIN
 
 	DECLARE @FeedbackId INT, @StationId INT, @CategoryId INT, @ProductId INT, @RelatedCustomers NVARCHAR(MAX), @ResponseId INT, @StatusId INT
 		   ,@SubCategoryId_AbnormalBets INT,@SubCategoryId INT,@SubCategoryId_AbnormalAccounts INT,@SubCategoryId_DuplicateTickets INT
-		   ,@SubProductId_MultipleSports INT, @BettypeId_MixParlay INT, @ProductId_Sportsbook INT
+		   ,@SubProductId_MultipleSports INT, @BettypeId_MixParlay INT, @ProductId_Sportsbook INT, @ProductId_VirtualSports INT
 	DECLARE @CreatorId INT = 10278938 -- Starix
 
 	-- Update Job Status
@@ -107,7 +108,8 @@ BEGIN
 		,@SubCategoryId_DuplicateTickets	= MAX(CASE WHEN SettingName = 'SubCategory'		AND SettingValue = 'Duplicate Tickets'		THEN SettingId ELSE NULL END) -- 'Duplicate Tickets'
 		,@SubProductId_MultipleSports		= MAX(CASE WHEN SettingName = 'SubProduct'		AND SettingValue = 'Multiple Sports'		THEN SettingId ELSE NULL END) -- 'Multiple Sports'
 		,@BettypeId_MixParlay				= MAX(CASE WHEN SettingName = 'Bettype'			AND SettingValue = 'Mix Parlay'				THEN SettingId ELSE NULL END) -- 'Mix Parlay'
-		,@ProductId_Sportsbook				= MAX(CASE WHEN SettingName = 'Product'			AND SettingValue = 'Sportsbook'				THEN SettingId ELSE NULL END) -- 'Sportsbook'	
+		,@ProductId_Sportsbook				= MAX(CASE WHEN SettingName = 'Product'			AND SettingValue = 'Sportsbook'				THEN SettingId ELSE NULL END) -- 'Sportsbook'
+        ,@ProductId_VirtualSports    		= MAX(CASE WHEN SettingName = 'Product'			AND SettingValue = 'Virtual Sports' 		THEN SettingId ELSE NULL END) -- 'Virtual Sports'
 	FROM dbo.crmSetting WITH(NOLOCK)
 	WHERE SiteOffer = 2
 
@@ -502,15 +504,19 @@ BEGIN
 	WHERE IsDeposit = 1
 	
 	/*Get Sub - Product, Bettype*/
-    ;WITH CTE_match AS (
-        SELECT matchid, sporttype FROM bodb02.dbo.match WITH (NOLOCK)
+	;WITH CTE_match AS (
+		SELECT matchid, sporttype FROM bodb02.dbo.match WITH (NOLOCK)
+		UNION
+		SELECT matchid, sporttype FROM bodb02.dbo.match14 WITH (NOLOCK)
+		UNION
+		SELECT Match3rdId AS matchid, sporttype FROM bodb02.dbo.Match3rd WITH (NOLOCK)
         UNION
-        SELECT matchid, sporttype FROM bodb02.dbo.match14 WITH (NOLOCK)
-    )
+		SELECT Match3rdId AS matchid, sporttype FROM bodb02.dbo.Match3rd14 WITH (NOLOCK)
+	)
 	UPDATE m
-		SET m.MainDBSportTypeId = mt.sporttype
-	FROM #VoidedCollectionInfo m		
-		INNER JOIN CTE_match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
+	SET m.MainDBSportTypeId = mt.sporttype
+	FROM #VoidedCollectionInfo m
+		INNER JOIN CTE_match mt ON m.matchid = mt.matchid
 
 	UPDATE m
 		SET m.MainDBProductId = n.ProductID
@@ -675,6 +681,7 @@ BEGIN
 		,VoidingHistoryCollectionId INT
 		,IssueTypeId				INT
 		,IsParlay					BIT
+        ,MatchId                    INT
 		,IsDeposit					BIT
 		,MessageIdList				NVARCHAR(MAX)
 		,RequestIdList				NVARCHAR(MAX)
@@ -708,8 +715,9 @@ BEGIN
 			,IsDeposit
 			,IssueTypeId
 			,IsParlay
+            ,MatchId
 		FROM #VoidedCollectionInfo
-		GROUP BY HeadlineId, VoidingHistoryCollectionId, IsDeposit, IssueTypeId, IsParlay
+		GROUP BY HeadlineId, VoidingHistoryCollectionId, IsDeposit, IssueTypeId, IsParlay, MatchId
 	), CTE_MessageList AS (
 		SELECT 
 			r.HeadlineId
@@ -717,6 +725,7 @@ BEGIN
 			,r.IsDeposit
 			,r.IssueTypeId
 			,r.IsParlay
+            ,r.MatchId
 			,STUFF
 			(
 				(
@@ -727,6 +736,7 @@ BEGIN
 						AND p.IsDeposit						= r.IsDeposit 
 						AND p.IssueTypeId					= r.IssueTypeId 
 						AND p.IsParlay						= r.IsParlay
+                        AND p.MatchId                       = r.MatchId
 					FOR XML PATH ('')
 				), 1, 1, ''
 			) AS MessageIdList
@@ -740,13 +750,14 @@ BEGIN
 						AND p.IsDeposit						= r.IsDeposit 
 						AND p.IssueTypeId					= r.IssueTypeId 
 						AND p.IsParlay						= r.IsParlay
+                        AND p.MatchId                       = r.MatchId
 					FOR XML PATH ('')
 				), 1, 1, ''
 			) AS RequestIdList
 		FROM CTE_Collection r
 	)
-	INSERT INTO @Result (VoidingHistoryCollectionId, MessageIdList, RequestIdList, CustId, IssueTypeId, IsParlay, IsDeposit, msg_ContentEN, msg_ContentCS, msg_ContentYN)
-	SELECT l.VoidingHistoryCollectionId, l.MessageIdList, l.RequestIdList, l.HeadlineId, l.IssueTypeId, l.IsParlay, l.IsDeposit, m.Content_EN, m.Content_SC, m.Content_YN
+	INSERT INTO @Result (VoidingHistoryCollectionId, MessageIdList, RequestIdList, CustId, IssueTypeId, IsParlay, MatchId, IsDeposit, msg_ContentEN, msg_ContentCS, msg_ContentYN)
+	SELECT l.VoidingHistoryCollectionId, l.MessageIdList, l.RequestIdList, l.HeadlineId, l.IssueTypeId, l.IsParlay, l.MatchId, l.IsDeposit, m.Content_EN, m.Content_SC, m.Content_YN
 	FROM CTE_MessageList l
 		LEFT JOIN #Message m ON m.VoidingHistoryCollectionId = l.VoidingHistoryCollectionId
 
@@ -866,7 +877,16 @@ BEGIN
 				), 1, 1, ''
 			) AS VoidedByList
 		FROM @Result r
-	) 
+	),
+    CTE_PreventHardcode_VSParlay AS (
+        SELECT b.bettype 
+        FROM dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS bettype 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Parlay Bettype'
+    )
 	UPDATE r
 		SET 
 			r.BettypeIds		= n.BettypeIds
@@ -883,7 +903,9 @@ BEGIN
 			SELECT 
 				CASE WHEN r.IsParlay = 1 THEN CONVERT(VARCHAR(20), @BettypeId_MixParlay) ELSE c.BettypeIds END AS BettypeIds
 				,CASE WHEN r.IsParlay = 1 THEN CONVERT(VARCHAR(20), @SubProductId_MultipleSports) ELSE c.SportTypeIds END AS SportTypeIds
-				,CASE WHEN r.IsParlay = 1 OR r.IssueTypeId IN (11, 15, 13) THEN @ProductId_Sportsbook ELSE c.ProductIds END AS ProductIds
+				,CASE WHEN r.IsParlay = 1 AND r.MatchId IN (SELECT bettype FROM CTE_PreventHardcode_VSParlay) THEN @ProductId_VirtualSports
+                      WHEN r.IsParlay = 1 OR r.IssueTypeId IN (11, 15, 13) THEN @ProductId_Sportsbook
+                      ELSE c.ProductIds END AS ProductIds
 		) AS n
 		LEFT JOIN CTE_RequestInfo rq ON rq.Id = r.Id
 

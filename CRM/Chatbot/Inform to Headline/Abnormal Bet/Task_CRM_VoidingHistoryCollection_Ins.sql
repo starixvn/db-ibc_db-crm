@@ -113,7 +113,6 @@ BEGIN
     -- Process to get data to temp table
     ;WITH
     -- + Get initial data | Get data from yesterday
-    --                    | Get data that not exists on table VoidingHistoryCollectionDetail
     --                    | Pay more attention to the condition #3
     --                    | --> We need this condition to deal with case VoidingHistoryId be voided and after that be recovered
     --                    | --> VoidingHistoryId be voided successfully must exist in both table TicketVoiding_VoidingHistory and TicketVoiding_VoidedTransaction and have StatusId=2
@@ -132,7 +131,6 @@ BEGIN
         FROM bodb02.dbo.TicketVoiding_VoidingHistory vh WITH (NOLOCK)
              LEFT JOIN bodb02.dbo.Customer cvb WITH (NOLOCK) ON vh.UserId = cvb.custid
         WHERE vh.CreatedDate >= DATEADD(DAY, -1, @CurrentDate)
-              AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.VoidingHistoryCollectionDetail d WITH (NOLOCK) WHERE d.VoidingHistoryId = vh.VoidingHistoryId)
               AND (
                    (StatusId = 2 AND EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.TicketVoiding_VoidedTransaction vt WITH (NOLOCK) WHERE vt.VoidingHistoryId = vh.VoidingHistoryId))
                    OR
@@ -202,7 +200,8 @@ BEGIN
         GROUP BY BroadcastSessionId
         HAVING MIN(CreatedDate) > DATEADD(SECOND, -5, @CurrentDate)
     )
-    -- + Finalize to insert data to temp table
+    -- + Finalize to insert data to temp table | Get data that not exists on clean data dataset
+    --                                         | Get data that not exists on table VoidingHistoryCollectionDetail based on two condition VoidingHistoryId|MessageId
     INSERT INTO #tmpTicketVoiding_VoidingHistory (
         BroadcastSessionId,
         RequestId,
@@ -214,17 +213,18 @@ BEGIN
         VoIdBy,
         ModifiedDate
     )
-    SELECT BroadcastSessionId,
-           RequestId,
-           VoidingHistoryId,
-           MessageId,
-           MessageIdGroup,
-           SiteDBGroupID,
-           StatusId,
-           VoIdBy,
-           ModifiedDate
-    FROM CTE_union
-    WHERE BroadcastSessionId NOT IN (SELECT BroadcastSessionId FROM CTE_clean)
+    SELECT cte.BroadcastSessionId,
+           cte.RequestId,
+           cte.VoidingHistoryId,
+           cte.MessageId,
+           cte.MessageIdGroup,
+           cte.SiteDBGroupID,
+           cte.StatusId,
+           cte.VoIdBy,
+           cte.ModifiedDate
+    FROM CTE_union cte
+    WHERE cte.BroadcastSessionId NOT IN (SELECT BroadcastSessionId FROM CTE_clean)
+          AND NOT EXISTS (SELECT TOP 1 1 FROM bodb02.dbo.VoidingHistoryCollectionDetail d WITH (NOLOCK) WHERE d.VoidingHistoryId = cte.VoidingHistoryId AND d.MessageId = cte.MessageId)
 
 
     ---------------------------------------------------------------

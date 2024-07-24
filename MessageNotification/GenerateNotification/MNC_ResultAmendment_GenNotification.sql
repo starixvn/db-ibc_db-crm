@@ -309,7 +309,7 @@ BEGIN
 	)
 	
 	CREATE TABLE #tmpCustomer (
-		CustID INT NOT NULL
+		CustID INT
 		,AgentID INT
 		,MasterID INT
 		,SuperID INT
@@ -451,7 +451,7 @@ BEGIN
 			,tc.MasterID = c.mrecommend
 			,tc.SuperID = c.srecommend
 		FROM #tmpCustomer AS tc
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON tc.CustID = c.CustID
+			LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON tc.CustID = c.CustID
 		
 		--Get TargetSite
 		UPDATE tc
@@ -459,10 +459,32 @@ BEGIN
 		FROM #tmpCustomer AS tc
 			LEFT JOIN bodb02.dbo.Customer AS ag WITH (NOLOCK) ON tc.AgentID = ag.CustID
 		
-		DELETE FROM #tmpCustomer
-		WHERE TargetSite IS NULL
-		
-		UPDATE STATISTICS #tmpCustomer
+		IF EXISTS (SELECT 1 FROM #tmpCustomer WHERE TargetSite IS NULL)
+		BEGIN
+			;WITH CTE_InvCust AS (
+				SELECT STRING_AGG(CONVERT(NVARCHAR(MAX),ivCustID),', ') AS InvCust
+				FROM (
+					SELECT DISTINCT ISNULL(CONVERT(NVARCHAR(MAX),CustID),'NULL') AS ivCustID
+					FROM #tmpCustomer
+					WHERE TargetSite IS NULL
+				) AS t
+			)
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@ErrLogPrefix + 'EXISTS Cust(' + ISNULL(InvCust,'NULL') + ') WITHOUT TargetSite while generating for SettlementLogIDs(' + ISNULL(@ValidSettlementLogIDs,'NULL') + ')')
+			FROM CTE_InvCust
+			
+			-------------------
+			DELETE FROM #tmpCustomer
+			WHERE TargetSite IS NULL
+			
+			UPDATE STATISTICS #tmpCustomer
+		END
 		/*
 			Parse data from ActualResult / WrongResult
 				#tmpResultInfo

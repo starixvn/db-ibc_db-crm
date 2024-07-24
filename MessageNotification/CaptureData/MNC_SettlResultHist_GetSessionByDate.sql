@@ -125,7 +125,7 @@ BEGIN
 		,i.IsDeleted = sh.IsDeleted
 	FROM #tmpResultHist AS i
 		LEFT JOIN SettlementResultHistory AS sh WITH (NOLOCK) ON i.SessionID = sh.SessionID AND i.MatchID = sh.MatchID AND i.SeqNo = sh.SeqNo
-	WHERE sh.StatusID >= 2 --[StatusID < 2] => not start Result Amendment steps
+	WHERE sh.StatusID = 2 --[StatusID < 2] => not start Result Amendment steps
 	
 	--If @Environment = UAT, get only TEST League
 	UPDATE i

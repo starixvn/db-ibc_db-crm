@@ -782,34 +782,18 @@ BEGIN
 				Update for CASE #1
 					Count of SiteDBGroupID By [SessionID] = Count of SiteDBConfig (UPD only for StatusID = Retrieving)
 			*/
-			;WITH CTE_Session AS (
+			;WITH CTE_Session_DBCnt AS (
 				SELECT sh.SessionID
 					,sh.MatchID
 					,sh.SeqNo
-					,sh.SiteDBGroupID
+					,COUNT(DISTINCT sh.SiteDBGroupID) AS SiteDBCnt
 				FROM #tmpResultHist AS rh
 					INNER JOIN SettlementResultHist AS sh ON rh.SessionID = sh.SessionID --case SettlementStatusID=2
 				WHERE @IsTestFlag IS NULL
 					OR sh.IsTest = @IsTestFlag
-				
-				UNION ALL
-				
-				SELECT SessionID
-					,MatchID
-					,SeqNo
-					,SiteDBGroupID
-				FROM #tmpResultHist
-				WHERE SettlementStatusID > 2 ----can ignore Session
-			)
-			,CTE_Sts AS (
-				SELECT SessionID
-					,MatchID
-					,SeqNo
-					,COUNT(DISTINCT SiteDBGroupID) AS SiteDBCnt
-				FROM CTE_Session
-				GROUP BY SessionID
-					,MatchID
-					,SeqNo
+				GROUP BY sh.SessionID
+					,sh.MatchID
+					,sh.SeqNo
 			)
 			UPDATE sh
 			SET sh.StatusID = @StsRetrieved
@@ -818,8 +802,8 @@ BEGIN
 				,'Full SiteDBGroupIDs'
 			INTO @tmpUpdatedRH (SettlementLogID, UpdatedCase)
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
-				INNER JOIN CTE_Sts AS sts ON sh.SessionID = sts.SessionID AND sh.MatchID = sts.MatchID AND sh.SeqNo = sts.SeqNo
-			WHERE sts.SiteDBCnt = @SiteDBCnt
+				INNER JOIN CTE_Session_DBCnt AS s ON sh.SessionID = s.SessionID AND sh.MatchID = s.MatchID AND sh.SeqNo = s.SeqNo
+			WHERE s.SiteDBCnt = @SiteDBCnt
 				AND sh.StatusID = @StsRetrieving
 				AND (
 					@IsTestFlag IS NULL
@@ -856,9 +840,13 @@ BEGIN
 			
 			;WITH CTE_Session_INSTime AS (
 				SELECT SessionID
+					,MatchID
+					,SeqNo
 				FROM SettlementResultHist
 				WHERE StatusID = @StsRetrieving
 				GROUP BY SessionID
+					,MatchID
+					,SeqNo
 				HAVING DATEDIFF(SECOND, MIN(InsertedTime),GETDATE()) > @Retrieving_WaitSec
 			)
 			UPDATE sh
@@ -868,7 +856,7 @@ BEGIN
 				,'Over Retrieving_WaitSec'
 			INTO @tmpUpdatedRH (SettlementLogID, UpdatedCase)
 			FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
-				INNER JOIN CTE_Session_INSTime AS s ON sh.SessionID = s.SessionID
+				INNER JOIN CTE_Session_INSTime AS s ON sh.SessionID = s.SessionID AND sh.MatchID = s.MatchID AND sh.SeqNo = s.SeqNo
 			WHERE sh.StatusID = @StsRetrieving
 				AND (
 					@IsTestFlag IS NULL

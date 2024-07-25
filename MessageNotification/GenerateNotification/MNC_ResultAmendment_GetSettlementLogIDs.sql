@@ -68,7 +68,7 @@ BEGIN
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@IsTestFlag BIT
-		,@InvalidResourceIDType TINYINT
+		,@InvalidResourceIDTxt NVARCHAR(2000)
 		,@PRODIncludeTest BIT = 0
 		,@LogMode VARCHAR(500)
 		,@ErrCode INT = 0
@@ -232,6 +232,24 @@ BEGIN
 			)--OPENJSON case-sensitive
 			CROSS APPLY STRING_SPLIT(SettlementLogIDs, ',')
 		WHERE ISJSON(@JSRemotingRef) = 1
+		
+		--write log
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@InfLogPrefix + 'Debug - Parse JSON RemotingRef'
+							+ ' - tmpGSIRemotingRefData('
+								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+											SELECT *
+											FROM #tmpGSIRemotingRefData
+											FOR JSON PATH
+										))
+									),'NO ROW') + ')')
+		WHERE @LogMode = 'Debug'
 	END TRY
 	BEGIN CATCH
 		
@@ -655,37 +673,7 @@ BEGIN
 			CONTINUE
 		END
 		
-		--Invalid EventInfo (AwayID/HomeID..)
-		IF EXISTS (
-			SELECT 1
-			FROM #tmpGSIResourceRef AS rh WITH (NOLOCK)
-				LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1)
-			WHERE rh.SettlementLogID = @iSettleID
-				AND rh.RefId1 = 'TeamID'
-				AND rh.GroupName = 'EventInfo'
-				AND t.TeamID IS NULL
-		)
-		BEGIN
-			;WITH CTE_LogTxt AS (
-				SELECT rh.SettlementLogID AS SettleID
-					,'TeamID(' + ISNULL(rh.RefId2,'NULL') + ') NOT EXISTS IN [team] table' AS LTxt
-				FROM #tmpGSIResourceRef AS rh WITH (NOLOCK)
-					LEFT JOIN bodb02.dbo.team AS t WITH (NOLOCK) ON t.TeamID = ISNULL(TRY_CONVERT(INT,rh.RefId2),-1)
-				WHERE rh.SettlementLogID = @iSettleID
-					AND rh.RefId1 = 'TeamID'
-					AND rh.GroupName = 'EventInfo'
-					AND t.TeamID IS NULL
-			)
-			UPDATE v
-			SET v.RHLog = v.RHLog + 'Invalid EventInfo - ' + ISNULL(l.LTxt,'')
-				,v.StatusID = @StsGenFailed
-			FROM #tmpGSIVerifyList AS v
-				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
-			
-			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
-			
-			CONTINUE
-		END
+		--Invalid EventInfo - AwayID/HomeID with [Team] table => No need, NOT use Team table
 		
 		---Check ActionType---
 		IF EXISTS (
@@ -732,7 +720,7 @@ BEGIN
 		END
 		
 		--Check Invalid ResourceID
-		SELECT @InvalidResourceIDType = 0
+		SELECT @InvalidResourceIDTxt = ''
 		
 		;WITH CTE_XML AS (
 			SELECT 'main' AS ResourceIDFrom
@@ -769,27 +757,23 @@ BEGIN
 				OUTER APPLY ResultXML.nodes('root/r') a(c)
 			WHERE ISNULL(TRIM(a.c.value('@Id', 'VARCHAR(50)')),'') <> ''
 		)
-		SELECT @InvalidResourceIDType = (
-			CASE WHEN NOT EXISTS (SELECT 1 FROM CTE_ResourceID WHERE ResourceIDFrom = 'main') THEN 1 --Actual/Wrong NOT EXISTS ResourceID
-				WHEN NOT EXISTS (SELECT 1 FROM CTE_ResourceID WHERE ResourceIDFrom = 'detail') THEN 2 --ExtraInfo_Before/ExtraInfo_After NOT EXISTS ResourceID
+		SELECT @InvalidResourceIDTxt = (
+			CASE WHEN NOT EXISTS (SELECT 1 FROM CTE_ResourceID WHERE ResourceIDFrom = 'main') THEN 'Actual/Wrong NOT EXISTS ResourceID'
+				WHEN NOT EXISTS (SELECT 1 FROM CTE_ResourceID WHERE ResourceIDFrom = 'detail') THEN 'SettlementResultHistDetail.ExtraInfo_Before/ExtraInfo_After NOT EXISTS ResourceID'
 				WHEN EXISTS (
 					SELECT 1
 					FROM CTE_ResourceID AS d
 						LEFT JOIN CTE_ResourceID AS m ON m.ResourceID = d.ResourceID AND m.ResourceIDFrom = 'main'
 					WHERE d.ResourceIDFrom = 'detail'
 						AND m.ResourceID IS NULL
-				) THEN 3 --SettlementResultHistDetail.ResourceID NOT EXISTS SettlementResultHist.ResourceID
-			ELSE 0 END
+				) THEN 'SettlementResultHistDetail.ResourceID NOT EXISTS SettlementResultHist.ResourceID'
+			ELSE '' END
 		)
 		
-		IF @InvalidResourceIDType <> 0
+		IF @InvalidResourceIDTxt <> ''
 		BEGIN
 			UPDATE #tmpGSIVerifyList
-			SET RHLog = RHLog + 'Invalid ResourceID'
-							+ CASE WHEN @InvalidResourceIDType = 1 THEN ' - Actual/Wrong NOT EXISTS ResourceID'
-									WHEN @InvalidResourceIDType = 2 THEN ' - SettlementResultHistDetail.ExtraInfo_Before/ExtraInfo_After NOT EXISTS ResourceID'
-									WHEN @InvalidResourceIDType = 3 THEN ' - SettlementResultHistDetail.ResourceID NOT EXISTS SettlementResultHist.ResourceID'
-								ELSE ' - @InvalidResourceIDType(' + ISNULL(CONVERT(VARCHAR,@InvalidResourceIDType),'NULL') + ')' END
+			SET RHLog = RHLog + 'Invalid ResourceID - ' + @InvalidResourceIDTxt
 				,StatusID = @StsGenFailed
 			WHERE SettlementLogID = @iSettleID
 			
@@ -987,34 +971,6 @@ BEGIN
 			CONTINUE
 		END
 		
-		/*
-			write more info if enable IncludeTestMatch
-			
-			write #tmpGSIRemotingRefData if enable IncludeTestMatch AND any returned NULL value
-				- RefId2 IS NULL
-				- English value IS NULL
-				- match info IS NULL
-		*/
-		IF EXISTS (SELECT 1 FROM #tmpGSIRemotingRefData WHERE SettlementLogID = @iSettleID AND (RefId2 IS NULL OR RefValueEN IS NULL) AND @LogMode = 'Debug')
-		BEGIN
-			UPDATE #tmpGSIVerifyList
-			SET RHLog = RHLog + 'RemotingRef Returned NULL value ('
-							+ (SELECT CONVERT(NVARCHAR(MAX)
-									,(SELECT ISNULL(GroupName,'NULL') AS GroupName
-										,ISNULL(RefId1,'NULL') AS RefId1
-										,ISNULL(RefId2,'NULL') AS RefId2
-										,ISNULL(RefValueEN,'NULL') AS RefValueEN
-										,ISNULL(RefValueCH,'NULL') AS RefValueCH
-										,ISNULL(RefValueCS,'NULL') AS RefValueCS
-									FROM #tmpGSIRemotingRefData
-									WHERE SettlementLogID = @iSettleID
-									FOR JSON AUTO
-									))
-							)
-							+')'
-			WHERE SettlementLogID = @iSettleID
-		END
-		
 		----reset for loop------
 		SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 	END TRY
@@ -1071,7 +1027,6 @@ BEGIN
 		,COMPRESS(CASE WHEN rh.StatusID = @StsGenFailed THEN @ErrLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Failed to Generate] (' + rh.RHLog + ')'
 			WHEN rh.StatusID = @StsIgnore THEN @InfLogPrefix + 'Changed SettlementLogID Status from [Generating] to [Ignore] (' + rh.RHLog + ')'
 			WHEN rh.StatusID = 0 THEN @InfLogPrefix + 'Ingore Generate(' + rh.RHLog + ')'
-			WHEN rh.StatusID = @StsGenerating THEN @InfLogPrefix + 'Verify without error'
 			ELSE @ErrLogPrefix + 'Unknown Status(' + ISNULL(CONVERT(VARCHAR,rh.StatusID),'NULL') + ') error'+ ISNULL('(' + NULLIF(TRIM(rh.RHLog),'') + ')','.') END
 		)
 	FROM #tmpGSIVerifyList AS rh

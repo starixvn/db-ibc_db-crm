@@ -50,9 +50,9 @@ BEGIN TRY
 	*/
 	CREATE TABLE #tmpJSParseRemotingRef (
 		SettlementLogID INT
-		,GroupName VARCHAR(50)
-		,RefId1 VARCHAR(50)
-		,RefId2 VARCHAR(50)
+		,GroupName NVARCHAR(50)
+		,RefId1 NVARCHAR(50)
+		,RefId2 NVARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpJSParseEventInfo (
@@ -66,17 +66,17 @@ BEGIN TRY
 	
 	CREATE TABLE #tmpJSParseResultInfo (
 		SettlementLogID INT
-		,AmendInfo VARCHAR(50)
-		,ResourceID VARCHAR(50)
-		,RefBettypeID VARCHAR(50)
-		,HomeValue VARCHAR(50)
-		,AwayValue VARCHAR(50)
-		,OtherInfo VARCHAR(200)
-		,TeamIDs VARCHAR(200)
-		,G VARCHAR(50)
-		,M VARCHAR(50)
-		,X VARCHAR(50)
-		,Y VARCHAR(50)
+		,AmendInfo NVARCHAR(50)
+		,ResourceID NVARCHAR(50)
+		,RefBettypeID NVARCHAR(50)
+		,HomeValue NVARCHAR(50)
+		,AwayValue NVARCHAR(50)
+		,OtherInfo NVARCHAR(200)
+		,TeamIDs NVARCHAR(200)
+		,G NVARCHAR(50)
+		,M NVARCHAR(50)
+		,X NVARCHAR(50)
+		,Y NVARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpJSParseInputIDs (
@@ -168,76 +168,6 @@ BEGIN TRY
 		LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
 	WHERE ISNULL(CHARINDEX('SettleMatch',@ParseAmendInfo),0) > 0
 	
-	--MatchID--
-	INSERT INTO #tmpJSParseResultInfo (
-		SettlementLogID
-		,AmendInfo
-		,ResourceID
-		,OtherInfo
-	)
-	SELECT DISTINCT SettlementLogID
-		,'SettleMatch' AS AmendInfo
-		,'MatchID' AS ResourceID
-		,MatchID AS OtherInfo
-	FROM #tmpJSParseEventInfo
-	WHERE MatchID IS NOT NULL
-	
-	--LeagueID--
-	INSERT INTO #tmpJSParseResultInfo (
-		SettlementLogID
-		,AmendInfo
-		,ResourceID
-		,OtherInfo
-	)
-	SELECT DISTINCT SettlementLogID
-		,'SettleMatch' AS AmendInfo
-		,'LeagueID' AS ResourceID
-		,LeagueID AS OtherInfo
-	FROM #tmpJSParseEventInfo
-	WHERE LeagueID IS NOT NULL
-	
-	--SportType--
-	INSERT INTO #tmpJSParseResultInfo (
-		SettlementLogID
-		,AmendInfo
-		,ResourceID
-		,OtherInfo
-	)
-	SELECT DISTINCT SettlementLogID
-		,'SettleMatch' AS AmendInfo
-		,'SportType' AS ResourceID
-		,SportType AS OtherInfo
-	FROM #tmpJSParseEventInfo
-	WHERE SportType IS NOT NULL
-	
-	--HomeID--
-	INSERT INTO #tmpJSParseResultInfo (
-		SettlementLogID
-		,AmendInfo
-		,ResourceID
-		,TeamIDs
-	)
-	SELECT DISTINCT SettlementLogID
-		,'SettleMatch' AS AmendInfo
-		,'HomeID' AS ResourceID
-		,HomeID AS TeamIDs
-	FROM #tmpJSParseEventInfo
-	WHERE HomeID IS NOT NULL
-	
-	--AwayID--
-	INSERT INTO #tmpJSParseResultInfo (
-		SettlementLogID
-		,AmendInfo
-		,ResourceID
-		,TeamIDs
-	)
-	SELECT DISTINCT SettlementLogID
-		,'SettleMatch' AS AmendInfo
-		,'AwayID' AS ResourceID
-		,AwayID AS TeamIDs
-	FROM #tmpJSParseEventInfo
-	WHERE AwayID IS NOT NULL
-	
 	--ActualResult / WrongResult
 	;WITH CTE_XML AS (
 		SELECT sh.SettlementLogID
@@ -249,16 +179,16 @@ BEGIN TRY
 	,CTE_Actual AS (
 		SELECT DISTINCT SettlementLogID
 			,'ActualResult' AS AmendInfo
-			,NULLIF(TRIM(a.c.value('@Id', 'VARCHAR(50)')), '') AS ResourceID
-			,NULLIF(TRIM(a.c.value('@RefBettypeID', 'VARCHAR(50)')), '') AS RefBettypeID
-			,NULLIF(TRIM(a.c.value('@Home', 'VARCHAR(50)')), '') AS HomeValue
-			,NULLIF(TRIM(a.c.value('@Away', 'VARCHAR(50)')), '') AS AwayValue
-			,NULLIF(TRIM(a.c.value('@OtherInfo', 'VARCHAR(MAX)')), '') AS OtherInfo
-			,NULLIF(TRIM(a.c.value('@TeamIds', 'VARCHAR(MAX)')), '') AS TeamIDs
-			,NULLIF(TRIM(a.c.value('@G', 'VARCHAR(50)')), '') AS G
-			,NULLIF(TRIM(a.c.value('@M', 'VARCHAR(50)')), '') AS M
-			,NULLIF(TRIM(a.c.value('@X', 'VARCHAR(50)')), '') AS X
-			,NULLIF(TRIM(a.c.value('@Y', 'VARCHAR(50)')), '') AS Y
+			,NULLIF(TRIM(a.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
+			,NULLIF(TRIM(a.c.value('@RefBettypeID', 'NVARCHAR(50)')), '') AS RefBettypeID
+			,NULLIF(TRIM(a.c.value('@Home', 'NVARCHAR(50)')), '') AS HomeValue
+			,NULLIF(TRIM(a.c.value('@Away', 'NVARCHAR(50)')), '') AS AwayValue
+			,NULLIF(TRIM(a.c.value('@OtherInfo', 'NVARCHAR(MAX)')), '') AS OtherInfo
+			,NULLIF(TRIM(a.c.value('@TeamIds', 'NVARCHAR(MAX)')), '') AS TeamIDs
+			,NULLIF(TRIM(a.c.value('@G', 'NVARCHAR(50)')), '') AS G
+			,NULLIF(TRIM(a.c.value('@M', 'NVARCHAR(50)')), '') AS M
+			,NULLIF(TRIM(a.c.value('@X', 'NVARCHAR(50)')), '') AS X
+			,NULLIF(TRIM(a.c.value('@Y', 'NVARCHAR(50)')), '') AS Y
 		FROM CTE_XML
 			OUTER APPLY ActualResultXML.nodes('root/r') a(c)
 		WHERE ISNULL(CHARINDEX('ActualResult',@ParseAmendInfo),0) > 0
@@ -266,16 +196,16 @@ BEGIN TRY
 	,CTE_Wrong AS (
 		SELECT DISTINCT SettlementLogID
 			,'WrongResult' AS AmendInfo
-			,NULLIF(TRIM(w.c.value('@Id', 'VARCHAR(50)')), '') AS ResourceID
-			,NULLIF(TRIM(w.c.value('@RefBettypeID', 'VARCHAR(50)')), '') AS RefBettypeID
-			,NULLIF(TRIM(w.c.value('@Home', 'VARCHAR(50)')), '') AS HomeValue
-			,NULLIF(TRIM(w.c.value('@Away', 'VARCHAR(50)')), '') AS AwayValue
-			,NULLIF(TRIM(w.c.value('@OtherInfo', 'VARCHAR(MAX)')), '') AS OtherInfo
-			,NULLIF(TRIM(w.c.value('@TeamIds', 'VARCHAR(MAX)')), '') AS TeamIDs --Can value('(//*/@*[lower-case(local-name())="teamids"])[1]', 'INT') to ignore case-sensitive (low performance)
-			,NULLIF(TRIM(w.c.value('@G', 'VARCHAR(50)')), '') AS G
-			,NULLIF(TRIM(w.c.value('@M', 'VARCHAR(50)')), '') AS M
-			,NULLIF(TRIM(w.c.value('@X', 'VARCHAR(50)')), '') AS X
-			,NULLIF(TRIM(w.c.value('@Y', 'VARCHAR(50)')), '') AS Y
+			,NULLIF(TRIM(w.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
+			,NULLIF(TRIM(w.c.value('@RefBettypeID', 'NVARCHAR(50)')), '') AS RefBettypeID
+			,NULLIF(TRIM(w.c.value('@Home', 'NVARCHAR(50)')), '') AS HomeValue
+			,NULLIF(TRIM(w.c.value('@Away', 'NVARCHAR(50)')), '') AS AwayValue
+			,NULLIF(TRIM(w.c.value('@OtherInfo', 'NVARCHAR(MAX)')), '') AS OtherInfo
+			,NULLIF(TRIM(w.c.value('@TeamIds', 'NVARCHAR(MAX)')), '') AS TeamIDs --Can value('(//*/@*[lower-case(local-name())="teamids"])[1]', 'INT') to ignore case-sensitive (low performance)
+			,NULLIF(TRIM(w.c.value('@G', 'NVARCHAR(50)')), '') AS G
+			,NULLIF(TRIM(w.c.value('@M', 'NVARCHAR(50)')), '') AS M
+			,NULLIF(TRIM(w.c.value('@X', 'NVARCHAR(50)')), '') AS X
+			,NULLIF(TRIM(w.c.value('@Y', 'NVARCHAR(50)')), '') AS Y
 		FROM CTE_XML
 			OUTER APPLY WrongResultXML.nodes('root/r') w(c)
 		WHERE ISNULL(CHARINDEX('WrongResult',@ParseAmendInfo),0) > 0
@@ -331,6 +261,80 @@ BEGIN TRY
 	*/
 	IF @ParseTo = 'RawData'
 	BEGIN
+		/*
+			SettleMatch info
+		*/
+		--MatchID--
+		INSERT INTO #tmpJSParseResultInfo (
+			SettlementLogID
+			,AmendInfo
+			,ResourceID
+			,OtherInfo
+		)
+		SELECT DISTINCT SettlementLogID
+			,'SettleMatch' AS AmendInfo
+			,'MatchID' AS ResourceID
+			,MatchID AS OtherInfo
+		FROM #tmpJSParseEventInfo
+		WHERE MatchID IS NOT NULL
+		
+		--LeagueID--
+		INSERT INTO #tmpJSParseResultInfo (
+			SettlementLogID
+			,AmendInfo
+			,ResourceID
+			,OtherInfo
+		)
+		SELECT DISTINCT SettlementLogID
+			,'SettleMatch' AS AmendInfo
+			,'LeagueID' AS ResourceID
+			,LeagueID AS OtherInfo
+		FROM #tmpJSParseEventInfo
+		WHERE LeagueID IS NOT NULL
+		
+		--SportType--
+		INSERT INTO #tmpJSParseResultInfo (
+			SettlementLogID
+			,AmendInfo
+			,ResourceID
+			,OtherInfo
+		)
+		SELECT DISTINCT SettlementLogID
+			,'SettleMatch' AS AmendInfo
+			,'SportType' AS ResourceID
+			,SportType AS OtherInfo
+		FROM #tmpJSParseEventInfo
+		WHERE SportType IS NOT NULL
+		
+		--HomeID--
+		INSERT INTO #tmpJSParseResultInfo (
+			SettlementLogID
+			,AmendInfo
+			,ResourceID
+			,TeamIDs
+		)
+		SELECT DISTINCT SettlementLogID
+			,'SettleMatch' AS AmendInfo
+			,'HomeID' AS ResourceID
+			,HomeID AS TeamIDs
+		FROM #tmpJSParseEventInfo
+		WHERE HomeID IS NOT NULL
+		
+		--AwayID--
+		INSERT INTO #tmpJSParseResultInfo (
+			SettlementLogID
+			,AmendInfo
+			,ResourceID
+			,TeamIDs
+		)
+		SELECT DISTINCT SettlementLogID
+			,'SettleMatch' AS AmendInfo
+			,'AwayID' AS ResourceID
+			,AwayID AS TeamIDs
+		FROM #tmpJSParseEventInfo
+		WHERE AwayID IS NOT NULL
+		
+		--return SettleMatch + ActualResult + WrongResult
 		SELECT @OutJSResource =
 			CONVERT(NVARCHAR(MAX)
 				,(
@@ -383,22 +387,17 @@ BEGIN TRY
 		FROM #tmpJSParseResultInfo
 		WHERE RefBettypeID IS NOT NULL
 		
-		--For <G>, get both G & M ResourceId
-		;WITH CTE_G AS (
-			SELECT 'M' AS RefId2
-			UNION
-			SELECT 'G' AS RefId2
-		)
-		,CTE_AffectedResult AS (
+		--<G> / <M>
+		;WITH CTE_AffectedResult AS (
 			SELECT SettlementLogID
-				,G AS tG
+				,'G' + G AS RefId2
 			FROM #tmpJSParseResultInfo
 			WHERE G IS NOT NULL
 
-			UNION
+			UNION ALL
 
 			SELECT SettlementLogID
-				,M AS tG
+				,'M' + M AS RefId2
 			FROM #tmpJSParseResultInfo
 			WHERE M IS NOT NULL
 		)
@@ -411,9 +410,8 @@ BEGIN TRY
 		SELECT DISTINCT ar.SettlementLogID
 			,'RefResource' AS GroupName
 			,'ResourceCricket' AS RefId1
-			,g.RefId2 + ar.tG AS RefId2
-		FROM CTE_G AS g
-			,CTE_AffectedResult AS ar
+			,ar.RefId2
+		FROM CTE_AffectedResult AS ar
 		
 		--<HomeValue> / <AwayValue>
 		;WITH CTE_HA AS (
@@ -470,7 +468,22 @@ BEGIN TRY
 				,value AS RefId2
 			FROM #tmpJSParseResultInfo
 				CROSS APPLY STRING_SPLIT(OtherInfo, ',')
-			WHERE AmendInfo <> 'SettleMatch'
+			
+			UNION ALL
+			
+			SELECT DISTINCT SettlementLogID
+				,'TeamID' AS RefId1
+				,CONVERT(NVARCHAR,HomeID) AS RefId2
+			FROM #tmpJSParseEventInfo
+			WHERE HomeID IS NOT NULL
+			
+			UNION ALL
+			
+			SELECT DISTINCT SettlementLogID
+				,'TeamID' AS RefId1
+				,CONVERT(NVARCHAR,AwayID) AS RefId2
+			FROM #tmpJSParseEventInfo
+			WHERE AwayID IS NOT NULL
 		)
 		INSERT INTO #tmpJSParseRemotingRef (
 			SettlementLogID
@@ -494,10 +507,10 @@ BEGIN TRY
 		)
 		SELECT DISTINCT SettlementLogID
 			,'EventInfo' AS GroupName
-			,ResourceID AS RefId1
-			,OtherInfo AS RefId2
-		FROM #tmpJSParseResultInfo
-		WHERE ResourceID = 'SportType'
+			,'SportType' AS RefId1
+			,SportType AS RefId2
+		FROM #tmpJSParseEventInfo
+		WHERE SportType IS NOT NULL
 		
 		--LeagueID
 		INSERT INTO #tmpJSParseRemotingRef (
@@ -508,10 +521,10 @@ BEGIN TRY
 		)
 		SELECT DISTINCT SettlementLogID
 			,'EventInfo' AS GroupName
-			,ResourceID AS RefId1
-			,OtherInfo AS RefId2
-		FROM #tmpJSParseResultInfo
-		WHERE ResourceID = 'LeagueID'
+			,'LeagueID' AS RefId1
+			,LeagueID AS RefId2
+		FROM #tmpJSParseEventInfo
+		WHERE LeagueID IS NOT NULL
 		
 		--return--
 		SELECT @OutJSResource =

@@ -49,7 +49,7 @@ BEGIN
 	
 	CREATE TABLE #tmpSendingAlert (
 		AlertID INT
-		,AlertType VARCHAR(50)
+		,IsTest TINYINT
 		,ChatGroupID VARCHAR(50)
 		,Content NVARCHAR(MAX)
 		,IsNoneSaba TINYINT
@@ -57,10 +57,6 @@ BEGIN
 		,MatchID INT
 		,RefInfo VARCHAR(50)
 		,NotificationID INT
-		,SettlementLogID INT
-		,SessionID VARCHAR(50)
-		,ExistTest TINYINT
-		,ExistReal TINYINT
 		,ValidToSendChatGroup TINYINT NOT NULL
 		,IgnoreReason NVARCHAR(MAX)
 	)
@@ -126,50 +122,38 @@ BEGIN
 	EXEC MessageNotification.dbo.MNC_Notification_GetAlertInfo
 		@JSAlertInfo = @OutJSAlertInfo OUTPUT
 	
-	--SendingAlert
+	--Parse JSON SendingAlert
 	INSERT INTO #tmpSendingAlert (
 		AlertID
-		,AlertType
+		,IsTest
 		,ChatGroupID
 		,IsNoneSaba
 		,TemplateID
 		,MatchID
 		,RefInfo
 		,NotificationID
-		,SettlementLogID
-		,SessionID
-		,ExistTest
-		,ExistReal
 		,ValidToSendChatGroup
 		,IgnoreReason
 	)
 	SELECT DISTINCT AlertID
-		,AlertType
+		,IsTest
 		,ChatGroupID
 		,IsNoneSaba
 		,TemplateID
 		,MatchID
 		,RefInfo
 		,NotificationID
-		,SettlementLogID
-		,SessionID
-		,ExistTest
-		,ExistReal
 		,ValidToSendChatGroup
 		,IgnoreReason
 	FROM OPENJSON(@OutJSAlertInfo) WITH (
 			AlertID INT '$.AlertID'
-			,AlertType VARCHAR(50) '$.AlertType'
+			,IsTest TINYINT '$.IsTest'
 			,ChatGroupID VARCHAR(50) '$.ChatGroupID'
 			,IsNoneSaba TINYINT '$.IsNoneSaba'
 			,TemplateID SMALLINT '$.TemplateID'
 			,MatchID INT '$.MatchID'
 			,RefInfo VARCHAR(50) '$.RefInfo'
 			,NotificationID INT '$.NotificationID'
-			,SettlementLogID INT '$.SettlementLogID'
-			,SessionID VARCHAR(50) '$.SessionID'
-			,ExistTest TINYINT '$.ExistTest'
-			,ExistReal TINYINT '$.ExistReal'
 			,ValidToSendChatGroup TINYINT '$.ValidToSendChatGroup'
 			,IgnoreReason NVARCHAR(MAX) '$.IgnoreReason'
 		)--OPENJSON case-sensitive
@@ -194,15 +178,6 @@ BEGIN
 	
 	------------------------Build EventInfo-----------------------------
 	--Event info by NotificationID
-	;WITH CTE_Match AS (
-		SELECT DISTINCT a.MatchID
-			,ISNULL(a.NotificationID, nm.NotificationID) AS NotificationID
-		FROM #tmpSendingAlert AS a
-			LEFT JOIN SettlementResultHist AS rs WITH (NOLOCK) ON a.SessionID = rs.SessionID
-			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON nm.SettlementLogID = ISNULL(a.SettlementLogID, rs.SettlementLogID)
-		WHERE a.ValidToSendChatGroup = 1
-			AND a.MatchID IS NOT NULL
-	)
 	INSERT INTO #tmpEventInfo (
 		MatchID
 		,EventDate
@@ -217,7 +192,7 @@ BEGIN
 		,MAX(ext.LeagueNameEN) AS LeagueName --IF exists Saba and Non-Saba League => Choose Saba LeagueName
 		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') AS HomeName
 		,ext.AwayNameEN AS AwayName
-	FROM CTE_Match AS a
+	FROM #tmpSendingAlert AS a
 		LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON a.NotificationID = ne.NotificationID --current, only for Msg Noti
 		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 				MatchID INT '$.MatchID'
@@ -228,6 +203,7 @@ BEGIN
 				,AwayNameEN NVARCHAR(500) '$.AwayNameEN'
 			) AS ext --OPENJSON case-sensitive
 	WHERE ISJSON(ne.ExtraInfo) = 1
+		AND a.ValidToSendChatGroup = 1
 		AND ext.MatchID = a.MatchID
 	GROUP BY a.MatchID
 		,ne.EventDate
@@ -448,28 +424,10 @@ BEGIN
 	)
 	SELECT DISTINCT AlertID
 		,ChatGroupID
-		,0 AS IsTest
+		,IsTest
 		,Content
 	FROM #tmpSendingAlert
 	WHERE ValidToSendChatGroup = 1
-		AND ExistReal = 1
-	
-	--for Test group
-	INSERT INTO #tmpResultSet (
-		AlertID
-		,ChatGroupID
-		,IsTest
-		,Content
-	)
-	SELECT a.AlertID
-		,a.ChatGroupID
-		,1 AS IsTest
-		,a.Content
-	FROM #tmpSendingAlert AS a
-		LEFT JOIN #tmpResultSet AS rs ON a.AlertID = rs.AlertID AND a.ChatGroupID = rs.ChatGroupID
-	WHERE a.ValidToSendChatGroup = 1
-		AND a.ExistTest = 1
-		AND rs.AlertID IS NULL
 	
 	CREATE CLUSTERED INDEX CIX_tmpResultSet ON #tmpResultSet (AlertID, ChatGroupID)
 	
@@ -516,8 +474,7 @@ BEGIN
 						,t.Content
 						,t.MatchID
 						,t.TemplateID
-						,t.ExistReal
-						,t.ExistTest
+						,t.IsTest
 					FROM #tmpSendingAlert AS t
 					WHERE t.AlertID = s.AlertID
 						AND t.ValidToSendChatGroup = 1
@@ -532,8 +489,7 @@ BEGIN
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT ISNULL(t.IgnoreReason,'NULL') AS IgnoreReason
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(t.ChatGroupID, 'NULL')),', ') AS ChatGroupIDs
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),t.ExistTest),', ') AS ExistTest
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),t.ExistReal),', ') AS ExistReal
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),t.IsTest),', ') AS IsTest
 				FROM #tmpSendingAlert AS t
 				WHERE t.AlertID = s.AlertID
 					AND t.ValidToSendChatGroup = 0

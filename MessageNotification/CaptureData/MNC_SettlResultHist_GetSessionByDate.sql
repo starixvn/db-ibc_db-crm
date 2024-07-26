@@ -61,17 +61,13 @@ BEGIN
 		,IsDeleted BIT
 	)
 	
-	CREATE TABLE #tmpBalanceNegativeHistory (
-		LogID BIGINT
-		,ExecDate DATETIME
+	CREATE TABLE #tmpBalanceNegativeHist (
+		SessionID VARCHAR(50)
 		,MatchID INT
-		,ActionID INT
 		,CustID INT
-		,GroupID INT
+		,Site VARCHAR(50)
 		,Balance MONEY
 		,TotalBalance MONEY
-		,Site VARCHAR(50)
-		,SessionID VARCHAR(50)
 	)
 	
 	--Get data by NonClustered / Clustered
@@ -125,7 +121,7 @@ BEGIN
 		,i.IsDeleted = sh.IsDeleted
 	FROM #tmpResultHist AS i
 		LEFT JOIN SettlementResultHistory AS sh WITH (NOLOCK) ON i.SessionID = sh.SessionID AND i.MatchID = sh.MatchID AND i.SeqNo = sh.SeqNo
-	WHERE sh.StatusID = 2 --[StatusID < 2] => not start Result Amendment steps
+	WHERE sh.StatusID >= 2 --[StatusID < 2] => not start Result Amendment steps
 	
 	--If @Environment = UAT, get only TEST League
 	UPDATE i
@@ -165,7 +161,6 @@ BEGIN
 		INNER JOIN #tmpResultHist AS h ON d.SessionID = h.SessionID AND d.SeqNo = h.SeqNo
 		LEFT JOIN bodb02.dbo.bettrans AS b WITH (NOLOCK) ON d.Transid = b.Transid
 		LEFT JOIN bodb02.dbo.bettrans14 AS b14 WITH (NOLOCK) ON d.Transid = b14.Transid
-	WHERE h.StatusID = 2 --2-Completed Result Amendment
 	
 	/*
 		Currently, BalanceNegativeHistory mapped by SessionID
@@ -176,28 +171,20 @@ BEGIN
 	*/
 	IF OBJECT_ID(N'bodb02.dbo.BalanceNegativeHistory') IS NOT NULL
 	BEGIN
-		INSERT INTO #tmpBalanceNegativeHistory (
-			LogID
-			,ExecDate
+		INSERT INTO #tmpBalanceNegativeHist (
+			SessionID
 			,MatchID
-			,ActionID
 			,CustID
-			,GroupID
+			,Site
 			,Balance
 			,TotalBalance
-			,Site
-			,SessionID
 		)
-		SELECT DISTINCT bn.LogID
-			,bn.ExecDate
+		SELECT DISTINCT bn.SessionID
 			,bn.MatchID
-			,bn.ActionID
 			,bn.CustID
-			,bn.GroupID
+			,bn.Site
 			,bn.Balance
 			,bn.TotalBalance
-			,bn.Site
-			,bn.SessionID
 		FROM bodb02.dbo.BalanceNegativeHistory AS bn WITH (NOLOCK)
 			INNER JOIN #tmpResultHistDetail AS d ON bn.SessionID = d.SessionID AND bn.CustID = d.CustID
 			INNER JOIN #tmpResultHist AS rh ON d.SessionID = rh.SessionID AND d.SeqNo = rh.SeqNo AND bn.MatchID = rh.MatchID
@@ -228,7 +215,7 @@ BEGIN
 	SELECT 'BalanceNegativeHistory' AS ObjectName
 		,CONVERT(NVARCHAR(MAX),(
 					SELECT *
-					FROM #tmpBalanceNegativeHistory
+					FROM #tmpBalanceNegativeHist
 					FOR JSON AUTO
 				)) AS JSONData
 	
@@ -245,6 +232,6 @@ BEGIN
 	
 	DROP TABLE #tmpResultHist
 	DROP TABLE #tmpResultHistDetail
-	DROP TABLE #tmpBalanceNegativeHistory
+	DROP TABLE #tmpBalanceNegativeHist
 	DROP TABLE #tmpJSData
 END

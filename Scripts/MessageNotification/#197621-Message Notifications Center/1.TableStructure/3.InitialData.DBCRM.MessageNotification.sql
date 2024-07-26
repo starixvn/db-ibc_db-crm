@@ -208,7 +208,7 @@ Match: {HomeName} -vs- {AwayName}
 		,'Result Amendment - Alert for inserted failed to DBMSG (Message 3)'
 		,N'**RESULT AMENDMENT NOTIFICATION**
 
-Failed to SEND the following notification. Please try to RESEND and contact the IT team for support. Thank you!
+Failed to SEND the following notification. Please try to RESEND or contact the IT team for support. Thank you!
 
 Match ID: {MatchID}
 Event Date: {EventDate}
@@ -225,6 +225,25 @@ Match: {HomeName} -vs- {AwayName}
 		,@StarixIT
 		,'Result Amendment for Cricket - Alert for inserted failed to DBMSG (Message 3)'
 	)
+	,(
+		10
+		,'Result Amendment - Alert for NOT fully generated DBMSG (Message 4)'
+		,N'**RESULT AMENDMENT NOTIFICATION**
+
+Match ID: {MatchID}
+Event Date: {EventDate}
+Event Time (GMT+8): {KOTime}
+League: {LeagueName}
+Match: {HomeName} -vs- {AwayName}
+
+Due to a technical error, tickets from some sites have not been fully generated. The system is now generating another notification for the affected sites. Please pay attention and contact the IT team for further details. Thank you!'
+		,NULL
+		,NULL
+		,N'{MatchID},{EventDate},{KOTime},{LeagueName},{HomeName},{AwayName}'
+		,@StarixIT
+		,@StarixIT
+		,'Result Amendment for Cricket - Alert for missing data OR [Failed to Retrieve] from any SiteGroupDB (Message 4)'
+	)
 	
 /***** AlertRule ****/
 TRUNCATE TABLE AlertRule
@@ -238,10 +257,10 @@ INSERT INTO AlertRule (
 )
 VALUES (
 		1
-		,'RA_SysErr - Running Status Too Long - OST'
-		,7
+		,'RA_SysErr - Error send only for IT Group'
+		,NULL
 		,''
-		,'SYS,OST,777'
+		,'SYS'
 	)
 	,(
 		2
@@ -259,22 +278,15 @@ VALUES (
 	)
 	,(
 		4
-		,'RA_SysErr - Missing From Any SiteGroupDB'
+		,'RA_GenErr - Create Noti for DBMSG Failed'
 		,7
 		,''
 		,'SYS,OST,777'
 	)
 	,(
 		5
-		,'RA_SysErr - Failed Status'
-		,NULL
+		,'RA_GenWarn - Missing data from SiteDBs'
+		,10
 		,''
-		,'SYS'
-	)
-	,(
-		6
-		,'RA_SysErr - Running Status Too Long - SYS'
-		,NULL
-		,''
-		,'SYS'
+		,'SYS,OST,777'
 	)

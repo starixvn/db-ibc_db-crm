@@ -60,8 +60,7 @@ BEGIN
 	
 	CREATE TABLE #tmpGAISendingAlert (
 		AlertID INT
-		,ExistTest TINYINT
-		,ExistReal TINYINT
+		,IsTest TINYINT
 		,MatchID INT
 		,IsNoneSaba TINYINT
 		,ChatGroupID VARCHAR(50)
@@ -69,7 +68,6 @@ BEGIN
 		,ValidToSendChatGroup TINYINT NOT NULL
 		,RefInfo VARCHAR(50)
 		,NotificationID INT
-		,SettlementLogID INT
 		,SessionID VARCHAR(50)
 		,AlertType VARCHAR(50)
 		,IgnoreReason NVARCHAR(MAX)
@@ -132,13 +130,11 @@ BEGIN
 	INSERT INTO #tmpGAISendingAlert (
 		AlertID
 		,ChatGroupID
-		,IsNoneSaba
 		,TemplateID
 		,MatchID
 		-----
 		,RefInfo
 		,NotificationID
-		,SettlementLogID
 		,SessionID
 		-----
 		,AlertType
@@ -146,14 +142,12 @@ BEGIN
 	)
 	SELECT DISTINCT a.AlertID
 		,ISNULL(TRIM(cg.value),@IT_ChatGroupID) AS ChatGroupID
-		,(CASE WHEN TRIM(cg.value) = @777_ChatGroupID THEN 1 END) AS IsNoneSaba --by ChatGroupID
-		,ar.TemplateID
+		,(CASE WHEN ISNULL(TRIM(cg.value),@IT_ChatGroupID) <> @IT_ChatGroupID THEN ar.TemplateID END) --TemplateID NULL for @IT_ChatGroupID
 		,ext.MatchID
 		-----
 		,ext.RefInfo
 		,(CASE WHEN ext.RefInfo = 'NotificationID' THEN TRY_CONVERT(INT, a.RefID) END) AS NotificationID
-		,(CASE WHEN ext.RefInfo = 'SettlementLogID' THEN TRY_CONVERT(INT, a.RefID) END) AS SettlementLogID
-		,(CASE WHEN ext.RefInfo = 'SessionID' THEN a.RefID END) AS SessionID
+		,(CASE WHEN ext.RefInfo = 'SessionID' THEN a.RefID ELSE ext.SessionID END) AS SessionID
 		-----
 		,'EventAlert' AS AlertType
 		,1 AS ValidToSendChatGroup
@@ -163,6 +157,7 @@ BEGIN
 		OUTER APPLY STRING_SPLIT(ar.ChatGroupIDs,',') AS cg
 		OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 				MatchID INT '$.MatchID'
+				,SessionID NVARCHAR(50) '$.SessionID'
 				,RefInfo VARCHAR(50) '$.RefInfo'
 			) AS ext
 	WHERE ISJSON(a.RefExtraInfo) = 1
@@ -174,8 +169,7 @@ BEGIN
 		,ChatGroupID
 		-----
 		,RefInfo
-		,ExistTest
-		,ExistReal
+		,IsTest
 		-----
 		,AlertType
 		,ValidToSendChatGroup
@@ -184,16 +178,14 @@ BEGIN
 		,@IT_ChatGroupID AS ChatGroupID
 		-----
 		,ext.RefInfo
-		,0 AS ExistTest
-		,1 AS ExistReal
+		,0 AS IsTest
 		-----
 		,'SelfAlert' AS AlertType
 		,1 AS ValidToSendChatGroup
 	FROM #tmpGAIPrepareAlert AS ea
 		INNER JOIN Alert AS a WITH (NOLOCK) ON a.AlertID = ea.AlertID
 		OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
-				MatchID INT '$.MatchID'
-				,RefInfo VARCHAR(50) '$.RefInfo'
+				RefInfo VARCHAR(50) '$.RefInfo'
 			) AS ext
 	WHERE ISJSON(a.RefExtraInfo) = 1
 		AND ext.RefInfo = 'RuleID'
@@ -226,29 +218,18 @@ BEGIN
 		SELECT a.AlertID
 			,a.MatchID
 			,nm.NotificationID
-			,a.SettlementLogID
-		FROM #tmpGAISendingAlert AS a
-			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON nm.SettlementLogID = a.SettlementLogID
-		WHERE a.MatchID IS NOT NULL
-			AND a.NotificationID IS NULL --IF NotificationID NULL
-			AND a.SettlementLogID IS NOT NULL --refer get by SettlementLogID
-
-		UNION ALL
-
-		SELECT a.AlertID
-			,a.MatchID
-			,nm.NotificationID
 			,rs.SettlementLogID
 		FROM #tmpGAISendingAlert AS a
 			LEFT JOIN SettlementResultHist AS rs WITH (NOLOCK) ON a.SessionID = rs.SessionID
 			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON nm.SettlementLogID = rs.SettlementLogID
 		WHERE a.MatchID IS NOT NULL
 			AND a.NotificationID IS NULL --IF NotificationID NULL
-			AND a.SettlementLogID IS NULL --IF SettlementLogID NULL
 			AND a.SessionID IS NOT NULL --refer get by SessionID
 	) AS t
 	
-	-- Get IsTest
+	/*
+		UPDATE AlertExt.IsTest
+	*/
 	UPDATE ext
 	SET ext.IsTest = rh.IsTest
 	FROM #tmpGAIAlertExt AS ext
@@ -257,13 +238,48 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpAlertExt ON #tmpGAIAlertExt (NotificationID)
 	
 	/*
-		UPDATE IsNoneSaba
+		UPDATE SendingAlert.NotificationID IF EXISTS
 		
-		Just check EXISTS any IsNoneSaba value of AlertID
+		=> use at MNC_Notification_AlertSel
+	*/
+	;WITH CTE_Noti AS (
+		SELECT AlertID
+			,MAX(NotificationID) AS NotificationID
+		FROM #tmpGAIAlertExt
+		WHERE NotificationID IS NOT NULL
+		GROUP BY AlertID
+	)
+	UPDATE a
+	SET a.NotificationID = ext.NotificationID
+	FROM #tmpGAISendingAlert AS a
+		INNER JOIN CTE_Noti AS ext ON a.AlertID = ext.AlertID
+	WHERE a.NotificationID IS NULL
+	
+	/*
+		UPDATE SendingAlert.IsTest
+	*/
+	;WITH CTE_RealSession AS (
+		SELECT AlertID
+			,MIN(IsTest) AS IsTest --Session only EXISTS only 1 real => real
+		FROM #tmpGAIAlertExt
+		GROUP BY AlertID
+	)
+	UPDATE a
+	SET a.IsTest = ext.IsTest
+	FROM #tmpGAISendingAlert AS a
+		INNER JOIN CTE_RealSession AS ext ON a.AlertID = ext.AlertID
+	
+	/*
+		UPDATE SendingAlert.IsNoneSaba
+		
+		For @777_ChatGroupID				=> IsNoneSaba = 1
+		For OST_ChatGroupID
+			- IF EIXTS NotificationID 		=> get IsNoneSaba from by NotificationID
+			- IF NOT EIXTS NotificationID 	=> No need to check => default 0
 	*/
 	;WITH CTE_NotiSaba AS (
 		SELECT ae.AlertID
-			,MAX(ISNULL(TRY_CONVERT(TINYINT,nex.IsNoneSaba),0)) AS IsNoneSaba --If EXISTS NotificationID, get IsNoneSaba
+			,MAX(TRY_CONVERT(TINYINT,nex.IsNoneSaba)) AS IsNoneSaba --If EXISTS NotificationID, get IsNoneSaba
 		FROM #tmpGAIAlertExt AS ae
 			LEFT JOIN NotificationExtra AS ne WITH (NOLOCK) ON ae.NotificationID = ne.NotificationID
 			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
@@ -273,10 +289,13 @@ BEGIN
 		GROUP BY ae.AlertID
 	)
 	UPDATE a
-	SET a.IsNoneSaba = ISNULL(n.IsNoneSaba,0) --Just check EXISTS any IsNoneSaba value of AlertID
+	SET a.IsNoneSaba = (
+		CASE WHEN a.ChatGroupID = @777_ChatGroupID THEN 1
+			WHEN a.ChatGroupID = @OST_ChatGroupID THEN ISNULL(n.IsNoneSaba,0)
+			ELSE 0 END --default
+		) --Just check EXISTS any IsNoneSaba value of AlertID
 	FROM #tmpGAISendingAlert AS a
 		LEFT JOIN CTE_NotiSaba AS n ON a.AlertID = n.AlertID
-	WHERE a.IsNoneSaba IS NULL
 	
 	/*
 		Check Alert target
@@ -341,54 +360,64 @@ BEGIN
 			,@IT_ChatGroupID
 		) --hardcode ChatGroupID
 	
-	-----------------Verify Alert by content-----------------
+	-----------------EventAlert - Verify IsTest-----------------
+	UPDATE #tmpGAISendingAlert
+	SET ValidToSendChatGroup = 0
+		,IgnoreReason = 'Can NOT define Alert for Real or Test SessionID'
+	WHERE ValidToSendChatGroup = 1
+		AND IsTest IS NULL
+	
+	-----------------Verify by @IT_ChatGroupID & Content-----------------
 	UPDATE sa
 	SET sa.ValidToSendChatGroup = 0
-		,sa.IgnoreReason = ISNULL(IgnoreReason + ', ','') + 'Alert content of IT_ChatGroupID is BLANK'
+		,sa.IgnoreReason = (CASE WHEN sa.IsTest = 1 THEN 'Only send REAL to @IT_ChatGroupID' ELSE 'Alert content of IT_ChatGroupID is BLANK' END)
 	FROM #tmpGAISendingAlert AS sa
 		LEFT JOIN Alert AS a WITH (NOLOCK) ON sa.AlertID = a.AlertID
-	WHERE sa.ChatGroupID = @IT_ChatGroupID
-		AND ISNULL(TRIM(a.Content),'') = ''
+	WHERE sa.ValidToSendChatGroup = 1
+		AND sa.ChatGroupID = @IT_ChatGroupID
+		AND (
+			sa.IsTest = 1 --Only send real to @IT_ChatGroupID
+			OR ISNULL(TRIM(a.Content),'') = '' --content BLANK
+		)
 	
 	-----------------EventAlert - Verify Alert by requried info-----------------
 	UPDATE sa
 	SET sa.ValidToSendChatGroup = 0
 		,sa.IgnoreReason = ISNULL(sa.IgnoreReason + ', EventAlert - ','EventAlert - ')
 			+ (CASE WHEN sa.MatchID IS NULL THEN 'Missing Alert.RefExtraInfo.MatchID'
-				WHEN (sa.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID) THEN 'TemplateID(NULL) for User group'
+				WHEN sa.TemplateID IS NULL THEN 'TemplateID(NULL) for User group'
 				ELSE 'TemplateID(' + ISNULL(CONVERT(NVARCHAR,sa.TemplateID),'NULL') + ') NOT EXISTS in NotiTemplate' END
 			)
 	FROM #tmpGAISendingAlert AS sa
 		LEFT JOIN NotiTemplate AS ntp WITH (NOLOCK) ON sa.TemplateID = ntp.TemplateID
 	WHERE sa.ValidToSendChatGroup = 1
 		AND sa.AlertType = 'EventAlert'
+		AND sa.ChatGroupID <> @IT_ChatGroupID
 		AND (
 			sa.MatchID IS NULL
-			OR (sa.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID)
-			OR (ntp.TemplateID IS NULL AND sa.ChatGroupID <> @IT_ChatGroupID)
+			OR sa.TemplateID IS NULL
+			OR ntp.TemplateID IS NULL
 		)
 	
-	-----------------EventAlert - Verify and UPDATE ExistTest / ExistReal-----------------
-	;WITH CTE_TR AS (
-		SELECT a.AlertID
-			,(CASE WHEN MAX(ext.IsTest) = 1 THEN 1 ELSE 0 END) AS ExistTest
-			,(CASE WHEN MIN(ext.IsTest) = 0 THEN 1 ELSE 0 END) AS ExistReal
-		FROM #tmpGAISendingAlert AS a
-			LEFT JOIN #tmpGAIAlertExt AS ext ON a.AlertID = ext.AlertID
-		WHERE ext.IsTest IS NOT NULL
-		GROUP BY a.AlertID
+	-----------------EventAlert - Verify IsTest vs Cust-----------------
+	;WITH CTE_RealCurr AS (
+		SELECT AlertID
+			,MAX(CASE WHEN UUSCurrency = 0 THEN 1 ELSE 0 END) AS ExistRealCust
+		FROM #tmpGAIAlertBySite
+		GROUP BY AlertID
 	)
-	UPDATE a
-	SET a.ExistTest = rt.ExistTest
-		,a.ExistReal = rt.ExistReal
-		,a.ValidToSendChatGroup = (CASE WHEN rt.AlertID IS NULL THEN 0 ELSE 1 END) --for ExistTest / ExistReal
-		,a.IgnoreReason = (CASE WHEN rt.AlertID IS NULL THEN 'Can NOT define Alert for Real or Test SessionID' END) --for ExistTest / ExistReal
-	FROM #tmpGAISendingAlert AS a
-		LEFT JOIN CTE_TR AS rt ON rt.AlertID = a.AlertID
-	WHERE a.ValidToSendChatGroup = 1
-		AND a.AlertType = 'EventAlert'
+	UPDATE sa
+	SET sa.ValidToSendChatGroup = 0 --have NO cust of AlertID
+		,sa.IgnoreReason = 'Real Session but NOT EXISTS Valid Target'
+	FROM #tmpGAISendingAlert AS sa
+		LEFT JOIN CTE_RealCurr AS c ON sa.AlertID = c.AlertID
+	WHERE sa.ValidToSendChatGroup = 1
+		AND sa.AlertType = 'EventAlert'
+		AND sa.ChatGroupID <> @IT_ChatGroupID
+		AND sa.IsTest = 0
+		AND ISNULL(c.ExistRealCust,0) = 0 --IsTest = 0 BUT [have NO cust] OR [NOT Exist Real Cust]
 	
-	-----------------EventAlert - Verify message by ChatGroupID-----------------
+	-----------------EventAlert - Verify message by ChatGroupID vs TargetSite-----------------
 	;WITH CTE_ChatGroupFilter AS (
 		SELECT ac.AlertID
 			,MAX(CASE WHEN sep.value IS NULL THEN 1 ELSE 0 END) AS ExistOST
@@ -397,55 +426,19 @@ BEGIN
 			LEFT JOIN STRING_SPLIT(@Sites777, ',') AS sep ON ac.TargetSite = TRIM(sep.value)
 		GROUP BY ac.AlertID
 	)
-	,CTE_Check AS (
-		SELECT DISTINCT a.AlertID
-			,a.ChatGroupID
-			,(CASE WHEN a.ChatGroupID = @IT_ChatGroupID AND g.AlertID IS NOT NULL THEN 1 --IT_ChatGroupID can receive all message
-				WHEN a.ChatGroupID = @OST_ChatGroupID AND g.ExistOST = 1 THEN 1 --Exists TargetSite NOT 777
-				WHEN a.ChatGroupID = @777_ChatGroupID AND g.Exist777 = 1 THEN 1 --Exists TargetSite 777
-				ELSE 0 END) AS ValidChatGroup
-		FROM #tmpGAISendingAlert AS a
-			LEFT JOIN CTE_ChatGroupFilter AS g ON a.AlertID = g.AlertID
-		WHERE a.ValidToSendChatGroup = 1
-			AND a.AlertType = 'EventAlert'
-	)
 	UPDATE a
 	SET a.ValidToSendChatGroup = 0
-		,a.IgnoreReason = ISNULL(a.IgnoreReason + ', ','') + 'EventAlert send to ChatGroupID(' + ISNULL(a.ChatGroupID,'NULL') + ') but [NOT EXISTS Valid Target Site] OR [All UUS]'
+		,a.IgnoreReason = 'EventAlert send to ChatGroupID(' + ISNULL(a.ChatGroupID,'NULL') + ') but [NOT EXISTS Valid Target Site] OR [All UUS]'
 	FROM #tmpGAISendingAlert AS a
-		INNER JOIN CTE_Check AS ck ON a.AlertID = ck.AlertID AND a.ChatGroupID = ck.ChatGroupID
+		LEFT JOIN CTE_ChatGroupFilter AS g ON a.AlertID = g.AlertID
 	WHERE a.ValidToSendChatGroup = 1
 		AND a.AlertType = 'EventAlert'
-		AND ck.ValidChatGroup = 0
+		AND a.ChatGroupID <> @IT_ChatGroupID
+		AND (CASE WHEN a.ChatGroupID = @OST_ChatGroupID AND g.ExistOST = 1 THEN 1 --Exists TargetSite NOT 777
+				WHEN a.ChatGroupID = @777_ChatGroupID AND g.Exist777 = 1 THEN 1 --Exists TargetSite 777
+			ELSE 0 END) = 0
 	
-	-----------------EventAlert - Verify and Update ExistTest/ExistReal-----------------
-	;WITH CTE_RealCurr AS (
-		SELECT AlertID
-			,MAX(CASE WHEN UUSCurrency = 0 THEN 1 ELSE 0 END) AS ExistRealCust
-		FROM #tmpGAIAlertBySite
-		GROUP BY AlertID
-	)
-	UPDATE a
-	SET a.ExistTest = (CASE WHEN c.ExistRealCust = 0 THEN 1 ELSE a.ExistTest END) --IF ExistReal = 1 BUT ExistRealCust = 0 => all Test Cust => ExistTest = 1
-		,a.ExistReal = (CASE WHEN c.ExistRealCust = 0 THEN 0 ELSE a.ExistReal END) --IF ExistReal = 1 BUT ExistRealCust = 0 => all Test Cust => ExistReal = 0
-		,a.ValidToSendChatGroup = (CASE WHEN c.ExistRealCust IS NULL THEN 0 ELSE 1 END) --have NO cust of AlertID
-		,a.IgnoreReason = (CASE WHEN c.ExistRealCust IS NULL THEN ISNULL(a.IgnoreReason + ', ','') + 'Real Match but NOT EXISTS Target Cust' ELSE a.IgnoreReason END) --for ExistTest / ExistReal
-	FROM #tmpGAISendingAlert AS a
-		LEFT JOIN CTE_RealCurr AS c ON a.AlertID = c.AlertID
-	WHERE a.ValidToSendChatGroup = 1
-		AND a.ExistReal = 1
-		AND a.AlertType = 'EventAlert'
-	
-	-----------------Verify by @IT_ChatGroupID-----------------
-	UPDATE #tmpGAISendingAlert
-	SET ValidToSendChatGroup = 0
-		,IgnoreReason = ISNULL(IgnoreReason + ', ','') + 'Only send real to @IT_ChatGroupID'
-	WHERE ValidToSendChatGroup = 1
-		AND ExistReal = 0
-		AND ExistTest = 1
-		AND ChatGroupID = @IT_ChatGroupID --Only send real to @IT_ChatGroupID
-	
-	---------prepare & convert data as JSON------------------
+	---------convert data as JSON------------------
 	SELECT @JSAlertInfo = CONVERT(NVARCHAR(MAX),(
 							SELECT *
 							FROM #tmpGAISendingAlert

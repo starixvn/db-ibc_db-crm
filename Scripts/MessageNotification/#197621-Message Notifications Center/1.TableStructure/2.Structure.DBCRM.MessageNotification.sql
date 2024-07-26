@@ -69,13 +69,10 @@ DROP TABLE IF EXISTS dbo.BalanceNegativeHist
 
 CREATE TABLE dbo.BalanceNegativeHist (
 	SessionID VARCHAR(50) NOT NULL
+	,MatchID INT NOT NULL
+	,SiteDBGroupID SMALLINT NOT NULL
 	,CustID INT NOT NULL
 	,Site VARCHAR(50)
-	,MatchID INT NOT NULL
-	,LogID BIGINT NOT NULL
-	,ExecDate DATETIME
-	,ActionID INT
-	,GroupID TINYINT
 	,Balance MONEY
 	,TotalBalance MONEY
 ) ON [MNC] WITH (DATA_COMPRESSION = PAGE)
@@ -85,7 +82,7 @@ CREATE CLUSTERED INDEX [CIX_BalanceNegative] ON dbo.BalanceNegativeHist (
 	SessionID
 ) WITH (DATA_COMPRESSION = PAGE) ON [MNC]
 GO
-	
+
 /***** NotiMapping ****/
 DROP TABLE IF EXISTS dbo.NotiMapping
 

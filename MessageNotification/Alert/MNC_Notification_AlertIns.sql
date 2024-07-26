@@ -36,7 +36,7 @@ BEGIN
 		,@SiteCnt INT = 0
 		,@WaitSec INT = 0
 		,@FromTime DATETIME = DATEADD(DD, -1, GETDATE())
-		,@ToTime DATETIME = GETDATE()
+		,@CurrTime DATETIME = GETDATE()
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -66,100 +66,102 @@ BEGIN
 		MsgNotiID INT
 		,LapNotiID INT
 		,MessageID INT
-		,MatchID INT
-		,Status VARCHAR(50)
-		,LastModifiedTime DATETIME
-		,SessionID NVARCHAR(50)
-		,SettlementLogID INT
+		,MatchID INT NOT NULL
+		,Status VARCHAR(50) NOT NULL
+		,LastModifiedTime DATETIME NOT NULL
+		,SessionID NVARCHAR(50) NOT NULL
+		,SettlementLogID INT NOT NULL
 	)
 
 	CREATE TABLE #tmpError_New (
 		InternalID INT IDENTITY (1,1)
-		,RefID NVARCHAR(50)
 		--------
 		,RuleID INT NOT NULL
+		,RefInfo NVARCHAR(50) NOT NULL
 		,SessionID NVARCHAR(50)
-		,LastModifiedTime DATETIME
+		,LastModifiedTime DATETIME NOT NULL
 		--------
-		,SettlementLogID INT
 		,NotificationID INT
 		,MatchID INT
 		,Content NVARCHAR(4000)
+		,RefID NVARCHAR(50)
 	)
-
+	
 	CREATE TABLE #tmpError_Old (
 		RuleID INT NOT NULL
+		,RefInfo NVARCHAR(50) NOT NULL
 		,SessionID NVARCHAR(50)
-		,SettlementLogID INT
 		,LastModifiedTime DATETIME
+		--------
 		,NotificationID INT
 	)
-	---------------------Prepare-------------------------
-	INSERT INTO #tmpSettl (
-		SessionID
-		,SettlementLogID
-		,LastModifiedTime
-		,MatchID
-		,Status
-	)
-	SELECT DISTINCT rh.SessionID
-		,rh.SettlementLogID
-		,rh.LastModifiedTime
-		,rh.MatchID
-		,st.Status
-	FROM MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK)
-		LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
-	WHERE rh.LastModifiedTime > @FromTime
-		AND rh.LastModifiedTime <= @ToTime
-		AND rh.SportType = 50 --Cricket, need modify for others sport
 	
-	CREATE CLUSTERED INDEX CIX_tmpSettl ON #tmpSettl(SessionID)
-	
-	INSERT INTO #tmpMsgNoti (
-		MsgNotiID
-		,MessageID
-		,MatchID
-		,Status
-		,LastModifiedTime
-		,SessionID
-		,SettlementLogID
-	)
-	SELECT DISTINCT nMsg.NotificationID AS MsgNotiID
-		,nMsg.RefID AS MessageID
-		,rh.MatchID
-		,st.Status
-		,nMsg.LastModifiedTime
-		,rh.SessionID
-		,rh.SettlementLogID
-	FROM MessageNotification.dbo.Notification AS nMsg WITH (NOLOCK)
-		LEFT JOIN MessageNotification.dbo.NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
-		LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
-		LEFT JOIN MessageNotification.dbo.NotiStatus AS st WITH (NOLOCK) ON nMsg.StatusID = st.StatusID
-	WHERE nMsg.LastModifiedTime > @FromTime
-		AND nMsg.LastModifiedTime <= @ToTime
-		AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
-		AND st.Status IN ( 'Generating', 'Sending', 'Sent', 'New', 'Failed to Send')
-	
-	DELETE n
-	FROM #tmpMsgNoti AS n
-		LEFT JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
-	WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
-	
-	CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti(MsgNotiID)
-	
-	-------------------------------------------------------
-	IF EXISTS (SELECT 1 FROM #tmpSettl)
-		OR EXISTS (SELECT 1 FROM #tmpMsgNoti)
 	BEGIN TRY
+		---------------------Prepare-------------------------
+		INSERT INTO #tmpSettl (
+			SessionID
+			,SettlementLogID
+			,LastModifiedTime
+			,MatchID
+			,Status
+		)
+		SELECT DISTINCT rh.SessionID
+			,rh.SettlementLogID
+			,rh.LastModifiedTime
+			,rh.MatchID
+			,st.Status
+		FROM SettlementResultHist AS rh WITH (NOLOCK)
+			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
+		WHERE rh.LastModifiedTime > @FromTime
+			AND rh.LastModifiedTime <= @CurrTime
+			AND rh.SportType = 50 --Cricket, need modify for others sport
+		
+		CREATE CLUSTERED INDEX CIX_tmpSettl ON #tmpSettl (SessionID)
+		
+		INSERT INTO #tmpMsgNoti (
+			MsgNotiID
+			,LapNotiID
+			,MessageID
+			,MatchID
+			,Status
+			,LastModifiedTime
+			,SessionID
+			,SettlementLogID
+		)
+		SELECT DISTINCT (CASE WHEN n.NotificationType = 1 THEN n.NotificationID END) AS MsgNotiID
+			,(CASE WHEN n.NotificationType = 2 THEN n.NotificationID END) AS LapNotiID
+			,n.RefID AS MessageID
+			,rh.MatchID
+			,st.Status
+			,n.LastModifiedTime
+			,rh.SessionID
+			,rh.SettlementLogID
+		FROM Notification AS n WITH (NOLOCK)
+			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
+		WHERE n.LastModifiedTime > @FromTime
+			AND n.LastModifiedTime <= @CurrTime
+			AND n.NotificationType IN (1, 2) --1: Result Amendment to Msg; --2: LAP of NotificationType = 1 (Result Amendment)
+		
+		DELETE n
+		FROM #tmpMsgNoti AS n
+			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
+		WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		
+		CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti (MsgNotiID)
+	
+		---------------------Start to check-------------------------
+
 		/*
-			#1.RA_SysErr - Running Status Too Long - OST
-			Message 1
+			#1.RA_SysErr - Error send only for IT Group
+			- Send to SYS only
 		*/
 		SELECT @RuleID = 1
 		
-		---1.For [Capture Data Service] process, [Retrieving] over 2*Configuration_WaitSec---
+		---1.1 - For [Capture Data Service] process, SessionID [Retrieving] over 2*Configuration_WaitSec---
 		SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
-		FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
+		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = 11 --Retrieving_WaitSec
 		
 		;WITH CTE_LongSession AS (
@@ -168,28 +170,28 @@ BEGIN
 			FROM #tmpSettl
 			WHERE Status = 'Retrieving'
 			GROUP BY SessionID
-			HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),GETDATE()) > @WaitSec
+			HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),@CurrTime) > @WaitSec
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,RefInfo
 			,SessionID
 			,LastModifiedTime
 			--------------
-			,SettlementLogID
 			,MatchID
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,'SessionID' AS RefInfo
 			,l.SessionID
 			,rh.LastModifiedTime
 			--------------
-			,rh.SettlementLogID
 			,rh.MatchID
 			,'SessionID [' + l.SessionID + '] in [Retrieving] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data Service] process.' AS Content
 		FROM CTE_LongSession AS l
 			LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = 'Retrieving'
 		
-		---2.For [Generate Notif Service] process, [Generating] over 60s---
+		---1.2 - For [Generate Notif Service] process, SessionID [Generating] over 60s---
 		SELECT @WaitSec = 60
 
 		;WITH CTE_LongSession AS (
@@ -198,61 +200,155 @@ BEGIN
 			FROM #tmpSettl
 			WHERE Status = 'Generating'
 			GROUP BY SessionID
-			HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),GETDATE()) > @WaitSec
+			HAVING DATEDIFF(SECOND, MIN(LastModifiedTime),@CurrTime) > @WaitSec
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,RefInfo
 			,SessionID
 			,LastModifiedTime
 			--------------
-			,SettlementLogID
 			,MatchID
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,'SessionID' AS RefInfo
 			,rh.SessionID
 			,rh.LastModifiedTime
 			--------------
-			,rh.SettlementLogID
 			,rh.MatchID
 			,'SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notif Service] process.' AS Content
 		FROM CTE_LongSession AS l
 			LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = 'Generating'
 		
-		--3.For Notification.StatusID = Generating / Sending
+		--1.3 - For [Generate Notif Service] process, Notification.StatusID = Generating over 60s
 		SELECT @WaitSec = 60
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,RefInfo
 			,SessionID
 			,LastModifiedTime
 			--------------
-			,SettlementLogID
+			,NotificationID
 			,MatchID
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
 			--------------
-			,m.SettlementLogID
+			,m.MsgNotiID
 			,m.MatchID
-			,(CASE WHEN m.Status = 'Generating' THEN 'Notification(' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),'NULL') + ') of SessionID [' + m.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notification] process.'
-				ELSE 'Notification(' + ISNULL(CONVERT(VARCHAR, m.MsgNotiID),'NULL') + ') of SessionID [' + m.SessionID + '] in [Sending] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Insert Message Service] process.'
-			END) AS Content
+			,'Notification(' + CONVERT(VARCHAR, m.MsgNotiID) + ') of SessionID [' + m.SessionID + '] in [Generating] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notif Service] process.' AS Content
 		FROM #tmpMsgNoti AS m
-		WHERE m.Status IN ('Generating', 'Sending')
-			AND DATEDIFF(SECOND, m.LastModifiedTime, GETDATE()) > @WaitSec
+		WHERE m.Status = 'Generating'
+			AND m.MsgNotiID IS NOT NULL
+			AND DATEDIFF(SECOND, m.LastModifiedTime, @CurrTime) > @WaitSec
 		
+		--1.4 - For [Insert Message Service] process, Notification.StatusID = Sending over 60s
+		SELECT @WaitSec = 60
+		
+		INSERT INTO #tmpError_New (
+			RuleID
+			,RefInfo
+			,SessionID
+			,LastModifiedTime
+			--------------
+			,NotificationID
+			,MatchID
+			,Content
+		)
+		SELECT DISTINCT @RuleID
+			,'NotificationID' AS RefInfo
+			,m.SessionID
+			,m.LastModifiedTime
+			--------------
+			,m.MsgNotiID
+			,m.MatchID
+			,'Notification(' + CONVERT(VARCHAR, m.MsgNotiID) + ') of SessionID [' + m.SessionID + '] in [Sending] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Insert Message Service] process.' AS Content
+		FROM #tmpMsgNoti AS m
+		WHERE m.MsgNotiID IS NOT NULL --NotificationType = 1 - Result Amendment to Msg
+			AND m.Status = 'Sending'
+			AND DATEDIFF(SECOND, m.LastModifiedTime, @CurrTime) > @WaitSec
+		
+		--1.5 - For [Generate LAP Notif Service] process, NOT EXISTS after being approved MessageID over 60s
+		SELECT @WaitSec = 60
+		
+		;WITH CTE_Lap AS (
+			SELECT MessageID
+			FROM #tmpMsgNoti
+			WHERE LapNotiID IS NOT NULL
+		)
+		INSERT INTO #tmpError_New (
+			RuleID
+			,RefInfo
+			,SessionID
+			,LastModifiedTime
+			--------------
+			,NotificationID
+			,MatchID
+			,Content
+		)
+		SELECT DISTINCT @RuleID
+			,'NotificationID' AS RefInfo
+			,m.SessionID
+			,m.LastModifiedTime
+			--------------
+			,m.MsgNotiID
+			,m.MatchID
+			,'LAP Notification belong to Msg Notification [' + CONVERT(VARCHAR,m.MsgNotiID) + '] - SessionID [' + ISNULL(m.SessionID,'NULL') + '] NOT EXISTS after being approved MessageID [' + CONVERT(VARCHAR,m.MessageID) + '] for more than '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate LAP Notif Service] process.'
+		FROM #tmpMsgNoti AS m
+			LEFT JOIN CTE_Lap AS l ON m.MessageID = l.MessageID
+		WHERE m.MsgNotiID IS NOT NULL
+			AND m.MessageID IS NOT NULL
+			AND m.Status = 'Sent'
+			AND DATEDIFF(SECOND, m.LastModifiedTime,@CurrTime) > @WaitSec
+			---Check EXISTS
+			AND l.MessageID IS NULL
+		
+		--1.6 - For [Generate LAP Notif Service] process, Notification.StatusID = Generating over 60s / Failed to Generate
+		INSERT INTO #tmpError_New (
+			RuleID
+			,RefInfo
+			,SessionID
+			,LastModifiedTime
+			--------------
+			,NotificationID
+			,MatchID
+			,Content
+		)
+		SELECT DISTINCT @RuleID
+			,'NotificationID' AS RefInfo
+			,m.SessionID
+			,m.LastModifiedTime
+			--------------
+			,m.LapNotiID
+			,m.MatchID
+			,'LAP Notification [' + CONVERT(VARCHAR,m.LapNotiID) + '] of SessionID [' + m.SessionID + '] '
+				+ (CASE WHEN m.Status = 'Failed to Generate' THEN 'was NOT successfully GENERATED. ' ELSE 'in [Generating] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. ' END)
+				+ 'Please double check [Generate LAP Notif Service] process.' AS Content
+		FROM #tmpMsgNoti AS m
+		WHERE m.LapNotiID IS NOT NULL
+			AND (
+				m.Status = 'Failed to Generate'
+				OR (
+					m.Status = 'Generating'
+					AND DATEDIFF(SECOND, m.LastModifiedTime, @CurrTime) > @WaitSec
+				)
+			)
 		
 		/*
 			#2.RA_NewNoti - Need Review
-			Message 2
+			- Send to OST,777
+			- Template: Message 2
 		*/
 		SELECT @RuleID = 2
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,RefInfo
 			,SessionID
 			,LastModifiedTime
 			-----------
@@ -261,23 +357,27 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,'NotificationID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
 			-----------
 			,MsgNotiID AS NotificationID
 			,MatchID
-			,'Result Amendment message(s) for SessionID ['+ ISNULL(SessionID,'NULL') +'] created. Please review it.' AS Content
+			,'Result Amendment Notification [' + CONVERT(VARCHAR,MsgNotiID) + '] for SessionID ['+ ISNULL(SessionID,'NULL') +'] created. Please review it.' AS Content
 		FROM #tmpMsgNoti
 		WHERE Status = 'New' --Only for OST, LAP notified by Chatbot LIC
+			AND MsgNotiID IS NOT NULL --NotificationType = 1 - Result Amendment to Msg
 		
 		/*
 			#3.RA_PushErr - Sent Issue
-			Message 3
+			- Send to SYS,OST,777
+			- Template: Message 3
 		*/
 		SELECT @RuleID = 3
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,RefInfo
 			,SessionID
 			,LastModifiedTime
 			-----------
@@ -286,6 +386,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,'NotificationID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
 			-----------
@@ -294,15 +395,59 @@ BEGIN
 			,'Result Amendment message associated with SessionID ['+ ISNULL(SessionID,'NULL') +'] was NOT successfully inserted to DBMSG. Please review it.' AS Content
 		FROM #tmpMsgNoti
 		WHERE Status = 'Failed to Send'
+			AND MsgNotiID IS NOT NULL --NotificationType = 1 - Result Amendment to Msg
 		
 		/*
-			#4.RA_SysErr - Missing From Any SiteGroupDB
-			Message 1
+			#4.RA_GenErr - Create Noti for DBMSG Failed
+			- Send to SYS,OST,777
+			- Template: Message 1
 		*/
 		SELECT @RuleID = 4
 		
+		INSERT INTO #tmpError_New (
+			RuleID
+			,RefInfo
+			,SessionID
+			,LastModifiedTime
+			-----------
+			,NotificationID
+			,MatchID
+			,Content
+		)
+		SELECT @RuleID AS RuleID
+			,'SessionID' AS RefInfo
+			,s.SessionID
+			,MIN(ISNULL(rh.LastModifiedTime,n.LastModifiedTime)) AS LastModifiedTime
+			,MIN(n.MsgNotiID) AS NotificationID
+			,MIN(ISNULL(rh.MatchID,n.MatchID)) AS MatchID
+			,'Result Amendment message associated with SessionID ['+ ISNULL(s.SessionID,'NULL') +'] was NOT successfully GENERATED. Please double check [Generate Notif Service] process.' AS Content
+		FROM (
+			SELECT rh.SessionID
+				,rh.SettlementLogID
+			FROM #tmpSettl AS rh
+			WHERE rh.Status = 'Failed to Generate'
+			
+			UNION ALL
+			
+			SELECT SessionID
+				,SettlementLogID
+			FROM #tmpMsgNoti
+			WHERE Status = 'Failed to Generate'
+				AND MsgNotiID IS NOT NULL --NotificationType = 1 - Result Amendment to Msg
+		) AS s
+			LEFT JOIN #tmpSettl AS rh ON s.SessionID = rh.SessionID AND s.SettlementLogID = rh.SettlementLogID
+			LEFT JOIN #tmpMsgNoti AS n ON s.SessionID = n.SessionID AND s.SettlementLogID = n.SettlementLogID
+		GROUP BY s.SessionID
+		
+		/*
+			#5.RA_GenWarn - Missing data from SiteDBs
+			- Send to SYS,OST,777
+			- Template: Message 4
+		*/
+		SELECT @RuleID = 5
+		
 		SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
-		FROM MessageNotification.dbo.SystemSetting WITH (NOLOCK)
+		FROM SystemSetting WITH (NOLOCK)
 		WHERE VID = 11 --Retrieving_WaitSec
 		
 		SELECT @SiteCnt = COUNT(DISTINCT SiteDBGroupID)
@@ -312,115 +457,38 @@ BEGIN
 		;WITH CTE_SessionInfo AS (
 			SELECT s.SessionID
 				,s.MatchID
+				,MIN(rh.LastModifiedTime) AS LastModifiedTime
 				,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
-				,MIN(rh.InsertedTime) AS Mi_InsertedTime
+				,MAX(CASE WHEN st.Status = 'Failed to Retrieve' THEN 1 ELSE 0 END) AS ExistRetrvFailed
 			FROM #tmpSettl AS s
-				INNER JOIN MessageNotification.dbo.SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+				INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
+				INNER JOIN NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
 			GROUP BY s.SessionID
 				,s.MatchID
-		)
-		,CTE_MissReason AS (
-			SELECT SessionID
-				,MatchID
-				,(CASE WHEN SiteCnt = @SiteCnt THEN 1 --Enough SiteDBs count => Ignore
-						WHEN DATEDIFF(SECOND, Mi_InsertedTime,GETDATE()) < @WaitSec THEN 2 --NOT enough SiteDBs count BUT Wait time < @WaitSec => Ignore
-						ELSE 0
-					END
-				) AS MissReason
-			FROM CTE_SessionInfo
+			HAVING DATEDIFF(SECOND, MIN(rh.InsertedTime),@CurrTime) > @WaitSec
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
-			,SessionID
-			-----------
-			,MatchID
-			,Content
-		)
-		SELECT DISTINCT @RuleID
-			,SessionID
-			-----------
-			,MatchID
-			,'SessionID [' + ISNULL(SessionID,'NULL') + '] NOT enough data from SiteDBs, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data Service] process.' AS Content
-		FROM CTE_MissReason
-		WHERE MissReason = 0
-		
-		/*
-			#5.RA_SysErr - Failed Status
-			Message 1
-		*/
-		SELECT @RuleID = 5
-		
-		INSERT INTO #tmpError_New (
-			RuleID
+			,RefInfo
 			,SessionID
 			,LastModifiedTime
 			-----------
-			,SettlementLogID
 			,MatchID
 			,Content
 		)
 		SELECT DISTINCT @RuleID
-			,rh.SessionID
-			,rh.LastModifiedTime
-			-----------
-			,rh.SettlementLogID
-			,rh.MatchID
-			,'Result Amendment message associated with SessionID ['+ ISNULL(rh.SessionID,'NULL') +'] was NOT successfully '
-				+ (CASE WHEN rh.Status = 'Failed to Retrieve' THEN 'RETRIEVED' ELSE 'GENERATED' END)
-				+ '. Please review it.' AS Content
-		FROM #tmpSettl AS rh
-		WHERE rh.Status IN ('Failed to Retrieve','Failed to Generate', 'Unknown')
-		
-		/*
-			#6.RA_SysErr - Running Status Too Long - SYS
-			Message 1
-			
-			For [Generate LAP Notif Service] process, over 60s
-		*/
-		SELECT @RuleID = 6
-		
-		;WITH CTE_NOLAP AS (
-			SELECT DISTINCT i.MsgNotiID
-				,i.MatchID
-				,i.LastModifiedTime
-				,nLap.NotificationID AS LapNotiID
-				,(CASE WHEN nLap.NotificationID IS NULL THEN 'NOLAP' ELSE 'Generating LAP' END) AS ErrType
-			FROM #tmpMsgNoti AS i
-				LEFT JOIN MessageNotification.dbo.Notification AS nLap WITH (NOLOCK) ON i.MessageID = nLap.RefID AND nLap.NotificationType = 2 --2: Result Amendment to LAP
-			WHERE i.MatchID IS NOT NULL
-				AND (
-					nLap.NotificationID IS NULL --NOLAP
-					OR nLap.StatusID = 5 --Generating LAP
-				)
-				AND EXISTS (
-					SELECT 1
-					FROM MessageNotification.dbo.NotificationTarget AS nt WITH (NOLOCK)
-						LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
-					WHERE i.MsgNotiID = nt.NotificationID
-						AND s.site IS NOT NULL --EXISTS [deposit] Target
-				)
-				AND DATEDIFF(SECOND, i.LastModifiedTime,GETDATE()) > @WaitSec --[after being approved MessageID] => Use Notification.LastModifiedTime
-		)
-		INSERT INTO #tmpError_New (
-			RuleID
+			,'SessionID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
 			-----------
-			,SettlementLogID
 			,MatchID
-			,Content
-		)
-		SELECT DISTINCT @RuleID
-			,n.SessionID
-			,ck.LastModifiedTime --[after being approved MessageID]
-			-----------
-			,n.SettlementLogID
-			,ck.MatchID
-			,(CASE WHEN ck.ErrType = 'NOLAP' THEN 'LAP Notification of SessionID [' + n.SessionID + '] NOT EXISTS after being approved MessageID [' + CONVERT(VARCHAR,n.MessageID) + '] for more than '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate LAP Notif Service] process.'
-				ELSE 'LAP Notification(' + ISNULL(CONVERT(VARCHAR, ck.LapNotiID),'NULL') + ') of SessionID [' + n.SessionID + '] in [Generating] state too long, exceeding ' + ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL') + ' seconds. Please double check [Generate LAP Notif Service] process.'
-			END) AS Content
-		FROM CTE_NOLAP AS ck
-			LEFT JOIN #tmpMsgNoti AS n WITH (NOLOCK) ON ck.MsgNotiID = n.MsgNotiID
+			,(CASE WHEN ExistRetrvFailed = 1 THEN 'SessionID [' + SessionID + '] NOT fully generated because one of SiteDB(s) has a [Failed to Retrieve] status. '
+				ELSE 'SessionID [' + SessionID + '] NOT enough data from SiteDBs, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. ' END)
+				+ 'Please double check [Capture Data Service] process.' AS Content
+		FROM CTE_SessionInfo
+		WHERE SiteCnt <> @SiteCnt
+			OR ExistRetrvFailed = 1
+		
 		------------------------------Check VALID AlertRule---------------------------------
 		--send error log
 		INSERT INTO Alert (
@@ -448,55 +516,64 @@ BEGIN
 				AND a.RefID = CONVERT(VARCHAR,ar.RuleID)
 				AND DATEADD(MI, 30, a.InsertedTime) > GETDATE() --Not Spam - insert after 30 mins
 		)
+		
 		------------------------------Check EXISTED in Alert---------------------------------
 		UPDATE #tmpError_New
 		SET RefID = (
-			CASE WHEN RuleID = 1 THEN SessionID
-				WHEN RuleID = 2 THEN CONVERT(NVARCHAR,NotificationID)
-				WHEN RuleID = 3 THEN CONVERT(NVARCHAR,NotificationID)
-				WHEN RuleID = 4 THEN SessionID
-				WHEN RuleID = 5 THEN SessionID
-				WHEN RuleID = 6 THEN SessionID
-			END
-		)
+				CASE WHEN RefInfo = 'SessionID' THEN SessionID
+					WHEN RefInfo = 'NotificationID' THEN CONVERT(NVARCHAR,NotificationID)
+				END
+			)
+			,NotificationID = ISNULL(NotificationID,0)
 		
 		/*
-			RuleID 1: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.SettlementLogID = o.SettlementLogID
-			RuleID 2: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID
-			RuleID 3: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID
-			RuleID 4: n.SessionID = o.SessionID
-			RuleID 5: n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.SettlementLogID = o.SettlementLogID
-			RuleID 6: n.SessionID = o.SessionID AND n.SettlementLogID = o.SettlementLogID AND n.LastModifiedTime = o.LastModifiedTime
+			For any Error, Key for duplication check: value of RefInfo / LastModifiedTime
+			
+			|--------------------------------------------------------------------------------------------------------------------------------|
+			| **Notification Rules**                                                                                                         |
+			|--------------------------------------------------------------------------------------------------------------------------------|
+			| RuleID | ChatGrouplDs   | Template	  | Key to check dup | Remark |
+			|--------|----------------|---------------|------------------|-------------------------------------------------------------------
+			| 1 	 | SYS 			  | N/A			  | SessionID 		 | For [Capture Data Service] process, SessionID [Retrieving] over 2 * [SystemSetting.VName = Retrieving_WaitSec]
+			| 		 | 				  | 			  | SessionID 		 | For [Generate Notif Service] process, SessionID [Generating] over 60s
+			| 		 | 				  | 			  | NotificationID	 | For [Generate Notif Service] process, Notification. StatusID = Generating over 60s
+			| 		 | 				  | 			  | NotificationID	 | For [Insert Message Service] process, Notification StatusID = Sending over 60s
+			| 		 | 				  | 			  | NotificationID	 | For [Generate LAP Notif Service] process, NOT EXISTS after being approved MessageID over 60s
+			| 		 | 				  | 			  | NotificationID	 | For [Generate LAP Notif Service] process, Notification StatusID = Generating over 60s / Failed to Generate
+			| 2 	 | OST,777		  | 8 (Message 2) | NotificationID	 | Any [New] Notification(s) of Msg
+			| 3 	 | SYS,OST,777	  | 9 (Message 3) | NotificationID	 | Any [Failed to Send] Notification(s)
+			| 4 	 | SYS,OST,777	  | 7 (Message 1) | SessionID 		 | Any [Failed to Generate] SessionID / Notification
+			| 5 	 | SYS,OST,777	  | 10(Message 4) | SessionID 		 | Missing data from any SiteGroupDB over 2 * [SystemSetting.VName = Retrieving_WaitSec]
+			|--------------------------------------------------------------------------------------------------------------------------------
 		*/
 		IF EXISTS (SELECT 1 FROM #tmpError_New)
 		BEGIN
-			CREATE CLUSTERED INDEX CIX_tmpError_New ON #tmpError_New(RuleID, SessionID, LastModifiedTime)
+			CREATE CLUSTERED INDEX CIX_tmpError_New ON #tmpError_New(RuleID, SessionID, NotificationID, RefInfo)
 			
 			INSERT INTO #tmpError_Old (
 				RuleID
+				,RefInfo
 				,SessionID
-				,SettlementLogID
 				,LastModifiedTime
 				,NotificationID
 			)
 			SELECT DISTINCT a.RuleID
+				,ext.RefInfo
 				,(CASE WHEN ext.RefInfo = 'SessionID' THEN a.RefID ELSE ext.SessionID END) AS SessionID
-				,ext.SettlementLogID
 				,ext.LastModifiedTime
-				,(CASE WHEN ext.RefInfo = 'NotificationID' THEN a.RefID END) AS NotificationID
-			FROM MessageNotification.dbo.Alert AS a WITH (NOLOCK)
+				,(CASE WHEN ext.RefInfo = 'NotificationID' THEN a.RefID ELSE 0 END) AS NotificationID --0 if NotificationID IS NULL
+			FROM Alert AS a WITH (NOLOCK)
 				INNER JOIN #tmpError_New AS sn ON a.RuleID = sn.RuleID AND a.RefID = sn.RefID
 				OUTER APPLY OPENJSON(a.RefExtraInfo) WITH (
 						RefInfo VARCHAR(50) '$.RefInfo'
-						,SettlementLogID INT '$.SettlementLogID'
 						,SessionID NVARCHAR(50) '$.SessionID'
 						,LastModifiedTime DATETIME '$.LastModifiedTime'
 					) AS ext --OPENJSON case-sensitive
 			WHERE ISJSON(a.RefExtraInfo) = 1
 			
-			CREATE CLUSTERED INDEX CIX_tmpError_Old ON #tmpError_Old(RuleID, SessionID, LastModifiedTime)
+			CREATE CLUSTERED INDEX CIX_tmpError_Old ON #tmpError_Old(RuleID, SessionID, NotificationID, RefInfo)
 			
-			-------------------------------------
+			----------------RefInfo = 'SessionID'---------------------
 			INSERT INTO Alert (
 				StatusID
 				,RuleID
@@ -508,11 +585,7 @@ BEGIN
 				,n.RuleID
 				,n.RefID
 				,CONVERT(NVARCHAR(MAX),(
-					SELECT DISTINCT
-						(CASE WHEN RuleID IN (1,4,5,6) THEN 'SessionID'
-							WHEN RuleID IN (2,3) THEN 'NotificationID'
-						END) AS RefInfo
-						,t.SettlementLogID
+					SELECT DISTINCT t.RefInfo
 						,t.SessionID
 						,t.LastModifiedTime
 						,t.MatchID
@@ -522,16 +595,71 @@ BEGIN
 				) AS RefExtraInfo
 				,n.Content
 			FROM #tmpError_New AS n
+				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.SessionID = o.SessionID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
 			WHERE ISNULL(TRIM(n.Content),'') <> ''
-				AND (
-					(n.RuleID IN (1,5,6) AND NOT EXISTS (SELECT 1 FROM #tmpError_Old AS o WHERE o.RuleID = n.RuleID AND n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.SettlementLogID = o.SettlementLogID ))
-					OR (n.RuleID IN (2,3) AND NOT EXISTS (SELECT 1 FROM #tmpError_Old AS o WHERE o.RuleID = n.RuleID AND n.SessionID = o.SessionID AND n.LastModifiedTime = o.LastModifiedTime AND n.NotificationID = o.NotificationID ))
-					OR (n.RuleID = 4 AND NOT EXISTS (SELECT 1 FROM #tmpError_Old AS o WHERE o.RuleID = n.RuleID AND n.SessionID = o.SessionID ))
-				)
+				AND n.RefInfo = 'SessionID'
+				AND o.RuleID IS NULL --NOT EXISTS Before
+			ORDER BY n.RuleID
+				,n.RefID
+			
+			----------------RefInfo = 'NotificationID'---------------------
+			INSERT INTO Alert (
+				StatusID
+				,RuleID
+				,RefID
+				,RefExtraInfo
+				,Content
+			)
+			SELECT DISTINCT @StsNew AS StatusID
+				,n.RuleID
+				,n.RefID
+				,CONVERT(NVARCHAR(MAX),(
+					SELECT DISTINCT t.RefInfo
+						,t.SessionID
+						,t.LastModifiedTime
+						,t.MatchID
+					FROM #tmpError_New AS t
+					WHERE t.InternalID = n.InternalID
+					FOR JSON PATH)
+				) AS RefExtraInfo
+				,n.Content
+			FROM #tmpError_New AS n
+				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.NotificationID = o.NotificationID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
+			WHERE ISNULL(TRIM(n.Content),'') <> ''
+				AND n.RefInfo = 'NotificationID'
+				AND o.RuleID IS NULL --NOT EXISTS Before
 			ORDER BY n.RuleID
 				,n.RefID
 		END
 		
+		--write log
+		IF EXISTS (
+			SELECT 1
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = 13 --LogMode
+				AND VValue = 'Debug'
+		)
+		AND EXISTS (
+			SELECT 1
+			FROM Alert WITH (NOLOCK)
+			WHERE StatusID = @StsNew
+		)
+		BEGIN
+			INSERT INTO UserLog (
+				RefID
+				,ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT AlertID
+				,@LogActionID
+				,@LogUserID
+				,COMPRESS(N'Info - [AlertService] - Debug - Created Alert with Status = [New]')
+			FROM Alert WITH (NOLOCK)
+			WHERE StatusID = @StsNew
+				AND InsertedTime > @CurrTime
+			ORDER BY AlertID
+		END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web

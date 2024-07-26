@@ -56,6 +56,8 @@ BEGIN
 		,@IsTestFlag BIT
 		,@StsRetrieving TINYINT
 		,@StsRetrieved TINYINT
+		,@StsRetrvFailed TINYINT
+		,@CurrTime DATETIME = GETDATE()
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 	
@@ -77,6 +79,10 @@ BEGIN
 	SELECT @StsRetrieved = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Retrieved'
+	
+	SELECT @StsRetrvFailed = StatusID
+	FROM NotiStatus WITH (NOLOCK)
+	WHERE Status = 'Failed to Retrieve'
 	
 	SELECT @PRODIncludeTest = VValue
 	FROM SystemSetting WITH (NOLOCK)
@@ -178,6 +184,7 @@ BEGIN
 		SettlementLogID INT NOT NULL
 		,SessionID VARCHAR(50)
 		,SeqNo SMALLINT
+		,ActionDesc VARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpResultHistDetail (
@@ -196,24 +203,21 @@ BEGIN
 		,CustID INT
 	)
 	
-	CREATE TABLE #tmpBalanceNegativeHistory (
-		LogID BIGINT
-		,ExecDate DATETIME
+	CREATE TABLE #tmpBalanceNegativeHist (
+		SessionID VARCHAR(50)
 		,MatchID INT
-		,ActionID INT
+		,SiteDBGroupID SMALLINT
 		,CustID INT
-		,GroupID INT
+		,Site VARCHAR(50)
 		,Balance MONEY
 		,TotalBalance MONEY
-		,Site VARCHAR(50)
-		,SessionID VARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpInsertedNB (
 		SessionID VARCHAR(50)
 		,MatchID INT
 		,CustID INT
-		,LogID BIGINT
+		,SiteDBGroupID SMALLINT
 	)
 	
 	--keep data incase rollback
@@ -290,6 +294,8 @@ BEGIN
 		WHERE @IsTestFlag IS NULL
 			OR IsTest = @IsTestFlag
 		
+		CREATE CLUSTERED INDEX CIX_tmpResultHist ON #tmpResultHist (SessionID, SeqNo, MatchID, SiteDBGroupID)
+		
 		INSERT INTO #tmpResultHistDetail (
 			SessionID
 			,SeqNo
@@ -316,40 +322,34 @@ BEGIN
 				,IsDeleted BIT '$.IsDeleted'
 			)--OPENJSON case-sensitive
 		
-		INSERT INTO #tmpBalanceNegativeHistory (
+		CREATE CLUSTERED INDEX CIX_tmpResultHistDetail ON #tmpResultHistDetail (SessionID, SeqNo)
+		
+		INSERT INTO #tmpBalanceNegativeHist (
 			SessionID
+			,MatchID
+			,SiteDBGroupID
 			,CustID
 			,Site
-			,LogID
-			,ExecDate
-			,MatchID
-			,ActionID
-			,GroupID
 			,Balance
 			,TotalBalance
 		)
 		SELECT SessionID
+			,MatchID
+			,@SiteDBGroupID AS SiteDBGroupID
 			,CustID
 			,Site
-			,LogID
-			,ExecDate
-			,MatchID
-			,ActionID
-			,GroupID
 			,Balance
 			,TotalBalance
 		FROM OPENJSON((SELECT JSONData FROM #tmpJSData WHERE ObjectName = 'BalanceNegativeHistory' AND ISJSON(JSONData) = 1)) WITH (
 				SessionID VARCHAR(50) '$.SessionID'
+				,MatchID INT '$.MatchID'
 				,CustID INT '$.CustID'
 				,Site VARCHAR(50) '$.Site'
-				,LogID BIGINT '$.LogID'
-				,ExecDate DATETIME '$.ExecDate'
-				,MatchID INT '$.MatchID'
-				,ActionID INT '$.ActionID'
-				,GroupID INT '$.GroupID'
 				,Balance MONEY '$.Balance'
 				,TotalBalance MONEY '$.TotalBalance'
 			)--OPENJSON case-sensitive
+		
+		CREATE CLUSTERED INDEX CIX_tmpBalanceNegativeHist ON #tmpBalanceNegativeHist (SessionID, MatchID, SiteDBGroupID, CustID)
 	
 	END TRY
 	BEGIN CATCH
@@ -386,82 +386,180 @@ BEGIN
 	*/
 	IF @ErrCode = 0
 	BEGIN TRY
-		INSERT INTO SettlementResultHist (
-			StatusID
-			,SiteDBGroupID
-			,SessionID
-			,MatchID
-			,IsTest
-			,SeqNo
-			,ActualResult
-			,WrongResult
-			,ActionType
-			,ResultType
-			,SportType
-			,CreatedTime
-			,ExtraInfo
-			,IsDeleted
-			,InsertedTime
+		---For change source status from [failed] to [completed]
+		IF EXISTS (
+			SELECT 1
+			FROM #tmpResultHist AS rh
+				LEFT JOIN SettlementResultHist AS tgt
+					ON rh.SessionID = tgt.SessionID
+						AND rh.MatchID = tgt.MatchID
+						AND rh.SeqNo = tgt.SeqNo
+						AND rh.SiteDBGroupID = tgt.SiteDBGroupID
+			WHERE rh.SettlementStatusID = 2
+				AND tgt.StatusID = @StsRetrvFailed
+				AND (
+					@IsTestFlag IS NULL
+					OR tgt.IsTest = @IsTestFlag
+				)
 		)
-		OUTPUT INSERTED.SettlementLogID
-			,INSERTED.SessionID
-			,INSERTED.SeqNo
-		INTO #tmpInsertedRH (
-			SettlementLogID
-			,SessionID
-			,SeqNo
-		) --Get Inserted SettlementLogID
-		SELECT @StsRetrieving AS StatusID
-			,SiteDBGroupID
-			,SessionID
-			,MatchID
-			,IsTest
-			,SeqNo
-			,ActualResult
-			,WrongResult
-			,ActionType
-			,ResultType
-			,SportType
-			,CreatedTime
-			,ExtraInfo
-			,IsDeleted
-			,GETDATE() AS InsertedTime
-		FROM #tmpResultHist AS rh
-		WHERE rh.SettlementStatusID = 2 --2-Completed Result Amendment
-			AND NOT EXISTS (
-				SELECT 1
-				FROM SettlementResultHist AS tgt
-				WHERE rh.SessionID = tgt.SessionID
-					AND rh.MatchID = tgt.MatchID
-					AND rh.SeqNo = tgt.SeqNo
-					AND rh.SiteDBGroupID = tgt.SiteDBGroupID
-			) --UNIQUE KEY (SessionID,MatchID,SeqNo,SiteDBGroupID)
-		
-		--write log
-		IF EXISTS (SELECT 1 FROM #tmpInsertedRH)
+		BEGIN
+			UPDATE tgt
+			SET tgt.StatusID = @StsRetrieving
+				,tgt.ActualResult = rh.ActualResult
+				,tgt.WrongResult = rh.WrongResult
+				,tgt.ActionType = rh.ActionType
+				,tgt.ResultType = rh.ResultType
+				,tgt.SportType = rh.SportType
+				,tgt.CreatedTime = rh.CreatedTime
+				,tgt.ExtraInfo = rh.ExtraInfo
+				,tgt.IsDeleted = rh.IsDeleted
+				,tgt.InsertedTime = @CurrTime --reset InsertedTime
+				,tgt.LastModifiedTime = @CurrTime
+			OUTPUT INSERTED.SettlementLogID
+				,INSERTED.SessionID
+				,INSERTED.SeqNo
+				,'Change Source Status'
+			INTO #tmpInsertedRH (
+				SettlementLogID
+				,SessionID
+				,SeqNo
+				,ActionDesc
+			) --Get Updated SettlementLogID
+			FROM SettlementResultHist AS tgt WITH (ROWLOCK,UPDLOCK)
+				LEFT JOIN #tmpResultHist AS rh
+					ON rh.SessionID = tgt.SessionID
+						AND rh.MatchID = tgt.MatchID
+						AND rh.SeqNo = tgt.SeqNo
+						AND rh.SiteDBGroupID = tgt.SiteDBGroupID
+			WHERE rh.SettlementStatusID = 2
+				AND tgt.StatusID = @StsRetrvFailed
+				AND (
+					@IsTestFlag IS NULL
+					OR tgt.IsTest = @IsTestFlag
+				)
+			
+			--wirte log
 			INSERT INTO UserLog (
 				RefID
 				,ActionID
 				,UserID
 				,LogBef
 			)
-			SELECT SettlementLogID
+			SELECT i.SettlementLogID
 				,@LogActionID
 				,@LogUserID
-				,COMPRESS(@InfLogPrefix + 'INSERTED SettlementResultHist with StatusID(' + ISNULL(s.Status,'NULL') + ')')
+				,COMPRESS(@InfLogPrefix + 'UPDATED SettlementResultHist with Status from [' + ISNULL(f.Status,'NULL') + '] to [' + ISNULL(r.Status,'NULL') + ']')
 			FROM #tmpInsertedRH AS i
-				LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON s.StatusID = @StsRetrieving
-			ORDER BY SettlementLogID
-		ELSE
-			INSERT INTO UserLog (
-				ActionID
-				,UserID
-				,LogBef
+				LEFT JOIN NotiStatus AS f WITH (NOLOCK) ON f.StatusID = @StsRetrvFailed
+				LEFT JOIN NotiStatus AS r WITH (NOLOCK) ON r.StatusID = @StsRetrieving
+			WHERE i.ActionDesc = 'Change Source Status'
+			ORDER BY i.SettlementLogID
+		END
+		
+		---For new from source
+		IF EXISTS (
+			SELECT 1
+			FROM #tmpResultHist AS rh
+			WHERE NOT EXISTS (
+					SELECT 1
+					FROM SettlementResultHist AS tgt
+					WHERE rh.SessionID = tgt.SessionID
+						AND rh.MatchID = tgt.MatchID
+						AND rh.SeqNo = tgt.SeqNo
+						AND rh.SiteDBGroupID = tgt.SiteDBGroupID
+				) --UNIQUE KEY (SessionID,MatchID,SeqNo,SiteDBGroupID)
+		)
+		BEGIN
+			INSERT INTO SettlementResultHist (
+				StatusID
+				,SiteDBGroupID
+				,SessionID
+				,MatchID
+				,IsTest
+				,SeqNo
+				,ActualResult
+				,WrongResult
+				,ActionType
+				,ResultType
+				,SportType
+				,CreatedTime
+				,ExtraInfo
+				,IsDeleted
+				,InsertedTime
 			)
-			SELECT @LogActionID
-				,@LogUserID
-				,COMPRESS(@InfLogPrefix + 'Debug - NO ROW inserted SettlementResultHist')
-			WHERE @LogMode = 'Debug'
+			OUTPUT INSERTED.SettlementLogID
+				,INSERTED.SessionID
+				,INSERTED.SeqNo
+				,(CASE WHEN INSERTED.StatusID = @StsRetrieving THEN 'new completed' ELSE 'new failed' END)
+			INTO #tmpInsertedRH (
+				SettlementLogID
+				,SessionID
+				,SeqNo
+				,ActionDesc
+			) --Get Inserted SettlementLogID
+			SELECT (CASE WHEN rh.SettlementStatusID = 2 THEN @StsRetrieving ELSE @StsRetrvFailed END) AS StatusID
+				,SiteDBGroupID
+				,SessionID
+				,MatchID
+				,IsTest
+				,SeqNo
+				,ActualResult
+				,WrongResult
+				,ActionType
+				,ResultType
+				,SportType
+				,CreatedTime
+				,ExtraInfo
+				,IsDeleted
+				,@CurrTime AS InsertedTime
+			FROM #tmpResultHist AS rh
+			WHERE NOT EXISTS (
+					SELECT 1
+					FROM SettlementResultHist AS tgt
+					WHERE rh.SessionID = tgt.SessionID
+						AND rh.MatchID = tgt.MatchID
+						AND rh.SeqNo = tgt.SeqNo
+						AND rh.SiteDBGroupID = tgt.SiteDBGroupID
+				) --UNIQUE KEY (SessionID,MatchID,SeqNo,SiteDBGroupID)
+			
+			--write log
+			IF EXISTS (SELECT 1 FROM #tmpInsertedRH)
+			BEGIN
+				;WITH CTE_Status AS (
+					SELECT i.SettlementLogID
+						,(CASE WHEN i.ActionDesc = 'new completed' THEN r.Status ELSE f.Status + ' - Due to SrcSts(' + CONVERT(VARCHAR,rh.SettlementStatusID) + ')' END) AS Sts
+					FROM #tmpInsertedRH AS i
+						LEFT JOIN NotiStatus AS f WITH (NOLOCK) ON f.StatusID = @StsRetrvFailed
+						LEFT JOIN #tmpResultHist AS rh ON rh.SessionID = i.SessionID AND rh.SeqNo = i.SeqNo
+						LEFT JOIN NotiStatus AS r WITH (NOLOCK) ON r.StatusID = @StsRetrieving
+					WHERE i.ActionDesc IN ('new completed', 'new failed')
+				)
+				INSERT INTO UserLog (
+					RefID
+					,ActionID
+					,UserID
+					,LogBef
+				)
+				SELECT i.SettlementLogID
+					,@LogActionID
+					,@LogUserID
+					,COMPRESS(@InfLogPrefix + 'INSERTED SettlementResultHist with Status [' + ISNULL(i.Sts,'NULL') + ']')
+				FROM CTE_Status AS i
+				ORDER BY i.SettlementLogID
+			END
+			ELSE
+			BEGIN
+				INSERT INTO UserLog (
+					ActionID
+					,UserID
+					,LogBef
+				)
+				SELECT @LogActionID
+					,@LogUserID
+					,COMPRESS(@InfLogPrefix + 'Debug - NO ROW inserted SettlementResultHist')
+				WHERE @LogMode = 'Debug'
+			END
+		END
 	END TRY
 	BEGIN CATCH
 		SELECT @ErrCode = @@ERROR --output for web
@@ -491,39 +589,51 @@ BEGIN
 		**************************************************Start to insert SettlementResultHistDetail**************************************************
 		+ For new SettlementLogID
 	*/
-	IF @ErrCode = 0 AND EXISTS (SELECT 1 FROM #tmpInsertedRH)
+	IF @ErrCode = 0
+		AND EXISTS (SELECT 1 FROM #tmpInsertedRH)
 	BEGIN TRY
-		INSERT INTO SettlementResultHistDetail (
-			SettlementLogID
-			,Transid
-			,CustID
-			,ExtraInfo_Before
-			,ExtraInfo_After
-			,IsDeleted
-		)
-		OUTPUT INSERTED.SettlementLogID
-			,INSERTED.Transid
-			,INSERTED.CustID
-		INTO #tmpInsertedRHDetail (
-			SettlementLogID
-			,Transid
-			,CustID
-		) --Get Inserted detail
-		SELECT DISTINCT rh.SettlementLogID
-			,rhd.Transid
-			,rhd.CustID
-			,rhd.ExtraInfo_Before
-			,rhd.ExtraInfo_After
-			,rhd.IsDeleted
-		FROM #tmpInsertedRH AS rh
-			INNER JOIN #tmpResultHistDetail AS rhd ON rh.SessionID = rhd.SessionID AND rh.SeqNo = rhd.SeqNo
-		WHERE NOT EXISTS (
-				SELECT 1
-				FROM SettlementResultHistDetail AS tgt
-				WHERE rh.SettlementLogID = tgt.SettlementLogID
-					AND rhd.Transid = tgt.Transid
-					AND rhd.CustID = tgt.CustID
+		--Can be RESTORE for exception  
+		BEGIN TRANSACTION
+		
+			--Clear old data
+			DELETE rhd
+			FROM SettlementResultHistDetail AS rhd
+				INNER JOIN #tmpInsertedRH AS i ON rhd.SettlementLogID = i.SettlementLogID
+			
+			--Insert new
+			INSERT INTO SettlementResultHistDetail (
+				SettlementLogID
+				,Transid
+				,CustID
+				,ExtraInfo_Before
+				,ExtraInfo_After
+				,IsDeleted
 			)
+			OUTPUT INSERTED.SettlementLogID
+				,INSERTED.Transid
+				,INSERTED.CustID
+			INTO #tmpInsertedRHDetail (
+				SettlementLogID
+				,Transid
+				,CustID
+			) --Get Inserted detail
+			SELECT DISTINCT rh.SettlementLogID
+				,rhd.Transid
+				,rhd.CustID
+				,rhd.ExtraInfo_Before
+				,rhd.ExtraInfo_After
+				,rhd.IsDeleted
+			FROM #tmpInsertedRH AS rh
+				INNER JOIN #tmpResultHistDetail AS rhd ON rh.SessionID = rhd.SessionID AND rh.SeqNo = rhd.SeqNo
+			WHERE NOT EXISTS (
+					SELECT 1
+					FROM SettlementResultHistDetail AS tgt
+					WHERE rh.SettlementLogID = tgt.SettlementLogID
+						AND rhd.Transid = tgt.Transid
+						AND rhd.CustID = tgt.CustID
+				)
+		
+		COMMIT TRANSACTION
 		
 		--write log
 		;WITH CTE_InsertedDetail AS (
@@ -566,6 +676,8 @@ BEGIN
 		SELECT @ErrCode = @@ERROR --output for web
 			,@ErrMsg = ERROR_MESSAGE() --output for web
 		
+		ROLLBACK TRANSACTION
+		
 		INSERT INTO UserLog (
 			ActionID
 			,UserID
@@ -585,14 +697,13 @@ BEGIN
 								),'NO ROW') + ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
-		--Remove Inserted SettlementLogID
-		DELETE sh
-		FROM SettlementResultHistDetail AS sh
-			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
-		
-		DELETE sh
+		--mark Failed
+		UPDATE sh
+		SET sh.StatusID = @StsRetrvFailed
+			,sh.LastModifiedTime = @CurrTime
 		FROM SettlementResultHist AS sh
 			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+		WHERE sh.StatusID = @StsRetrieving
 		
 		INSERT INTO UserLog (
 			RefID
@@ -603,7 +714,7 @@ BEGIN
 		SELECT SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Recent [SettlementResultHist] inserts have been removed because [SettlementResultHistDetail] failed to insert.')
+			,COMPRESS(@ErrLogPrefix + 'UPDATED recent [SettlementResultHist] inserts with Status from [Retrieving] to [Failed to Retrieve] - Due to insert [SettlementResultHistDetail] issue')
 		FROM #tmpInsertedRH
 		ORDER BY SettlementLogID
 		
@@ -613,7 +724,8 @@ BEGIN
 		**************************************************Start to insert BalanceNegativeHist**************************************************
 		+ For new SettlementLogID
 	*/
-	IF @ErrCode = 0 AND EXISTS (SELECT 1 FROM #tmpInsertedRHDetail)
+	IF @ErrCode = 0
+		AND EXISTS (SELECT 1 FROM #tmpInsertedRH)
 	BEGIN TRY
 		/*
 			Currently, BalanceNegativeHistory mapped by SessionID
@@ -622,50 +734,62 @@ BEGIN
 			
 			Paid Attention when handling SessionID / CustID
 		*/
-		INSERT INTO BalanceNegativeHist (
-			SessionID
-			,CustID
-			,Site
-			,LogID
-			,ExecDate
-			,MatchID
-			,ActionID
-			,GroupID
-			,Balance
-			,TotalBalance
-		)
-		OUTPUT INSERTED.SessionID
-			,INSERTED.MatchID
-			,INSERTED.CustID
-			,INSERTED.LogID
-		INTO #tmpInsertedNB (
-			SessionID
-			,MatchID
-			,CustID
-			,LogID
-		) --Get Inserted Negative
-		SELECT DISTINCT bn.SessionID
-			,bn.CustID
-			,bn.Site
-			,bn.LogID
-			,bn.ExecDate
-			,bn.MatchID
-			,bn.ActionID
-			,bn.GroupID
-			,bn.Balance
-			,bn.TotalBalance
-		FROM #tmpInsertedRHDetail AS rhd
-			INNER JOIN #tmpInsertedRH AS rh ON rh.SettlementLogID = rhd.SettlementLogID
-			INNER JOIN #tmpResultHist AS rs ON rh.SessionID = rs.SessionID AND rh.SeqNo = rs.SeqNo
-			INNER JOIN #tmpBalanceNegativeHistory AS bn ON rh.SessionID = bn.SessionID AND rs.MatchID = bn.MatchID AND rhd.CustID = bn.CustID
-		WHERE NOT EXISTS (
+		
+		--Can be RESTORE for exception  
+		BEGIN TRANSACTION
+			--Clear old data
+			DELETE bn
+			FROM BalanceNegativeHist AS bn
+			WHERE EXISTS (
 				SELECT 1
-				FROM BalanceNegativeHist AS tgt
-				WHERE bn.SessionID = tgt.SessionID
-					AND bn.MatchID = tgt.MatchID
-					AND bn.CustID = tgt.CustID
-					AND bn.LogID = tgt.LogID
+				FROM #tmpInsertedRH AS irh
+					INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON rh.SettlementLogID = irh.SettlementLogID
+				WHERE irh.SessionID = bn.SessionID
+					AND rh.MatchID = bn.MatchID
+					AND rh.SiteDBGroupID = bn.SiteDBGroupID
 			)
+			
+			--Insert new
+			INSERT INTO BalanceNegativeHist (
+				SessionID
+				,MatchID
+				,SiteDBGroupID
+				,CustID
+				,Site
+				,Balance
+				,TotalBalance
+			)
+			OUTPUT INSERTED.SessionID
+				,INSERTED.MatchID
+				,INSERTED.SiteDBGroupID
+				,INSERTED.CustID
+			INTO #tmpInsertedNB (
+				SessionID
+				,MatchID
+				,SiteDBGroupID
+				,CustID
+			) --Get Inserted Negative
+			SELECT DISTINCT bn.SessionID
+				,bn.MatchID
+				,bn.SiteDBGroupID
+				,bn.CustID
+				,bn.Site
+				,bn.Balance
+				,bn.TotalBalance
+			FROM #tmpBalanceNegativeHist AS bn
+				INNER JOIN #tmpInsertedRH AS irh ON irh.SessionID = bn.SessionID
+				INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON rh.SettlementLogID = irh.SettlementLogID AND rh.MatchID = bn.MatchID AND rh.SiteDBGroupID = bn.SiteDBGroupID
+				INNER JOIN #tmpInsertedRHDetail AS rhd ON rhd.SettlementLogID = irh.SettlementLogID AND rhd.CustID = bn.CustID
+			WHERE NOT EXISTS (
+					SELECT 1
+					FROM BalanceNegativeHist AS tgt
+					WHERE bn.SessionID = tgt.SessionID
+						AND bn.MatchID = tgt.MatchID
+						AND bn.CustID = tgt.CustID
+						AND bn.SiteDBGroupID = tgt.SiteDBGroupID
+				)
+		
+		COMMIT TRANSACTION
 		
 		--write log
 		;WITH CTE_InsertedNB AS (
@@ -674,7 +798,7 @@ BEGIN
 								SELECT DISTINCT t.*
 								FROM #tmpInsertedNB AS t
 								WHERE t.SessionID = s.SessionID
-								ORDER BY LogID
+								ORDER BY CustID
 								FOR JSON PATH
 							)) AS LTxt
 			FROM #tmpInsertedNB AS s
@@ -701,6 +825,8 @@ BEGIN
 		SELECT @ErrCode = @@ERROR --output for web
 			,@ErrMsg = ERROR_MESSAGE() --output for web
 		
+		ROLLBACK TRANSACTION
+		
 		INSERT INTO UserLog (
 			ActionID
 			,UserID
@@ -714,29 +840,19 @@ BEGIN
 							+ ' - Prepared data('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
 										SELECT *
-										FROM #tmpBalanceNegativeHistory
+										FROM #tmpBalanceNegativeHist
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
 							+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 		
-		--Remove Inserted SettlementLogID
-		
-		DELETE sh
-		FROM BalanceNegativeHist AS sh
-			INNER JOIN #tmpInsertedRH AS rh ON sh.SessionID = rh.SessionID
-			LEFT JOIN #tmpInsertedNB AS bn ON sh.SessionID = bn.SessionID AND sh.MatchID = bn.MatchID AND sh.CustID = bn.CustID AND sh.LogID = bn.LogID
-			LEFT JOIN #tmpInsertedRHDetail AS rhd ON rh.SettlementLogID = rhd.SettlementLogID AND sh.CustID = rhd.CustID
-		WHERE ISNULL(bn.CustID,rhd.CustID) IS NOT NULL
-			
-		
-		DELETE sh
-		FROM SettlementResultHistDetail AS sh
-			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
-		
-		DELETE sh
+		--mark Failed
+		UPDATE sh
+		SET sh.StatusID = @StsRetrvFailed
+			,sh.LastModifiedTime = @CurrTime
 		FROM SettlementResultHist AS sh
 			INNER JOIN #tmpInsertedRH AS rh ON sh.SettlementLogID = rh.SettlementLogID
+		WHERE sh.StatusID = @StsRetrieving
 		
 		INSERT INTO UserLog (
 			RefID
@@ -747,7 +863,7 @@ BEGIN
 		SELECT SettlementLogID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Recent [SettlementResultHist] inserts have been removed because [BalanceNegativeHist] failed to insert.')
+			,COMPRESS(@ErrLogPrefix + 'UPDATED recent [SettlementResultHist] inserts with Status from [Retrieving] to [Failed to Retrieve] - Due to insert [BalanceNegativeHist] issue')
 		FROM #tmpInsertedRH
 		ORDER BY SettlementLogID
 		
@@ -797,7 +913,7 @@ BEGIN
 			)
 			UPDATE sh
 			SET sh.StatusID = @StsRetrieved
-				,sh.LastModifiedTime = GETDATE()
+				,sh.LastModifiedTime = @CurrTime
 			OUTPUT INSERTED.SettlementLogID
 				,'Full SiteDBGroupIDs'
 			INTO @tmpUpdatedRH (SettlementLogID, UpdatedCase)
@@ -844,14 +960,15 @@ BEGIN
 					,SeqNo
 				FROM SettlementResultHist
 				WHERE StatusID = @StsRetrieving
+					AND LastModifiedTime >= DATEADD(HH, - 36, @CurrTime) --use NONCLUSTERED
 				GROUP BY SessionID
 					,MatchID
 					,SeqNo
-				HAVING DATEDIFF(SECOND, MIN(InsertedTime),GETDATE()) > @Retrieving_WaitSec
+				HAVING DATEDIFF(SECOND, MIN(InsertedTime),@CurrTime) > @Retrieving_WaitSec
 			)
 			UPDATE sh
 			SET sh.StatusID = @StsRetrieved
-				,sh.LastModifiedTime = GETDATE()
+				,sh.LastModifiedTime = @CurrTime
 			OUTPUT INSERTED.SettlementLogID
 				,'Over Retrieving_WaitSec'
 			INTO @tmpUpdatedRH (SettlementLogID, UpdatedCase)
@@ -994,10 +1111,10 @@ BEGIN
 	
 	;WITH CTE_Last AS (
 		SELECT TOP 1 rh.SessionID
-			,ISNULL(rh.LastModifiedTime,GETDATE()) AS LastModifiedTime
+			,ISNULL(rh.LastModifiedTime,@CurrTime) AS LastModifiedTime
 		FROM #tmpInsertedRH AS i
 			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON i.SettlementLogID = rh.SettlementLogID
-		ORDER BY ISNULL(rh.LastModifiedTime,GETDATE()) DESC
+		ORDER BY ISNULL(rh.LastModifiedTime,@CurrTime) DESC
 			,rh.SessionID DESC
 	)
 	SELECT @LastSessionID = SessionID
@@ -1046,6 +1163,6 @@ BEGIN
 	DROP TABLE #tmpInsertedRH
 	DROP TABLE #tmpResultHistDetail
 	DROP TABLE #tmpInsertedRHDetail
-	DROP TABLE #tmpBalanceNegativeHistory
+	DROP TABLE #tmpBalanceNegativeHist
 	DROP TABLE #tmpInsertedNB
 END

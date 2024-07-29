@@ -521,6 +521,9 @@ BEGIN
 						AND rh.SeqNo = tgt.SeqNo
 						AND rh.SiteDBGroupID = tgt.SiteDBGroupID
 				) --UNIQUE KEY (SessionID,MatchID,SeqNo,SiteDBGroupID)
+			ORDER BY CreatedTime
+				,SessionID
+				,SeqNo
 			
 			--write log
 			IF EXISTS (SELECT 1 FROM #tmpInsertedRH)

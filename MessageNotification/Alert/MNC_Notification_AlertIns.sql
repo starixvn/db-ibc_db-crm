@@ -446,14 +446,11 @@ BEGIN
 		*/
 		SELECT @RuleID = 5
 		
-		SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 11 --Retrieving_WaitSec
-		
 		SELECT @SiteCnt = COUNT(DISTINCT SiteDBGroupID)
 		FROM bodb02.dbo.SiteDBConfig WITH (NOLOCK)
 		WHERE SiteDBGroupID <> 0
 		
+		--Generated Session BUT NOT enough SiteDBs
 		;WITH CTE_SessionInfo AS (
 			SELECT s.SessionID
 				,s.MatchID
@@ -463,9 +460,9 @@ BEGIN
 			FROM #tmpSettl AS s
 				INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON s.SessionID = rh.SessionID
 				INNER JOIN NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
+			WHERE s.Status = 'Successfully Generated'
 			GROUP BY s.SessionID
 				,s.MatchID
-			HAVING DATEDIFF(SECOND, MIN(rh.InsertedTime),@CurrTime) > @WaitSec
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
@@ -483,7 +480,7 @@ BEGIN
 			-----------
 			,MatchID
 			,(CASE WHEN ExistRetrvFailed = 1 THEN 'SessionID [' + SessionID + '] NOT fully generated because one of SiteDB(s) has a [Failed to Retrieve] status. '
-				ELSE 'SessionID [' + SessionID + '] NOT enough data from SiteDBs, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. ' END)
+				ELSE 'SessionID [' + SessionID + '] NOT enough data from SiteDBs (' + ISNULL(CONVERT(VARCHAR, SiteCnt),'NULL') + ' out of ' + ISNULL(CONVERT(VARCHAR, @SiteCnt),'NULL') + '). ' END)
 				+ 'Please double check [Capture Data Service] process.' AS Content
 		FROM CTE_SessionInfo
 		WHERE SiteCnt <> @SiteCnt
@@ -560,7 +557,12 @@ BEGIN
 			SELECT DISTINCT a.RuleID
 				,ext.RefInfo
 				,(CASE WHEN ext.RefInfo = 'SessionID' THEN a.RefID ELSE ext.SessionID END) AS SessionID
-				,ext.LastModifiedTime
+				/*
+					Special for RuleID = 5
+						=> Ignore check LastModifiedTime
+						=> SessionID notify only 1 time
+				*/
+				,(CASE WHEN sn.RuleID = 5 THEN sn.LastModifiedTime ELSE ext.LastModifiedTime END) AS LastModifiedTime
 				,(CASE WHEN ext.RefInfo = 'NotificationID' THEN a.RefID ELSE 0 END) AS NotificationID --0 if NotificationID IS NULL
 			FROM Alert AS a WITH (NOLOCK)
 				INNER JOIN #tmpError_New AS sn ON a.RuleID = sn.RuleID AND a.RefID = sn.RefID

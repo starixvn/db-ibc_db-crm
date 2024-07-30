@@ -106,5 +106,22 @@ BEGIN
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 	END
 	
+	/*
+		After Inserted Msg, push info to Admin Site
+		
+		SP: DBONUSER@ON_USER.dbo.Dot_Admin_message_new_insert
+	*/
+	SELECT Content_en AS men
+		,Content_ch AS mch
+		,CONVERT(BIT, 1) AS member
+		,CONVERT(BIT, 1) AS agent
+		,CONVERT(BIT, 1) AS ma
+		,CONVERT(BIT, 1) AS sma
+		,Creator AS creator
+		,@MessageID AS NewMessageID
+		,Remark AS Remark
+	FROM dbo.Msg AS m WITH (NOLOCK)
+	WHERE MessageID = @MessageID
+	
 	DROP TABLE #tmpUpdMsg
 END

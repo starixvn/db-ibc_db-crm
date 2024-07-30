@@ -307,6 +307,13 @@ BEGIN
 			AND DATEDIFF(SECOND, m.LastModifiedTime,@CurrTime) > @WaitSec
 			---Check EXISTS
 			AND l.MessageID IS NULL
+			AND EXISTS (
+				SELECT 1
+				FROM MessageNotification.dbo.NotificationTarget AS nt WITH (NOLOCK)
+					LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
+				WHERE m.MsgNotiID = nt.NotificationID
+					AND s.site IS NOT NULL --EXISTS [deposit] Target
+			)
 		
 		--1.6 - For [Generate LAP Notif Service] process, Notification.StatusID = Generating over 60s / Failed to Generate
 		INSERT INTO #tmpError_New (

@@ -190,6 +190,7 @@ BEGIN
 	*/
 	;WITH CTE_Msg AS (
 		SELECT DISTINCT nMsg.NotificationID AS MsgNotiID
+			,nMsg.RefID AS MessageID
 			,rh.SportType
 		FROM Notification AS nMsg WITH (NOLOCK)
 			INNER JOIN NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
@@ -205,16 +206,10 @@ BEGIN
 			) --filter by Environment/IncludeTestMatch
 	)
 	,CTE_Lap AS (
-		SELECT DISTINCT nLap.NotificationID AS LapNotiID
-			,ext.MsgNotiID
+		SELECT DISTINCT nLap.RefID AS MessageID
 		FROM Notification AS nLap WITH (NOLOCK)
-			INNER JOIN NotificationExtra AS nLapEx WITH (NOLOCK) ON nLap.NotificationID = nLapEx.NotificationID
-			OUTER APPLY OPENJSON(nLapEx.ExtraInfo) WITH (
-					MsgNotiID VARCHAR(MAX) '$.MsgNotiID'
-				) AS ext--OPENJSON case-sensitive
 		WHERE nLap.LastModifiedTime >= DATEADD(HH, - 36, GETDATE())
 			AND nLap.NotificationType = 2 --2: Result Amendment to LAP
-			AND ISJSON(nLapEx.ExtraInfo) = 1
 	)
 	INSERT INTO #tmpPrepareNoti (
 		NotificationID
@@ -223,8 +218,8 @@ BEGIN
 	SELECT m.MsgNotiID
 		,m.SportType
 	FROM CTE_Msg AS m
-		LEFT JOIN CTE_Lap AS l ON m.MsgNotiID = l.MsgNotiID
-	WHERE l.MsgNotiID IS NULL
+		LEFT JOIN CTE_Lap AS l ON m.MessageID = l.MessageID
+	WHERE l.MessageID IS NULL
 	
 	CREATE CLUSTERED INDEX CIX_tmpPrepareNoti ON #tmpPrepareNoti(NotificationID)
 	
@@ -232,8 +227,13 @@ BEGIN
 	;WITH CTE_Valid AS (
 		SELECT i.NotificationID
 		FROM #tmpPrepareNoti AS i
-			INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON i.NotificationID = nt.NotificationID --must EXISTS Target
-			INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
+		WHERE EXISTS (
+			SELECT 1
+			FROM NotificationTarget AS nt WITH (NOLOCK)
+				LEFT JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON nt.TargetSite = s.site AND s.isDeposit = 1 --deposit user
+			WHERE i.NotificationID = nt.NotificationID --must EXISTS Target
+				AND s.site IS NOT NULL --EXISTS [deposit] Target
+		)
 		GROUP BY i.NotificationID
 	)
 	DELETE t

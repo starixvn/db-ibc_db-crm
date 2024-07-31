@@ -625,10 +625,6 @@ BEGIN
 				+ LeagueGroupID IN (@SabaLeagueGroup)
 				+ TargetSite belong to special sites
 		*/
-		;WITH CTE_SabaLG AS (
-			SELECT TRY_CONVERT(INT,value) AS SabaLG
-			FROM STRING_SPLIT(@SabaLeagueGroup, ',')
-		)
 		INSERT INTO #tmpStagingTarget (
 			NotiTempID
 			,IsNoneSaba
@@ -1381,6 +1377,7 @@ BEGIN
 			SELECT DISTINCT rh.SettlementLogID
 				,rh.SessionID
 				,rh.MatchID
+				,rh.SeqNo
 				,'S.T wrong while creating Notification Content (NOT EXITS in Valid Content)'
 					+ ' - SessionID(' + ISNULL(rh.SessionID,'NULL') + ') - MatchID(' + ISNULL(CONVERT(VARCHAR,rh.MatchID),'NULL') + ')' AS lTxt
 			FROM #tmpResultHist AS rh
@@ -1389,14 +1386,14 @@ BEGIN
 		)
 		,CTE_Relate_Of_Invalid_Content AS (
 			SELECT DISTINCT rh.SettlementLogID
-				,'Failed due to relating with SessionID(' + ISNULL(rh.SessionID,'NULL') + ') - MatchID(' + ISNULL(CONVERT(VARCHAR,rh.MatchID),'NULL') + ')' AS lTxt
+				,'Failed due to relating with SessionID(' + ISNULL(rh.SessionID,'NULL') + ') - MatchID(' + ISNULL(CONVERT(VARCHAR,rh.MatchID),'NULL') + ') - SeqNo(' + ISNULL(CONVERT(VARCHAR,rh.SeqNo),'NULL') + ')' AS lTxt
 			FROM #tmpResultHist AS rh
-				INNER JOIN CTE_Invalid_Content AS inv ON rh.SessionID = inv.SessionID AND rh.MatchID = inv.MatchID
+				INNER JOIN CTE_Invalid_Content AS inv ON rh.SessionID = inv.SessionID AND rh.MatchID = inv.MatchID AND rh.SeqNo = inv.SeqNo
 			WHERE rh.SettlementLogID <> inv.SettlementLogID
 		)
 		UPDATE rh
 		SET rh.StatusID = @StsGenFailed
-			,rh.NotiLog = rh.NotiLog + ISNULL(inv1.lTxt,inv2.lTxt)
+			,rh.NotiLog = rh.NotiLog + ISNULL('Invalid Content: ' + inv1.lTxt,'') + ISNULL('; Relate Of Invalid Content: ' + inv2.lTxt,'')
 		FROM #tmpResultHist AS rh
 			LEFT JOIN CTE_Invalid_Content AS inv1 ON rh.SettlementLogID = inv1.SettlementLogID
 			LEFT JOIN CTE_Relate_Of_Invalid_Content AS inv2 ON rh.SettlementLogID = inv2.SettlementLogID
@@ -1830,7 +1827,7 @@ BEGIN
 			1.UPD #tmpResultHist "Success" / "Failed" (check with Notification)	***[From NotificationID(8).Status = Failed to Generate => SettlementLogID(1,2).Status = Failed to Generate]
 				+ write log for change status
 			2.KEEP Failed NotiID in #tmpInsertedNoti ***[From SettlementLogID(1,2).Status = Failed to Generate => NotificationID(9).Status = Failed to Generate]
-			3.DEL Failed NotiID
+			3.Marked as Failed NotiID
 		*/
 		-- update tmpResultHist--
 		;WITH CTE_ELog AS (
@@ -1896,6 +1893,7 @@ BEGIN
 			GROUP BY nm.SettlementLogID
 		)
 		UPDATE rh
+			 --IF SettlementLogID EXITS NotificationID with StatusID = SuccessStatusID => @StsGenerated
 		SET rh.StatusID = (CASE WHEN ISNULL(ns.ValidSts,0) = 1 THEN @StsGenerated ELSE @StsGenFailed END)
 			,rh.NotiLog = rh.NotiLog + (CASE WHEN ISNULL(ns.ValidSts,0) = 1 THEN 'Changed SettlementLogID Status from [Generating] to [Successfully Generated] - NotiIDs(' + ISNULL(sl.NotiIDs,'NULL') + ')'
 							ELSE ' - All Info as JSON = ' + ISNULL(el.LTxt,'NULL') END) --error log write bellow
@@ -1909,7 +1907,7 @@ BEGIN
 			SELECT n.NotificationID
 			FROM Notification AS n WITH (NOLOCK)
 				INNER JOIN #tmpInsertedNoti AS i ON n.NotificationID = i.NotificationID
-			WHERE n.StatusID <> i.SuccessStatusID
+			WHERE n.StatusID <> i.SuccessStatusID --Inserted Noti with StatusID <> SuccessStatusID
 			
 			UNION ALL
 			
@@ -1917,27 +1915,17 @@ BEGIN
 			FROM Notification AS n WITH (NOLOCK)
 				INNER JOIN NotiMapping AS nm ON n.NotificationID = nm.NotificationID
 				INNER JOIN #tmpResultHist AS rh ON nm.SettlementLogID = rh.SettlementLogID
-			WHERE rh.StatusID = @StsGenFailed
+			WHERE rh.StatusID = @StsGenFailed --SettlementLogID with StatusID = @StsGenFailed
 		)
 		INSERT INTO #tmpFailedNoti (NotificationID)
 		SELECT DISTINCT NotificationID
 		FROM CTE_FailedNoti
 		
-		--DEL Failed NotiID
-			--Notification
-			--NotificationTarget
-			--NotiMapping
-			--NotificationExtra
-		DELETE FROM Notification
-		WHERE NotificationID IN (SELECT NotificationID FROM #tmpFailedNoti)
-		
-		DELETE FROM NotificationTarget
-		WHERE NotificationID IN (SELECT NotificationID FROM #tmpFailedNoti)
-		
-		DELETE FROM NotiMapping
-		WHERE NotificationID IN (SELECT NotificationID FROM #tmpFailedNoti)
-		
-		DELETE FROM NotificationExtra
+		--Marked as Failed NotiID
+		UPDATE n
+		SET n.StatusID = @StsGenFailed
+			,n.LastModifiedTime = GETDATE()
+		FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 		WHERE NotificationID IN (SELECT NotificationID FROM #tmpFailedNoti)
 		
 		--write log
@@ -1950,7 +1938,7 @@ BEGIN
 		SELECT NotificationID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Deleted Notification after consistency checking')
+			,COMPRESS(@ErrLogPrefix + 'Marked as Failed Notification after consistency checking')
 		FROM #tmpFailedNoti AS i
 		ORDER BY i.NotificationID
 			
@@ -1995,21 +1983,11 @@ BEGIN
 		SET StatusID = @StsGenFailed
 			,NotiLog = NotiLog + 'Changed SettlementLogID Status from [Generating] to [Failed to Generate] due to ERROR('+ ISNULL(CONVERT(VARCHAR,@ErrCode),'NULL') + ') - ERROR_MESSAGE('+ ISNULL(@ErrMsg,'NULL') + ')'
 		
-		--DEL Failed NotiID
-			--Notification
-			--NotificationTarget
-			--NotiMapping
-			--NotificationExtra
-		DELETE FROM Notification
-		WHERE NotificationID IN (SELECT NotificationID FROM #tmpInsertedNoti)
-		
-		DELETE FROM NotificationTarget
-		WHERE NotificationID IN (SELECT NotificationID FROM #tmpInsertedNoti)
-		
-		DELETE FROM NotiMapping
-		WHERE NotificationID IN (SELECT NotificationID FROM #tmpInsertedNoti)
-		
-		DELETE FROM NotificationExtra
+		--Marked as Failed NotiID
+		UPDATE n
+		SET n.StatusID = @StsGenFailed
+			,n.LastModifiedTime = GETDATE()
+		FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 		WHERE NotificationID IN (SELECT NotificationID FROM #tmpInsertedNoti)
 		
 		--write log
@@ -2030,7 +2008,7 @@ BEGIN
 			SELECT i.NotificationID
 				,@LogActionID
 				,@LogUserID
-				,COMPRESS(@ErrLogPrefix + 'Recent [Notification] inserts have been removed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
+				,COMPRESS(@ErrLogPrefix + 'Recent [Notification] inserts have been marked as Failed - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 			FROM #tmpInsertedNoti AS i
 				LEFT JOIN #tmpFailedNoti AS f ON i.NotificationID = f.NotificationID
 			WHERE f.NotificationID IS NULL --FailedNoti log above

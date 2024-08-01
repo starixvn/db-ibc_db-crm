@@ -301,7 +301,8 @@ BEGIN
 	CREATE TABLE #tmpInsertedNoti (
 		NotificationID INT NOT NULL
 		,NotiByContID INT
-		,SuccessStatusID TINYINT --based on SystemSetting.VName = 'IgnoreReviewContentBySport'
+		,SuccessStatusID TINYINT --based on SystemSetting.VName = 'AutoSendNotificationBySport'
+		,ApproveMode TINYINT ----Manual(0), Auto(1)
 	)
 	
 	CREATE TABLE #tmpFailedNoti (
@@ -1515,11 +1516,11 @@ BEGIN
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInsertedNoti ON #tmpInsertedNoti (NotificationID)
 		
-		---Dynamic StatusID by SystemSetting.VName = 'IgnoreReviewContentBySport'
+		---Dynamic StatusID by SystemSetting.VName = 'AutoSendNotificationBySport'
 		;WITH CTE_Noti_Status AS (
 			SELECT DISTINCT i.NotificationID
 				/*
-					IF SportType EXISTS IN SystemSetting.VName = 'IgnoreReviewContentBySport'
+					IF SportType EXISTS IN SystemSetting.VName = 'AutoSendNotificationBySport'
 						=> SuccessStatusID = 'Sending' => Ignore Review
 					ELSE
 						=> SuccessStatusID = 'New' => Need to review before push to Msg/MsgTarget
@@ -1528,6 +1529,8 @@ BEGIN
 				*/
 				,(CASE WHEN cs.value IS NOT NULL THEN @StsSending
 					ELSE @StsNew END) AS SuccessStatusID
+				,(CASE WHEN cs.value IS NOT NULL THEN 1
+					ELSE 0 END) AS ApproveMode --Manual(0), Auto(1)
 			FROM #tmpInsertedNoti AS i
 				INNER JOIN #tmpNotiByContent AS pr ON i.NotiByContID = pr.NotiByContID
 				INNER JOIN #tmpResultHist AS rh ON pr.NotiTempID = rh.NotiTempID
@@ -1535,6 +1538,7 @@ BEGIN
 		)
 		UPDATE i
 		SET i.SuccessStatusID = s.SuccessStatusID
+			,i.ApproveMode = s.ApproveMode
 		FROM #tmpInsertedNoti AS i
 			INNER JOIN CTE_Noti_Status AS s ON i.NotificationID = s.NotificationID
 			
@@ -1723,7 +1727,7 @@ BEGIN
 					-----support Push Msg Notification-----
 					,t.LeagueGroupID
 					-----support Dot_Admin_message_new_insert-----
-					,CONVERT(TINYINT,(CASE WHEN i.SuccessStatusID = @StsSending THEN 1 ELSE 0 END)) AS ApproveMode --Manual(0), Auto(1)
+					,i.ApproveMode --Manual(0), Auto(1)
 					-----Others-----
 					,t.SportType
 					,rfs.RefValueEN AS SportNameEN
@@ -1764,7 +1768,7 @@ BEGIN
 				AND n.NotificationType = 1 --notification for Msg
 		)
 		UPDATE n
-		SET n.StatusID = v.SuccessStatusID --based on IgnoreReviewContentBySport
+		SET n.StatusID = v.SuccessStatusID --based on AutoSendNotificationBySport
 			-- ,n.LastModifiedTime = GETDATE() --no Need, just validate StatusID after inserted => leave it as is
 		FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN CTE_Valid AS v ON n.NotificationID = v.NotificationID

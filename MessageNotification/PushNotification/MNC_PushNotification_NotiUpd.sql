@@ -4,6 +4,8 @@ ALTER PROCEDURE MNC_PushNotification_NotiUpd
 	,@NotificationID INT
 	,@MessageID INT
 	,@UpdType VARCHAR(50) = 'AfterInsMsg'
+	,@IsTest BIT OUTPUT
+	,@ApproveMode TINYINT OUTPUT
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
@@ -189,6 +191,20 @@ BEGIN
 			SET nt.StatusID = n.StatusID
 			FROM NotificationTarget AS nt WITH (ROWLOCK,UPDLOCK)
 				INNER JOIN #tmpUpdNoti AS n ON nt.NotificationID = n.NotificationID
+			
+			-- Reset OUTPUT @IsTest
+			SELECT @IsTest = 1
+				,@ApproveMode = 0 --Manual(0), Auto(1)
+			
+			SELECT @IsTest = ext.IsTest
+				,@ApproveMode = ext.ApproveMode
+			FROM #tmpUpdNoti AS u
+				INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON u.NotificationID = ne.NotificationID
+				OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+								IsTest BIT '$.IsTest'
+								,ApproveMode TINYINT '$.ApproveMode'
+							) AS ext --OPENJSON case-sensitive
+			WHERE ISJSON(ne.ExtraInfo) = 1
 			
 			/*
 				at this state, ErrCode from MNC_PushNotification_MsgIns is handled

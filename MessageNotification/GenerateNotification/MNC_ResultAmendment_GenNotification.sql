@@ -1722,6 +1722,8 @@ BEGIN
 					,CASE WHEN c.username IS NOT NULL THEN GETDATE() END AS MsgSendDate
 					-----support Push Msg Notification-----
 					,t.LeagueGroupID
+					-----support Dot_Admin_message_new_insert-----
+					,CONVERT(TINYINT,(CASE WHEN i.SuccessStatusID = @StsSending THEN 1 ELSE 0 END)) AS ApproveMode --Manual(0), Auto(1)
 					-----Others-----
 					,t.SportType
 					,rfs.RefValueEN AS SportNameEN

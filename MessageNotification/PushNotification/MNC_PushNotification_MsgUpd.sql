@@ -1,6 +1,8 @@
 /*<info serverAlias="DBMSG-bodb_Message" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_PushNotification_MsgUpd
 	@MessageID INT
+	,@IsTest BIT
+	,@NotiApproveMode TINYINT
 	,@UpdType VARCHAR(50) = 'AfterUpdNoti'
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
@@ -68,7 +70,7 @@ BEGIN
 		BEGIN TRANSACTION
 		
 		UPDATE m
-		SET m.IsTest = 0
+		SET m.IsTest = ISNULL(@IsTest,1) --DEFAULT IsTest = 1
 			,m.isDeleted = 0
 			,m.LastUpdateTime = GETDATE()
 		OUTPUT INSERTED.MessageID
@@ -89,6 +91,8 @@ BEGIN
 		SELECT @ErrCode = @@ERROR --output for web
 			,@ErrMsg = 'Error - [UAT/PRO] - [InsertMessageService - MsgUpd] - FAILED to mark MessageID completed'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @IsTest(' + ISNULL(CONVERT(VARCHAR,@IsTest),'NULL') + ')'
+						+ ' - @NotiApproveMode(' + ISNULL(CONVERT(VARCHAR,@NotiApproveMode),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 						+ ' - @ErrCode(' + ISNULL(CONVERT(VARCHAR,@iErrCode),'NULL') + ')'
 						+ ' - @ErrMsg(' + ISNULL(@iErrMsg,'NULL') + ')'
@@ -103,6 +107,8 @@ BEGIN
 		SELECT @ErrCode = 50004
 			,@ErrMsg = 'Error - [UAT/PRO] - [InsertMessageService - MsgUpd] - NO affected Msg/MsgTarget'
 						+ ' - @MessageID(' + ISNULL(CONVERT(VARCHAR,@MessageID),'NULL') + ')'
+						+ ' - @IsTest(' + ISNULL(CONVERT(VARCHAR,@IsTest),'NULL') + ')'
+						+ ' - @NotiApproveMode(' + ISNULL(CONVERT(VARCHAR,@NotiApproveMode),'NULL') + ')'
 						+ ' - @UpdType(' + ISNULL(@UpdType,'NULL') + ')'
 	END
 	
@@ -122,6 +128,7 @@ BEGIN
 		,Remark AS Remark
 	FROM dbo.Msg AS m WITH (NOLOCK)
 	WHERE MessageID = @MessageID
+		AND ISNULL(@NotiApproveMode,0) = 0 --Manual(0), Auto(1)
 	
 	DROP TABLE #tmpUpdMsg
 END

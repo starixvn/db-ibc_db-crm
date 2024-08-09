@@ -39,19 +39,28 @@ BEGIN
  	EXEC sp_xml_preparedocument @DocHandler OUTPUT, @AgentList
  	
  	INSERT INTO #AgentIDs (AgentId)
- 	SELECT Data.AgentId
+ 	SELECT DISTINCT Data.AgentId
  	FROM OPENXML(@DocHandler, '/ROOT/Agent', 1) WITH (AgentId INT) AS Data 
-
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_AgentIDs ON #AgentIDs (AgentId)
+	
  	EXEC sp_xml_removedocument @DocHandler
 
 	CREATE TABLE #NotiIDs (NotificationId INT)
 
 	INSERT INTO #NotiIDs (NotificationId)
-	SELECT e.NotificationID
+	SELECT DISTINCT e.NotificationID
 	FROM dbo.NotificationExtra e WITH (NOLOCK)
-		INNER JOIN dbo.NotificationTarget t WITH (NOLOCK) ON e.NotificationID = t.NotificationID
-		INNER JOIN #AgentIDs a ON a.AgentId = t.TargetID
-	WHERE e.EventDate BETWEEN @FEventDate AND @TEventDate	
+		INNER JOIN dbo.NotificationTarget AS t WITH (NOLOCK) ON e.NotificationID = t.NotificationID
+	WHERE e.EventDate BETWEEN @FEventDate AND @TEventDate
+		AND EXISTS (
+			SELECT 1
+			FROM #AgentIDs AS a
+			WHERE a.AgentId = t.TargetID
+		)
+	OPTION (RECOMPILE)
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_NotiIDs ON #NotiIDs (NotificationId)
 
 	CREATE TABLE #tmpResult (
 		RNo INT IDENTITY(1, 1) PRIMARY KEY
@@ -67,23 +76,22 @@ BEGIN
 	
 	--Get LAP Notifications
 	INSERT INTO #tmpResult (
-	LAPNotiID
-	,EventDate4GMT
-	,Title
-	,Content_en
-	,Content_cs
-	,InsertedTime
+		LAPNotiID
+		,EventDate4GMT
+		,Title
+		,Content_en
+		,Content_cs
+		,InsertedTime
 	)
-
 	SELECT DISTINCT n.NotificationID
 		,ne.EventDate
 		,n.Subject
 		,n.Content_en
 		,n.Content_cs
 		,n.InsertedTime
-	FROM dbo.Notification AS n WITH (NOLOCK)
-		INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON n.NotificationID = ne.NotificationID
-		INNER JOIN #NotiIDs nd ON n.NotificationID = nd.NotificationId
+	FROM #NotiIDs AS nd
+		INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON nd.NotificationId = n.NotificationID
+		INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON nd.NotificationId = ne.NotificationID
 	WHERE ne.EventDate BETWEEN @FEventDate AND @TEventDate
 		AND n.StatusID IN (
 			SELECT StatusID
@@ -138,5 +146,3 @@ BEGIN
 	
 	DROP TABLE #tmpResult, #NotiIDs, #AgentIDs
 END
-GO
-   

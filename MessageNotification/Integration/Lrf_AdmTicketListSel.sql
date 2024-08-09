@@ -37,32 +37,47 @@ BEGIN
 
 	CREATE TABLE #AgentIDs (AgentId INT)
 	
-	exec sp_xml_preparedocument @DocHandler OUTPUT, @AgentList
+	EXEC sp_xml_preparedocument @DocHandler OUTPUT, @AgentList
 
 	INSERT INTO #AgentIDs (AgentId)
-	SELECT Data.AgentId
+	SELECT DISTINCT Data.AgentId
 	FROM OPENXML (@DocHandler, 'ROOT/Agent',1 ) WITH (AgentId INT) AS Data
-
-	exec sp_xml_removedocument @DocHandler
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_AgentIDs ON #AgentIDs (AgentId)
+	
+	EXEC sp_xml_removedocument @DocHandler
 
 	CREATE TABLE #tmpNoti (NotificationID INT)
 
 	INSERT INTO #tmpNoti (NotificationID)
-
-	SELECT DISTINCT n.NotificationID
-	FROM dbo.Notification n WITH (NOLOCK)
-		INNER JOIN dbo.NotificationExtra e WITH (NOLOCK) ON n.NotificationID = e.NotificationID
-		INNER JOIN dbo.NotificationTarget t WITH (NOLOCK) ON e.NotificationID = t.NotificationID
-		INNER JOIN #AgentIDs a ON a.AgentId = t.TargetID
-	WHERE n.StatusID IN (SELECT StatusID FROM dbo.NotiStatus WITH (NOLOCK) WHERE Status = 'Active')
+	SELECT DISTINCT e.NotificationID
+	FROM dbo.NotificationExtra AS e WITH (NOLOCK)
+		INNER JOIN dbo.NotificationTarget AS t WITH (NOLOCK) ON e.NotificationID = t.NotificationID
+		INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON e.NotificationID = n.NotificationID
+	WHERE e.EventDate BETWEEN @FEventDate AND @TEventDate
+		AND (
+			@NotiID IS NULL 
+			OR e.NotificationID = @NotiID
+		)
+		AND EXISTS (
+			SELECT 1
+			FROM #AgentIDs AS a
+			WHERE a.AgentId = t.TargetID
+		)
 		AND n.NotificationType = 2
-		AND e.EventDate BETWEEN @FEventDate AND @TEventDate
-		AND e.NotificationID = CASE WHEN @NotiID IS NOT NULL THEN @NotiID
-								ELSE e.NotificationID END
+		AND n.StatusID IN (
+			SELECT st.StatusID
+			FROM dbo.NotiStatus AS st WITH (NOLOCK)
+			WHERE st.Status = 'Active'
+		)
+	OPTION (RECOMPILE)
+	
+	CREATE UNIQUE CLUSTERED INDEX CIX_tmpNoti ON #tmpNoti (NotificationID)
 
 	CREATE TABLE #tmpAffectedTicket (
 		NotiID INT
 		,TransID BIGINT
+		,CustID INT
 		,Username NVARCHAR(50)
 		,Username2 NVARCHAR(50)
 	)
@@ -74,29 +89,33 @@ BEGIN
 	BEGIN
 		INSERT INTO #tmpAffectedTicket (
 			NotiID
+			,CustID
 			,TransID
-			,Username
-			,Username2
 		)
 		SELECT DISTINCT 
 			nt.NotificationID AS NotiID
-			,t.value AS TransID
-			,c.Username
-			,c.username2
+			,nc.CustID
+			,TRY_CONVERT(BIGINT,t.value) AS TransID
 		FROM dbo.NotificationTarget AS nt WITH (NOLOCK)
 			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
 							CustID INT '$.CustID'
 							,TransIDs VARCHAR(MAX) '$.TransIDs'
 						) AS nc --OPENJSON case-sensitive
 			OUTER APPLY STRING_SPLIT(nc.TransIDs, ',') AS t
-			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nc.CustID = c.CustID
 		WHERE nt.NotificationID IN (SELECT NotificationID FROM #tmpNoti)
-			AND c.roleid = 1 --cust only
-			AND TRY_CONVERT(BIGINT,t.value) IS NOT NULL
+			AND nt.TargetID IN (SELECT AgentId FROM #AgentIDs)
 			AND ISJSON(nt.ExtraInfo) = 1
 		OPTION (RECOMPILE)
 
-		CREATE CLUSTERED INDEX CIX_tmpAffectedTicket ON #tmpAffectedTicket (Username)
+		CREATE CLUSTERED INDEX CIX_tmpAffectedTicket ON #tmpAffectedTicket (CustID)
+		
+		--Get Username/Username2
+		UPDATE af
+		SET af.Username = c.Username
+			,af.Username2 = c.Username2
+		FROM #tmpAffectedTicket AS af
+			INNER JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON af.CustID = c.CustID AND c.roleid = 1 --cust only
+		WHERE af.TransID IS NOT NULL
 
 		--Hometeam -vs- Awayteam - DD/MMM/YYYY
 		INSERT INTO #EventInfo (NotiID, EventName, EventDate)
@@ -125,10 +144,10 @@ BEGIN
 		,STUFF(Username2, 1, CHARINDEX('$', Username2), '') AS ExternalID
 		,Username AS SystemID
 	FROM #tmpAffectedTicket
+	WHERE Username IS NOT NULL
 	ORDER BY NotiId
 		,Username
 		,TransID
 	
 	DROP TABLE #tmpAffectedTicket, #tmpNoti, #AgentIDs, #EventInfo
 END
-GO

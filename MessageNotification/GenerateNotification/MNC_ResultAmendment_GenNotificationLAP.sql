@@ -1020,7 +1020,7 @@ BEGIN
 			,ExtraInfo
 		)
 		SELECT DISTINCT i.Lap_NotiID
-			,CONVERT(DATE,ex.KOTime) AS EventDate --For Cricket of LAP, get GlobalShowTime
+			,CONVERT(DATE,ex.KOTime) AS EventDate --For Cricket of LAP, get Match.GlobalShowTime
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT m.Msg_NotiID AS MsgNotiID
 					,m.MatchID
@@ -1042,10 +1042,13 @@ BEGIN
 					,tp.TemplateName
 					----------SettlLog------
 					,sl.SettlLog
+					----------Match.EventDate------
+					,ext.EventDate
 				FROM #tmpEventInfo AS m
 					LEFT JOIN CTE_SettlLog AS sl ON m.Msg_NotiID = sl.Msg_NotiID
 					LEFT JOIN #tmpInputNoti AS ii ON m.Msg_NotiID = ii.Msg_NotiID
 					LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON ii.TemplateID = tp.TemplateID
+					LEFT JOIN NotificationExtra AS ext WITH (NOLOCK) ON m.Msg_NotiID = ext.NotificationID
 				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH
 			)) AS ExtraInfo

@@ -1020,7 +1020,7 @@ BEGIN
 			,ExtraInfo
 		)
 		SELECT DISTINCT i.Lap_NotiID
-			,ex.EventDate
+			,CONVERT(DATE,ex.KOTime) AS EventDate --For Cricket of LAP, get GlobalShowTime
 			,CONVERT(NVARCHAR(MAX),(
 				SELECT DISTINCT m.Msg_NotiID AS MsgNotiID
 					,m.MatchID
@@ -1051,7 +1051,7 @@ BEGIN
 			)) AS ExtraInfo
 		FROM #tmpInsertedNoti AS i
 			INNER JOIN NotificationTarget AS lnt WITH (NOLOCK) ON i.Lap_NotiID = lnt.NotificationID --make sure exists in NotificationTarget
-			INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON i.Msg_NotiID = ex.NotificationID
+			INNER JOIN #tmpEventInfo AS ex ON i.Msg_NotiID = ex.Msg_NotiID
 		
 		--write log
 		;WITH CTE_Log AS (

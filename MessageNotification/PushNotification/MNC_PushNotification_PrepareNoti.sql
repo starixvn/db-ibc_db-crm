@@ -1,0 +1,434 @@
+/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+ALTER PROCEDURE MNC_PushNotification_PrepareNoti
+	@Environment VARCHAR(20)
+AS
+/*
+	Created: 20231213@Roy
+	Task: Prepare to start Push Notification process
+	DB: DBCRM.MessageNotification
+	Revisions:
+		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+	
+	Explanation:
+		Steps
+			- Check / Update [Push Notification] Process Status
+			- Get [Sending] NotificationID
+			- Parse Notification data to JSON
+		
+		Output
+			Dataset
+			----|-------------------|---------------------------------
+				|NotificationID		|JSNotification
+			----|-------------------|---------------------------------
+				| 50				| Notification data as JSON format
+				| 52				| Notification data as JSON format
+			----|-------------------|---------------------------------
+	
+	Example:
+		EXEC MessageNotification.dbo.MNC_PushNotification_PrepareNoti
+*/
+BEGIN
+	SET NOCOUNT ON
+	
+	DECLARE @LogUserID INT
+		,@LogUserName VARCHAR(50)
+		,@LogActionID SMALLINT
+		,@StsSending TINYINT
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
+		,@ProcessID INT
+		,@JSNotification NVARCHAR(MAX)
+		,@iLoop INT = 0
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag BIT
+	
+	/*
+		Load setting
+	*/
+	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 2 --ID of StarixIT
+	
+	SELECT @StsSending = StatusID
+	FROM NotiStatus WITH (NOLOCK)
+	WHERE Status = 'Sending'
+	
+	SELECT @PRODIncludeTest = VValue
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
+	--Insert if NOT EXISTS
+	INSERT INTO LogAction (ActName)
+	SELECT o.[name]
+	FROM sys.objects AS o WITH (NOLOCK)
+	WHERE o.[is_ms_shipped] = 0 --created by user
+		AND o.[type] IN (
+			'P', -- stored procedures
+			'FN', -- scalar functions 
+			'IF', -- inline table-valued functions
+			'TF' -- table-valued functions
+		)
+		AND o.[name] NOT LIKE '_delete%'
+		AND o.[name] NOT LIKE '[_delete%'
+		AND o.[name] NOT LIKE '_DEL%'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM LogAction AS a
+			WHERE a.ActName = o.[name]
+		)
+	
+	SELECT @LogActionID = ActionID
+	FROM LogAction WITH (NOLOCK)
+	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
+	
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 6 --InsertMessageService
+		SELECT @ErrLogPrefix = 'Error - [InsertMessageService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [InsertMessageService - Prepare] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 12 --UAT_InsertMessageService
+		SELECT @ErrLogPrefix = 'Error - [UAT_InsertMessageService - Prepare] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_InsertMessageService - Prepare] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
+	
+	--check current status of [Push Notification] process
+	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_PushNoti
+	BEGIN
+		
+		SELECT NULL AS NotificationID
+			,NULL AS JSNotification
+		WHERE 1 = 0
+		
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'Another Process(' + CONVERT(VARCHAR,@ProcessID) + ') is still active.')
+		
+		RETURN
+	END
+	ELSE
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = 'Running'
+		WHERE VID = @ProcessID
+			AND VValue = 'Done'
+		
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
+	END
+	
+	--------------------------------------------------------
+	CREATE TABLE #tmpResult (
+		NotificationID INT
+		,JSNotification NVARCHAR(MAX)
+	)
+	
+	CREATE TABLE #tmpJSData (
+		ObjectName NVARCHAR(150)
+		,JSONData NVARCHAR(MAX)
+	)
+	
+	CREATE TABLE #tmpMsg (
+		NotificationID INT
+		,Content_en NVARCHAR(4000)
+		,Content_ch NVARCHAR(4000)
+		,Content_cs NVARCHAR(4000)
+		,MatchID INT
+		,LeagueGroupID SMALLINT
+		,Creator INT
+		,CreatorName NVARCHAR(50)
+	)
+	
+	CREATE TABLE #tmpMsgTarget (
+		NotificationID INT
+		,TargetID INT NOT NULL
+		,TargetName NVARCHAR(30)
+		,BetTransID VARCHAR(MAX)
+	)
+	
+	CREATE TABLE #tmpSendingNoti (
+		NotificationID INT NOT NULL
+	)
+	
+	/*
+		Get Sending NotificationID
+	*/
+	INSERT INTO #tmpSendingNoti (NotificationID)
+	SELECT DISTINCT n.NotificationID
+	FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
+	WHERE n.StatusID = @StsSending
+		AND n.NotificationType = 1 --Result Amendment to Msg
+		AND EXISTS (SELECT 1 FROM NotificationTarget AS nt WITH (NOLOCK) WHERE nt.NotificationID = n.NotificationID)
+		AND ( @IsTestFlag IS NULL --both REAL & TEST
+			OR EXISTS (
+				SELECT 1
+				FROM NotiMapping AS nm WITH (NOLOCK)
+					INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+				WHERE nm.NotificationID = n.NotificationID
+					AND rh.IsTest = @IsTestFlag
+			)
+		)
+	
+	CREATE CLUSTERED INDEX CIX_tmpSendingNoti ON #tmpSendingNoti(NotificationID)
+	
+	----update NotificationTarget
+	UPDATE nt
+	SET nt.StatusID = @StsSending
+	FROM NotificationTarget AS nt WITH (ROWLOCK,UPDLOCK)
+		INNER JOIN #tmpSendingNoti AS s ON nt.NotificationID = s.NotificationID
+	WHERE nt.StatusID <> @StsSending
+	
+	--write log
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - NotiIDs('
+							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
+										SELECT NotificationID
+										FROM #tmpSendingNoti
+										ORDER BY NotificationID
+										FOR JSON PATH
+									))
+								),'NO ROW') + ')')
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
+	
+	----------Get Notification data----------
+	;WITH CTE_NotiExtra AS (
+		SELECT DISTINCT s.NotificationID
+			,nex.MatchID
+			,nex.LeagueGroupID
+			,nex.MsgSender AS CreatorName
+		FROM #tmpSendingNoti AS s
+			INNER JOIN NotificationExtra AS ne WITH (NOLOCK) ON ne.NotificationID = s.NotificationID
+			OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
+				MatchID INT '$.MatchID'
+				,LeagueGroupID SMALLINT '$.LeagueGroupID'
+				,MsgSender VARCHAR(50) '$.MsgSender'
+			) AS nex--OPENJSON case-sensitive
+		WHERE ISJSON(ne.ExtraInfo) = 1
+	)
+	INSERT INTO #tmpMsg (
+		NotificationID
+		,Content_en
+		,Content_ch
+		,Content_cs
+		,MatchID
+		,LeagueGroupID
+		,CreatorName
+	)
+	SELECT DISTINCT s.NotificationID
+		,n.Content_en
+		,n.Content_ch
+		,n.Content_cs
+		,ne.MatchID
+		,ne.LeagueGroupID
+		,ne.CreatorName
+	FROM #tmpSendingNoti AS s
+		INNER JOIN Notification AS n WITH (NOLOCK) ON s.NotificationID = n.NotificationID
+		LEFT JOIN CTE_NotiExtra AS ne ON s.NotificationID = ne.NotificationID
+		LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.username = ne.CreatorName
+	
+	--Get Creator / CreatorName
+	SELECT @LogUserName = c.username
+	FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+	WHERE c.CustID = @LogUserID
+	
+	;WITH CTE_Creator AS (
+		SELECT DISTINCT c.CustID AS Creator
+			,c.username AS CreatorName
+		FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
+		WHERE c.username IN (
+			SELECT DISTINCT CreatorName
+			FROM #tmpMsg
+		)
+		OR c.username = @LogUserName
+	)
+	UPDATE n
+	SET	n.CreatorName = c.CreatorName
+		,n.Creator = c.Creator
+	FROM #tmpMsg AS n
+		LEFT JOIN CTE_Creator AS c ON ISNULL(n.CreatorName, @LogUserName) = c.CreatorName
+	
+	----------Get NotificationTarget data----------
+	;WITH CTE_NotiTarget AS (
+		SELECT DISTINCT s.NotificationID
+			,nt.TargetID
+			,ex.TransID
+		FROM #tmpSendingNoti AS s
+			INNER JOIN NotificationTarget AS nt WITH (NOLOCK) ON s.NotificationID = nt.NotificationID
+			OUTER APPLY OPENJSON(nt.ExtraInfo) WITH (
+				TransID BIGINT '$.TransID'
+			) AS ex--OPENJSON case-sensitive
+		WHERE ISJSON(nt.ExtraInfo) = 1
+	)
+	INSERT INTO #tmpMsgTarget (
+		NotificationID
+		,TargetID
+		,TargetName
+		,BetTransID
+	)
+	SELECT nt.NotificationID
+		,nt.TargetID
+		,c.username AS TargetName
+		,STRING_AGG(CONVERT(VARCHAR(MAX),nt.TransID),',')
+	FROM CTE_NotiTarget AS nt
+		LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON nt.TargetID = c.CustID
+	GROUP BY nt.NotificationID
+		,nt.TargetID
+		,c.username
+	
+	----------Build dataset---------
+	SELECT @iLoop = MIN(NotificationID)
+	FROM #tmpSendingNoti
+	
+	WHILE EXISTS( SELECT 1 FROM #tmpSendingNoti WHERE NotificationID = @iLoop)
+	BEGIN
+		TRUNCATE TABLE #tmpJSData
+		
+		INSERT INTO #tmpJSData (ObjectName, JSONData)
+		SELECT 'Notification' AS ObjectName
+			,CONVERT(NVARCHAR(MAX),(
+						SELECT NotificationID
+							,Content_en
+							,Content_ch
+							,Content_cs
+							,MatchID
+							,LeagueGroupID
+							,Creator
+							,CreatorName
+						FROM #tmpMsg
+						WHERE NotificationID = @iLoop
+						FOR JSON AUTO
+					)) AS JSONData
+		
+		INSERT INTO #tmpJSData (ObjectName, JSONData)
+		SELECT 'NotificationTarget' AS ObjectName
+			,CONVERT(NVARCHAR(MAX),(
+						SELECT TargetID
+							,TargetName
+							,BetTransID
+						FROM #tmpMsgTarget
+						WHERE NotificationID = @iLoop
+						FOR JSON AUTO
+					)) AS JSONData
+		
+		SELECT @JSNotification = CONVERT(NVARCHAR(MAX),(
+					SELECT ObjectName
+						,JSONData
+					FROM #tmpJSData
+					FOR JSON AUTO
+				))
+				
+		INSERT INTO #tmpResult (
+			NotificationID
+			,JSNotification
+		)
+		SELECT @iLoop AS NotificationID
+			,@JSNotification AS JSNotification
+		
+		--reset for loop
+		SELECT @iLoop = (SELECT TOP 1 NotificationID FROM #tmpSendingNoti WHERE NotificationID > @iLoop ORDER BY NotificationID)
+	END
+	
+	SELECT NotificationID
+		,JSNotification
+	FROM #tmpResult
+	
+	--Mark completed [Push Notification] process => MNC_PushNotification_Complete
+	IF NOT EXISTS (SELECT 1 FROM #tmpResult)
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = 'Done'
+		WHERE VID = @ProcessID
+			AND VValue = 'Running'
+		
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = @ProcessID
+	END
+	
+	--write log
+	INSERT INTO UserLog (
+		RefID
+		,ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT NotificationID
+		,@LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Completed - JSNotification(' + ISNULL(JSNotification,'NO ROW') + ')')
+	FROM #tmpResult
+	ORDER BY NotificationID
+	
+	DROP TABLE #tmpResult
+	DROP TABLE #tmpJSData
+	DROP TABLE #tmpMsg
+	DROP TABLE #tmpMsgTarget
+	DROP TABLE #tmpSendingNoti
+END

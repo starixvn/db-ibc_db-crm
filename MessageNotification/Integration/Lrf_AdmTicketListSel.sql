@@ -122,7 +122,7 @@ BEGIN
 		SELECT LapEx.NotificationId
 				,m.HomeNameEN + ISNULL(' ' + m.NeutralEN,'') + ' -vs- ' + m.AwayNameEN
 					+ ' - '
-					+ CONVERT(VARCHAR,LapEx.EventDate, 106) AS EventName--DD/MMM/YYYY
+					+ FORMAT(LapEx.EventDate, 'dd MMMM yyyy') AS EventName --dd MMMM yyyy
 				,LapEx.EventDate
 		FROM dbo.NotificationExtra AS LapEx WITH (NOLOCK)
 			OUTER APPLY OPENJSON(LapEx.ExtraInfo) WITH (

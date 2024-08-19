@@ -716,12 +716,12 @@ BEGIN
 				日	—>	Day
 				年	—>	Year
 				下午	—>	PM
-				早晨	->	AM
+				上午	->	AM
 			*/
 			UPDATE #tmpSettlLog
 			SET LogDateTime_en = FORMAT(LogDateTime,'MMM dd, yyyy hh:mm:ss tt')
-				,LogDateTime_ch = REPLACE(REPLACE(FORMAT(LogDateTime,N'MM月 dd日, yyyy年 hh:mm:ss tt'),'PM',N'下午'),'AM',N'早晨')
-				,LogDateTime_cs = REPLACE(REPLACE(FORMAT(LogDateTime,N'MM月 dd日, yyyy年 hh:mm:ss tt'),'PM',N'下午'),'AM',N'早晨')
+				,LogDateTime_ch = REPLACE(REPLACE(FORMAT(LogDateTime,N'MM月 dd日, yyyy年 hh:mm:ss tt'),'PM',N'下午'),'AM',N'上午')
+				,LogDateTime_cs = REPLACE(REPLACE(FORMAT(LogDateTime,N'MM月 dd日, yyyy年 hh:mm:ss tt'),'PM',N'下午'),'AM',N'上午')
 			
 			IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{cal_time}')
 			BEGIN

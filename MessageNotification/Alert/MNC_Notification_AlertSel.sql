@@ -187,7 +187,7 @@ BEGIN
 		,AwayName
 	)
 	SELECT a.MatchID
-		,ne.EventDate
+		,ISNULL(ext.EventDate, ne.EventDate) AS EventDate --For Cricket of LAP, NotificationExtra.EventDate = Match.GlobalShowTime => Get from ExtraInfo[EventDate]
 		,ext.KOTime
 		,MAX(ext.LeagueNameEN) AS LeagueName --IF exists Saba and Non-Saba League => Choose Saba LeagueName
 		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') AS HomeName
@@ -197,6 +197,7 @@ BEGIN
 		OUTER APPLY OPENJSON(ne.ExtraInfo) WITH (
 				MatchID INT '$.MatchID'
 				,KOTime DATETIME '$.KOTime'
+				,EventDate DATE '$.EventDate'
 				,LeagueNameEN NVARCHAR(500) '$.LeagueNameEN'
 				,HomeNameEN NVARCHAR(500) '$.HomeNameEN'
 				,NeutralEN NVARCHAR(10) '$.NeutralEN'
@@ -206,7 +207,7 @@ BEGIN
 		AND a.ValidToSendChatGroup = 1
 		AND ext.MatchID = a.MatchID
 	GROUP BY a.MatchID
-		,ne.EventDate
+		,ISNULL(ext.EventDate, ne.EventDate)
 		,ext.KOTime
 		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'')
 		,ext.AwayNameEN

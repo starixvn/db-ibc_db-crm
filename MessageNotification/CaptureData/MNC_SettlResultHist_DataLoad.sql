@@ -180,7 +180,7 @@ BEGIN
 				WAITFOR DELAY '00:00:02' --Two seconds
 			END
 			ELSE
-			BEGIN
+			BEGIN
 				INSERT INTO UserLog (
 					ActionID
 					,UserID
@@ -188,7 +188,7 @@ BEGIN
 				)
 				SELECT @LogActionID
 					,@LogUserID
-					,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
+					,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active (after ' + ISNULL(CONVERT(VARCHAR,@WaitCnt),'NULL') + 'times retry).')
 				
 				--EXIT SP
 				RETURN
@@ -209,7 +209,7 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
+				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + 'times retry' ELSE '' END)) AS LogBef
 			FROM SystemSetting WITH (NOLOCK)
 			WHERE VID = @ProcessID
 			

@@ -40,10 +40,33 @@ BEGIN
 		,@CurrTime DATETIME = GETDATE()
 		,@PRODIncludeTest BIT = 0
 		,@IsTestFlag TINYINT
+		,@ProcessID INT
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'New'
+	
+	--Insert if NOT EXISTS
+	INSERT INTO LogAction (ActName)
+	SELECT o.[name]
+	FROM sys.objects AS o WITH (NOLOCK)
+	WHERE o.[is_ms_shipped] = 0 --created by user
+		AND o.[type] IN (
+			'P', -- stored procedures
+			'FN', -- scalar functions 
+			'IF', -- inline table-valued functions
+			'TF' -- table-valued functions
+		)
+		AND o.[name] NOT LIKE '_delete%'
+		AND o.[name] NOT LIKE '[_delete%'
+		AND o.[name] NOT LIKE '_DEL%'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM LogAction AS a
+			WHERE a.ActName = o.[name]
+		)
 	
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
@@ -52,6 +75,21 @@ BEGIN
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
+	
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 21 --AlertService
+		SELECT @ErrLogPrefix = 'Error - [AlertService - Ins] - '
+		SELECT @InfLogPrefix = 'Info - [AlertService - Ins] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 22 --UAT_AlertService
+		SELECT @ErrLogPrefix = 'Error - [UAT_AlertService - Ins] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_AlertService - Ins] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
 	
 	SELECT @PRODIncludeTest = TRY_CONVERT(BIT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -75,7 +113,7 @@ BEGIN
 		)
 		SELECT @LogActionID
 			,@LogUserID
-			,COMPRESS(N'Error - [AlertService] - NO Action for IncludeTestMatch = ON AND Environment = UAT')
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
 		
 		RETURN
 	END
@@ -90,6 +128,62 @@ BEGIN
 	ELSE --both REAL & TEST
 	BEGIN
 		SET @IsTestFlag = NULL
+	END
+	
+	--check current status of AlertService process
+	DECLARE @WaitCnt INT = 0
+		,@WaitTimes INT = 10
+	
+	WHILE (1 = 1)
+	BEGIN
+		--Increase @WaitCnt
+		SELECT @WaitCnt = @WaitCnt + 1
+		
+		--IF GenerateNotifService Running
+		IF EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Running')
+		BEGIN
+			
+			IF @WaitCnt <= @WaitTimes
+			BEGIN
+				WAITFOR DELAY '00:00:02' --Two seconds
+			END
+			ELSE
+			BEGIN
+				INSERT INTO UserLog (
+					ActionID
+					,UserID
+					,LogBef
+				)
+				SELECT @LogActionID
+					,@LogUserID
+					,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active (after ' + ISNULL(CONVERT(VARCHAR,@WaitCnt),'NULL') + ' times retry).')
+				
+				--EXIT SP
+				RETURN
+			END
+		END
+		ELSE
+		BEGIN
+			--Start [process]
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = 'Running'
+			WHERE VID = @ProcessID
+				AND VValue = 'Done'
+			
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + ' times retry' ELSE '' END)) AS LogBef
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = @ProcessID
+			
+			--EXIT WHILE
+			BREAK
+		END
 	END
 	
 	CREATE TABLE #tmpSettl (
@@ -131,7 +225,6 @@ BEGIN
 	
 	CREATE TABLE #tmpError_Old (
 		RuleID INT NOT NULL
-		,IsTest BIT NOT NULL
 		,RefInfo NVARCHAR(50) NOT NULL
 		,SessionID NVARCHAR(50)
 		,LastModifiedTime DATETIME
@@ -666,14 +759,12 @@ BEGIN
 			
 			INSERT INTO #tmpError_Old (
 				RuleID
-				,IsTest
 				,RefInfo
 				,SessionID
 				,LastModifiedTime
 				,NotificationID
 			)
 			SELECT DISTINCT a.RuleID
-				,a.IsTest
 				,ext.RefInfo
 				,(CASE WHEN ext.RefInfo = 'SessionID' THEN a.RefID ELSE ext.SessionID END) AS SessionID
 				/*
@@ -718,7 +809,7 @@ BEGIN
 				) AS RefExtraInfo
 				,n.Content
 			FROM #tmpError_New AS n
-				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.IsTest = o.IsTest AND n.SessionID = o.SessionID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
+				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.SessionID = o.SessionID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
 			WHERE ISNULL(TRIM(n.Content),'') <> ''
 				AND n.RefInfo = 'SessionID'
 				AND o.RuleID IS NULL --NOT EXISTS Before
@@ -750,7 +841,7 @@ BEGIN
 				) AS RefExtraInfo
 				,n.Content
 			FROM #tmpError_New AS n
-				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.IsTest = o.IsTest AND n.NotificationID = o.NotificationID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
+				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.NotificationID = o.NotificationID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
 			WHERE ISNULL(TRIM(n.Content),'') <> ''
 				AND n.RefInfo = 'NotificationID'
 				AND o.RuleID IS NULL --NOT EXISTS Before
@@ -781,7 +872,7 @@ BEGIN
 			SELECT AlertID
 				,@LogActionID
 				,@LogUserID
-				,COMPRESS(N'Info - [AlertService] - Debug - Created Alert with Status = [New]')
+				,COMPRESS(@InfLogPrefix + 'Debug - Created Alert with Status = [New]')
 			FROM Alert WITH (NOLOCK)
 			WHERE StatusID = @StsNew
 				AND InsertedTime > @CurrTime
@@ -825,9 +916,45 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(N'Error - [AlertService] - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(@ErrLogPrefix + 'FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 	END CATCH
+	
+	--Change ProcessID Status
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = 'Done'
+	WHERE VID = @ProcessID
+		AND VValue = 'Running'
+	
+	/*
+		Handle LastRunTime
+	*/
+	IF @Environment = 'LIVE'
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, @CurrTime, 120)
+		WHERE VID = 18 --LastRunTime
+	END
+	ELSE
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, @CurrTime, 120)
+		WHERE VID = 20 --UAT_LastRunTime
+	END
+	
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE LastSessionID/LastRunTime'
+					+ ' - @LastRunTime(' + ISNULL(CONVERT(VARCHAR, @CurrTime),'NULL') + ')'
+		)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpSettl
 	DROP TABLE #tmpMsgNoti

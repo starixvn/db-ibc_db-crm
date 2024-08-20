@@ -279,7 +279,7 @@ BEGIN
 			AND a.SessionID IS NOT NULL --refer get by SessionID
 			AND (
 				@IsTestFlag IS NULL
-				OR CONVERT(TINYINT,rh.IsTest) = @IsTestFlag
+				OR CONVERT(TINYINT,rs.IsTest) = @IsTestFlag
 			) --filter by Environment/IncludeTestMatch
 	) AS t
 	

@@ -524,7 +524,7 @@ BEGIN
 			,Content
 		)
 		SELECT @RuleID AS RuleID
-			,MIN(s.IsTest) AS IsTest --any IsTest=0 => REAL => IsTest = 0
+			,CONVERT(BIT,MIN(s.IsTest)) AS IsTest --any IsTest=0 => REAL => IsTest = 0
 			,'SessionID' AS RefInfo
 			,s.SessionID
 			,MIN(ISNULL(rh.LastModifiedTime,n.LastModifiedTime)) AS LastModifiedTime
@@ -567,7 +567,7 @@ BEGIN
 			SELECT s.SessionID
 				,s.MatchID
 				,MIN(rh.LastModifiedTime) AS LastModifiedTime
-				,MIN(rh.IsTest) AS IsTest
+				,MIN(CONVERT(TINYINT,rh.IsTest)) AS IsTest
 				,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
 				,MAX(CASE WHEN st.Status = 'Failed to Retrieve' THEN 1 ELSE 0 END) AS ExistRetrvFailed
 			FROM #tmpSettl AS s

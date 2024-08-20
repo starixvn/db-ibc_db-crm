@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AlertIns
-	@ErrCode INT = 0 OUTPUT
+	@Environment VARCHAR(20)
+	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
 /*
@@ -37,6 +38,8 @@ BEGIN
 		,@WaitSec INT = 0
 		,@FromTime DATETIME = DATEADD(DD, -1, GETDATE())
 		,@CurrTime DATETIME = GETDATE()
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag TINYINT
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -50,14 +53,51 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrCode = 0
-		,@ErrMsg = ''
+	SELECT @PRODIncludeTest = TRY_CONVERT(BIT, VValue)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(N'Error - [AlertService] - NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
 	
 	CREATE TABLE #tmpSettl (
 		SessionID NVARCHAR(50) NOT NULL
 		,SettlementLogID INT NOT NULL
 		,LastModifiedTime DATETIME NOT NULL
 		------------------
+		,IsTest TINYINT NOT NULL
 		,MatchID INT NOT NULL
 		,Status VARCHAR(50) NOT NULL
 	)
@@ -66,6 +106,7 @@ BEGIN
 		MsgNotiID INT
 		,LapNotiID INT
 		,MessageID INT
+		,IsTest TINYINT NOT NULL
 		,MatchID INT NOT NULL
 		,Status VARCHAR(50) NOT NULL
 		,LastModifiedTime DATETIME NOT NULL
@@ -77,6 +118,7 @@ BEGIN
 		InternalID INT IDENTITY (1,1)
 		--------
 		,RuleID INT NOT NULL
+		,IsTest BIT NOT NULL
 		,RefInfo NVARCHAR(50) NOT NULL
 		,SessionID NVARCHAR(50)
 		,LastModifiedTime DATETIME NOT NULL
@@ -89,6 +131,7 @@ BEGIN
 	
 	CREATE TABLE #tmpError_Old (
 		RuleID INT NOT NULL
+		,IsTest BIT NOT NULL
 		,RefInfo NVARCHAR(50) NOT NULL
 		,SessionID NVARCHAR(50)
 		,LastModifiedTime DATETIME
@@ -102,12 +145,14 @@ BEGIN
 			SessionID
 			,SettlementLogID
 			,LastModifiedTime
+			,IsTest
 			,MatchID
 			,Status
 		)
 		SELECT DISTINCT rh.SessionID
 			,rh.SettlementLogID
 			,rh.LastModifiedTime
+			,CONVERT(TINYINT,rh.IsTest) AS IsTest
 			,rh.MatchID
 			,st.Status
 		FROM SettlementResultHist AS rh WITH (NOLOCK)
@@ -115,11 +160,53 @@ BEGIN
 		WHERE rh.LastModifiedTime > @FromTime
 			AND rh.LastModifiedTime <= @CurrTime
 			AND rh.SportType = 50 --Cricket, need modify for others sport
+			AND (
+				@IsTestFlag IS NULL
+				OR CONVERT(TINYINT,rh.IsTest) = @IsTestFlag
+			) --filter by Environment/IncludeTestMatch
 		
 		CREATE CLUSTERED INDEX CIX_tmpSettl ON #tmpSettl (SessionID)
 		
+		;WITH CTE_Noti AS (
+			SELECT DISTINCT (CASE WHEN n.NotificationType = 1 THEN n.NotificationID END) AS MsgNotiID
+				,(CASE WHEN n.NotificationType = 2 THEN n.NotificationID END) AS LapNotiID
+				,n.RefID AS MessageID
+				,CONVERT(TINYINT,rh.IsTest) AS IsTest
+				,rh.MatchID
+				,st.Status
+				,n.LastModifiedTime
+				,rh.SessionID
+				,rh.SettlementLogID
+			FROM Notification AS n WITH (NOLOCK)
+				LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+				LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
+			WHERE n.LastModifiedTime > @FromTime
+				AND n.LastModifiedTime <= @CurrTime
+				AND n.NotificationType IN (1, 2) --1: Result Amendment to Msg; --2: LAP of NotificationType = 1 (Result Amendment)
+		)
 		INSERT INTO #tmpMsgNoti (
 			MsgNotiID
+			,LapNotiID
+			,MessageID
+			,IsTest
+			,MatchID
+			,Status
+			,LastModifiedTime
+			,SessionID
+			,SettlementLogID
+		)
+		SELECT MsgNotiID
+			,LapNotiID
+			,MessageID
+			,MIN(IsTest) AS IsTest --any IsTest=0 => REAL => IsTest = 0
+			,MatchID
+			,Status
+			,LastModifiedTime
+			,SessionID
+			,SettlementLogID
+		FROM CTE_Noti
+		GROUP BY MsgNotiID
 			,LapNotiID
 			,MessageID
 			,MatchID
@@ -127,27 +214,23 @@ BEGIN
 			,LastModifiedTime
 			,SessionID
 			,SettlementLogID
-		)
-		SELECT DISTINCT (CASE WHEN n.NotificationType = 1 THEN n.NotificationID END) AS MsgNotiID
-			,(CASE WHEN n.NotificationType = 2 THEN n.NotificationID END) AS LapNotiID
-			,n.RefID AS MessageID
-			,rh.MatchID
-			,st.Status
-			,n.LastModifiedTime
-			,rh.SessionID
-			,rh.SettlementLogID
-		FROM Notification AS n WITH (NOLOCK)
-			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
-			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
-		WHERE n.LastModifiedTime > @FromTime
-			AND n.LastModifiedTime <= @CurrTime
-			AND n.NotificationType IN (1, 2) --1: Result Amendment to Msg; --2: LAP of NotificationType = 1 (Result Amendment)
 		
-		DELETE n
-		FROM #tmpMsgNoti AS n
-			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
-		WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		----filter by Environment/IncludeTestMatch
+		IF @IsTestFlag IS NULL --both REAL & TEST => no need to check IsTest
+		BEGIN
+			DELETE n
+			FROM #tmpMsgNoti AS n
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
+			WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		END
+		ELSE
+		BEGIN
+			DELETE n
+			FROM #tmpMsgNoti AS n
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
+			WHERE n.IsTest <> @IsTestFlag --@IsTestFlag = 0 => REAL data only => DEL <> REAL
+				OR ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		END
 		
 		CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti (MsgNotiID)
 	
@@ -166,6 +249,7 @@ BEGIN
 		
 		;WITH CTE_LongSession AS (
 			SELECT SessionID
+				,MIN(IsTest) AS Mi_IsTest
 				,MIN(LastModifiedTime) AS Mi_LastModifiedTime
 			FROM #tmpSettl
 			WHERE Status = 'Retrieving'
@@ -174,6 +258,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -182,9 +267,10 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,l.Mi_IsTest
 			,'SessionID' AS RefInfo
 			,l.SessionID
-			,rh.LastModifiedTime
+			,l.Mi_LastModifiedTime
 			--------------
 			,rh.MatchID
 			,'SessionID [' + l.SessionID + '] in [Retrieving] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data Service] process.' AS Content
@@ -196,6 +282,7 @@ BEGIN
 
 		;WITH CTE_LongSession AS (
 			SELECT SessionID
+				,MIN(IsTest) AS Mi_IsTest
 				,MIN(LastModifiedTime) AS Mi_LastModifiedTime
 			FROM #tmpSettl
 			WHERE Status = 'Generating'
@@ -204,6 +291,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -212,9 +300,10 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,l.Mi_IsTest
 			,'SessionID' AS RefInfo
 			,rh.SessionID
-			,rh.LastModifiedTime
+			,l.Mi_LastModifiedTime
 			--------------
 			,rh.MatchID
 			,'SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notif Service] process.' AS Content
@@ -226,6 +315,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -235,6 +325,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -252,6 +343,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -261,6 +353,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -283,6 +376,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -292,6 +386,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -318,6 +413,7 @@ BEGIN
 		--1.6 - For [Generate LAP Notif Service] process, Notification.StatusID = Generating over 60s / Failed to Generate
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -327,6 +423,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -355,6 +452,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -364,6 +462,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,IsTest
 			,'NotificationID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -384,6 +483,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -393,6 +493,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,IsTest
 			,'NotificationID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -413,6 +514,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -422,6 +524,7 @@ BEGIN
 			,Content
 		)
 		SELECT @RuleID AS RuleID
+			,MIN(s.IsTest) AS IsTest --any IsTest=0 => REAL => IsTest = 0
 			,'SessionID' AS RefInfo
 			,s.SessionID
 			,MIN(ISNULL(rh.LastModifiedTime,n.LastModifiedTime)) AS LastModifiedTime
@@ -431,6 +534,7 @@ BEGIN
 		FROM (
 			SELECT rh.SessionID
 				,rh.SettlementLogID
+				,rh.IsTest
 			FROM #tmpSettl AS rh
 			WHERE rh.Status = 'Failed to Generate'
 			
@@ -438,6 +542,7 @@ BEGIN
 			
 			SELECT SessionID
 				,SettlementLogID
+				,IsTest
 			FROM #tmpMsgNoti
 			WHERE Status = 'Failed to Generate'
 				AND MsgNotiID IS NOT NULL --NotificationType = 1 - Result Amendment to Msg
@@ -462,6 +567,7 @@ BEGIN
 			SELECT s.SessionID
 				,s.MatchID
 				,MIN(rh.LastModifiedTime) AS LastModifiedTime
+				,MIN(rh.IsTest) AS IsTest
 				,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
 				,MAX(CASE WHEN st.Status = 'Failed to Retrieve' THEN 1 ELSE 0 END) AS ExistRetrvFailed
 			FROM #tmpSettl AS s
@@ -473,6 +579,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -481,6 +588,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,IsTest
 			,'SessionID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -497,12 +605,14 @@ BEGIN
 		--send error log
 		INSERT INTO Alert (
 			StatusID
+			,IsTest
 			,RuleID
 			,RefID
 			,RefExtraInfo
 			,Content
 		)
 		SELECT DISTINCT @StsNew AS StatusID
+			,0 AS IsTest
 			,ar.RuleID AS RuleID
 			,CONVERT(VARCHAR,ar.RuleID) AS RefID
 			,'[{"RefInfo":"RuleID"}]' AS RefExtraInfo --RefInfo=RuleID => only send in IT ChatGroup
@@ -556,12 +666,14 @@ BEGIN
 			
 			INSERT INTO #tmpError_Old (
 				RuleID
+				,IsTest
 				,RefInfo
 				,SessionID
 				,LastModifiedTime
 				,NotificationID
 			)
 			SELECT DISTINCT a.RuleID
+				,a.IsTest
 				,ext.RefInfo
 				,(CASE WHEN ext.RefInfo = 'SessionID' THEN a.RefID ELSE ext.SessionID END) AS SessionID
 				/*
@@ -586,12 +698,14 @@ BEGIN
 			INSERT INTO Alert (
 				StatusID
 				,RuleID
+				,IsTest
 				,RefID
 				,RefExtraInfo
 				,Content
 			)
 			SELECT DISTINCT @StsNew AS StatusID
 				,n.RuleID
+				,n.IsTest
 				,n.RefID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.RefInfo
@@ -604,23 +718,26 @@ BEGIN
 				) AS RefExtraInfo
 				,n.Content
 			FROM #tmpError_New AS n
-				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.SessionID = o.SessionID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
+				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.IsTest = o.IsTest AND n.SessionID = o.SessionID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
 			WHERE ISNULL(TRIM(n.Content),'') <> ''
 				AND n.RefInfo = 'SessionID'
 				AND o.RuleID IS NULL --NOT EXISTS Before
 			ORDER BY n.RuleID
+				,n.IsTest
 				,n.RefID
 			
 			----------------RefInfo = 'NotificationID'---------------------
 			INSERT INTO Alert (
 				StatusID
 				,RuleID
+				,IsTest
 				,RefID
 				,RefExtraInfo
 				,Content
 			)
 			SELECT DISTINCT @StsNew AS StatusID
 				,n.RuleID
+				,n.IsTest
 				,n.RefID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.RefInfo
@@ -633,11 +750,12 @@ BEGIN
 				) AS RefExtraInfo
 				,n.Content
 			FROM #tmpError_New AS n
-				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.NotificationID = o.NotificationID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
+				LEFT JOIN #tmpError_Old AS o ON n.RuleID = o.RuleID AND n.IsTest = o.IsTest AND n.NotificationID = o.NotificationID AND n.RefInfo = o.RefInfo AND n.LastModifiedTime = o.LastModifiedTime
 			WHERE ISNULL(TRIM(n.Content),'') <> ''
 				AND n.RefInfo = 'NotificationID'
 				AND o.RuleID IS NULL --NOT EXISTS Before
 			ORDER BY n.RuleID
+				,n.IsTest
 				,n.RefID
 		END
 		
@@ -678,12 +796,14 @@ BEGIN
 		INSERT INTO Alert (
 			StatusID
 			,RuleID
+			,IsTest
 			,RefID
 			,RefExtraInfo
 			,Content
 		)
 		SELECT DISTINCT @StsNew AS StatusID
 			,0 AS RuleID
+			,0 AS IsTest
 			,'0' AS RefID
 			,'[{"RefInfo":"RuleID"}]' AS RefExtraInfo --RefInfo=RuleID => only send in IT ChatGroup
 			,'FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'

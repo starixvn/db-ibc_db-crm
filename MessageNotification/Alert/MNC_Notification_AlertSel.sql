@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AlertSel
+	@Environment VARCHAR(20)
 AS
 /*
 	Created: 20231213@Roy
@@ -30,7 +31,7 @@ BEGIN
 	
 	DECLARE @LogActionID SMALLINT
 		,@LogUserID INT
-		,@ErrLogPrefix NVARCHAR(150)
+		-- ,@ErrLogPrefix NVARCHAR(150)
 		,@InfLogPrefix NVARCHAR(150)
 		,@StsIgnore TINYINT
 		,@StsSending TINYINT
@@ -39,6 +40,38 @@ BEGIN
 		,@777_ChatGroupID VARCHAR(50)
 		,@IT_ChatGroupID VARCHAR(50)
 		,@Sites777 VARCHAR(500) = ''
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		
+		DECLARE @PRODIncludeTest BIT = 0
+		SELECT @PRODIncludeTest = TRY_CONVERT(BIT, VValue)
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 10 --IncludeTestMatch
+		
+		IF @PRODIncludeTest = 1
+		BEGIN
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(N'Error - [AlertService] - NO Action for IncludeTestMatch = ON AND Environment = UAT')
+			
+			RETURN
+		END
+	END
 	
 	CREATE TABLE #tmpAlertByCust (
 		AlertID INT
@@ -105,7 +138,7 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrLogPrefix = 'Error - [AlertService] - '
+	-- SELECT @ErrLogPrefix = 'Error - [AlertService] - '
 	SELECT @InfLogPrefix = 'Info - [AlertService] - '
 	
 	SELECT @Sites777 = ISNULL(VValue,'')
@@ -120,7 +153,8 @@ BEGIN
 	-----------------------------Start to get Alert with [RefInfo <> RuleID] and mark [Sending]-----------------
 	DECLARE @OutJSAlertInfo NVARCHAR(MAX)
 	EXEC MessageNotification.dbo.MNC_Notification_GetAlertInfo
-		@JSAlertInfo = @OutJSAlertInfo OUTPUT
+		@Environment = @Environment
+		,@JSAlertInfo = @OutJSAlertInfo OUTPUT
 	
 	--Parse JSON SendingAlert
 	INSERT INTO #tmpSendingAlert (

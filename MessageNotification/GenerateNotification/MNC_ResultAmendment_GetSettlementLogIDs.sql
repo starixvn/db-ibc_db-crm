@@ -316,6 +316,7 @@ BEGIN
 		WHERE sh.SettlementLogID IN (
 				SELECT DISTINCT SettlementLogID
 				FROM #tmpGSIRemotingRefData
+				WHERE RefValueEN IS NOT NULL --have value from RemotingRef
 			)
 			AND sh.StatusID = @StsRetrieved --Captured
 			AND (

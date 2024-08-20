@@ -63,6 +63,7 @@ BEGIN
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
 		,@StsGenerating TINYINT
+		,@StsRetrieved TINYINT
 		,@StsGenFailed TINYINT
 		,@StsIgnore TINYINT
 		,@ErrLogPrefix NVARCHAR(150) = ''
@@ -84,6 +85,10 @@ BEGIN
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
+	
+	SELECT @StsRetrieved = StatusID
+	FROM NotiStatus WITH (NOLOCK)
+	WHERE Status = 'Successfully Retrieved'
 	
 	SELECT @StsGenerating = StatusID
 	FROM NotiStatus WITH (NOLOCK)
@@ -233,6 +238,7 @@ BEGIN
 			CROSS APPLY STRING_SPLIT(SettlementLogIDs, ',')
 		WHERE ISJSON(@JSRemotingRef) = 1
 		
+		CREATE CLUSTERED INDEX CIX_tmpGSIRemotingRefData ON #tmpGSIRemotingRefData (SettlementLogID)
 		--write log
 		INSERT INTO UserLog (
 			ActionID
@@ -296,13 +302,40 @@ BEGIN
 	DECLARE @VerifySettleIDs VARCHAR(MAX)
 	
 	BEGIN TRY
-		;WITH CTE_SettleID AS (
-			SELECT DISTINCT SettlementLogID
-			FROM #tmpGSIRemotingRefData
-			WHERE SettlementLogID IS NOT NULL
+		--- Mark StatusID = Generating
+		UPDATE sh
+		SET sh.StatusID = @StsGenerating
+			,sh.LastModifiedTime = GETDATE()
+		OUTPUT INSERTED.SettlementLogID
+			,INSERTED.StatusID
+		INTO #tmpGSIVerifyList (
+			SettlementLogID
+			,StatusID
+		) --Get Updated SettlementLogID
+		FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
+		WHERE sh.SettlementLogID IN (
+				SELECT DISTINCT SettlementLogID
+				FROM #tmpGSIRemotingRefData
+			)
+			AND sh.StatusID = @StsRetrieved --Captured
+			AND (
+				@IsTestFlag IS NULL
+				OR sh.IsTest = @IsTestFlag
+			) --filter by Environment/IncludeTestMatch
+		
+		CREATE UNIQUE CLUSTERED INDEX CIX_tmpVerifyList ON #tmpGSIVerifyList (SettlementLogID)
+		
+		--Remove redundant
+		DELETE FROM #tmpGSIRemotingRefData
+		WHERE SettlementLogID NOT IN (
+			SELECT SettlementLogID
+			FROM #tmpGSIVerifyList
 		)
+		
+		UPDATE STATISTICS #tmpGSIRemotingRefData
+		-------------------------------------------
 		SELECT @VerifySettleIDs = ISNULL(STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),','),'')
-		FROM CTE_SettleID
+		FROM #tmpGSIVerifyList
 		
 		DECLARE @JSResource NVARCHAR(MAX)
 		/*
@@ -474,19 +507,7 @@ BEGIN
 		RETURN
 	END CATCH
 	
-	;WITH CTE_SettleID AS (
-		SELECT DISTINCT SettlementLogID
-		FROM #tmpGSIRemotingRefData
-		WHERE SettlementLogID IS NOT NULL
-	)
-	INSERT INTO #tmpGSIVerifyList (SettlementLogID, StatusID)
-	SELECT DISTINCT TRY_CONVERT(INT, s.value)
-		,sh.StatusID
-	FROM STRING_SPLIT(@VerifySettleIDs, ',') AS s
-		LEFT JOIN SettlementResultHist AS sh ON TRY_CONVERT(INT, s.value) = sh.SettlementLogID
-	
-	CREATE CLUSTERED INDEX CIX_tmpVerifyList ON #tmpGSIVerifyList (SettlementLogID)
-	
+	---------Start to verify----------------------------------------------------------
 	--loop foreach SettlementLogID
 	DECLARE @iSettleID INT
 	
@@ -495,7 +516,7 @@ BEGIN
 	
 	WHILE (@iSettleID IS NOT NULL)
 	BEGIN TRY
-		---------Start to verify----------------------------------------------------------
+		---------verify foreach----------------------------------------------------------
 		
 		--Check EXISTS SettlementResultHist
 		IF NOT EXISTS (SELECT 1 FROM SettlementResultHist WITH (NOLOCK) WHERE SettlementLogID = @iSettleID)

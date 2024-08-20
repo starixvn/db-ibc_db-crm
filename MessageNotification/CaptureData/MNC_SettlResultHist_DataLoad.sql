@@ -209,7 +209,7 @@ BEGIN
 			)
 			SELECT @LogActionID
 				,@LogUserID
-				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + 'times retry' ELSE '' END)) AS LogBef
+				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + ' times retry' ELSE '' END)) AS LogBef
 			FROM SystemSetting WITH (NOLOCK)
 			WHERE VID = @ProcessID
 			

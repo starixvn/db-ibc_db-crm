@@ -3,25 +3,30 @@
 USE bodb_Message
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_AutoFB_MessageNotificationCenter_GetMsgInfo	@LastMsgTargetId INT,
-																		@BatchSize       INT = 10
+ALTER PROCEDURE dbo.Acc_CRM_AutoFB_MessageNotificationCenter_GetMsgInfo @LastMsgTargetId INT,
+                                                                        @BatchSize       INT = 10
 AS
+
 /*
     Created: 20240502@Luke
     Task:    Get information for Result Amendment
     DB:      DBMSG/bodb_Message
 
     Revisions:
-        - 20240502@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621]
+        20240502@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621]
+        20240821@Ned.Le: Include Feedback for Licensee
 
     Param's Explanation:
-        - @LastMsgTargetId: the last MsgTargetId
-        - @BatchSize:       total record to return
+        @LastMsgTargetId: the last MsgTargetId
+        @BatchSize      : total record to return
 
-	EXEC Acc_CRM_MessageNotificationCenter_GetMsgInfo	@LastMsgTargetID = 12345,
-														@BatchSize = 10
+    Example:
+        EXEC bodb_Message.dbo.Acc_CRM_MessageNotificationCenter_GetMsgInfo @LastMsgTargetID = 12345,
+                                                                           @BatchSize       = 10
 */
+
 BEGIN
+
     SET NOCOUNT ON
 
     -----------
@@ -40,7 +45,8 @@ BEGIN
     CREATE TABLE #tmpMessageData (
         MessageId      INT,
         MINMsgTargetId INT,
-        RowRank        INT)
+        RowRank        INT
+    )
 
     ;WITH
     CTE_Data AS (
@@ -49,7 +55,7 @@ BEGIN
         FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)
              INNER JOIN bodb_Message.dbo.Msg m WITH(NOLOCK) ON m.MsgContentsType = 111
                                                                AND m.MsgType = 1
-															   AND m.isDeleted = 0
+                                                               AND m.isDeleted = 0
                                                                AND mt.MessageId = m.MessageId
         WHERE mt.MsgTargetId > @LastMsgTargetId
               AND mt.MsgTargetId <= @MaxMsgTargetId
@@ -76,14 +82,14 @@ BEGIN
     --------------
     -- Return data
 
-    SELECT mt.MessageId AS MessageId,
+    SELECT mt.MessageId   AS MessageId,
            mt.MsgTargetId AS MsgTargetId,
-		   mt.TargetId AS TargetId,
-           mt.BetTransId AS BetTransId,
-		   m.matchid AS MatchId,
-           m.Content_en AS Content_en,
-           m.Content_cs AS Content_cs,
-		   m.Content_vn AS Content_yn
+           mt.TargetId    AS TargetId,
+           mt.BetTransId  AS BetTransId,
+           m.matchid      AS MatchId,
+           m.Content_en   AS Content_en,
+           m.Content_cs   AS Content_cs,
+           m.Content_vn   AS Content_yn
     FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)
          LEFT JOIN bodb_Message.dbo.Msg m WITH (NOLOCK) ON mt.MessageId = m.MessageId
     WHERE mt.MessageId IN (SELECT MessageId FROM #tmpMessageData)

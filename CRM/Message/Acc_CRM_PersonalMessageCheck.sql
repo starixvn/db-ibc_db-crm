@@ -1,17 +1,19 @@
-/*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_PersonalMessageCheck]
 	@UserName	VARCHAR(MAX),		--max 50 users
 	@ErrCode	INT	= 0				OUTPUT,
-	@ErrMsg		NVARCHAR(200) = ''	OUTPUT
+	@ErrMsg		NVARCHAR(200) = ''	OUTPUT,
+	@CustList	VARCHAR(MAX) = ''	OUTPUT
 AS
 /*
 	Created: 20230308@Tacy
     Task: CRM - Sending Personal Message to SMA in Alpha site
-    DB: DBCUST-CustDB
+    DB: DBACC/bodb02
 	Original:
 
 	Revisions:
 		- 20230308@Tacy: Create SP [RedmineID: #184753]
+		- 20240705@Luke: Remove linked-server on DBCust [Redmine: #206895]
 */
 BEGIN
 	SET NOCOUNT ON;
@@ -70,4 +72,13 @@ BEGIN
 							  FOR XML PATH('')),1,1,'')
 		RETURN
 	END
+
+	SELECT @CustList = (
+		SELECT c.custid AS 'id'
+				,c.username AS 'name'
+		FROM dbo.Customer c WITH (NOLOCK)
+			INNER JOIN #tbUser t ON t.UserName = c.username
+		FOR JSON AUTO
+	)	
 END
+

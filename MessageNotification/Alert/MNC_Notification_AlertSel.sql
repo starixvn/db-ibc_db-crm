@@ -1,5 +1,6 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AlertSel
+	@Environment VARCHAR(20)
 AS
 /*
 	Created: 20231213@Roy
@@ -39,6 +40,110 @@ BEGIN
 		,@777_ChatGroupID VARCHAR(50)
 		,@IT_ChatGroupID VARCHAR(50)
 		,@Sites777 VARCHAR(500) = ''
+		,@ProcessID INT
+	
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 21 --AlertService
+		SELECT @ErrLogPrefix = 'Error - [AlertService - Send] - '
+		SELECT @InfLogPrefix = 'Info - [AlertService - Send] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 22 --UAT_AlertService
+		SELECT @ErrLogPrefix = 'Error - [UAT_AlertService - Send] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_AlertService - Send] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		
+		DECLARE @PRODIncludeTest BIT = 0
+		SELECT @PRODIncludeTest = TRY_CONVERT(BIT, VValue)
+		FROM SystemSetting WITH (NOLOCK)
+		WHERE VID = 10 --IncludeTestMatch
+		
+		IF @PRODIncludeTest = 1
+		BEGIN
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+			
+			RETURN
+		END
+	END
+	
+	--check current status of AlertService process
+	DECLARE @WaitCnt INT = 0
+		,@WaitTimes INT = 10
+	
+	WHILE (1 = 1)
+	BEGIN
+		--Increase @WaitCnt
+		SELECT @WaitCnt = @WaitCnt + 1
+		
+		--IF GenerateNotifService Running
+		IF EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Running')
+		BEGIN
+			
+			IF @WaitCnt <= @WaitTimes
+			BEGIN
+				WAITFOR DELAY '00:00:02' --Two seconds
+			END
+			ELSE
+			BEGIN
+				INSERT INTO UserLog (
+					ActionID
+					,UserID
+					,LogBef
+				)
+				SELECT @LogActionID
+					,@LogUserID
+					,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active (after ' + ISNULL(CONVERT(VARCHAR,@WaitCnt),'NULL') + ' times retry).')
+				
+				--EXIT SP
+				RETURN
+			END
+		END
+		ELSE
+		BEGIN
+			--Start [process]
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = 'Running'
+			WHERE VID = @ProcessID
+				AND VValue = 'Done'
+			
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + ' times retry' ELSE '' END)) AS LogBef
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = @ProcessID
+			
+			--EXIT WHILE
+			BREAK
+		END
+	END
 	
 	CREATE TABLE #tmpAlertByCust (
 		AlertID INT
@@ -105,7 +210,7 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrLogPrefix = 'Error - [AlertService] - '
+	-- SELECT @ErrLogPrefix = 'Error - [AlertService] - '
 	SELECT @InfLogPrefix = 'Info - [AlertService] - '
 	
 	SELECT @Sites777 = ISNULL(VValue,'')
@@ -120,7 +225,8 @@ BEGIN
 	-----------------------------Start to get Alert with [RefInfo <> RuleID] and mark [Sending]-----------------
 	DECLARE @OutJSAlertInfo NVARCHAR(MAX)
 	EXEC MessageNotification.dbo.MNC_Notification_GetAlertInfo
-		@JSAlertInfo = @OutJSAlertInfo OUTPUT
+		@Environment = @Environment
+		,@JSAlertInfo = @OutJSAlertInfo OUTPUT
 	
 	--Parse JSON SendingAlert
 	INSERT INTO #tmpSendingAlert (
@@ -466,6 +572,12 @@ BEGIN
 	FROM #tmpResultSet
 	ORDER BY ChatGroupID
 		,IsTest
+	
+	--Change ProcessID Status
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = 'Done'
+	WHERE VID = @ProcessID
+		AND VValue = 'Running'
 	-------------------------------write log-------------------------------
 	;WITH CTE_Sent AS (
 		SELECT s.AlertID
@@ -552,6 +664,36 @@ BEGIN
 						+ ' - Ignore Log(' + ISNULL(ig.IngoreLog,'NULL')+ ')')
 	FROM CTE_IgnoreAlert AS ig
 	ORDER BY ig.AlertID
+	
+	/*
+		Handle LastRunTime
+	*/
+	IF @Environment = 'LIVE'
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
+		WHERE VID = 18 --LastRunTime
+	END
+	ELSE
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, GETDATE(), 120)
+		WHERE VID = 20 --UAT_LastRunTime
+	END
+	
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE LastSessionID/LastRunTime'
+					+ ' - @LastRunTime(' + ISNULL(CONVERT(VARCHAR, GETDATE()),'NULL') + ')'
+		)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpAlertByCust
 	DROP TABLE #tmpSendingAlert

@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_Notification_AlertIns
-	@ErrCode INT = 0 OUTPUT
+	@Environment VARCHAR(20)
+	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
 /*
@@ -37,10 +38,35 @@ BEGIN
 		,@WaitSec INT = 0
 		,@FromTime DATETIME = DATEADD(DD, -1, GETDATE())
 		,@CurrTime DATETIME = GETDATE()
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag TINYINT
+		,@ProcessID INT
+		,@ErrLogPrefix NVARCHAR(150)
+		,@InfLogPrefix NVARCHAR(150)
 	
 	SELECT @StsNew = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'New'
+	
+	--Insert if NOT EXISTS
+	INSERT INTO LogAction (ActName)
+	SELECT o.[name]
+	FROM sys.objects AS o WITH (NOLOCK)
+	WHERE o.[is_ms_shipped] = 0 --created by user
+		AND o.[type] IN (
+			'P', -- stored procedures
+			'FN', -- scalar functions 
+			'IF', -- inline table-valued functions
+			'TF' -- table-valued functions
+		)
+		AND o.[name] NOT LIKE '_delete%'
+		AND o.[name] NOT LIKE '[_delete%'
+		AND o.[name] NOT LIKE '_DEL%'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM LogAction AS a
+			WHERE a.ActName = o.[name]
+		)
 	
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
@@ -50,14 +76,122 @@ BEGIN
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
-	SELECT @ErrCode = 0
-		,@ErrMsg = ''
+	IF @Environment = 'LIVE'
+	BEGIN
+		SELECT @ProcessID = 21 --AlertService
+		SELECT @ErrLogPrefix = 'Error - [AlertService - Ins] - '
+		SELECT @InfLogPrefix = 'Info - [AlertService - Ins] - '
+	END
+	ELSE
+	BEGIN
+		SELECT @ProcessID = 22 --UAT_AlertService
+		SELECT @ErrLogPrefix = 'Error - [UAT_AlertService - Ins] - '
+		SELECT @InfLogPrefix = 'Info - [UAT_AlertService - Ins] - '
+		
+		SELECT @Environment = ISNULL(@Environment,'UAT')
+	END
+	
+	SELECT @PRODIncludeTest = TRY_CONVERT(BIT, VValue)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(@ErrLogPrefix + 'NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
+	
+	--check current status of AlertService process
+	DECLARE @WaitCnt INT = 0
+		,@WaitTimes INT = 10
+	
+	WHILE (1 = 1)
+	BEGIN
+		--Increase @WaitCnt
+		SELECT @WaitCnt = @WaitCnt + 1
+		
+		--IF GenerateNotifService Running
+		IF EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Running')
+		BEGIN
+			
+			IF @WaitCnt <= @WaitTimes
+			BEGIN
+				WAITFOR DELAY '00:00:02' --Two seconds
+			END
+			ELSE
+			BEGIN
+				INSERT INTO UserLog (
+					ActionID
+					,UserID
+					,LogBef
+				)
+				SELECT @LogActionID
+					,@LogUserID
+					,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active (after ' + ISNULL(CONVERT(VARCHAR,@WaitCnt),'NULL') + ' times retry).')
+				
+				--EXIT SP
+				RETURN
+			END
+		END
+		ELSE
+		BEGIN
+			--Start [process]
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = 'Running'
+			WHERE VID = @ProcessID
+				AND VValue = 'Done'
+			
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + ' times retry' ELSE '' END)) AS LogBef
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = @ProcessID
+			
+			--EXIT WHILE
+			BREAK
+		END
+	END
 	
 	CREATE TABLE #tmpSettl (
 		SessionID NVARCHAR(50) NOT NULL
 		,SettlementLogID INT NOT NULL
 		,LastModifiedTime DATETIME NOT NULL
 		------------------
+		,IsTest TINYINT NOT NULL
 		,MatchID INT NOT NULL
 		,Status VARCHAR(50) NOT NULL
 	)
@@ -66,6 +200,7 @@ BEGIN
 		MsgNotiID INT
 		,LapNotiID INT
 		,MessageID INT
+		,IsTest TINYINT NOT NULL
 		,MatchID INT NOT NULL
 		,Status VARCHAR(50) NOT NULL
 		,LastModifiedTime DATETIME NOT NULL
@@ -77,6 +212,7 @@ BEGIN
 		InternalID INT IDENTITY (1,1)
 		--------
 		,RuleID INT NOT NULL
+		,IsTest BIT NOT NULL
 		,RefInfo NVARCHAR(50) NOT NULL
 		,SessionID NVARCHAR(50)
 		,LastModifiedTime DATETIME NOT NULL
@@ -102,12 +238,14 @@ BEGIN
 			SessionID
 			,SettlementLogID
 			,LastModifiedTime
+			,IsTest
 			,MatchID
 			,Status
 		)
 		SELECT DISTINCT rh.SessionID
 			,rh.SettlementLogID
 			,rh.LastModifiedTime
+			,CONVERT(TINYINT,rh.IsTest) AS IsTest
 			,rh.MatchID
 			,st.Status
 		FROM SettlementResultHist AS rh WITH (NOLOCK)
@@ -115,11 +253,53 @@ BEGIN
 		WHERE rh.LastModifiedTime > @FromTime
 			AND rh.LastModifiedTime <= @CurrTime
 			AND rh.SportType = 50 --Cricket, need modify for others sport
+			AND (
+				@IsTestFlag IS NULL
+				OR CONVERT(TINYINT,rh.IsTest) = @IsTestFlag
+			) --filter by Environment/IncludeTestMatch
 		
 		CREATE CLUSTERED INDEX CIX_tmpSettl ON #tmpSettl (SessionID)
 		
+		;WITH CTE_Noti AS (
+			SELECT DISTINCT (CASE WHEN n.NotificationType = 1 THEN n.NotificationID END) AS MsgNotiID
+				,(CASE WHEN n.NotificationType = 2 THEN n.NotificationID END) AS LapNotiID
+				,n.RefID AS MessageID
+				,CONVERT(TINYINT,rh.IsTest) AS IsTest
+				,rh.MatchID
+				,st.Status
+				,n.LastModifiedTime
+				,rh.SessionID
+				,rh.SettlementLogID
+			FROM Notification AS n WITH (NOLOCK)
+				LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
+				LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
+			WHERE n.LastModifiedTime > @FromTime
+				AND n.LastModifiedTime <= @CurrTime
+				AND n.NotificationType IN (1, 2) --1: Result Amendment to Msg; --2: LAP of NotificationType = 1 (Result Amendment)
+		)
 		INSERT INTO #tmpMsgNoti (
 			MsgNotiID
+			,LapNotiID
+			,MessageID
+			,IsTest
+			,MatchID
+			,Status
+			,LastModifiedTime
+			,SessionID
+			,SettlementLogID
+		)
+		SELECT MsgNotiID
+			,LapNotiID
+			,MessageID
+			,MIN(IsTest) AS IsTest --any IsTest=0 => REAL => IsTest = 0
+			,MatchID
+			,Status
+			,LastModifiedTime
+			,SessionID
+			,SettlementLogID
+		FROM CTE_Noti
+		GROUP BY MsgNotiID
 			,LapNotiID
 			,MessageID
 			,MatchID
@@ -127,27 +307,23 @@ BEGIN
 			,LastModifiedTime
 			,SessionID
 			,SettlementLogID
-		)
-		SELECT DISTINCT (CASE WHEN n.NotificationType = 1 THEN n.NotificationID END) AS MsgNotiID
-			,(CASE WHEN n.NotificationType = 2 THEN n.NotificationID END) AS LapNotiID
-			,n.RefID AS MessageID
-			,rh.MatchID
-			,st.Status
-			,n.LastModifiedTime
-			,rh.SessionID
-			,rh.SettlementLogID
-		FROM Notification AS n WITH (NOLOCK)
-			LEFT JOIN NotiMapping AS nm WITH (NOLOCK) ON n.NotificationID = nm.NotificationID
-			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON nm.SettlementLogID = rh.SettlementLogID
-			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
-		WHERE n.LastModifiedTime > @FromTime
-			AND n.LastModifiedTime <= @CurrTime
-			AND n.NotificationType IN (1, 2) --1: Result Amendment to Msg; --2: LAP of NotificationType = 1 (Result Amendment)
 		
-		DELETE n
-		FROM #tmpMsgNoti AS n
-			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
-		WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		----filter by Environment/IncludeTestMatch
+		IF @IsTestFlag IS NULL --both REAL & TEST => no need to check IsTest
+		BEGIN
+			DELETE n
+			FROM #tmpMsgNoti AS n
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
+			WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		END
+		ELSE
+		BEGIN
+			DELETE n
+			FROM #tmpMsgNoti AS n
+				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
+			WHERE n.IsTest <> @IsTestFlag --@IsTestFlag = 0 => REAL data only => DEL <> REAL
+				OR ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+		END
 		
 		CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti (MsgNotiID)
 	
@@ -166,6 +342,7 @@ BEGIN
 		
 		;WITH CTE_LongSession AS (
 			SELECT SessionID
+				,MIN(IsTest) AS Mi_IsTest
 				,MIN(LastModifiedTime) AS Mi_LastModifiedTime
 			FROM #tmpSettl
 			WHERE Status = 'Retrieving'
@@ -174,6 +351,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -182,9 +360,10 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,l.Mi_IsTest
 			,'SessionID' AS RefInfo
 			,l.SessionID
-			,rh.LastModifiedTime
+			,l.Mi_LastModifiedTime
 			--------------
 			,rh.MatchID
 			,'SessionID [' + l.SessionID + '] in [Retrieving] state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Capture Data Service] process.' AS Content
@@ -196,6 +375,7 @@ BEGIN
 
 		;WITH CTE_LongSession AS (
 			SELECT SessionID
+				,MIN(IsTest) AS Mi_IsTest
 				,MIN(LastModifiedTime) AS Mi_LastModifiedTime
 			FROM #tmpSettl
 			WHERE Status = 'Generating'
@@ -204,6 +384,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -212,9 +393,10 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,l.Mi_IsTest
 			,'SessionID' AS RefInfo
 			,rh.SessionID
-			,rh.LastModifiedTime
+			,l.Mi_LastModifiedTime
 			--------------
 			,rh.MatchID
 			,'SessionID [' + rh.SessionID + '] in [Generating] Msg state too long, exceeding '+ ISNULL(CONVERT(VARCHAR, @WaitSec),'NULL')+' seconds. Please double check [Generate Notif Service] process.' AS Content
@@ -226,6 +408,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -235,6 +418,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -252,6 +436,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -261,6 +446,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -283,6 +469,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -292,6 +479,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -318,6 +506,7 @@ BEGIN
 		--1.6 - For [Generate LAP Notif Service] process, Notification.StatusID = Generating over 60s / Failed to Generate
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -327,6 +516,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,m.IsTest
 			,'NotificationID' AS RefInfo
 			,m.SessionID
 			,m.LastModifiedTime
@@ -355,6 +545,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -364,6 +555,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,IsTest
 			,'NotificationID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -384,6 +576,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -393,6 +586,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,IsTest
 			,'NotificationID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -413,6 +607,7 @@ BEGIN
 		
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -422,6 +617,7 @@ BEGIN
 			,Content
 		)
 		SELECT @RuleID AS RuleID
+			,CONVERT(BIT,MIN(s.IsTest)) AS IsTest --any IsTest=0 => REAL => IsTest = 0
 			,'SessionID' AS RefInfo
 			,s.SessionID
 			,MIN(ISNULL(rh.LastModifiedTime,n.LastModifiedTime)) AS LastModifiedTime
@@ -431,6 +627,7 @@ BEGIN
 		FROM (
 			SELECT rh.SessionID
 				,rh.SettlementLogID
+				,rh.IsTest
 			FROM #tmpSettl AS rh
 			WHERE rh.Status = 'Failed to Generate'
 			
@@ -438,6 +635,7 @@ BEGIN
 			
 			SELECT SessionID
 				,SettlementLogID
+				,IsTest
 			FROM #tmpMsgNoti
 			WHERE Status = 'Failed to Generate'
 				AND MsgNotiID IS NOT NULL --NotificationType = 1 - Result Amendment to Msg
@@ -462,6 +660,7 @@ BEGIN
 			SELECT s.SessionID
 				,s.MatchID
 				,MIN(rh.LastModifiedTime) AS LastModifiedTime
+				,MIN(CONVERT(TINYINT,rh.IsTest)) AS IsTest
 				,COUNT(DISTINCT rh.SiteDBGroupID) AS SiteCnt
 				,MAX(CASE WHEN st.Status = 'Failed to Retrieve' THEN 1 ELSE 0 END) AS ExistRetrvFailed
 			FROM #tmpSettl AS s
@@ -473,6 +672,7 @@ BEGIN
 		)
 		INSERT INTO #tmpError_New (
 			RuleID
+			,IsTest
 			,RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -481,6 +681,7 @@ BEGIN
 			,Content
 		)
 		SELECT DISTINCT @RuleID
+			,IsTest
 			,'SessionID' AS RefInfo
 			,SessionID
 			,LastModifiedTime
@@ -497,12 +698,14 @@ BEGIN
 		--send error log
 		INSERT INTO Alert (
 			StatusID
+			,IsTest
 			,RuleID
 			,RefID
 			,RefExtraInfo
 			,Content
 		)
 		SELECT DISTINCT @StsNew AS StatusID
+			,0 AS IsTest
 			,ar.RuleID AS RuleID
 			,CONVERT(VARCHAR,ar.RuleID) AS RefID
 			,'[{"RefInfo":"RuleID"}]' AS RefExtraInfo --RefInfo=RuleID => only send in IT ChatGroup
@@ -586,12 +789,14 @@ BEGIN
 			INSERT INTO Alert (
 				StatusID
 				,RuleID
+				,IsTest
 				,RefID
 				,RefExtraInfo
 				,Content
 			)
 			SELECT DISTINCT @StsNew AS StatusID
 				,n.RuleID
+				,n.IsTest
 				,n.RefID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.RefInfo
@@ -609,18 +814,21 @@ BEGIN
 				AND n.RefInfo = 'SessionID'
 				AND o.RuleID IS NULL --NOT EXISTS Before
 			ORDER BY n.RuleID
+				,n.IsTest
 				,n.RefID
 			
 			----------------RefInfo = 'NotificationID'---------------------
 			INSERT INTO Alert (
 				StatusID
 				,RuleID
+				,IsTest
 				,RefID
 				,RefExtraInfo
 				,Content
 			)
 			SELECT DISTINCT @StsNew AS StatusID
 				,n.RuleID
+				,n.IsTest
 				,n.RefID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.RefInfo
@@ -638,6 +846,7 @@ BEGIN
 				AND n.RefInfo = 'NotificationID'
 				AND o.RuleID IS NULL --NOT EXISTS Before
 			ORDER BY n.RuleID
+				,n.IsTest
 				,n.RefID
 		END
 		
@@ -663,7 +872,7 @@ BEGIN
 			SELECT AlertID
 				,@LogActionID
 				,@LogUserID
-				,COMPRESS(N'Info - [AlertService] - Debug - Created Alert with Status = [New]')
+				,COMPRESS(@InfLogPrefix + 'Debug - Created Alert with Status = [New]')
 			FROM Alert WITH (NOLOCK)
 			WHERE StatusID = @StsNew
 				AND InsertedTime > @CurrTime
@@ -678,12 +887,14 @@ BEGIN
 		INSERT INTO Alert (
 			StatusID
 			,RuleID
+			,IsTest
 			,RefID
 			,RefExtraInfo
 			,Content
 		)
 		SELECT DISTINCT @StsNew AS StatusID
 			,0 AS RuleID
+			,0 AS IsTest
 			,'0' AS RefID
 			,'[{"RefInfo":"RuleID"}]' AS RefExtraInfo --RefInfo=RuleID => only send in IT ChatGroup
 			,'FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
@@ -705,9 +916,45 @@ BEGIN
 		SELECT @RuleID
 			,@LogActionID
 			,@LogUserID
-			,COMPRESS(N'Error - [AlertService] - FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
+			,COMPRESS(@ErrLogPrefix + 'FAILED while EXEC AlertRule(' + ISNULL(CONVERT(VARCHAR,@RuleID),'NULL') + ')'
 					+ ' - ERROR_MESSAGE(' + ISNULL(@ErrMsg,'NULL') + ')')
 	END CATCH
+	
+	--Change ProcessID Status
+	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+	SET VValue = 'Done'
+	WHERE VID = @ProcessID
+		AND VValue = 'Running'
+	
+	/*
+		Handle LastRunTime
+	*/
+	IF @Environment = 'LIVE'
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, @CurrTime, 120)
+		WHERE VID = 18 --LastRunTime
+	END
+	ELSE
+	BEGIN
+		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+		SET VValue = CONVERT(VARCHAR, @CurrTime, 120)
+		WHERE VID = 20 --UAT_LastRunTime
+	END
+	
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + 'Debug - UPDATE LastSessionID/LastRunTime'
+					+ ' - @LastRunTime(' + ISNULL(CONVERT(VARCHAR, @CurrTime),'NULL') + ')'
+		)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 13 --LogMode
+		AND VValue = 'Debug'
 	
 	DROP TABLE #tmpSettl
 	DROP TABLE #tmpMsgNoti

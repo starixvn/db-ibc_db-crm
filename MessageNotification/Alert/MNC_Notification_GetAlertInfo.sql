@@ -1,6 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="1"></info>*/
 ALTER PROCEDURE MNC_Notification_GetAlertInfo
-	@JSAlertInfo NVARCHAR(MAX) OUTPUT
+	@Environment VARCHAR(20)
+	,@JSAlertInfo NVARCHAR(MAX) OUTPUT
 AS
 /*
 	Created: 20231213@Roy
@@ -32,6 +33,47 @@ BEGIN
 		,@777_ChatGroupID VARCHAR(50)
 		,@IT_ChatGroupID VARCHAR(50)
 		,@Sites777 VARCHAR(500) = ''
+		,@PRODIncludeTest BIT = 0
+		,@IsTestFlag TINYINT
+	
+	SELECT @PRODIncludeTest = TRY_CONVERT(BIT, VValue)
+	FROM SystemSetting WITH (NOLOCK)
+	WHERE VID = 10 --IncludeTestMatch
+	
+	/*
+		Filter data by IncludeTestMatch
+			If IncludeTestMatch = ON
+			  + @Environment = LIVE => handle all data
+			  + @Environment = UAT => return
+			If IncludeTestMatch = OFF
+			  + @Environment = LIVE => handle REAL data
+			  + @Environment = UAT => handle TEST data
+	*/
+	IF @PRODIncludeTest = 1 AND @Environment = 'UAT' --no action (RETURN)
+	BEGIN
+		INSERT INTO UserLog (
+			ActionID
+			,UserID
+			,LogBef
+		)
+		SELECT @LogActionID
+			,@LogUserID
+			,COMPRESS(N'Error - [AlertService] - NO Action for IncludeTestMatch = ON AND Environment = UAT')
+		
+		RETURN
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'LIVE' --REAL data only
+	BEGIN
+		SET @IsTestFlag = 0
+	END
+	ELSE IF @PRODIncludeTest = 0 AND @Environment = 'UAT' --TEST data only
+	BEGIN
+		SET @IsTestFlag = 1
+	END
+	ELSE --both REAL & TEST
+	BEGIN
+		SET @IsTestFlag = NULL
+	END
 	
 	/*
 		Faced to Issues When Using Temporary Tables in Nested Stored Procedures
@@ -108,6 +150,10 @@ BEGIN
 	INTO #tmpGAIPrepareAlert ( AlertID ) --Get Updated AlertID
 	FROM Alert AS a WITH (ROWLOCK,UPDLOCK)
 	WHERE a.StatusID = @StsNew
+		AND (
+			@IsTestFlag IS NULL
+			OR CONVERT(TINYINT,a.IsTest) = @IsTestFlag
+		) --filter by Environment/IncludeTestMatch
 	OPTION (RECOMPILE)
 	
 	INSERT INTO UserLog (
@@ -119,7 +165,7 @@ BEGIN
 	SELECT AlertID
 		,@LogActionID
 		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
+		,COMPRESS(@InfLogPrefix + '@IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'REAL & TEST') + ') - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
 	FROM #tmpGAIPrepareAlert
 	ORDER BY AlertID
 	
@@ -129,6 +175,7 @@ BEGIN
 	--------EventAlert: Result after EXEC AlertRule--------
 	INSERT INTO #tmpGAISendingAlert (
 		AlertID
+		,IsTest
 		,ChatGroupID
 		,TemplateID
 		,MatchID
@@ -141,6 +188,7 @@ BEGIN
 		,ValidToSendChatGroup
 	)
 	SELECT DISTINCT a.AlertID
+		,CONVERT(TINYINT,a.IsTest) AS IsTest
 		,ISNULL(TRIM(cg.value),@IT_ChatGroupID) AS ChatGroupID
 		,(CASE WHEN ISNULL(TRIM(cg.value),@IT_ChatGroupID) <> @IT_ChatGroupID THEN ar.TemplateID END) --TemplateID NULL for @IT_ChatGroupID
 		,ext.MatchID
@@ -178,7 +226,7 @@ BEGIN
 		,@IT_ChatGroupID AS ChatGroupID
 		-----
 		,ext.RefInfo
-		,0 AS IsTest
+		,CONVERT(TINYINT,a.IsTest) AS IsTest
 		-----
 		,'SelfAlert' AS AlertType
 		,1 AS ValidToSendChatGroup
@@ -195,16 +243,19 @@ BEGIN
 	--Define NotificationID of SettlementLogID / SessionID Alert
 	INSERT INTO #tmpGAIAlertExt (
 		AlertID
+		,IsTest
 		,MatchID
 		,NotificationID
 		,SettlementLogID
 	)
 	SELECT DISTINCT AlertID
+		,IsTest
 		,MatchID
 		,NotificationID
 		,SettlementLogID
 	FROM (
 		SELECT a.AlertID
+			,a.IsTest
 			,a.MatchID
 			,a.NotificationID
 			,nm.SettlementLogID
@@ -216,6 +267,7 @@ BEGIN
 		UNION ALL
 
 		SELECT a.AlertID
+			,a.IsTest
 			,a.MatchID
 			,nm.NotificationID
 			,rs.SettlementLogID
@@ -225,15 +277,21 @@ BEGIN
 		WHERE a.MatchID IS NOT NULL
 			AND a.NotificationID IS NULL --IF NotificationID NULL
 			AND a.SessionID IS NOT NULL --refer get by SessionID
+			AND (
+				@IsTestFlag IS NULL
+				OR CONVERT(TINYINT,rs.IsTest) = @IsTestFlag
+			) --filter by Environment/IncludeTestMatch
 	) AS t
 	
 	/*
-		UPDATE AlertExt.IsTest
+		UPDATE AlertExt.IsTest (may no need)
 	*/
 	UPDATE ext
 	SET ext.IsTest = rh.IsTest
 	FROM #tmpGAIAlertExt AS ext
 		LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON ext.SettlementLogID = rh.SettlementLogID
+	WHERE ext.SettlementLogID IS NOT NULL
+		AND ext.IsTest IS NULL
 	
 	CREATE CLUSTERED INDEX CIX_tmpAlertExt ON #tmpGAIAlertExt (NotificationID)
 	
@@ -268,6 +326,7 @@ BEGIN
 	SET a.IsTest = ext.IsTest
 	FROM #tmpGAISendingAlert AS a
 		INNER JOIN CTE_RealSession AS ext ON a.AlertID = ext.AlertID
+	WHERE a.IsTest <> ext.IsTest
 	
 	/*
 		UPDATE SendingAlert.IsNoneSaba
@@ -361,11 +420,20 @@ BEGIN
 		) --hardcode ChatGroupID
 	
 	-----------------EventAlert - Verify IsTest-----------------
-	UPDATE #tmpGAISendingAlert
-	SET ValidToSendChatGroup = 0
-		,IgnoreReason = 'Can NOT define Alert for Real or Test SessionID'
+	UPDATE sa
+	SET sa.ValidToSendChatGroup = 0
+		,sa.IgnoreReason = 'Can NOT define Alert for Real or Test SessionID '
+			+ '- SendingAlert(' + ISNULL(CONVERT(NVARCHAR,sa.IsTest),'NULL') + ')'
+			+ '- @IsTestFlag(' + ISNULL(CONVERT(NVARCHAR,@IsTestFlag),'NULL') + ')'
+			+ '- Alert(' + ISNULL(CONVERT(NVARCHAR,a.IsTest),'NULL') + ')'
+	FROM #tmpGAISendingAlert AS sa
+		LEFT JOIN Alert AS a WITH (NOLOCK) ON sa.AlertID = a.AlertID
 	WHERE ValidToSendChatGroup = 1
-		AND IsTest IS NULL
+		AND (
+			sa.IsTest IS NULL
+			OR sa.IsTest <> ISNULL(@IsTestFlag,sa.IsTest)
+			OR sa.IsTest <> ISNULL(a.IsTest,3)
+		)
 	
 	-----------------Verify by @IT_ChatGroupID & Content-----------------
 	UPDATE sa

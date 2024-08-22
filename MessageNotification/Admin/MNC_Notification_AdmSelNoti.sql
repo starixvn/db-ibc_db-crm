@@ -77,7 +77,6 @@ BEGIN
 		NotiID INT
 		,MsgID INT
 		,MatchID INT
-		,EventDate DATE
 		,EventName NVARCHAR(500)
 		,SportName NVARCHAR(500)
 		,IsTest BIT
@@ -105,7 +104,7 @@ BEGIN
 		,NotificationID INT
 		,MessageID INT
 		,SessionID VARCHAR(50)
-		,EventDate4GMT VARCHAR(50)
+		,MatchID INT
 		,EventName NVARCHAR(500)
 		,CreatedTimeGMT8 VARCHAR(50)
 		,TemplateName NVARCHAR(1000)
@@ -401,7 +400,6 @@ BEGIN
 		NotiID
 		,MsgID
 		,MatchID
-		,EventDate
 		,EventName
 		,SportName
 		,IsTest
@@ -412,7 +410,6 @@ BEGIN
 	SELECT DISTINCT i.NotiID
 		,n.RefID
 		,ext.MatchID
-		,ne.EventDate
 		,ext.HomeNameEN + ISNULL(' ' + ext.NeutralEN,'') + ' -vs- ' + ext.AwayNameEN AS EventName
 		,ext.SportNameEN
 		,ext.IsTest
@@ -559,7 +556,7 @@ BEGIN
 		NotificationID
 		,MessageID
 		,SessionID
-		,EventDate4GMT
+		,MatchID
 		,EventName
 		,CreatedTimeGMT8
 		,TemplateName
@@ -573,7 +570,7 @@ BEGIN
 	SELECT DISTINCT n.NotificationID
 		,ext.MsgID AS MessageID
 		,rh.SessionID
-		,FORMAT(ext.EventDate, 'MMM dd, yyyy') AS EventDate --GMT-4
+		,ext.MatchID
 		,ext.EventName
 		,FORMAT(DATEADD(HH, 12, n.InsertedTime), 'MMM dd, yyyy hh:mm:ss tt') AS CreatedTime --GMT+8
 		,ext.TemplateName
@@ -609,7 +606,7 @@ BEGIN
 	SELECT NotificationID
 		,MessageID
 		,SessionID
-		,EventDate4GMT AS EventDate
+		,MatchID
 		,EventName
 		,CreatedTimeGMT8 AS CreatedTime
 		,TemplateName AS Subject

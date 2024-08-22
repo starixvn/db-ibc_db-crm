@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE MNC_ResultAmendment_GenNotification
 	@Environment VARCHAR(20)
-	,@JSRemotingRef NVARCHAR(MAX)
+	,@JSRemotingRef NVARCHAR(MAX) = NULL
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
 AS
@@ -172,6 +172,80 @@ BEGIN
 		RETURN
 	END
 	
+	--write log for LogMode = Debug
+	INSERT INTO UserLog (
+		ActionID
+		,UserID
+		,LogBef
+	)
+	SELECT @LogActionID
+		,@LogUserID
+		,COMPRESS(@InfLogPrefix + '@Environment(' + ISNULL(@Environment,'NULL') + ')'
+						+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
+						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
+	
+	--check current status of generate message process
+	
+	-- EXIT SP IF invalid input
+	IF ISNULL(ISJSON(@JSRemotingRef),0) <> 1
+		RETURN
+	
+	DECLARE @WaitCnt INT = 0
+		,@WaitTimes INT = 10
+	
+	WHILE (1 = 1)
+	BEGIN
+		--Increase @WaitCnt
+		SELECT @WaitCnt = @WaitCnt + 1
+		
+		--IF GenerateNotifService Running
+		IF EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Running')
+		BEGIN
+			
+			IF @WaitCnt <= @WaitTimes
+			BEGIN
+				WAITFOR DELAY '00:00:02' --Two seconds
+			END
+			ELSE
+			BEGIN
+				INSERT INTO UserLog (
+					ActionID
+					,UserID
+					,LogBef
+				)
+				SELECT @LogActionID
+					,@LogUserID
+					,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active (after ' + ISNULL(CONVERT(VARCHAR,@WaitCnt),'NULL') + ' times retry).')
+				
+				--EXIT SP
+				RETURN
+			END
+		END
+		ELSE
+		BEGIN
+			--Start [process]
+			UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
+			SET VValue = 'Running'
+			WHERE VID = @ProcessID
+				AND VValue = 'Done'
+			
+			INSERT INTO UserLog (
+				ActionID
+				,UserID
+				,LogBef
+			)
+			SELECT @LogActionID
+				,@LogUserID
+				,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']' + (CASE WHEN @WaitCnt > 1 THEN ' after ' + CONVERT(VARCHAR,@WaitCnt) + ' times retry' ELSE '' END)) AS LogBef
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = @ProcessID
+			
+			--EXIT WHILE
+			BREAK
+		END
+	END
+	
+	-------------------------------
 	CREATE TABLE #tmpRemotingRef (
 		GroupName VARCHAR(50)
 		,RefId1 VARCHAR(50)
@@ -318,17 +392,6 @@ BEGIN
 		,UUSCurrency BIT
 	)
 	
-	--write log for LogMode = Debug
-	INSERT INTO UserLog (
-		ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT @LogActionID
-		,@LogUserID
-		,COMPRESS(@InfLogPrefix + '@Environment(' + ISNULL(@Environment,'NULL') + ')'
-						+ ' - @PRODIncludeTest(' + ISNULL(CONVERT(VARCHAR,@PRODIncludeTest),'NULL') + ')'
-						+ ' - @JSRemotingRef(' + ISNULL(@JSRemotingRef,'NULL') + ')')
 	/****************************************************************************
 	
 		#2.Get ValidSettleIDs and write log input params

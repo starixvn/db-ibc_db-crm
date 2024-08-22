@@ -114,45 +114,6 @@ BEGIN
 		RETURN
 	END
 	
-	--check current status of Capture process
-	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --CaptureDataService
-	BEGIN
-		SELECT NULL AS Environment
-			,NULL AS FDTime
-			,NULL AS SiteDBGroupID
-			,NULL AS LinkedServerName
-			,NULL AS AGIP
-		WHERE 1 = 0
-		
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
-		
-		RETURN
-	END
-	
-	--Start [Capture process]
-	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-	SET VValue = 'Running'
-	WHERE VID = @ProcessID
-		AND VValue = 'Done'
-	
-	INSERT INTO UserLog (
-		ActionID
-		,UserID
-		,LogBef
-	)
-	SELECT @LogActionID
-		,@LogUserID
-		,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
-	FROM SystemSetting WITH (NOLOCK)
-	WHERE VID = @ProcessID
-	
 	--define [FDTime] as timepoint to pull data from SiteDBs
 	SET @FDTime = DATEADD(HH, - ISNULL(@ScanBackHour, 24) , GETDATE())
 	

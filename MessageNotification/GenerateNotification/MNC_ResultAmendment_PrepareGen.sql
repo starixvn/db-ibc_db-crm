@@ -42,8 +42,7 @@ BEGIN
 	
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
-		,@StsRetrieved INT
-		,@StsGenerating INT
+		,@StsRetrieved TINYINT
 		,@ErrLogPrefix NVARCHAR(150) = ''
 		,@InfLogPrefix NVARCHAR(150) = ''
 		,@ProcessID INT
@@ -60,10 +59,6 @@ BEGIN
 	SELECT @StsRetrieved = StatusID
 	FROM NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Retrieved'
-	
-	SELECT @StsGenerating = StatusID
-	FROM NotiStatus WITH (NOLOCK)
-	WHERE Status = 'Generating'
 	
 	--Insert if NOT EXISTS
 	INSERT INTO LogAction (ActName)
@@ -149,45 +144,6 @@ BEGIN
 		SET @IsTestFlag = NULL
 	END
 	
-	--check current status of generate message process
-	IF NOT EXISTS (SELECT 1 FROM SystemSetting WHERE VID = @ProcessID AND VValue = 'Done') --ProcessStatus_GenerateMessage
-	BEGIN
-		SELECT NULL AS SettlementLogIDs
-			,NULL AS GroupName
-			,NULL AS RefId1
-			,NULL AS RefId2
-		WHERE 1 = 0
-		
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(@ErrLogPrefix + 'Another Process(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') is still active.')
-		
-		RETURN
-	END
-	ELSE
-	BEGIN
-		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-		SET VValue = 'Running'
-		WHERE VID = @ProcessID
-			AND VValue = 'Done'
-		
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = @ProcessID
-	END
-	
 	CREATE TABLE #tmpRemotingRef (
 		SettlementLogID INT
 		,GroupName VARCHAR(50)
@@ -195,21 +151,15 @@ BEGIN
 		,RefId2 VARCHAR(50)
 	)
 	
-	CREATE TABLE #tmpUpdatedRH (
+	CREATE TABLE #tmpPrepareRH (
 		SettlementLogID INT NOT NULL
 	)
 	
 	/*
-		- Mark StatusID = Generating to start gen message process
-		- Get Updated SettlementLogID
+		Get SettlementLogID
 	*/
-	UPDATE sh
-	SET sh.StatusID = @StsGenerating
-		,sh.LastModifiedTime = GETDATE()
-	OUTPUT INSERTED.SettlementLogID
-	INTO #tmpUpdatedRH (
-		SettlementLogID
-	) --Get Updated SettlementLogID
+	INSERT INTO #tmpPrepareRH ( SettlementLogID )
+	SELECT DISTINCT sh.SettlementLogID
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 	WHERE sh.StatusID = @StsRetrieved --Captured
 		AND sh.SportType = 50 --Cricket, need modify for others sport
@@ -229,7 +179,7 @@ BEGIN
 		,@LogActionID
 		,@LogUserID
 		,COMPRESS(@InfLogPrefix + 'Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]')
-	FROM #tmpUpdatedRH AS rh
+	FROM #tmpPrepareRH AS rh
 	ORDER BY SettlementLogID
 	
 	--Define ALL things need to use RemotingRef Func
@@ -237,7 +187,7 @@ BEGIN
 		,@SettlIDs VARCHAR(MAX)
 	
 	SELECT @SettlIDs = STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),',')
-	FROM #tmpUpdatedRH
+	FROM #tmpPrepareRH
 	
 	IF NULLIF(TRIM(@SettlIDs), '') IS NOT NULL
 	BEGIN
@@ -270,7 +220,7 @@ BEGIN
 		,rf.GroupName
 		,rf.RefId1
 		,rf.RefId2
-	FROM #tmpUpdatedRH AS rh
+	FROM #tmpPrepareRH AS rh
 		LEFT JOIN #tmpRemotingRef AS rf ON rh.SettlementLogID = rf.SettlementLogID
 	GROUP BY rf.GroupName
 		,rf.RefId1
@@ -315,7 +265,7 @@ BEGIN
 											,rf.GroupName
 											,rf.RefId1
 											,rf.RefId2
-										FROM #tmpUpdatedRH AS rh
+										FROM #tmpPrepareRH AS rh
 											LEFT JOIN #tmpRemotingRef AS rf ON rh.SettlementLogID = rf.SettlementLogID
 										GROUP BY rf.GroupName
 											,rf.RefId1
@@ -323,8 +273,8 @@ BEGIN
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')')
-	FROM #tmpUpdatedRH AS rh
+	FROM #tmpPrepareRH AS rh
 	
-	DROP TABLE #tmpUpdatedRH
+	DROP TABLE #tmpPrepareRH
 	DROP TABLE #tmpRemotingRef
 END

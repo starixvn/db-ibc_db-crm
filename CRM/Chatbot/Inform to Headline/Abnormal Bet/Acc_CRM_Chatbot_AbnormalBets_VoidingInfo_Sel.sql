@@ -27,6 +27,7 @@ AS
         - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
         - 20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
         - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
+        - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
 
     Param's Explanation:
         @Messages:
@@ -165,10 +166,14 @@ BEGIN
 
     ------------------------------------------------------------------------------------------
     -- Clean and transform data for Abnormal Bet Group | Abnormal Bet    (IssueTypeId=11)
+    --                                                 | * Single        (FilterBy#1|2)
     --                                                 | * Mix Parlay    (FilterBy=1)
     --                                                 | * System Parlay (FilterBy=2)
     --                                                 | AB Real Member  (IssueTypeId=15)
+    --                                                 | * No have parlay
     --                                                 | VoidByBetID     (MsgContentsType=103)
+    --                                                 | * Single        (Bettype#9|29)
+    --                                                 | * Parlay        (Bettype=9|29)
 
     -- Create support temp table
     CREATE TABLE #tmpData_AbnormalBet (
@@ -203,13 +208,11 @@ BEGIN
     INSERT INTO #tmpData_AbnormalBet (
         VoidingHistoryCollectionId,
         MessageId,
-        TransId,
-        [Type]
+        TransId
     )
     SELECT vb.VoidingHistoryCollectionId,
            vb.MessageId,
-           t.TransId,
-           1 [Type]
+           t.TransId
     FROM #tmpData_VoidByBetID vb
          CROSS APPLY (SELECT value TransId FROM STRING_SPLIT(vb.ListBetTransId, ',')) t
 
@@ -220,9 +223,11 @@ BEGIN
         ab.Srecommend = b.srecommend,
         ab.Mrecommend = b.mrecommend,
         ab.Recommend  = b.recommend,
-        ab.IsTest     = b.IsTest
+        ab.IsTest     = b.IsTest,
+        ab.[Type]     = CASE WHEN ab.[Type] IS NULL THEN CASE WHEN b.bettype IN (9, 29) THEN 3 ELSE 1 END
+                             ELSE ab.[Type] END
     FROM #tmpData_AbnormalBet ab
-         CROSS APPLY (SELECT TOP 1 b.custid, b.Username, b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
+         CROSS APPLY (SELECT TOP 1 b.custid, b.Username, b.srecommend, b.mrecommend, b.recommend, b.bettype, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
                       FROM bodb02.dbo.bettrans b WITH (NOLOCK)
                       WHERE b.transid = ab.TransId) b
 
@@ -233,9 +238,11 @@ BEGIN
         ab.Srecommend = b.srecommend,
         ab.Mrecommend = b.mrecommend,
         ab.Recommend  = b.recommend,
-        ab.IsTest     = b.IsTest
+        ab.IsTest     = b.IsTest,
+        ab.[Type]     = CASE WHEN ab.[Type] IS NULL THEN CASE WHEN b.bettype IN (9, 29) THEN 3 ELSE 1 END
+                             ELSE ab.[Type] END
     FROM #tmpData_AbnormalBet ab
-         CROSS APPLY (SELECT TOP 1 b.custid, b.Username, b.srecommend, b.mrecommend, b.recommend, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
+         CROSS APPLY (SELECT TOP 1 b.custid, b.Username, b.srecommend, b.mrecommend, b.recommend, b.bettype, CASE WHEN b.currency = 20 THEN 1 ELSE 0 END AS IsTest
                       FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
                       WHERE b.transid = ab.TransId) b
 

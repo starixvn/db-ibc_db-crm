@@ -23,6 +23,7 @@ AS
         20240207@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
         20240318@Ned.Le: Fix bug relate to table crmSettingMapping
         20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240827@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook (#209707)
 
     Param's Explanation:
         @Message:
@@ -75,14 +76,15 @@ BEGIN
     -- [01] Global variables --
 
     DECLARE @CreatorId                    INT = 10278938
+    DECLARE @ServiceName                  VARCHAR(50) = 'AutoFB - Void by BetID'
 
     DECLARE @IncludeUUSCurrency           BIT
-    SELECT  @IncludeUUSCurrency           = CONVERT(BIT, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE ServiceName = 'AutoFB - Void by BetID' AND SettingName = 'IncludeUUSCurrency'
+    SELECT  @IncludeUUSCurrency           = CONVERT(BIT, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE ServiceName = @ServiceName AND SettingName = 'IncludeUUSCurrency'
     
     DECLARE @SettingNameOfLastRuntime     VARCHAR(50)
     SELECT  @SettingNameOfLastRuntime     = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
     DECLARE @LastRuntime                  DATETIME
-    SELECT  @LastRuntime                  = CONVERT(DATETIME, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'AutoFB - Void by BetID'
+    SELECT  @LastRuntime                  = CONVERT(DATETIME, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = @ServiceName
     
     DECLARE @SettingNameOfJobStatus       VARCHAR(50)
     SELECT  @SettingNameOfJobStatus       = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -101,9 +103,9 @@ BEGIN
 
     -- Update status to running
     UPDATE s
-    SET s.Value = 'running'
+    SET s.Value = 'Running'
     FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
+    WHERE s.ServiceName = @ServiceName
           AND s.SettingName = @SettingNameOfJobStatus
           AND s.Value = 'Completed'
 
@@ -116,22 +118,23 @@ BEGIN
             UPDATE s
             SET s.Value = 'Completed'
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfJobStatus
-                  AND s.Value = 'running'
+                  AND s.Value = 'Running'
 
             UPDATE s
             SET s.Value = CONVERT(VARCHAR(20), GETDATE(), 120)
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfLastRuntime
         END
         -- + If not, it means the job still running and still not over 5mi
         ELSE
         BEGIN
             SELECT @ErrCode = 100
-            SELECT @ErrMsg = 'Server Name: ' + @ServerName + ' - Database Name: ' + @DBName + ' - SP Name: ' + @SPName + ' - Error Message: ' + 'AutoFB - Void by BetID - Job is running.'
+            SELECT @ErrMsg = 'Server Name: ' + @ServerName + ' - Database Name: ' + @DBName + ' - SP Name: ' + @SPName + ' - Error Message: ' + @ServiceName + ' - Job is running.'
         END
+        -- + Return
         RETURN
     END
 
@@ -139,7 +142,7 @@ BEGIN
     UPDATE s
     SET s.Value = CONVERT(VARCHAR(20), GETDATE(), 120)
     FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
+    WHERE s.ServiceName = @ServiceName
           AND s.SettingName = @SettingNameOfLastRuntime
 
 
@@ -170,16 +173,16 @@ BEGIN
             UPDATE s
             SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfLastMsgTargetId
         END
 
         UPDATE s
         SET s.Value = 'Completed'
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+        WHERE s.ServiceName = @ServiceName
               AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'running'
+              AND s.Value = 'Running'
 
         RETURN
     END
@@ -254,13 +257,9 @@ BEGIN
     -- + Clean data, only import testing data with UAT environment
     IF (@Environment = 'UAT')
     BEGIN
-        ;WITH
-        CTE_Data AS (
-            SELECT DISTINCT MessageId FROM #tmpMessageData WHERE IsTest = 0
-        )
         DELETE m
         FROM #tmpMessageData m
-        WHERE m.MessageId IN (SELECT MessageId FROM CTE_Data)
+        WHERE m.IsTest = 0
     END
     -- + Clean data, exclude UUS currency with LIVE environment
     IF (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
@@ -268,6 +267,12 @@ BEGIN
         DELETE m
         FROM #tmpMessageData m
         WHERE m.IsTest = 1
+    END
+    -- + Clean data, remove records that no longer existed in bettrans & bettrans14
+    BEGIN
+        DELETE m
+        FROM #tmpMessageData m
+        WHERE m.CustId IS NULL
     END
     -- + Check data existence
     IF NOT EXISTS (SELECT 1 FROM #tmpMessageData)
@@ -277,16 +282,16 @@ BEGIN
             UPDATE s
             SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfLastMsgTargetId
         END
 
         UPDATE s
         SET s.Value = 'Completed'
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+        WHERE s.ServiceName = @ServiceName
               AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'running'
+              AND s.Value = 'Running'
 
         RETURN
     END
@@ -320,7 +325,7 @@ BEGIN
          LEFT JOIN bodb02.dbo.Dep_CustSuper d WITH (NOLOCK) ON h.HeadlineId = d.custid
          LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON h.CustId = c.custid
     -- + Delete ignored data
-    -- + --> for #tmpBasedData
+    -- + --> for #tmpMessageData
     DELETE d
     FROM #tmpMessageData d
          INNER JOIN #tmpHeadlineData h ON d.CustId = h.CustId
@@ -358,54 +363,54 @@ BEGIN
         -- + --> Run sp to sync data
         IF NOT EXISTS (SELECT 1 FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK) WHERE CustId = @SyncHeadline_CustID)
         BEGIN
-            EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerIns_New @UserId                  = @CreatorId
-                                                         ,@CustId                 = @SyncHeadline_CustId
-                                                         ,@UserName               = @SyncHeadline_Username
-                                                         ,@FirstName              = NULL
-                                                         ,@LastName               = NULL
-                                                         ,@TitleId                = NULL
-                                                         ,@Birthday               = NULL
-                                                         ,@LanguageId             = 0
-                                                         ,@Phone                  = NULL
-                                                         ,@PhoneCountryCode       = NULL
-                                                         ,@PhoneAreaCode          = NULL
-                                                         ,@Phone2                 = NULL
-                                                         ,@Phone2CountryCode      = NULL
-                                                         ,@Phone2AreaCode         = NULL
-                                                         ,@Phone3                 = NULL
-                                                         ,@Phone3CountryCode      = NULL
-                                                         ,@Phone3AreaCode         = NULL
-                                                         ,@MobilePhone            = NULL
-                                                         ,@MobilePhoneCountryCode = NULL
-                                                         ,@MobilePhoneAreaCode    = NULL
-                                                         ,@Fax                    = NULL
-                                                         ,@FaxCountryCode         = NULL
-                                                         ,@FaxAreaCode            = NULL
-                                                         ,@Email                  = NULL
-                                                         ,@Passport               = NULL
-                                                         ,@BettingCode            = NULL
-                                                         ,@RefCode2               = NULL
-                                                         ,@Skype                  = NULL
-                                                         ,@MSN                    = NULL
-                                                         ,@CountryId              = NULL
-                                                         ,@IsVIP                  = 0
-                                                         ,@SiteId                 = NULL
-                                                         ,@CreatorId              = @CreatorId
-                                                         ,@LicenseeType           = NULL
-                                                         ,@WhatsApp               = NULL
-                                                         ,@Line                   = NULL
-                                                         ,@WeChat                 = NULL
-                                                         ,@Yahoo                  = NULL
-                                                         ,@QQ                     = NULL
-                                                         ,@BBM                    = NULL
-                                                         ,@IP                     = @IP
-                                                         ,@Pic1                   = NULL
-                                                         ,@Pic2                   = NULL
-                                                         ,@Pic3                   = NULL
-                                                         ,@Pic4                   = NULL
-                                                         ,@ProvinceId             = NULL                    
-                                                         ,@ErrCode                = @ErrCode OUTPUT
-                                                         ,@ErrMsg                 = @ErrMsg  OUTPUT
+            EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerIns_New @UserId                 = @CreatorId,
+                                                         @CustId                 = @SyncHeadline_CustId,
+                                                         @UserName               = @SyncHeadline_Username,
+                                                         @FirstName              = NULL,
+                                                         @LastName               = NULL,
+                                                         @TitleId                = NULL,
+                                                         @Birthday               = NULL,
+                                                         @LanguageId             = 0,
+                                                         @Phone                  = NULL,
+                                                         @PhoneCountryCode       = NULL,
+                                                         @PhoneAreaCode          = NULL,
+                                                         @Phone2                 = NULL,
+                                                         @Phone2CountryCode      = NULL,
+                                                         @Phone2AreaCode         = NULL,
+                                                         @Phone3                 = NULL,
+                                                         @Phone3CountryCode      = NULL,
+                                                         @Phone3AreaCode         = NULL,
+                                                         @MobilePhone            = NULL,
+                                                         @MobilePhoneCountryCode = NULL,
+                                                         @MobilePhoneAreaCode    = NULL,
+                                                         @Fax                    = NULL,
+                                                         @FaxCountryCode         = NULL,
+                                                         @FaxAreaCode            = NULL,
+                                                         @Email                  = NULL,
+                                                         @Passport               = NULL,
+                                                         @BettingCode            = NULL,
+                                                         @RefCode2               = NULL,
+                                                         @Skype                  = NULL,
+                                                         @MSN                    = NULL,
+                                                         @CountryId              = NULL,
+                                                         @IsVIP                  = 0,
+                                                         @SiteId                 = NULL,
+                                                         @CreatorId              = @CreatorId,
+                                                         @LicenseeType           = NULL,
+                                                         @WhatsApp               = NULL,
+                                                         @Line                   = NULL,
+                                                         @WeChat                 = NULL,
+                                                         @Yahoo                  = NULL,
+                                                         @QQ                     = NULL,
+                                                         @BBM                    = NULL,
+                                                         @IP                     = @IP,
+                                                         @Pic1                   = NULL,
+                                                         @Pic2                   = NULL,
+                                                         @Pic3                   = NULL,
+                                                         @Pic4                   = NULL,
+                                                         @ProvinceId             = NULL,                    
+                                                         @ErrCode                = @ErrCode OUTPUT,
+                                                         @ErrMsg                 = @ErrMsg  OUTPUT
 
             IF (@ErrCode <> 0)
             BEGIN
@@ -418,9 +423,9 @@ BEGIN
                 UPDATE s
                 SET s.Value = 'Completed'
                 FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-                WHERE s.ServiceName = 'AutoFB - Void by BetID'
+                WHERE s.ServiceName = @ServiceName
                       AND s.SettingName = @SettingNameOfJobStatus
-                      AND s.Value = 'running'
+                      AND s.Value = 'Running'
 
                 RETURN
             END
@@ -468,9 +473,9 @@ BEGIN
         UPDATE s
         SET s.Value = 'Completed'
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+        WHERE s.ServiceName = @ServiceName
               AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'running'
+              AND s.Value = 'Running'
 
         RETURN
     END
@@ -1015,8 +1020,9 @@ BEGIN
            b.HeadlineId,
            (
                REPLACE(x.Content_en, '@@', '') + '<br/><br/>' +
-               REPLACE(x.Content_cs, '@@', '') + '<br/><br/>' +
                'Kindly refer to Agency site "Cancelled Bets" for Voided user.' + '<br/><br/>' +
+               REPLACE(x.Content_cs, '@@', '') + '<br/><br/>' +
+               '请浏览代理网 “已删除/作废注单” 查询有关作废账号。' + '<br/><br/>' +
                'Affected users and tickets:' + '<br/>' +
                t.TransidInfo
            ) Solution
@@ -1352,16 +1358,16 @@ BEGIN
         UPDATE s
         SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+        WHERE s.ServiceName = @ServiceName
               AND s.SettingName = @SettingNameOfLastMsgTargetId
     END
 
     UPDATE s
     SET s.Value = 'Completed'
     FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
+    WHERE s.ServiceName = @ServiceName
           AND s.SettingName = @SettingNameOfJobStatus
-          AND s.Value = 'running'
+          AND s.Value = 'Running'
 
 
     ---------------------------

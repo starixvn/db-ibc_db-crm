@@ -177,12 +177,14 @@ BEGIN
                   AND s.SettingName = @SettingNameOfLastMsgTargetId
         END
 
-        UPDATE s
-        SET s.Value = 'Completed'
-        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = @ServiceName
-              AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'Running'
+        BEGIN
+            UPDATE s
+            SET s.Value = 'Completed'
+            FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+            WHERE s.ServiceName = @ServiceName
+                  AND s.SettingName = @SettingNameOfJobStatus
+                  AND s.Value = 'Running'
+        END
 
         RETURN
     END
@@ -286,12 +288,14 @@ BEGIN
                   AND s.SettingName = @SettingNameOfLastMsgTargetId
         END
 
-        UPDATE s
-        SET s.Value = 'Completed'
-        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = @ServiceName
-              AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'Running'
+        BEGIN
+            UPDATE s
+            SET s.Value = 'Completed'
+            FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+            WHERE s.ServiceName = @ServiceName
+                  AND s.SettingName = @SettingNameOfJobStatus
+                  AND s.Value = 'Running'
+        END
 
         RETURN
     END
@@ -493,22 +497,26 @@ BEGIN
     -- Group 01, Feedback fixed information > From spec
     --                                      > We can know Feedback's field that info is fixed
     --                                      > And we just collect data for them first
-    DECLARE @Feedback_Date           DATETIME     = GETDATE()
-    DECLARE @Feedback_ResolutionDate DATETIME     = DATEADD(MINUTE, 1, @Feedback_Date)
-    DECLARE @Feedback_Subject        VARCHAR(200) = 'Special Notification'
-    DECLARE @Feedback_StationId      INT
-    DECLARE @Feedback_CategoryId     INT
-    DECLARE @Feedback_SubCategoryId  INT
-    DECLARE @Feedback_ProductId      INT
-    DECLARE @Feedback_StatusId       INT
-    DECLARE @Feedback_ResponseId     INT
+    DECLARE @Feedback_Date                DATETIME     = GETDATE()
+    DECLARE @Feedback_ResolutionDate      DATETIME     = DATEADD(MINUTE, 1, @Feedback_Date)
+    DECLARE @Feedback_Subject             VARCHAR(200) = 'Special Notification'
+    DECLARE @Feedback_StationId           INT
+    DECLARE @Feedback_CategoryId          INT
+    DECLARE @Feedback_SubCategoryId       INT
+    DECLARE @Feedback_ProductId           INT
+    DECLARE @Feedback_SubProductId_Parlay INT
+    DECLARE @Feedback_BettypeId_Parlay    INT
+    DECLARE @Feedback_StatusId            INT
+    DECLARE @Feedback_ResponseId          INT
 
-    SELECT @Feedback_StationId     = MAX(CASE WHEN SettingName = 'Station'      AND SettingValue = 'N/A'                  THEN SettingId ELSE NULL END),
-           @Feedback_CategoryId    = MAX(CASE WHEN SettingName = 'MainCategory' AND SettingValue = 'Special Notification' THEN SettingId ELSE NULL END),
-           @Feedback_SubCategoryId = MAX(CASE WHEN SettingName = 'SubCategory'  AND SettingValue = 'Abnormal Bets'        THEN SettingId ELSE NULL END),
-           @Feedback_ProductId     = MAX(CASE WHEN SettingName = 'Product'      AND SettingValue = 'Sportsbook'           THEN SettingId ELSE NULL END),
-           @Feedback_StatusId      = MAX(CASE WHEN SettingName = 'Status'       AND SettingValue = 'Closed'               THEN SettingId ELSE NULL END),
-           @Feedback_ResponseId    = MAX(CASE WHEN SettingName = 'Response'     AND SettingValue = 'Neutral'              THEN SettingId ELSE NULL END)
+    SELECT @Feedback_StationId           = MAX(CASE WHEN SettingName = 'Station'      AND SettingValue = 'N/A'                  THEN SettingId ELSE NULL END),
+           @Feedback_CategoryId          = MAX(CASE WHEN SettingName = 'MainCategory' AND SettingValue = 'Special Notification' THEN SettingId ELSE NULL END),
+           @Feedback_SubCategoryId       = MAX(CASE WHEN SettingName = 'SubCategory'  AND SettingValue = 'Abnormal Bets'        THEN SettingId ELSE NULL END),
+           @Feedback_ProductId           = MAX(CASE WHEN SettingName = 'Product'      AND SettingValue = 'Sportsbook'           THEN SettingId ELSE NULL END),
+           @Feedback_SubProductId_Parlay = MAX(CASE WHEN SettingName = 'SubProduct'   AND SettingValue = 'Multiple Sports'      THEN SettingId ELSE NULL END),
+           @Feedback_BettypeId_Parlay    = MAX(CASE WHEN SettingName = 'Bettype'      AND SettingValue = 'Mix Parlay'           THEN SettingId ELSE NULL END),
+           @Feedback_StatusId            = MAX(CASE WHEN SettingName = 'Status'       AND SettingValue = 'Closed'               THEN SettingId ELSE NULL END),
+           @Feedback_ResponseId          = MAX(CASE WHEN SettingName = 'Response'     AND SettingValue = 'Neutral'              THEN SettingId ELSE NULL END)
     FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
     WHERE SiteOffer = 2
 
@@ -522,6 +530,7 @@ BEGIN
         MessageId       INT,
         HeadlineId      INT,
         isLicensee      BIT,
+        isParlay        BIT,
         RelatedCustId   VARCHAR(MAX),
         RelatedUsername NVARCHAR(MAX),
         MappingCustId   INT
@@ -531,16 +540,18 @@ BEGIN
         MessageId,
         HeadlineId,
         isLicensee,
+        isParlay,
         RelatedCustId,
         RelatedUsername,
         MappingCustId
     )
-    SELECT b.MessageId  MessageId,
-           h.HeadlineId HeadlineId,
-           0            isLicensee,
-           b.CustId     RelatedCustId,
-           b.Username   RelatedUsername,
-           b.CustId     MappingCustId
+    SELECT b.MessageId                                           MessageId,
+           h.HeadlineId                                          HeadlineId,
+           0                                                     isLicensee,
+           CASE WHEN MAX(b.Bettype) IN (9, 29) THEN 1 ELSE 0 END isParlay,
+           b.CustId                                              RelatedCustId,
+           b.Username                                            RelatedUsername,
+           b.CustId                                              MappingCustId
     FROM #tmpMessageData b
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
     WHERE h.isLicensee = 0
@@ -553,16 +564,18 @@ BEGIN
         MessageId,
         HeadlineId,
         isLicensee,
+        isParlay,
         RelatedCustId,
         RelatedUsername,
         MappingCustId
     )
-    SELECT b.MessageId MessageId,
-           a.CustID    HeadlineId,
-           1           isLicensee,
-           lm.custid   RelatedCustId,
-           c.UserName  RelatedUsername,
-           b.CustId    MappingCustId
+    SELECT b.MessageId                                           MessageId,
+           a.CustID                                              HeadlineId,
+           1                                                     isLicensee,
+           CASE WHEN MAX(b.Bettype) IN (9, 29) THEN 1 ELSE 0 END isParlay,
+           lm.custid                                             RelatedCustId,
+           c.UserName                                            RelatedUsername,
+           b.CustId                                              MappingCustId
     FROM #tmpMessageData b
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
          LEFT JOIN bodb_CRM.dbo.crmLicenseeMapping lm WITH (NOLOCK) ON h.HeadlineSite = lm.Site
@@ -589,7 +602,7 @@ BEGIN
     )
     SELECT b.MessageId,
            h.HeadlineId,
-           mp.SettingID SubProductId
+           CASE WHEN h.isParlay = 1 THEN @Feedback_SubProductId_Parlay ELSE mp.SettingID END SubProductId
     FROM #tmpMessageData b
          INNER JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
          INNER JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON b.Sporttype = s.SportType
@@ -597,7 +610,7 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'SubProduct' AND mp.SettingID = st.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
-             mp.SettingID
+             CASE WHEN h.isParlay = 1 THEN @Feedback_SubProductId_Parlay ELSE mp.SettingID END
     -- + Get Bettype data
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_base_bettype (
@@ -613,7 +626,7 @@ BEGIN
     )
     SELECT b.MessageId,
            h.HeadlineId,
-           mp.SettingID BettypeId
+           CASE WHEN h.isParlay = 1 THEN @Feedback_BettypeId_Parlay ELSE mp.SettingID END BettypeId
     FROM #tmpMessageData b
          LEFT JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
          INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
@@ -622,7 +635,7 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK) ON sr.ParentID IN (SELECT SubProductId FROM #tmpFeedback_base_subproduct) AND st.SettingID = sr.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
-             mp.SettingID
+             CASE WHEN h.isParlay = 1 THEN @Feedback_BettypeId_Parlay ELSE mp.SettingID END
     -- + Get final data
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_base (
@@ -630,6 +643,7 @@ BEGIN
         MessageId          INT,
         HeadlineId         INT,
         isLicensee         BIT,
+        isParlay           BIT,
         RelatedCustIds     VARCHAR(MAX),
         RelatedUsernames   NVARCHAR(MAX),
         SubProductIds      VARCHAR(MAX),
@@ -646,14 +660,16 @@ BEGIN
         SELECT c.MessageId,
                c.HeadlineId,
                c.isLicensee,
+               c.isParlay,
                STRING_AGG(CAST(c.RelatedCustId AS VARCHAR(MAX)), ',')   RelatedCustIds,
                STRING_AGG(CAST(c.RelatedUsername AS VARCHAR(MAX)), ', ') RelatedUsernames
-        FROM (SELECT MessageId, HeadlineId, isLicensee, RelatedCustId, RelatedUsername
+        FROM (SELECT MessageId, HeadlineId, isLicensee, isParlay, RelatedCustId, RelatedUsername
               FROM #tmpFeedback_base_cust
-              GROUP BY MessageId, HeadlineId, isLicensee, RelatedCustId, RelatedUsername) c
+              GROUP BY MessageId, HeadlineId, isLicensee, isParlay, RelatedCustId, RelatedUsername) c
         GROUP BY c.MessageId,
                  c.HeadlineId,
-                 c.isLicensee
+                 c.isLicensee,
+                 c.isParlay
     ),
     CTE_subproduct AS (
         SELECT MessageId,
@@ -675,6 +691,7 @@ BEGIN
         MessageId,
         HeadlineId,
         isLicensee,
+        isParlay,
         RelatedCustIds,
         RelatedUsernames,
         SubProductIds,
@@ -683,6 +700,7 @@ BEGIN
     SELECT c.MessageId,
            c.HeadlineId,
            c.isLicensee,
+           c.isParlay,
            c.RelatedCustIds,
            c.RelatedUsernames,
            sp.SubProductIds,
@@ -774,7 +792,7 @@ BEGIN
 
     -- Group 03, Feedback match information > Base on spec
     --                                      > When create Feedback for Credit model
-    --                                      > Field Description need info about match
+    --                                      > Field Description of single ticket need info about match
     -- + Get data about SABA LeagueGroupID
     CREATE TABLE #tmpFeedback_event_SABALeagueGroupID (LeagueGroupID INT)
     INSERT INTO  #tmpFeedback_event_SABALeagueGroupID (LeagueGroupID)
@@ -804,6 +822,7 @@ BEGIN
         FROM #tmpMessageData b
              LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
         WHERE h.isLicensee = 0
+              AND b.Bettype NOT IN (9, 29)
         GROUP BY b.MessageId,
                  h.HeadlineId,
                  h.HeadlineSite,
@@ -933,6 +952,7 @@ BEGIN
         Description NVARCHAR(MAX)
     )
     -- + Gen data for credit model
+    -- + --> For single ticket
     ;WITH
     CTE_eventinfo AS (
         SELECT MessageId,
@@ -966,6 +986,32 @@ BEGIN
             FOR XML PATH('row'), ROOT('ROOT')
         ) AS d(Description)
     WHERE b.isLicensee = 0
+          AND b.isParlay = 0
+    -- + --> For parlay ticket
+    INSERT INTO #tmpFeedback_description (
+        MessageId,
+        HeadlineId,
+        Description
+    )
+    SELECT b.MessageId,
+           b.HeadlineId,
+           d.Description
+    FROM #tmpFeedback_base b
+         OUTER APPLY (
+            SELECT (
+                       'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
+                       + 'System ID: ' + ISNULL(b.RelatedUsernames, '')
+                   ) AS '@AutoField'
+                   ,
+                   (
+                       '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
+                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
+                       + 'Due to Abnormal Bets, some Mix Parlay tickets were VOIDED. '
+                   ) AS '@Remark'
+            FOR XML PATH('row'), ROOT('ROOT')
+        ) AS d(Description)
+    WHERE b.isLicensee = 0
+          AND b.isParlay = 1
     -- + Gen data for licensee model
     INSERT INTO #tmpFeedback_description (
         MessageId,
@@ -1362,12 +1408,14 @@ BEGIN
               AND s.SettingName = @SettingNameOfLastMsgTargetId
     END
 
-    UPDATE s
-    SET s.Value = 'Completed'
-    FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = @ServiceName
-          AND s.SettingName = @SettingNameOfJobStatus
-          AND s.Value = 'Running'
+    BEGIN
+        UPDATE s
+        SET s.Value = 'Completed'
+        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+        WHERE s.ServiceName = @ServiceName
+              AND s.SettingName = @SettingNameOfJobStatus
+              AND s.Value = 'Running'
+    END
 
 
     ---------------------------

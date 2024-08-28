@@ -986,7 +986,9 @@ BEGIN
                    ) AS '@AutoField'
                    ,
                    (
-                       '@RemarkContent@'
+                       '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
+                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/>'
+                       + '@RemarkContent@'
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
         ) AS d(Description)
@@ -1042,6 +1044,8 @@ BEGIN
                      CROSS JOIN CTE_down d
                 WHERE r.LineNumber >= u.UpNumber
                       AND r.LineNumber <= (d.DownNumber - 2)
+                      AND r.LineText NOT LIKE '%Affected Credit sites%'
+                      AND r.LineText NOT LIKE '%Credit Total Bets%'
             )
             SELECT @Loop_Lic_Des_ContentOutput = STRING_AGG(CAST(REPLACE(REPLACE(LineText, '\', ''), '**', '') AS NVARCHAR(MAX)), '<br />')
             FROM CTE_clean
@@ -1107,6 +1111,12 @@ BEGIN
          CROSS JOIN CTE_Template t
     WHERE b.isLicensee = 0
     -- + Gen data for licensee model
+    ;WITH
+    CTE_Message AS (
+        SELECT MessageId, Content_EN, Content_CS, Content_YN
+        FROM #tmpXMLData
+        GROUP BY MessageId, Content_EN, Content_CS, Content_YN
+    )
     INSERT INTO #tmpFeedback_solution (
         MessageId,
         HeadlineId,
@@ -1115,11 +1125,11 @@ BEGIN
     SELECT b.MessageId,
            b.HeadlineId,
            (
-               REPLACE(x.Content_en, '@@', '') + '<br/><br/>' +
-               REPLACE(x.Content_cs, '@@', '')
+               REPLACE(m.Content_en, '@@', '') + '<br/><br/>' +
+               REPLACE(m.Content_cs, '@@', '')
            ) Solution
     FROM #tmpFeedback_base b
-         LEFT JOIN #tmpXMLData x ON b.MessageId = x.MessageId
+         LEFT JOIN CTE_Message m ON b.MessageId = m.MessageId
     WHERE b.isLicensee = 1
     -- + Create index
     CREATE CLUSTERED INDEX CIX_Feedback_solution ON #tmpFeedback_solution(MessageId, HeadlineId)

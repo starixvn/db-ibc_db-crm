@@ -240,9 +240,11 @@ BEGIN
     -- + Get data from XML
     INSERT INTO #tmpMessageData (
         MessageId,
+        MatchId,
         TransId
     )
     SELECT m.MessageId,
+           m.MatchId,
            bt.TransId
     FROM #tmpXMLData m
          CROSS APPLY (SELECT CAST(value AS BIGINT) TransId
@@ -255,13 +257,12 @@ BEGIN
         d.Mrecommend = b.mrecommend,
         d.Srecommend = b.srecommend,
         d.Username   = b.Username,
-        d.MatchId    = b.matchid,
-        d.Sporttype  = b.sporttype,
+        d.Sporttype  = m.sporttype,
         d.Bettype    = b.bettype
     FROM #tmpMessageData d
-         CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchid, m.sporttype, b.bettype
+         LEFT JOIN bodb02.dbo.match m WITH (NOLOCK) ON d.MatchId = m.matchid
+         CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.bettype
                       FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-                           INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
                       WHERE b.transid = d.TransId) b
     -- + Get data from bettrans14
     UPDATE d
@@ -271,13 +272,12 @@ BEGIN
         d.Mrecommend = b.mrecommend,
         d.Srecommend = b.srecommend,
         d.Username   = b.Username,
-        d.MatchId    = b.matchid,
-        d.Sporttype  = b.sporttype,
+        d.Sporttype  = m.sporttype,
         d.Bettype    = b.bettype
     FROM #tmpMessageData d
-         CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchid, m.sporttype, b.bettype
+         LEFT JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON d.MatchId = m.matchid
+         CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.bettype
                       FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
-                           INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
                       WHERE b.transid = d.TransId) b
     -- + Clean data, only import testing data with UAT environment
     IF (@Environment = 'UAT')

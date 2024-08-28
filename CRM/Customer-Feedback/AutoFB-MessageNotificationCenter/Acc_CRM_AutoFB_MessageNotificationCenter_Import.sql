@@ -1046,6 +1046,8 @@ BEGIN
             SELECT @Loop_Lic_Des_ContentOutput = STRING_AGG(CAST(REPLACE(REPLACE(LineText, '\', ''), '**', '') AS NVARCHAR(MAX)), '<br />')
             FROM CTE_clean
 
+            SELECT @Loop_Lic_Des_ContentOutput = bodb_CRM.dbo.f_EncodeXMLValue(@Loop_Lic_Des_ContentOutput)
+
             UPDATE tmp
             SET tmp.isProcessed = 1,
                 tmp.Description = REPLACE(tmp.Description, '@RemarkContent@', @Loop_Lic_Des_ContentOutput)

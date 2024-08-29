@@ -681,7 +681,6 @@ BEGIN
 		,VoidingHistoryCollectionId INT
 		,IssueTypeId				INT
 		,IsParlay					BIT
-        ,MatchId                    INT
 		,IsDeposit					BIT
 		,MessageIdList				NVARCHAR(MAX)
 		,RequestIdList				NVARCHAR(MAX)
@@ -715,9 +714,8 @@ BEGIN
 			,IsDeposit
 			,IssueTypeId
 			,IsParlay
-            ,MatchId
 		FROM #VoidedCollectionInfo
-		GROUP BY HeadlineId, VoidingHistoryCollectionId, IsDeposit, IssueTypeId, IsParlay, MatchId
+		GROUP BY HeadlineId, VoidingHistoryCollectionId, IsDeposit, IssueTypeId, IsParlay
 	), CTE_MessageList AS (
 		SELECT 
 			r.HeadlineId
@@ -725,7 +723,6 @@ BEGIN
 			,r.IsDeposit
 			,r.IssueTypeId
 			,r.IsParlay
-            ,r.MatchId
 			,STUFF
 			(
 				(
@@ -736,7 +733,6 @@ BEGIN
 						AND p.IsDeposit						= r.IsDeposit 
 						AND p.IssueTypeId					= r.IssueTypeId 
 						AND p.IsParlay						= r.IsParlay
-                        AND p.MatchId                       = r.MatchId
 					FOR XML PATH ('')
 				), 1, 1, ''
 			) AS MessageIdList
@@ -750,14 +746,13 @@ BEGIN
 						AND p.IsDeposit						= r.IsDeposit 
 						AND p.IssueTypeId					= r.IssueTypeId 
 						AND p.IsParlay						= r.IsParlay
-                        AND p.MatchId                       = r.MatchId
 					FOR XML PATH ('')
 				), 1, 1, ''
 			) AS RequestIdList
 		FROM CTE_Collection r
 	)
-	INSERT INTO @Result (VoidingHistoryCollectionId, MessageIdList, RequestIdList, CustId, IssueTypeId, IsParlay, MatchId, IsDeposit, msg_ContentEN, msg_ContentCS, msg_ContentYN)
-	SELECT l.VoidingHistoryCollectionId, l.MessageIdList, l.RequestIdList, l.HeadlineId, l.IssueTypeId, l.IsParlay, l.MatchId, l.IsDeposit, m.Content_EN, m.Content_SC, m.Content_YN
+	INSERT INTO @Result (VoidingHistoryCollectionId, MessageIdList, RequestIdList, CustId, IssueTypeId, IsParlay, IsDeposit, msg_ContentEN, msg_ContentCS, msg_ContentYN)
+	SELECT l.VoidingHistoryCollectionId, l.MessageIdList, l.RequestIdList, l.HeadlineId, l.IssueTypeId, l.IsParlay, l.IsDeposit, m.Content_EN, m.Content_SC, m.Content_YN
 	FROM CTE_MessageList l
 		LEFT JOIN #Message m ON m.VoidingHistoryCollectionId = l.VoidingHistoryCollectionId
 
@@ -877,16 +872,7 @@ BEGIN
 				), 1, 1, ''
 			) AS VoidedByList
 		FROM @Result r
-	),
-    CTE_PreventHardcode_VSParlay AS (
-        SELECT b.bettype 
-        FROM dbo.crmSetting s WITH (NOLOCK) 
-             OUTER APPLY (SELECT TRIM(value) AS bettype 
-                          FROM STRING_SPLIT(s.ExtraInfo, ',')
-                          WHERE value <> '') AS b
-        WHERE s.SettingName = 'Prevent Hardcode'
-              AND s.SettingValue = 'Virtual Sport Parlay Bettype'
-    )
+	)
 	UPDATE r
 		SET 
 			r.BettypeIds		= n.BettypeIds
@@ -903,8 +889,9 @@ BEGIN
 			SELECT 
 				CASE WHEN r.IsParlay = 1 THEN CONVERT(VARCHAR(20), @BettypeId_MixParlay) ELSE c.BettypeIds END AS BettypeIds
 				,CASE WHEN r.IsParlay = 1 THEN CONVERT(VARCHAR(20), @SubProductId_MultipleSports) ELSE c.SportTypeIds END AS SportTypeIds
-				,CASE WHEN r.IsParlay = 1 AND r.MatchId IN (SELECT bettype FROM CTE_PreventHardcode_VSParlay) THEN @ProductId_VirtualSports
-                      WHEN r.IsParlay = 1 OR r.IssueTypeId IN (11, 15, 13) THEN @ProductId_Sportsbook
+				,CASE WHEN r.IsParlay = 1 AND r.IssueTypeId = 20 THEN @ProductId_VirtualSports
+                      WHEN r.IsParlay = 1 AND r.IssueTypeId <> 20 THEN @ProductId_Sportsbook
+                      WHEN r.IssueTypeId IN (11, 15, 13) THEN @ProductId_Sportsbook
                       ELSE c.ProductIds END AS ProductIds
 		) AS n
 		LEFT JOIN CTE_RequestInfo rq ON rq.Id = r.Id

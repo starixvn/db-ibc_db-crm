@@ -960,7 +960,7 @@ BEGIN
                    ,
                    (
                        '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
-                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/>'
+                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
                        + ISNULL(e.EventInfo, '')
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
@@ -987,7 +987,7 @@ BEGIN
                    ,
                    (
                        '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
-                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/>'
+                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
                        + '@RemarkContent@'
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
@@ -1088,7 +1088,7 @@ BEGIN
     CTE_Template AS (
         SELECT CONVERT(NVARCHAR(MAX), N'Dear Sir, Customer Support would like to inform the below announcement:<br/>'
                                       + N'您好，客服部在此通知以下的通告：<br/><br/>' 
-                                      + N'{message_content_en}<br/>'                    
+                                      + N'{message_content_en}<br/><br/>'                    
                                       + N'{message_content_sc}<br/><br/>'
                                       + N'Affected user/受影响会员: {affected_list}') AS SolutionENCS,
                CONVERT(NVARCHAR(MAX), N'Dear Sir, Customer Support would like to inform the below announcement:<br/>'

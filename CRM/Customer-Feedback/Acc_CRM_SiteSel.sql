@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -22,6 +22,7 @@ AS
         20220202@Tacy:   Split 789y site [RedmineID: #182438]
         20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
         20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
     Param's Explanation:
         @UserRole = 0: Manager 
@@ -136,7 +137,7 @@ BEGIN
            si.IsActive
     FROM #tmpSite si
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
     WHERE si.SiteOffer = @UserRole
           AND @LicenseeType <> -1
           AND si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END

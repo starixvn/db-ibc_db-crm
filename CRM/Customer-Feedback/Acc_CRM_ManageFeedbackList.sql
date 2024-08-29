@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -55,6 +55,7 @@ AS
 		- 202010315@Winfred: Related Customer displayed properly when search Username in Manage Feedback [redmine:#138771]
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        - 20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
     Param's Explanation:
         - @UserRole = 0: Manager 
@@ -224,7 +225,7 @@ BEGIN
 		FROM	fb
             LEFT JOIN   #tmpSite si ON fb.SiteID = si.SiteID
             LEFT JOIN   #tmpSitePermission sp ON si.SiteID = sp.SiteID
-            LEFT JOIN   #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+            LEFT JOIN   #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 			INNER JOIN	crmCustomer ctm WITH (NOLOCK) ON	ctm.CustID = fb.CustID
 			INNER JOIN	bodb02.dbo.custInfo c WITH (NOLOCK)	ON	fb.CreatorID = c.custid
 			LEFT JOIN	bodb02.dbo.custInfo rv WITH (NOLOCK) ON	fb.ReviewerID = rv.custid	
@@ -306,7 +307,7 @@ BEGIN
 			INNER JOIN	crmFeedback fb WITH (NOLOCK) ON	fb.FeedbackID=fbc.FeedbackID
             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-            LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+            LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 			INNER JOIN  crmCustomer ctm WITH(NOLOCK) ON fbc.CustID=ctm.CustID
 			INNER JOIN crmFeedbackSetting fm WITH(NOLOCK) ON fb.FeedbackID=fm.FeedbackID
 			INNER JOIN crmFeedbackSetting fc WITH(NOLOCK) ON fb.FeedbackID=fc.FeedbackID
@@ -342,7 +343,7 @@ BEGIN
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
                 LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
                 LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -388,7 +389,7 @@ BEGIN
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
                 LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
                 LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)
@@ -434,7 +435,7 @@ BEGIN
 			FROM	dbo.crmFeedback fb WITH (NOLOCK)
                 LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
                 LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+                LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 
 				CROSS APPLY (SELECT TOP 1 CustID 
 							FROM	dbo.crmFeedbackCustomer fbc_t WITH (NOLOCK)

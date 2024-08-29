@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -25,6 +25,7 @@ AS
 	Revisions:
 		- 20191017@Winnie:	Select Communication RedmineID: #122087
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        - 20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
 	Param's Explanation:
         - @UserRole = 0: Manager 
@@ -193,7 +194,7 @@ BEGIN
          INNER JOIN crmCustomer cc WITH(NOLOCK) ON a.CustID=cc.CustID
          LEFT JOIN #tmpSite si ON cc.SiteID = si.SiteID
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 	WHERE a.DefaultCommID<>0 AND cc.CustID<0 AND  (UserName LIKE '%'+@Username+'%' OR @Username IS NULL) 
 		AND(@IsDisableCat=1 OR (@IsDisableCat=0
 		AND
@@ -271,7 +272,7 @@ BEGIN
          INNER JOIN bodb02.dbo.Customer cc WITH(NOLOCK) ON a.CustID=cc.CustID
          LEFT JOIN #tmpSite si ON cc.site = si.SiteName
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 	WHERE a.DefaultCommID<>0 AND  (UserName LIKE '%'+@Username2+'%' OR @Username2 IS NULL) 
 		AND(@IsDisableCat=1 OR (@IsDisableCat=0
 		AND

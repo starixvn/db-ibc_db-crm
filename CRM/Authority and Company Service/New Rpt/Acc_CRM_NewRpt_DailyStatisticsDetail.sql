@@ -28,6 +28,7 @@ AS
 
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
     Param's Explanation:        
         @SiteType = 0: IBC
@@ -275,7 +276,7 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmCustomer c WITH (NOLOCK) ON fb.CustID = c.CustID
          LEFT JOIN bodb_CRM.dbo.crmSite s WITH (NOLOCK) ON fb.SiteID = s.SiteID
          LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
-         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+         LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
     WHERE fb.FeedbackDate BETWEEN @fromdate AND @todate
           AND fb.StatusID NOT IN (11004, 11019)
           AND @LicenseeType <> -1

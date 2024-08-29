@@ -33,6 +33,7 @@ AS
         20231003@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
         20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
 		20240520@Luke: CRM - Search Remark on Left Panel - Allow to search All remarks of a searched account [Redmine: #204441]
+        20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
     Param's Explanation:
 	    @RemarkTitle : All ID RemarkTitle
@@ -183,7 +184,7 @@ BEGIN
 		LEFT JOIN bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
         LEFT JOIN #tmpSite si ON b.SiteID = si.SiteID
         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 	WHERE  (@Username = '' OR b.CustID IN (SELECT CustID FROM #Customer))
 	AND a.Remark LIKE '%' + @Remark + '%' 
 	AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
@@ -248,7 +249,7 @@ BEGIN
 			LEFT JOIN bodb02.dbo.Custinfo upd WITH(NOLOCK) ON a.ModifierID = upd.CustID
             LEFT JOIN #tmpSite si ON b.SiteID = si.SiteID
             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-            LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+            LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 		WHERE  a.Remark LIKE '%' + @Remark + '%' 
 		AND (a.RemarkTitle IS NULL OR a.RemarkTitle IN (SELECT VALUE FROM STRING_SPLIT(@RemarkTitle,',')  WHERE  value <> ''))
 		AND ((@IsGuest = 0 AND a.CustID > 0)OR (@IsGuest = 1 AND a.CustID < 0))

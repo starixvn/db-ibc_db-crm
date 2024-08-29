@@ -1,4 +1,4 @@
-﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+﻿ /*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
  USE bodb_CRM
  GO
@@ -24,6 +24,7 @@ Revisions:
 		- 20171225@Winnie: Change for support multiple product/categories. [RedmineID: #84714]	
 		- 20190506@Winnie:  CN88 Permission RedmineID: #112637
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        - 20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
 Param's Explanation:
 	@SiteType:	0-All,
@@ -83,7 +84,7 @@ BEGIN
 		INNER JOIN crmSubCategory s WITH(NOLOCK)  ON s.MainCategoryID = m.MainCategoryID and fs.SubSettingID = s.SubCategoryID
 		LEFT JOIN crmSite si WITH (NOLOCK) ON si.SiteID = f.SiteID
         LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 	WHERE f.StatusID NOT IN( 11004,11019)
 		AND f.FeedbackDate >= @FromDate AND f.FeedbackDate < @ToDate
 		AND (@SiteType=0 OR (@SiteType=1 and IsLicensee=0)  OR (@SiteType=2 and IsLicensee=1)   OR (@SiteType=3 and IsLicensee IS NULL))
@@ -105,7 +106,4 @@ BEGIN
     DROP TABLE #tmpUserSitePermission
     DROP TABLE #tmpSitePermission
 END
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_Rpt_FeedbackStatisticsSummary] TO [bodbAdminNet]
 GO

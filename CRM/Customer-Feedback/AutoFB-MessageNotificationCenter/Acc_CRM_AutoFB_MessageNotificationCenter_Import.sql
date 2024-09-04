@@ -760,13 +760,13 @@ BEGIN
                       ORDER BY c.Category_MappedLevel,
                                c. SubCategory_MappedLevel) df
     WHERE isLicensee = 0
-    -- + --> For Licensee Model (hardcode Skype)
+    -- + --> For Licensee Model (hardcode Email)
     ;WITH
     CTE_Data AS (
         SELECT TOP 1 SettingID
         FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
         WHERE SettingName = 'Communication'
-              AND SettingValue = 'Skype'
+              AND SettingValue = 'Email'
               AND SiteOffer = 2
     )
     UPDATE h
@@ -954,13 +954,13 @@ BEGIN
          LEFT JOIN CTE_eventinfo e ON b.MessageId = e.MessageId AND b.HeadlineId = e.HeadlineId
          OUTER APPLY (
             SELECT (
-                       'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
+                       'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + ISNULL(b.CommunicationNames, '') + CHAR(13) + CHAR(10)
                        + 'System ID: ' + ISNULL(b.RelatedUsernames, '')
                    ) AS '@AutoField'
                    ,
                    (
                        '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
-                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
+                       + 'Msg ID: ' + ISNULL(CONVERT(VARCHAR(20), b.MessageId), '') + '</span><br/><br/>'
                        + ISNULL(e.EventInfo, '')
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
@@ -981,13 +981,13 @@ BEGIN
     FROM #tmpFeedback_base b
          OUTER APPLY (
             SELECT (
-                       'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
+                       'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + ISNULL(b.CommunicationNames, '') + CHAR(13) + CHAR(10)
                        + 'System ID: ' + ISNULL(b.RelatedUsernames, '')
                    ) AS '@AutoField'
                    ,
                    (
                        '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
-                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
+                       + 'Msg ID: ' + ISNULL(CONVERT(VARCHAR(20), b.MessageId), '') + '</span><br/><br/>'
                        + '@RemarkContent@'
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
@@ -1054,7 +1054,7 @@ BEGIN
 
             UPDATE tmp
             SET tmp.isProcessed = 1,
-                tmp.Description = REPLACE(tmp.Description, '@RemarkContent@', @Loop_Lic_Des_ContentOutput)
+                tmp.Description = REPLACE(tmp.Description, '@RemarkContent@', ISNULL(@Loop_Lic_Des_ContentOutput, ''))
             FROM #tmpFeedback_description tmp
             WHERE tmp.isLicensee = 1
                   AND tmp.isProcessed = 0

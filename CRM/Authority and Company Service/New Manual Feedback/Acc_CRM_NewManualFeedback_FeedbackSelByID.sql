@@ -16,6 +16,7 @@ AS
 
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 
     Param's Explanation:
         @FeedbackID: ID be used to search data
@@ -138,7 +139,7 @@ BEGIN
 
     -- crmFeedbackCustomer
     SELECT cf.FeedbackID,
-           cf.CustID,
+           CASE WHEN cf.CustID > 0 AND c1.custid IS NULL THEN 0 ELSE cf.CustID END CustID,
            ISNULL(c.UserName, c1.username ) UserName,
            CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee,
            ISNULL(s.IsActive,0) as IsSiteActive

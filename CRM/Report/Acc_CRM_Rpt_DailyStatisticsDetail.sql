@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -39,6 +39,7 @@ AS
 		- 20230517@Malcolm: order by result [RedmineID : #187090]
         - 20230823@Ned.Le: CRM - Security improvement - Separate accessible data for Credit and Licensee Users (#192556)
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+        - 20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 
 	Param's Explanation:		
 		@SiteType =	0: IBC
@@ -147,7 +148,7 @@ BEGIN
 		INNER JOIN #Communication c ON fs.SettingID=c.CommunicationID
 		LEFT JOIN crmSite s WITH (NOLOCK) ON s.SiteID = fb.SiteID 
         LEFT JOIN #tmpSitePermission sp ON s.SiteID = sp.SiteID
-        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = sp.SitePermission
+        LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
 	WHERE fb.feedbackdate BETWEEN @fromdate AND @todate				
 	AND	fb.StatusID <> 11004
 	AND	fb.StatusID <> 11019

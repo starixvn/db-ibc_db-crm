@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Upd]
 	@ConversationGroupId			INT
 	,@BotId							BIGINT
@@ -30,6 +34,7 @@ AS
 			- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
 			- 20221222@Malcolm: Add Ignored notificationType list [RedmineId : #179118]
 			- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+            - 20240909@Ned.Le: Hotfix - CRM - PIC management - To fix the Error due to having space in Letstalk ID [HotFix #210467]
 			
 		Param's Explanation:
 		
@@ -45,6 +50,9 @@ BEGIN
 			@OldValues NVARCHAR(MAX), @__ChatTypeXML XML, @__RecipientTypeXML XML, @__HeadlineXML XML, @__RecipientXML XML, @__IgnoredNotificationType XML,
 			@__LanguageXML XML, @__BotXML XML, @__ConversationGroup XML, @__ChannelXML XML,@CustIds VARCHAR(1000), @ReferenceIds VARCHAR(1000), @ChannelId TINYINT,
 			@ChatType TINYINT, @Existing_UserName VARCHAR(32) = ''
+
+    -- Trim data for input parameter @ConversationId
+    SELECT @ConversationId = TRIM(@ConversationId)
 
 	IF ISNULL(@IsAuto,0) = 1
 	BEGIN

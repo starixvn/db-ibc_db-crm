@@ -238,7 +238,7 @@ BEGIN
     FROM #tmpMessageData d
          CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchid, m.sporttype, b.bettype
                       FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-                           INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
+                           LEFT JOIN bodb02.dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
                       WHERE b.transid = d.TransId) b
     -- + Get data from bettrans14
     UPDATE d
@@ -254,7 +254,7 @@ BEGIN
     FROM #tmpMessageData d
          CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchid, m.sporttype, b.bettype
                       FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
-                           INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
+                           LEFT JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
                       WHERE b.transid = d.TransId) b
     -- + Clean data, only import testing data with UAT environment
     IF (@Environment = 'UAT')
@@ -604,10 +604,10 @@ BEGIN
            h.HeadlineId,
            CASE WHEN h.isParlay = 1 THEN @Feedback_SubProductId_Parlay ELSE mp.SettingID END SubProductId
     FROM #tmpMessageData b
-         INNER JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
-         INNER JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON b.Sporttype = s.SportType
-         INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON s.SportName = mp.SettingSource
-         INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'SubProduct' AND mp.SettingID = st.SettingID
+         LEFT JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
+         LEFT JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON b.Sporttype = s.SportType
+         LEFT JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON s.SportName = mp.SettingSource
+         LEFT JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'SubProduct' AND mp.SettingID = st.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
              CASE WHEN h.isParlay = 1 THEN @Feedback_SubProductId_Parlay ELSE mp.SettingID END
@@ -629,10 +629,10 @@ BEGIN
            CASE WHEN h.isParlay = 1 THEN @Feedback_BettypeId_Parlay ELSE mp.SettingID END BettypeId
     FROM #tmpMessageData b
          LEFT JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
-         INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
-         INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON bt.typenamee = mp.SettingSource
-         INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'BetType' AND mp.SettingID = st.SettingID
-         INNER JOIN bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK) ON sr.ParentID IN (SELECT SubProductId FROM #tmpFeedback_base_subproduct) AND st.SettingID = sr.SettingID
+         LEFT JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
+         LEFT JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON bt.typenamee = mp.SettingSource
+         LEFT JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'BetType' AND mp.SettingID = st.SettingID
+         LEFT JOIN bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK) ON sr.ParentID IN (SELECT SubProductId FROM #tmpFeedback_base_subproduct) AND st.SettingID = sr.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
              CASE WHEN h.isParlay = 1 THEN @Feedback_BettypeId_Parlay ELSE mp.SettingID END
@@ -1068,7 +1068,7 @@ BEGIN
                REPLACE(x.Content_en, '@@', '') + '<br/><br/>' +
                'Kindly refer to Agency site "Cancelled Bets" for Voided user.' + '<br/><br/>' +
                REPLACE(x.Content_cs, '@@', '') + '<br/><br/>' +
-               '请浏览代理网 “已删除/作废注单” 查询有关作废账号。' + '<br/><br/>' +
+               N'请浏览代理网 “已删除/作废注单” 查询有关作废账号。' + '<br/><br/>' +
                'Affected users and tickets:' + '<br/>' +
                t.TransidInfo
            ) Solution

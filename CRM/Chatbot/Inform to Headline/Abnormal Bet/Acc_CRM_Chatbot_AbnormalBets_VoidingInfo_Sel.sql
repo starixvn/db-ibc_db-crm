@@ -33,19 +33,19 @@ AS
         @Messages:
             + Data
                 <root>
-                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="1,2,3,4" UsernameList="" FilterBy="1"/>
-                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="5,6,7,8" UsernameList="" FilterBy="-1"/>
-                    <r VoidingHistoryCollectionId="2" MessageId="2" IssueTypeId="15" TransIdList="9,10,11,12" UsernameList="" FilterBy="-1"/>
-                    <r VoidingHistoryCollectionId="3" MessageId="3" IssueTypeId="13" TransIdList="" UsernameList="a1,a2,a3,a4" FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="1,2,3,4"    UsernameList=""            FilterBy="1"/>
+                    <r VoidingHistoryCollectionId="1" MessageId="1" IssueTypeId="11" TransIdList="5,6,7,8"    UsernameList=""            FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="2" MessageId="2" IssueTypeId="15" TransIdList="9,10,11,12" UsernameList=""            FilterBy="-1"/>
+                    <r VoidingHistoryCollectionId="3" MessageId="3" IssueTypeId="13" TransIdList=""           UsernameList="a1,a2,a3,a4" FilterBy="-1"/>
                 </root>
             + Description
                 * UsernameList: SMA list enter to void tickets
         @Messages_VoidByBetID:
             + Data
                 <root>
-                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423853" TargetId="43454879" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
-                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423854" TargetId="43454880" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
-                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423855" TargetId="45532870" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423853" TargetId="43454879"  BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423854" TargetId="43454880"  BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
+                    <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423855" TargetId="45532870"  BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608, 191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
                     <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423856" TargetId="103465927" BetTransId="191740405392343154, 191740426867179563, 191740452636983362, 191740469816852488"/>
                     <r VoidingHistoryCollectionId="-1" MessageId="1822833" MsgTargetId="41423857" TargetId="103757148" BetTransId="191740199233912877, 191740225003716680, 191740246478553114, 191740267953389608"/>
                 </root>
@@ -392,15 +392,15 @@ BEGIN
     -- Return final result data set
 
     -- The dataset that contain data relate to Headline
-    SELECT VoidingHistoryCollectionId   VoidingHistoryCollectionId,
-           MessageId                    MessageId,
-           ISNULL(CustId, 0)            CustId ,
-           ISNULL(UsernameList, '')     UsernameList,
-           ISNULL(Srecommend, 0)        Srecommend,
-           ISNULL(Mrecommend, 0)        Mrecommend,
-           ISNULL(Recommend, 0)         Recommend,
-           ISNULL(IsTest, 1)            IsTest,
-           [Type]                       [Type]
+    SELECT VoidingHistoryCollectionId VoidingHistoryCollectionId,
+           MessageId                  MessageId,
+           ISNULL(CustId,       0)    CustId ,
+           ISNULL(UsernameList, '')   UsernameList,
+           ISNULL(Srecommend,   0)    Srecommend,
+           ISNULL(Mrecommend,   0)    Mrecommend,
+           ISNULL(Recommend,    0)    Recommend,
+           ISNULL(IsTest,       1)    IsTest,
+           [Type]                     [Type]
     FROM #tmpData_Final
 
     -- The dataset that contain data to be used to get message content

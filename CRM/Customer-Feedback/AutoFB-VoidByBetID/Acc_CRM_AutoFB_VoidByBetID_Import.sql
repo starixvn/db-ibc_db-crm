@@ -28,8 +28,8 @@ AS
     Param's Explanation:
         @Message:
             <root>
-                <r MessageId="1" ListBetTransId="1,2,3,4" Content_en="" Content_cs=""/>
-                <r MessageId="2" ListBetTransId="5,6,7,8" Content_en="" Content_cs=""/>
+                <r MessageId="1" ListBetTransId="1,2,3,4" CreatorName="" Content_en="" Content_cs=""/>
+                <r MessageId="2" ListBetTransId="5,6,7,8" CreatorName="" Content_en="" Content_cs=""/>
             </root>
 */
 
@@ -153,13 +153,15 @@ BEGIN
     CREATE TABLE #tmpXMLData (
         MessageId      INT,
         ListBetTransId VARCHAR(MAX),
+        CreatorName    NVARCHAR(200),
         Content_en     NVARCHAR(MAX),
         Content_cs     NVARCHAR(MAX)
     )
 
-    INSERT INTO #tmpXMLData (MessageId, ListBetTransId, Content_en, Content_cs)
+    INSERT INTO #tmpXMLData (MessageId, ListBetTransId, CreatorName, Content_en, Content_cs)
     SELECT t.c.value('@MessageId',      'INT')           AS MessageId,
            t.c.value('@ListBetTransId', 'VARCHAR(MAX)')  AS ListBetTransId,
+           t.c.value('@CreatorName',    'NVARCHAR(200)') AS CreatorName,
            t.c.value('@Content_en',     'NVARCHAR(MAX)') AS Content_en,
            t.c.value('@Content_cs',     'NVARCHAR(MAX)') AS Content_cs
     FROM @Messages.nodes('root/r') AS t(c)
@@ -997,6 +999,7 @@ BEGIN
            b.HeadlineId,
            d.Description
     FROM #tmpFeedback_base b
+         LEFT JOIN #tmpXMLData x ON b.MessageId = x.MessageId
          OUTER APPLY (
             SELECT (
                        'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
@@ -1006,7 +1009,8 @@ BEGIN
                    (
                        '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
                        + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
-                       + 'Due to Abnormal Bets, some Mix Parlay tickets were VOIDED. '
+                       + 'Due to Abnormal Bets, some Mix Parlay tickets were VOIDED.' + '<br/>'
+                       + 'Voided By: ' + x.CreatorName
                    ) AS '@Remark'
             FOR XML PATH('row'), ROOT('ROOT')
         ) AS d(Description)
@@ -1069,7 +1073,7 @@ BEGIN
                'Kindly refer to Agency site "Cancelled Bets" for Voided user.' + '<br/><br/>' +
                REPLACE(x.Content_cs, '@@', '') + '<br/><br/>' +
                N'请浏览代理网 “已删除/作废注单” 查询有关作废账号。' + '<br/><br/>' +
-               'Affected users and tickets:' + '<br/>' +
+               'Affected user/' + N'受影响会员:' + '<br/>' +
                t.TransidInfo
            ) Solution
     FROM #tmpFeedback_base b

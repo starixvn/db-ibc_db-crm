@@ -217,6 +217,14 @@ BEGIN
     ------------------------------------------------------------------------------------------------------------------------------
 
     -- Get template setting | Get setting that indicate Notification Service will use which Notification Template
+    --                      | Columns explanation
+    --                      | + IsTest: Mot template ma IsTest=1 thi co nghia la nhung notification duoc tao ra se mark Status='Draft'
+    --                      |           Tuc la template nay dang o giai doan test va muc dich la chi muon xem no tao ra dung hay khong
+    --                      |           Sau khi test thay ok thi moi bat lai co IsTest=0 de dung tren thuc te
+    --                      | + LanguageId: Gia tri nay duoc su dung de check nguoc lai voi data o bang vat ly
+    --                      |               Nham dam bao viec tao setting la chinh xac va khong gay ra loi
+    --                      | + TemplateRequiredParam: Tuong tu nhu tren gia tri nay cung dung voi muc dich kiem tra cheo chong loi
+    --                      | + [Type]: Gia tri nay duoc su dung de mapping voi du loi parse ra tu XML de tao notification
     -- + Create and get data for variable
     DECLARE @NotificationTemplateSetting XML
     SELECT  @NotificationTemplateSetting = CONVERT(XML, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE ServiceName = @ServiceName AND SettingName = 'NotificationTemplate'
@@ -273,7 +281,7 @@ BEGIN
         Content                NVARCHAR(MAX),
         [Type]                 TINYINT
     )
-    -- + Gen data to temp table
+    -- + Gen data to temp table | Du tren gia tri setting ta mapping voi cac bang vat ly de lay len data can dung
     ;WITH CTE_Setting AS (
         SELECT DISTINCT
                NotificationTemplateId,
@@ -302,7 +310,7 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmNotificationTemplate nt WITH (NOLOCK) ON s.NotificationTemplateId = nt.NotificationTemplateId
          INNER JOIN bodb_CRM.dbo.crmNotificationTemplateContent ntc WITH (NOLOCK) ON nt.NotificationTemplateId = ntc.NotificationTemplateId
 
-    -- Check require param
+    -- Check require param | Day la buoc check cheo data quan trong nham dam bao tinh chinh xac cua du lieu
     IF EXISTS (
         SELECT 1
         FROM #tmpNotificationTemplateSetting st
@@ -328,12 +336,22 @@ BEGIN
     -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     -- [04] Get Notification Recipient Data                                                                                                                                            --
     --      _ Base on source data we will known exactly affected SMA and Member and from that we know Direct Account and from that we know Recipient (PIC)                             --
-    --      _ We need to to one more thing here, for group chat, to sure that number of recipient in group at database is the same with number of recipient in group when process data --
+    --        + Mot Direct Account chi thuoc mot Headline duy nhat                                                                                                                     --
+    --        + Mot Recipient (PIC) co the thuoc nhieu Direct Account khac nhau va tat nhien se thuoc nhieu Headline khac nhau                                                         --
+    --        + Mot Headline se co rat nhieu Direct Account khac nhau nhung thuong chi co mot vai PIC (kieu nhu mot dang thu ky cua Headline) hay cung co the PIC la chinh Headline    --
+    --      _ We need to do one more thing here, for group chat, to sure that number of recipient in group at database is the same with number of recipient in group when process data --
+    --        + Thong tin giai thich cu the cho phan nay o ben duoi                                                                                                                    --
     -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
-    -- Get detail message info | From source data we have SMA and Member
-    --                         | From SMA and Member we know Direct Account
-    --                         | From Direct Account we know Headline and PIC (from table crmPicManagement)
+    -- Get detail message info | Notes
+    --                         | + From source data we have SMA and Member
+    --                         | + From SMA and Member we know Direct Account (from table CustDirectAccount)
+    --                         | + From Direct Account we know Headline and PIC (from table crmPicManagement)
+    --                         | Columns explanation
+    --                         | + RecipientId: Ve co ban cac cot con lai deu lay tu XML data hoac tu cac bang vat ly nhung khong gay ra duplicate data
+    --                         |                Rieng cot nay se co the lam data tang len nhieu dong
+    --                         |                Vi nhu ta da biet la mot Direct Account co the co nhieu Recipient (PIC)
+    --                         |                Nhom table lien quan den ConverstionGroup chi su dung gia tri RecipientId chu ko dung PicID
     -- + Create temp table
     CREATE TABLE #tmpNotificationMessageInfo (
         VoidingHistoryCollectionId INT,
@@ -377,14 +395,21 @@ BEGIN
            m.Content_vn                 Content_vn,
            r.RecipientId                RecipientId
     FROM #tmpXMLData m
-         INNER JOIN bodb02.dbo.Customer mem WITH (NOLOCK) ON m.Username = mem.username AND mem.roleid = 1
+         INNER JOIN bodb02.dbo.Customer mem WITH (NOLOCK) ON m.Username = mem.username
          INNER JOIN bodb02.dbo.Customer sup WITH (NOLOCK) ON mem.srecommend = sup.custid AND sup.roleid = 4
          INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
          INNER JOIN bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
          INNER JOIN bodb_CRM.dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
     
-    -- Get detail group chat info | We just get data for both Personal and Group
-    --                            | Data relate to Direct Account be quite confused
+    -- Get detail group chat info | Notes
+    --                            | + From RecipientId we know ConversationGroupId belong to (from table crmConversationGroupRecipient)
+    --                            | + We also need to consistent data when INNER JOIN with two table crmConversationGroupHeadline|crmConversationGroup
+    --                            | Columns explanation
+    --                            | + ConversationGroupId: Mot ConversationGroupID hay cung chinh la mot tai khoan (Personal) hay mot group Letstalk/Telegram (Group)
+    --                            | + DirectAccount: Mot ConversationGroupId neu la Personal co the map voi nhieu Direct Account
+    --                            |                  Vi ly do nay ma ta can gom nhom theo ConversationGroupID|DirectAccount khi tinh toan NoRecipient
+    --                            | + NoRecipient: Mot ConversationGroupId neu la Personal (ChatTypeId=2) se chi map voi mot RecipientId (PicID)
+    --                            |                Mot ConversationGroupID neu la Group (ChatTypeId=1) co the map voi nhieu RecipientId (PicID)
     -- + Create temp table
     CREATE TABLE #tmpNotificationGroupChatInfo (
         VoidingHistoryCollectionId INT,
@@ -415,9 +440,21 @@ BEGIN
              cgr.ConversationGroupId,
              m.DirectAccount
 
-    -- Check data | Delete data that not satisfied the requirement
-    --            | Because Personal always have count=1 so no meaning here
-    --            | It just meaning for Group
+    -- Cross Check data | Notes
+    --                  | + Viec cross check data o day chi co y nghia cho ConversationGroup dang Group (ChatType=1)
+    --                  | + Muc dich chinh la nham dam bao data cho Chattype Mapping giua DirectAccount voi PIC
+    --                  |   La khop voi data cho ConversationGroup giua ConversationGroupID voi RecipientId (PIC)
+    --                  | How to check
+    --                  | + Tu bang crmConversationGroupRecipient ta se biet chinh xac la mot ConversationGroupId dang Group duoc mapping voi bao nhieu RecipientId
+    --                  |   Tuc la mot group Letstalk/Telegram se bao gom bao nhieu account (Recipient hay cung la PIC) trong do
+    --                  |   Ta goi la Dataset01
+    --                  | + Con qua trinh xao nau data de do vao bang tam #tmpNotificationGroupChatInfo
+    --                  |   Ta biet chinh xac la mot DirectAccount dang di voi bao nhieu RecipientId (PIC)
+    --                  |   Ta goi la Dataset02
+    --                  | + Ve nguyen tac hai gia tri nay phai bang nhau
+    --                  |   Nhung trong mot so truong hop tap Dataset01 nho hon Dataset02
+    --                  |   Tuc la mot RecipientId khong con di voi DirectAccount nua nhung van con nam trong group ConversationGroupId
+    --                  |   Va ta can stop ko gui thong tin vao group ConversationGroupId nay de ko bi lo thong tin
     ;WITH
     CTE_Group AS (
         SELECT DISTINCT
@@ -445,17 +482,25 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmConversationGroup cg WITH (NOLOCK) ON t.ConversationGroupId = cg.ConversationGroupId
 
 
-    --------------------------------------
-    -- [05] Get Notification Final Data -- 
+    -----------------------------------------------------------------------------------------------------------------------
+    -- [05] Get Notification Final Data                                                                                  -- 
+    --      _ We have data of Group (ChatTypeId=1) and data of Personal (ChatTypeId=2)                                   --
+    --      _ So if one Headline belong to Group we ko need send notification to Personal to prevent duplicate send data --
+    --      _ The way to group data here quite complicated and need to understand clearly                                --
+    -----------------------------------------------------------------------------------------------------------------------
 
     -- Declare variables
+    -- + Because of the maximum character in message of Letstalk/Telegram
+    --   So we need to limit info about affected list will appear on message
     DECLARE @MaxBatchOfLetstalkGroup INT = 250
     DECLARE @MaxBatchOfTelegramGroup INT = 100
-
+    -- + For test Template status of Notification must be Draft
     DECLARE @Status VARCHAR(20) = 'Planned'
     IF EXISTS (SELECT 1 FROM #tmpNotificationTemplateData WHERE IsTest = 1) SET @Status = 'Draft'
 
-    -- Get prepare data | Because of the limitation in message content of Letstalk or Telegram, so we need to separate data by batch
+    -- Get prepare data | O day ta lam hai viec
+    --                  | + Dau tien la lay len nhung thong tin can thiet de tao notification
+    --                  | + Thu hai la chia data thanh tung batch theo so luong username de dam bao ko bi qua tai so luong ky tu khi tao notification
     -- + Create temp table
     CREATE TABLE #tmpNotificationPrepareData (
         VoidingHistoryCollectionId INT,
@@ -508,7 +553,7 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmConversationGroupRecipient cgr WITH (NOLOCK) ON m.RecipientId = cgr.RecipientId AND g.ConversationGroupId = cgr.ConversationGroupId
          INNER JOIN bodb_CRM.dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 
-    -- Get final data
+    -- Get final data | Ta tach
     -- + Create temp table
     CREATE TABLE #tmpNotificationFinalData (
         Id                         INT IDENTITY(1, 1),
@@ -529,9 +574,14 @@ BEGIN
         [Type]                     TINYINT,
         MessageIdList              VARCHAR(MAX)
     )
-    -- + Gen data to temp table for Group (ChatTypeId=1)
+    -- + Gen data to temp table for Group (ChatTypeId=1) | Ta can gom data thanh tung level
+    --                                                   | + Khi viet code theo kieu nay thi code se dai hon
+    --                                                   | + Nhung bu lai thi code se tuong minh va de hieu hon
+    --                                                   | Rat kho de mo ta tai sao phai code gom data nhu ben duoi
+    --                                                   | + Cach tot nhat de hieu la hieu ro ban chat cua data
+    --                                                   | + Cung nhu loi data ra debug de co cai nhin thuc te
     ;WITH
-    CTE_AggregateData_01 AS (
+    CTE_AggregateData_Level1_Username AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -556,7 +606,7 @@ BEGIN
                  BatchOfGroup,
                  Supername
     ),
-    CTE_AggregateData_02 AS (
+    CTE_AggregateData_Level2_Supername AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -567,13 +617,34 @@ BEGIN
                MessageId,
                BatchOfGroup,
                STRING_AGG(CAST(('- ' + Supername + ': ' + UsernameList) AS VARCHAR(MAX)), '<br/>') AffectedList
-        FROM CTE_AggregateData_01
+        FROM CTE_AggregateData_Level1_Username
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
                  ChatTypeId,
                  LanguageId,
                  HeadlineId,
+                 IsTest,
+                 MessageId,
+                 BatchOfGroup
+    ),
+    CTE_AggregateData_Level3_HeadlineIdAffectedList AS (
+        SELECT VoidingHistoryCollectionId                              VoidingHistoryCollectionId,
+               ConversationGroupId                                     ConversationGroupId,
+               ChannelId                                               ChannelId,
+               ChatTypeId                                              ChatTypeId,
+               LanguageId                                              LanguageId,
+               STRING_AGG(CAST(HeadlineId   AS VARCHAR(MAX)), ',')     HeadlineList,
+               IsTest                                                  IsTest,
+               MessageId                                               MessageId,
+               BatchOfGroup                                            BatchOfGroup,
+               STRING_AGG(CAST(AffectedList AS VARCHAR(MAX)), '<br/>') AffectedList
+        FROM CTE_AggregateData_Level2_Supername
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
                  IsTest,
                  MessageId,
                  BatchOfGroup
@@ -596,19 +667,19 @@ BEGIN
            ChatTypeId                                              ChatTypeId,
            LanguageId                                              LanguageId,
            STRING_AGG(CAST(AffectedList AS VARCHAR(MAX)), '<br/>') AffectedList,
-           STRING_AGG(CAST(HeadlineId   AS VARCHAR(MAX)), ',')     HeadlineList,
+           STRING_AGG(CAST(HeadlineList   AS VARCHAR(MAX)), ',')   HeadlineList,
            MIN(CONVERT(TINYINT, IsTest))                           IsTest,
            @Status                                                 Status,
            STRING_AGG(CAST(MessageId    AS VARCHAR(MAX)), ',')     MessageIdList
-    FROM CTE_AggregateData_02
+    FROM CTE_AggregateData_Level3_HeadlineIdAffectedList
     GROUP BY VoidingHistoryCollectionId,
              ConversationGroupId,
              ChannelId,
              ChatTypeId,
              LanguageId,
              BatchOfGroup
-
-    -- + Gen data to temp table for Personal (ChatTypeId=2)
+    -- + Gen data to temp table for Personal (ChatTypeId=2) | Doan code nay se chi can 2 level gom data vi la Personal se don gian hon Group
+    --                                                      | Nhung bug lai doan code giup detect ra data Personal da co trong Group hay chua lai lam kha phuc tap
     ;WITH
     CTE_tmpDetail AS (
         SELECT p.VoidingHistoryCollectionId,
@@ -697,6 +768,7 @@ BEGIN
                  IsTest,
                  MessageId,
                  IsDuplicated,
+                 RelatedIds,
                  BatchOfGroup
     )
     INSERT INTO #tmpNotificationFinalData (
@@ -733,17 +805,19 @@ BEGIN
              BatchOfGroup
 
     -- + Update to correct data or to get data for NULL value
-    -- + --> AffectedList
+    -- + --> AffectedList | Ta thay the ky tu '<br/>' bang ky tu xuong dong
     UPDATE tmp
     SET tmp.AffectedList = REPLACE(tmp.AffectedList, '<br/>', CHAR(13) + CHAR(10))
     FROM #tmpNotificationFinalData tmp
-    -- + --> Status
+    -- + --> Status | Chi gui di nhung tin nhan ma Template dang thu nhiem (Status='Draft') va no la ticket test (IsTest=1)
+    --              | Con nhung notification khac deu mark Status='Draf' tuc la se khong duoc gui di
+    --              | Thuong thi dang data nay chi duoc su dung khi test moi truong UAT
     UPDATE tmp
     SET tmp.Status = 'Planned'
     FROM #tmpNotificationFinalData tmp
     WHERE tmp.IsTest = 1
           AND tmp.Status = 'Draft'
-    -- + --> Content and Type
+    -- + --> Content and Type | Update cac columns dang mang gia tri NULL
     UPDATE r
     SET r.Content_en = m.Content_en,
         r.Content_cs = m.Content_cs,
@@ -761,8 +835,11 @@ BEGIN
                       WHERE r.VoidingHistoryCollectionId = m.VoidingHistoryCollectionId) m
 
 
-    ------------------------------
-    -- [07] Create Notification --   
+    --------------------------------------------------------
+    -- [07] Create Notification                           --
+    --      _ Run the while loop to create notification   --
+    --      _ Remember to insert data to secondary tables -- 
+    --------------------------------------------------------
 
     -- Declare variables
     DECLARE @Sender         INT      = 10278938
@@ -869,11 +946,13 @@ BEGIN
              CROSS APPLY STRING_SPLIT(r.MessageIdList, ',') f
         WHERE r.Id = @Id
 
-        -- + ....
+        -- + Update value column RelatedIds for Notification of Personal that be duplicate data with Group
+        --   --> Ta can luu y la gia tri column RelatedNotificationIds cua bang crmNotification phai la gia tri NotificationID
+        --   --> Va doan code nay giup giai quyet van de nay
         UPDATE r
         SET r.RelatedIds = RIGHT(LEFT(t.tmpRelatedIds, LEN(t.tmpRelatedIds) - 1), LEN(t.tmpRelatedIds) - 2)
         FROM #tmpNotificationFinalData r
-            CROSS APPLY (SELECT tmpRelatedIds = REPLACE(',' + r.RelatedIds + ',', ',' + CONVERT(VARCHAR(20), @Id) + ',', ',' + CONVERT(VARCHAR(20), @NotificationId) + ',')) t
+             CROSS APPLY (SELECT tmpRelatedIds = REPLACE(',' + r.RelatedIds + ',', ',' + CONVERT(VARCHAR(20), @Id) + ',', ',' + CONVERT(VARCHAR(20), @NotificationId) + ',')) t
         WHERE r.Id > @Id
               AND r.ChatTypeId = 2
               AND ',' + r.RelatedIds + ',' LIKE '%,' + CONVERT(VARCHAR(20), @Id) + ',%'

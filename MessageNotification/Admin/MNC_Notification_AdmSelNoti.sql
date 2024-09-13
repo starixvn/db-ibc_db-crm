@@ -26,6 +26,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Param's Explanation:
 		@FCreatedDate, @TCreatedDate: created date of notifications - Default Yesterday and Today
@@ -111,6 +112,7 @@ BEGIN
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
+		,Content_zhcn NVARCHAR(4000)
 		,Status VARCHAR(50)
 		,Sender VARCHAR(50)
 		,SendDateGMT8 VARCHAR(50)
@@ -471,6 +473,7 @@ BEGIN
 						n.Content_en LIKE '%' + @Content + '%'
 						OR n.Content_ch LIKE '%' + @Content + '%'
 						OR n.Content_cs LIKE '%' + @Content + '%'
+						OR n.Content_zhcn LIKE '%' + @Content + '%'
 					)
 			)
 			
@@ -563,6 +566,7 @@ BEGIN
 		,Content_en
 		,Content_ch
 		,Content_cs
+		,Content_zhcn
 		,Status
 		,Sender
 		,SendDateGMT8
@@ -577,6 +581,7 @@ BEGIN
 		,n.Content_en
 		,n.Content_ch
 		,n.Content_cs
+		,n.Content_zhcn
 		,s.ViewStatus AS Status
 		,ext.Sender
 		,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
@@ -613,6 +618,7 @@ BEGIN
 		,Content_en
 		,Content_ch
 		,Content_cs
+		,Content_zhcn
 		,Status
 		,Sender
 		,SendDateGMT8 AS SendDate

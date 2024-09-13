@@ -11,6 +11,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Explanation:
 		@Environment
@@ -79,12 +80,6 @@ BEGIN
 		,@LogMode VARCHAR(500)
 		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151,215'
 		,@Sites777 VARCHAR(500) = ''
-		,@Saba_en NVARCHAR(10) = N'Saba'
-		,@Saba_ch NVARCHAR(10) = N'沙巴'
-		,@Saba_cs NVARCHAR(10) = N'沙巴'
-		,@Neutral_en NVARCHAR(10) = N'(N)'
-		,@Neutral_ch NVARCHAR(10) = N'(中)'
-		,@Neutral_cs NVARCHAR(10) = N'(中)'
 	
 	/****************************************************************************
 	
@@ -253,6 +248,7 @@ BEGIN
 		,RefValueEN NVARCHAR(500)
 		,RefValueCH NVARCHAR(500)
 		,RefValueCS NVARCHAR(500)
+		,RefValueZHCN NVARCHAR(500)
 	)
 	
 	CREATE TABLE #tmpResultHist (
@@ -306,14 +302,17 @@ BEGIN
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
 		,ResultName_cs NVARCHAR(4000)
+		,ResultName_zhcn NVARCHAR(4000)
 		
 		,ActualValue_en NVARCHAR(4000)
 		,ActualValue_ch NVARCHAR(4000)
 		,ActualValue_cs NVARCHAR(4000)
+		,ActualValue_zhcn NVARCHAR(4000)
 		
 		,WrongValue_en NVARCHAR(4000)
 		,WrongValue_ch NVARCHAR(4000)
 		,WrongValue_cs NVARCHAR(4000)
+		,WrongValue_zhcn NVARCHAR(4000)
 	)
 
 	/*
@@ -337,6 +336,7 @@ BEGIN
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
+		,Content_zhcn NVARCHAR(4000)
 	)
 	
 	/*
@@ -363,6 +363,7 @@ BEGIN
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
+		,Content_zhcn NVARCHAR(4000)
 	)
 	
 	CREATE TABLE #tmpNotiByContent (
@@ -418,6 +419,24 @@ BEGIN
 			#tmpResultInfo
 	****************************************************************************/
 	BEGIN TRY
+		
+		------------Dictionary / Translation------------
+		DECLARE @Saba_EN NVARCHAR(10) = N'Saba'
+			,@Saba_CH NVARCHAR(10) = N'沙巴'
+			,@Saba_CS NVARCHAR(10) = N'沙巴'
+			,@Saba_ZHCN NVARCHAR(10) = N'沙巴'
+			
+			,@Neutral_EN NVARCHAR(10) = N'(N)'
+			,@Neutral_CH NVARCHAR(10) = N'(中)'
+			,@Neutral_CS NVARCHAR(10) = N'(中)'
+			,@Neutral_ZHCN NVARCHAR(10) = N'(中)'
+			
+			,@Refund_en NVARCHAR(10) = N'Refund'
+			,@Refund_ch NVARCHAR(10) = N'退款'
+			,@Refund_cs NVARCHAR(10) = N'退款'
+			,@Refund_zhcn NVARCHAR(10) = N'退款'
+		
+		------------tmpResultHist------------		
 		;WITH CTE_SettleIDs AS (
 			SELECT TRY_CONVERT(INT, value) AS SettlementLogID
 			FROM STRING_SPLIT(@ValidSettlementLogIDs, ',')
@@ -476,6 +495,7 @@ BEGIN
 			,RefValueEN
 			,RefValueCH
 			,RefValueCS
+			,RefValueZHCN
 		)
 		SELECT DISTINCT rf.GroupName
 			,rf.RefId1
@@ -483,6 +503,7 @@ BEGIN
 			,rf.RefValueEN
 			,rf.RefValueCH
 			,rf.RefValueCS
+			,rf.RefValueZHCN
 		FROM OPENJSON(@JSRemotingRef) WITH (
 				SettlementLogIDs VARCHAR(MAX) '$.SettlementLogIDs'
 				,GroupName VARCHAR(50) '$.GroupName'
@@ -491,12 +512,23 @@ BEGIN
 				,RefValueEN NVARCHAR(500) '$.RefValueEN'
 				,RefValueCH NVARCHAR(500) '$.RefValueCH'
 				,RefValueCS NVARCHAR(500) '$.RefValueCS'
+				,RefValueZHCN NVARCHAR(500) '$.RefValueZHCN'
 			) AS rf--OPENJSON case-sensitive
 		CROSS APPLY STRING_SPLIT(rf.SettlementLogIDs, ',') AS SettID
 		WHERE ISJSON(@JSRemotingRef) = 1
 			AND TRY_CONVERT(INT, SettID.value) IN ( SELECT SettlementLogID FROM #tmpResultHist )
 		
 		CREATE CLUSTERED INDEX CIX_tmpRemotingRef ON #tmpRemotingRef (GroupName, RefId1, RefId2)
+		
+		/*
+			Offer [New Simplified Chinese]
+			the same as Simplified Chinese
+			except Event section (TeamID + LeagueID)
+		*/
+		UPDATE #tmpRemotingRef
+		SET RefValueZHCN = RefValueCS
+		WHERE ISNULL(TRIM(RefValueZHCN),'') = ''
+			AND NOT (GroupName = 'EventInfo' AND RefId1 IN ('TeamID', 'LeagueID'))
 		
 		/*
 			Get Cust info - tuning performance
@@ -745,6 +777,7 @@ BEGIN
 			,Content_en
 			,Content_ch
 			,Content_cs
+			,Content_zhcn
 		)
 		SELECT DISTINCT n.NotiTempID
 			,n.IsNoneSaba
@@ -752,6 +785,7 @@ BEGIN
 			,tp.Content_en
 			,tp.Content_ch
 			,tp.Content_cs
+			,tp.Content_zhcn
 		FROM CTE_Noti AS n
 			INNER JOIN NotiTemplate AS tp WITH (NOLOCK) ON n.TemplateID = tp.TemplateID
 		
@@ -869,6 +903,11 @@ BEGIN
 					,(CASE WHEN tp.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCS,' ' + @Saba_cs + ' ',' '),@Saba_cs,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCS END) AS LeagueName_cs
 					
+					,rfh.RefValueZHCN + (CASE WHEN rh.IsNeutral = 1 THEN N' ' + @Neutral_zhcn ELSE '' END) AS HomeName_zhcn
+					,rfa.RefValueZHCN AS AwayName_zhcn
+					,(CASE WHEN tp.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueZHCN,' ' + @Saba_zhcn + ' ',' '),@Saba_zhcn,'')) --REMOVE 'SABA'
+						ELSE rfl.RefValueZHCN END) AS LeagueName_zhcn
+					
 					,CONVERT(VARCHAR(5),rh.KOTime,103) AS KO_DDMM
 				FROM #tmpTemplateDetl AS tp
 					INNER JOIN #tmpResultHist AS rh ON tp.NotiTempID = rh.NotiTempID
@@ -884,6 +923,7 @@ BEGIN
 					,MAX('"' + HomeName_en + ' -vs- ' + AwayName_en + '" [' + LeagueName_en + ' - ' + KO_DDMM + ']') AS Content_en
 					,MAX('"' + HomeName_ch + ' -vs- ' + AwayName_ch + '" [' + LeagueName_ch + ' - ' + KO_DDMM + ']') AS Content_ch
 					,MAX('"' + HomeName_cs + ' -vs- ' + AwayName_cs + '" [' + LeagueName_cs + ' - ' + KO_DDMM + ']') AS Content_cs
+					,MAX('"' + HomeName_zhcn + ' -vs- ' + AwayName_zhcn + '" [' + LeagueName_zhcn + ' - ' + KO_DDMM + ']') AS Content_zhcn
 				FROM CTE_MatchInfoDetl
 				GROUP BY NotiTempID --GROUP BY to make sure only 1 Content foreach NotiTempID/IsNoneSaba
 					,IsNoneSaba
@@ -892,6 +932,7 @@ BEGIN
 			SET tp.Content_en = m.Content_en
 				,tp.Content_ch = m.Content_ch
 				,tp.Content_cs = m.Content_cs
+				,tp.Content_zhcn = m.Content_zhcn
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN CTE_MatchInfo AS m ON tp.NotiTempID = m.NotiTempID AND tp.IsNoneSaba = m.IsNoneSaba
 			WHERE tp.RequiredParam = '{match_info}'
@@ -904,6 +945,7 @@ BEGIN
 			SET tp.Content_en = rf.RefValueEN
 				,tp.Content_ch = rf.RefValueCH
 				,tp.Content_cs = rf.RefValueCS
+				,tp.Content_zhcn = rf.RefValueZHCN
 			FROM #tmpTemplateDetl AS tp
 				INNER JOIN #tmpResultHist AS rh ON tp.NotiTempID = rh.NotiTempID --1 NotiTempID only 1 SportType
 				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'SportType' AND TRY_CONVERT(INT,rf.RefId2) = rh.SportType
@@ -941,6 +983,7 @@ BEGIN
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
+				,ResultName_zhcn
 			)
 			SELECT DISTINCT tp.NotiTempID
 				,ISNULL(atl.ResourceID, wrg.ResourceID) AS ResourceID
@@ -952,6 +995,7 @@ BEGIN
 				,rf.RefValueEN AS ResultName_en
 				,rf.RefValueCH AS ResultName_ch
 				,rf.RefValueCS AS ResultName_cs
+				,rf.RefValueZHCN AS ResultName_zhcn
 			FROM #tmpTemplateDetl AS tp
 				LEFT JOIN #tmpResultInfo AS atl ON tp.NotiTempID = atl.NotiTempID AND atl.AmendInfo = 'ActualResult'
 				LEFT JOIN #tmpResultInfo AS wrg ON tp.NotiTempID = wrg.NotiTempID AND wrg.AmendInfo = 'WrongResult'
@@ -968,17 +1012,21 @@ BEGIN
 			SET ResultName_en = REPLACE(ResultName_en,'@X',X)
 				,ResultName_ch = REPLACE(ResultName_ch,'@X',X)
 				,ResultName_cs = REPLACE(ResultName_cs,'@X',X)
+				,ResultName_zhcn = REPLACE(ResultName_zhcn,'@X',X)
 			WHERE ISNULL(CHARINDEX('@X',ResultName_en),0) > 0
 				OR ISNULL(CHARINDEX('@X',ResultName_ch),0) > 0
 				OR ISNULL(CHARINDEX('@X',ResultName_cs),0) > 0
+				OR ISNULL(CHARINDEX('@X',ResultName_zhcn),0) > 0
 			
 			UPDATE #tmpAffectedResult
 			SET ResultName_en = REPLACE(ResultName_en,'@Y',Y)
 				,ResultName_ch = REPLACE(ResultName_ch,'@Y',Y)
 				,ResultName_cs = REPLACE(ResultName_cs,'@Y',Y)
+				,ResultName_zhcn = REPLACE(ResultName_zhcn,'@Y',Y)
 			WHERE ISNULL(CHARINDEX('@Y',ResultName_en),0) > 0
 				OR ISNULL(CHARINDEX('@Y',ResultName_ch),0) > 0
 				OR ISNULL(CHARINDEX('@Y',ResultName_cs),0) > 0
+				OR ISNULL(CHARINDEX('@Y',ResultName_zhcn),0) > 0
 			
 			--step #2 - 2.1 Replace G / M for GameSession IN (1,8) - match 2 inning
 			;WITH CTE_G_Inns AS (
@@ -990,11 +1038,13 @@ BEGIN
 				WHERE ISNULL(CHARINDEX('@G',af.ResultName_en),0) > 0
 					OR ISNULL(CHARINDEX('@G',af.ResultName_ch),0) > 0
 					OR ISNULL(CHARINDEX('@G',af.ResultName_cs),0) > 0
+					OR ISNULL(CHARINDEX('@G',af.ResultName_zhcn),0) > 0
 			)
 			UPDATE af
 			SET ResultName_en = REPLACE(af.ResultName_en,'@G',rf.RefValueEN)
 				,ResultName_ch = REPLACE(af.ResultName_ch,'@G',rf.RefValueCH)
 				,ResultName_cs = REPLACE(af.ResultName_cs,'@G',rf.RefValueCS)
+				,ResultName_zhcn = REPLACE(af.ResultName_zhcn,'@G',rf.RefValueZHCN)
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_G_Inns AS inn ON af.NotiTempID = inn.NotiTempID AND af.ResourceID = inn.ResourceID
 				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rG
@@ -1008,11 +1058,13 @@ BEGIN
 				WHERE ISNULL(CHARINDEX('@M',af.ResultName_en),0) > 0
 					OR ISNULL(CHARINDEX('@M',af.ResultName_ch),0) > 0
 					OR ISNULL(CHARINDEX('@M',af.ResultName_cs),0) > 0
+					OR ISNULL(CHARINDEX('@M',af.ResultName_zhcn),0) > 0
 			)
 			UPDATE af
 			SET ResultName_en = REPLACE(af.ResultName_en,'@M',ISNULL(rf.RefValueEN,''))
 				,ResultName_ch = REPLACE(af.ResultName_ch,'@M',ISNULL(rf.RefValueCH,''))
 				,ResultName_cs = REPLACE(af.ResultName_cs,'@M',ISNULL(rf.RefValueCS,''))
+				,ResultName_zhcn = REPLACE(af.ResultName_zhcn,'@M',ISNULL(rf.RefValueZHCN,''))
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_M_Inns AS inn ON af.NotiTempID = inn.NotiTempID AND af.ResourceID = inn.ResourceID
 				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rM
@@ -1022,11 +1074,13 @@ BEGIN
 			SET ResultName_en = TRIM(REPLACE(REPLACE(ResultName_en,' @G ',' '),'@G',''))
 				,ResultName_ch = TRIM(REPLACE(REPLACE(ResultName_ch,' @G ',' '),'@G',''))
 				,ResultName_cs = TRIM(REPLACE(REPLACE(ResultName_cs,' @G ',' '),'@G',''))
+				,ResultName_zhcn = TRIM(REPLACE(REPLACE(ResultName_zhcn,' @G ',' '),'@G',''))
 			
 			UPDATE #tmpAffectedResult
 			SET ResultName_en = TRIM(REPLACE(REPLACE(ResultName_en,' @M ',' '),'@M',''))
 				,ResultName_ch = TRIM(REPLACE(REPLACE(ResultName_ch,' @M ',' '),'@M',''))
 				,ResultName_cs = TRIM(REPLACE(REPLACE(ResultName_cs,' @M ',' '),'@M',''))
+				,ResultName_zhcn = TRIM(REPLACE(REPLACE(ResultName_zhcn,' @M ',' '),'@M',''))
 			
 			--step #3 - If exists [OtherInfo] => put it after the Resource_en
 			;WITH CTE_OtherInfo AS (
@@ -1035,6 +1089,7 @@ BEGIN
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),' & ') AS r_en
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),' & ') AS r_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),' & ') AS r_cs
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueZHCN),' & ') AS r_zhcn
 				FROM #tmpAffectedResult AS af
 					CROSS APPLY STRING_SPLIT(OtherInfo, ',') AS o
 					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = o.value
@@ -1046,6 +1101,7 @@ BEGIN
 			SET af.ResultName_en = af.ResultName_en + ' - ' + TRIM(o.r_en)
 				,af.ResultName_ch = af.ResultName_ch + ' - ' + TRIM(o.r_ch)
 				,af.ResultName_cs = af.ResultName_cs + ' - ' + TRIM(o.r_cs)
+				,af.ResultName_zhcn = af.ResultName_zhcn + ' - ' + TRIM(o.r_zhcn)
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_OtherInfo AS o ON af.NotiTempID = o.NotiTempID AND af.ResourceID = o.ResourceID
 		END
@@ -1056,6 +1112,7 @@ BEGIN
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') AS ResultName_en
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') AS ResultName_ch
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') AS ResultName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_zhcn,'')),', ') AS ResultName_zhcn
 			FROM #tmpAffectedResult
 			GROUP BY NotiTempID
 		)
@@ -1063,6 +1120,7 @@ BEGIN
 		SET tp.Content_en = '"' + af.ResultName_en + '"'
 			,tp.Content_ch = '"' + af.ResultName_ch  + '"'
 			,tp.Content_cs = '"' + af.ResultName_cs  + '"'
+			,tp.Content_zhcn = '"' + af.ResultName_zhcn  + '"'
 		FROM #tmpTemplateDetl AS tp
 			INNER JOIN CTE_Affected AS af ON tp.NotiTempID = af.NotiTempID
 		WHERE tp.RequiredParam = '{affected_result_name}'
@@ -1082,9 +1140,10 @@ BEGIN
 				**Include Away below Home
 		*/
 		UPDATE af
-		SET af.ActualValue_en = N'Refund'
-			,af.ActualValue_ch = N'退款'
-			,af.ActualValue_cs = N'退款'
+		SET af.ActualValue_en = @Refund_en
+			,af.ActualValue_ch = @Refund_ch
+			,af.ActualValue_cs = @Refund_cs
+			,af.ActualValue_zhcn = @Refund_zhcn
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultHist AS rh ON rh.NotiTempID = af.NotiTempID
 		WHERE rh.ActionType = 2 --CAL to Refund => WrongResult [have value] + ActualResult [blank]
@@ -1105,6 +1164,7 @@ BEGIN
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueEN,'')),', ') AS TeamName_en
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCH,'')),', ') AS TeamName_ch
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCS,'')),', ') AS TeamName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueZHCN,'')),', ') AS TeamName_zhcn
 			FROM CTE_TeamID AS atl
 				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = atl.TeamID
 			GROUP BY atl.NotiTempID
@@ -1114,6 +1174,7 @@ BEGIN
 		SET af.ActualValue_en = t.TeamName_en
 			,af.ActualValue_ch = t.TeamName_ch
 			,af.ActualValue_cs = t.TeamName_cs
+			,af.ActualValue_zhcn = t.TeamName_zhcn
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_TeamName AS t ON af.NotiTempID = t.NotiTempID AND af.ResourceID = t.ResourceID
 		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
@@ -1147,6 +1208,7 @@ BEGIN
 		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+			,af.ActualValue_zhcn = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_HomeNumber AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
 		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
@@ -1165,6 +1227,7 @@ BEGIN
 		SET af.ActualValue_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
 			,af.ActualValue_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
 			,af.ActualValue_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
+			,af.ActualValue_zhcn = rfh.RefValueZHCN + ISNULL('-' + rfa.RefValueZHCN,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_HomeNotNumber AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
 			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = atl.HomeValue
@@ -1184,6 +1247,7 @@ BEGIN
 		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_ch = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 			,af.ActualValue_cs = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
+			,af.ActualValue_zhcn = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultInfo AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
 		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
@@ -1193,6 +1257,7 @@ BEGIN
 		SET tp.Content_en = atl.ActualValue_en
 			,tp.Content_ch = atl.ActualValue_ch
 			,tp.Content_cs = atl.ActualValue_cs
+			,tp.Content_zhcn = atl.ActualValue_zhcn
 		FROM #tmpTemplateDetl AS tp
 			INNER JOIN #tmpAffectedResult AS atl ON tp.NotiTempID = atl.NotiTempID
 		WHERE tp.RequiredParam = '{new_value}'
@@ -1211,9 +1276,10 @@ BEGIN
 				Rule#3.If HomeValue is NOT number, it's RefResource.RefId = 'ResultSettlement'"
 		*/
 		UPDATE af
-		SET af.WrongValue_en = N'Refund'
-			,af.WrongValue_ch = N'退款'
-			,af.WrongValue_cs = N'退款'
+		SET af.WrongValue_en = @Refund_en
+			,af.WrongValue_ch = @Refund_ch
+			,af.WrongValue_cs = @Refund_cs
+			,af.WrongValue_zhcn = @Refund_zhcn
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultHist AS rh ON rh.NotiTempID = af.NotiTempID
 		WHERE rh.ActionType = 3 --Refund to CAL => WrongResult [blank] + ActualResult [have value]
@@ -1234,6 +1300,7 @@ BEGIN
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueEN,'')),', ') AS TeamName_en
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCH,'')),', ') AS TeamName_ch
 				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueCS,'')),', ') AS TeamName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(rf.RefValueZHCN,'')),', ') AS TeamName_zhcn
 			FROM CTE_TeamID AS wrg
 				INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = wrg.TeamID
 			GROUP BY wrg.NotiTempID
@@ -1243,6 +1310,7 @@ BEGIN
 		SET af.WrongValue_en = t.TeamName_en
 			,af.WrongValue_ch = t.TeamName_ch
 			,af.WrongValue_cs = t.TeamName_cs
+			,af.WrongValue_zhcn = t.TeamName_zhcn
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_TeamName AS t ON af.NotiTempID = t.NotiTempID AND af.ResourceID = t.ResourceID
 		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
@@ -1261,6 +1329,7 @@ BEGIN
 		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+			,af.WrongValue_zhcn = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_HomeNumber AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
 		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
@@ -1279,6 +1348,7 @@ BEGIN
 		SET af.WrongValue_en = rfh.RefValueEN + ISNULL('-' + rfa.RefValueEN,'')
 			,af.WrongValue_ch = rfh.RefValueCH + ISNULL('-' + rfa.RefValueCH,'')
 			,af.WrongValue_cs = rfh.RefValueCS + ISNULL('-' + rfa.RefValueCS,'')
+			,af.WrongValue_zhcn = rfh.RefValueZHCN + ISNULL('-' + rfa.RefValueZHCN,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_HomeNotNumber AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
 			INNER JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'RefResource' AND rfh.RefId1 = 'ResultSettlement' AND rfh.RefId2 = wrg.HomeValue
@@ -1298,6 +1368,7 @@ BEGIN
 		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_ch = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 			,af.WrongValue_cs = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
+			,af.WrongValue_zhcn = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_Rest AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
 		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
@@ -1307,6 +1378,7 @@ BEGIN
 		SET tp.Content_en = wrg.WrongValue_en
 			,tp.Content_ch = wrg.WrongValue_ch
 			,tp.Content_cs = wrg.WrongValue_cs
+			,tp.Content_zhcn = wrg.WrongValue_zhcn
 		FROM #tmpTemplateDetl AS tp
 			INNER JOIN #tmpAffectedResult AS wrg ON tp.NotiTempID = wrg.NotiTempID
 		WHERE tp.RequiredParam = '{old_value}'
@@ -1339,6 +1411,7 @@ BEGIN
 			SET ms.Content_en = REPLACE(ms.Content_en,tpd.RequiredParam,tpd.Content_en)
 				,ms.Content_ch = REPLACE(ms.Content_ch,tpd.RequiredParam,tpd.Content_ch)
 				,ms.Content_cs = REPLACE(ms.Content_cs,tpd.RequiredParam,tpd.Content_cs)
+				,ms.Content_zhcn = REPLACE(ms.Content_zhcn,tpd.RequiredParam,tpd.Content_zhcn)
 			FROM #tmpStagingNoti AS ms
 				INNER JOIN #tmpTemplateDetl AS tpd ON ms.NotiTempID = tpd.NotiTempID AND ms.IsNoneSaba = tpd.IsNoneSaba
 			WHERE tpd.RequiredParam = @iLoopParam
@@ -1542,6 +1615,7 @@ BEGIN
 				,Content_en
 				,Content_ch
 				,Content_cs
+				,Content_zhcn
 			)
 			OUTPUT INSERTED.NotificationID
 				,@iLoop
@@ -1554,6 +1628,7 @@ BEGIN
 				,n.Content_en
 				,n.Content_ch
 				,n.Content_cs
+				,n.Content_zhcn
 			FROM CTE_InsertNoti AS il
 				INNER JOIN #tmpStagingNoti AS n ON il.NotiTempID = n.NotiTempID AND il.IsNoneSaba = n.IsNoneSaba
 				INNER JOIN #tmpResultHist AS rh ON il.NotiTempID = rh.NotiTempID
@@ -1733,12 +1808,17 @@ BEGIN
 						,t.ResultName_en
 						,t.ResultName_ch
 						,t.ResultName_cs
+						,t.ResultName_zhcn
+						
 						,t.ActualValue_en
 						,t.ActualValue_ch
 						,t.ActualValue_cs
+						,t.ActualValue_zhcn
+						
 						,t.WrongValue_en
 						,t.WrongValue_ch
 						,t.WrongValue_cs
+						,t.WrongValue_zhcn
 					FROM #tmpAffectedResult AS t
 					WHERE t.NotiTempID = s.NotiTempID
 					ORDER BY t.ResourceID
@@ -1765,14 +1845,17 @@ BEGIN
 					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_en END AS NeutralEN ----support AdmSelNoti
 					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_ch END AS NeutralCH
 					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_cs END AS NeutralCS
+					,CASE WHEN t.IsNeutral = 1 THEN @Neutral_zhcn END AS NeutralZHCN
 					,t.HomeID
 					,rfh.RefValueEN AS HomeNameEN --support AdmSelNoti
 					,rfh.RefValueCH AS HomeNameCH
 					,rfh.RefValueCS AS HomeNameCS
+					,rfh.RefValueZHCN AS HomeNameZHCN
 					,t.AwayID
 					,rfa.RefValueEN AS AwayNameEN --support AdmSelNoti
 					,rfa.RefValueCH AS AwayNameCH
 					,rfa.RefValueCS AS AwayNameCS
+					,rfa.RefValueZHCN AS AwayNameZHCN
 					,t.LeagueID
 					,il.IsNoneSaba AS IsNoneSaba --support AlertSel
 					,(CASE WHEN il.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueEN,' ' + @Saba_en + ' ',' '),@Saba_en,'')) --REMOVE 'SABA'
@@ -1781,6 +1864,8 @@ BEGIN
 						ELSE rfl.RefValueCS END) AS LeagueNameCS
 					,(CASE WHEN il.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueCH,' ' + @Saba_ch + ' ',' '),@Saba_ch,'')) --REMOVE 'SABA'
 						ELSE rfl.RefValueCH END) AS LeagueNameCH
+					,(CASE WHEN il.IsNoneSaba = 1 THEN TRIM(REPLACE(REPLACE(rfl.RefValueZHCN,' ' + @Saba_zhcn + ' ',' '),@Saba_zhcn,'')) --REMOVE 'SABA'
+						ELSE rfl.RefValueZHCN END) AS LeagueNameZHCN
 					,t.KOTime --support Chatbot LIC, Alert service
 					-----support AdmSelNoti-----
 					,t.MatchID
@@ -1796,6 +1881,7 @@ BEGIN
 					,rfs.RefValueEN AS SportNameEN
 					,rfs.RefValueCH AS SportNameCH
 					,rfs.RefValueCS AS SportNameCS
+					,rfs.RefValueZHCN AS SportNameZHCN
 					,tp.TemplateName
 				FROM #tmpResultHist AS t
 					LEFT JOIN CTE_AffectedResult AS af ON t.NotiTempID = af.NotiTempID
@@ -1929,6 +2015,7 @@ BEGIN
 						,n.Content_en
 						,n.Content_ch
 						,n.Content_cs
+						,n.Content_zhcn
 						-----------------------
 						,ntgt.ControlGrp
 						,ntgt.TargetSite

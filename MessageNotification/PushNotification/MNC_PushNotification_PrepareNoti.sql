@@ -8,6 +8,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Explanation:
 		Steps
@@ -185,6 +186,7 @@ BEGIN
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
+		,Content_zhcn NVARCHAR(4000)
 		,MatchID INT
 		,LeagueGroupID SMALLINT
 		,Creator INT
@@ -270,6 +272,7 @@ BEGIN
 		,Content_en
 		,Content_ch
 		,Content_cs
+		,Content_zhcn
 		,MatchID
 		,LeagueGroupID
 		,CreatorName
@@ -278,6 +281,7 @@ BEGIN
 		,n.Content_en
 		,n.Content_ch
 		,n.Content_cs
+		,n.Content_zhcn
 		,ne.MatchID
 		,ne.LeagueGroupID
 		,ne.CreatorName
@@ -350,6 +354,7 @@ BEGIN
 							,Content_en
 							,Content_ch
 							,Content_cs
+							,Content_zhcn
 							,MatchID
 							,LeagueGroupID
 							,Creator

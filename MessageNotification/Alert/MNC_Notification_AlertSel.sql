@@ -8,6 +8,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Explanation:
 		
@@ -384,7 +385,7 @@ BEGIN
 	CREATE CLUSTERED INDEX CIX_tmpTemplateDetl ON #tmpTemplateDetl (AlertID)
 	
 	------------------------Build Alert content-----------------------------
-	-- {MatchID},{EventDate},{KOTime},{LeagueName},{HomeName},{AwayName},{NotificationID},{Content_en},{Content_ch},{Content_cs}
+	-- {MatchID},{EventDate},{KOTime},{LeagueName},{HomeName},{AwayName},{NotificationID},{Content_en},{Content_ch},{Content_cs},{Content_zhcn}
 
 	UPDATE tp
 	SET tp.ParamValue = CONVERT(NVARCHAR,ev.MatchID)
@@ -437,12 +438,18 @@ BEGIN
 	UPDATE tp
 	SET tp.ParamValue = (CASE WHEN tp.RequiredParam = '{Content_en}' THEN n.Content_en
 							WHEN tp.RequiredParam = '{Content_ch}' THEN n.Content_ch
-							ELSE n.Content_cs
+							WHEN tp.RequiredParam = '{Content_cs}' THEN n.Content_cs
+							WHEN tp.RequiredParam = '{Content_zhcn}' THEN n.Content_zhcn
 						END)
 	FROM #tmpTemplateDetl AS tp
 		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID
 		LEFT JOIN Notification AS n WITH (NOLOCK) ON a.NotificationID = n.NotificationID
-	WHERE tp.RequiredParam IN ('{Content_en}', '{Content_ch}', '{Content_cs}')
+	WHERE tp.RequiredParam IN (
+		'{Content_en}'
+		,'{Content_ch}'
+		,'{Content_cs}'
+		,'{Content_zhcn}'
+	)
 	
 	---Replace RequiredParam into Template	
 	DECLARE @iLoopParam VARCHAR(50)

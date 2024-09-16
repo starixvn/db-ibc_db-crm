@@ -10,6 +10,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Explanation:
 
@@ -335,10 +336,18 @@ BEGIN
 		*/
 		SELECT @RuleID = 1
 		
-		---1.1 - For [Capture Data Service] process, SessionID [Retrieving] over 2*Configuration_WaitSec---
-		SELECT @WaitSec = ISNULL(TRY_CONVERT(INT, VValue),0) * 2
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = 11 --Retrieving_WaitSec
+		---1.1 - For [Capture Data Service] process, SessionID [Retrieving] over 120s(GenerateNotifService interval = 60s)---
+		;WITH CTE_Wait AS (
+			SELECT ISNULL(TRY_CONVERT(INT, VValue),0) * 2 AS WaitSec
+			FROM SystemSetting WITH (NOLOCK)
+			WHERE VID = 11 --Retrieving_WaitSec
+			
+			UNION ALL
+			
+			SELECT 120 AS WaitSec
+		)
+		SELECT @WaitSec = MAX(WaitSec)
+		FROM CTE_Wait
 		
 		;WITH CTE_LongSession AS (
 			SELECT SessionID
@@ -370,8 +379,8 @@ BEGIN
 		FROM CTE_LongSession AS l
 			LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = 'Retrieving'
 		
-		---1.2 - For [Generate Notif Service] process, SessionID [Generating] over 60s---
-		SELECT @WaitSec = 60
+		---1.2 - For [Generate Notif Service] process, SessionID [Generating] over 120s(GenerateNotifService interval = 60s)---
+		SELECT @WaitSec = 120
 
 		;WITH CTE_LongSession AS (
 			SELECT SessionID
@@ -403,8 +412,8 @@ BEGIN
 		FROM CTE_LongSession AS l
 			LEFT JOIN #tmpSettl AS rh ON l.SessionID = rh.SessionID AND rh.Status = 'Generating'
 		
-		--1.3 - For [Generate Notif Service] process, Notification.StatusID = Generating over 60s
-		SELECT @WaitSec = 60
+		--1.3 - For [Generate Notif Service] process, Notification.StatusID = Generating over 120s(GenerateNotifService interval = 60s)
+		SELECT @WaitSec = 120
 		
 		INSERT INTO #tmpError_New (
 			RuleID
@@ -431,8 +440,8 @@ BEGIN
 			AND m.MsgNotiID IS NOT NULL
 			AND DATEDIFF(SECOND, m.LastModifiedTime, @CurrTime) > @WaitSec
 		
-		--1.4 - For [Insert Message Service] process, Notification.StatusID = Sending over 60s
-		SELECT @WaitSec = 60
+		--1.4 - For [Insert Message Service] process, Notification.StatusID = Sending over 120s(InsertMessageService interval = 60s)
+		SELECT @WaitSec = 120
 		
 		INSERT INTO #tmpError_New (
 			RuleID
@@ -459,8 +468,8 @@ BEGIN
 			AND m.Status = 'Sending'
 			AND DATEDIFF(SECOND, m.LastModifiedTime, @CurrTime) > @WaitSec
 		
-		--1.5 - For [Generate LAP Notif Service] process, NOT EXISTS after being approved MessageID over 60s
-		SELECT @WaitSec = 60
+		--1.5 - For [Generate LAP Notif Service] process, NOT EXISTS after being approved MessageID over 120s(GenerateLAPNotifService interval = 60s)
+		SELECT @WaitSec = 120
 		
 		;WITH CTE_Lap AS (
 			SELECT MessageID
@@ -503,7 +512,7 @@ BEGIN
 					AND s.site IS NOT NULL --EXISTS [deposit] Target
 			)
 		
-		--1.6 - For [Generate LAP Notif Service] process, Notification.StatusID = Generating over 60s / Failed to Generate
+		--1.6 - For [Generate LAP Notif Service] process, Notification.StatusID = Generating over 120s / Failed to Generate (GenerateLAPNotifService interval = 60s)
 		INSERT INTO #tmpError_New (
 			RuleID
 			,IsTest

@@ -842,7 +842,8 @@ BEGIN
         HomeTeamName,
         AwayTeamName
     )
-    SELECT cte.MessageId,
+    SELECT DISTINCT
+           cte.MessageId,
            cte.HeadlineId,
            cte.MatchId,
            m.eventdate EventDate,

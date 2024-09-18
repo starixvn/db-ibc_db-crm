@@ -762,8 +762,50 @@ BEGIN
                                         cg.RecipientId                = gr.RecipientId
         WHERE pd.ChatTypeId = 2
     ),
-    -- + --> CTE_Personal_AggregatedData_RelatedId | Ta gom data cua column RelatedId
+    -- + --> CTE_Personal_DetailData_01 | Doan code cho nay se khac voi code cua Group
+    --                                  | Ta se tach phan data lien quan den RelatedId ra xu ly rieng o day
+    --                                  | Dau tien ta can chong duplicate data
+    CTE_Personal_DetailData_01 AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               RelatedId,
+               IsDuplicated
+        FROM CTE_Personal_DetailData
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 RelatedId,
+                 IsDuplicated
+    ),
+    -- + --> CTE_Personal_AggregatedData_RelatedId | Sau do ta moi tien hanh gom data cua column RelatedId
     CTE_Personal_AggregatedData_RelatedId AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               STRING_AGG(CAST(RelatedId AS VARCHAR(MAX)), ',') RelatedIds,
+               IsDuplicated
+        FROM CTE_Personal_DetailData_01
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 IsDuplicated
+    ),
+    -- + --> CTE_Personal_DetailData_02 | Den doan code nay ta xu lu giong nhu ben Group tu la ko can ban tam gi den cot RelatedId
+    --                                  | Dau tien ta can chong duplicate data
+    CTE_Personal_DetailData_02 AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -775,7 +817,6 @@ BEGIN
                HeadlineId,
                IsTest,
                MessageId,
-               STRING_AGG(CAST(RelatedId AS VARCHAR(MAX)), ',') RelatedIds,
                IsDuplicated
         FROM CTE_Personal_DetailData
         GROUP BY VoidingHistoryCollectionId,
@@ -791,8 +832,9 @@ BEGIN
                  MessageId,
                  IsDuplicated
     ),
-    -- + --> CTE_Personal_AggregatedData_UsernameRelatedIds | Ta gom data cua column Username va RelatedIds
-    CTE_Personal_AggregatedData_UsernameRelatedIds AS (
+    -- + --> CTE_Personal_AggregatedData_Username | Den doan code nay ta xu lu giong nhu ben Group tu la ko can ban tam gi den cot RelatedId
+    --                                            | Ta gom data cua column Username
+    CTE_Personal_AggregatedData_Username AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -804,9 +846,8 @@ BEGIN
                HeadlineId,
                IsTest,
                MessageId,
-               STRING_AGG(CAST(RelatedIds AS VARCHAR(MAX)), ',') RelatedIds,
                IsDuplicated
-        FROM CTE_Personal_AggregatedData_RelatedId
+        FROM CTE_Personal_DetailData_02
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
@@ -819,8 +860,8 @@ BEGIN
                  MessageId,
                  IsDuplicated
     ),
-    -- + --> CTE_Group_AggregatedData_SupernameUsernameListRelatedIds | Ta gom data cua column Supername va UsernameList va RelatedIds
-    CTE_Group_AggregatedData_SupernameUsernameListRelatedIds AS (
+    -- + --> CTE_Group_AggregatedData_SupernameUsernameList | Ta gom data cua column Supername va UsernameList
+    CTE_Group_AggregatedData_SupernameUsernameList AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -831,9 +872,8 @@ BEGIN
                HeadlineId,
                IsTest,
                MessageId,
-               STRING_AGG(CAST(RelatedIds AS VARCHAR(MAX)), ',') RelatedIds,
                IsDuplicated
-        FROM CTE_Personal_AggregatedData_UsernameRelatedIds
+        FROM CTE_Personal_AggregatedData_Username
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
@@ -845,8 +885,8 @@ BEGIN
                  MessageId,
                  IsDuplicated
     ),
-    -- + --> CTE_Group_AggregatedData_AffectedListHeadlineIdRelatedIds | O buoc nay ta gom data cua column AffectedList va HeadlineId va RelatedIds
-    CTE_Group_AggregatedData_AffectedListHeadlineIdRelatedIds AS (
+    -- + --> CTE_Group_AggregatedData_AffectedListHeadlineId | O buoc nay ta gom data cua column AffectedList va HeadlineId
+    CTE_Group_AggregatedData_AffectedListHeadlineId AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -857,9 +897,8 @@ BEGIN
                STRING_AGG(CAST(HeadlineId   AS VARCHAR(MAX)), ',')     HeadlineList,
                IsTest,
                MessageId,
-               STRING_AGG(CAST(RelatedIds AS VARCHAR(MAX)), ',') RelatedIds,
                IsDuplicated
-        FROM CTE_Group_AggregatedData_SupernameUsernameListRelatedIds
+        FROM CTE_Group_AggregatedData_SupernameUsernameList
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
@@ -870,7 +909,8 @@ BEGIN
                  MessageId,
                  IsDuplicated
     )
-    -- + --> Insert data to main table | Cuoi cung ta se gom data cua tat cac measure can thiet
+    -- + --> Insert data to main table | Ta se merge data hai hai tap dataset lai voi nhau (mot dataset cua RelatedId va mot dataset binh thuong)
+    --                                 | Ta nhien ta cung se gom data cua tat cac measure can thiet
     INSERT INTO #tmpNotificationFinalData (
         -- Based Data
         VoidingHistoryCollectionId,
@@ -887,26 +927,32 @@ BEGIN
         RelatedIds
     )
     SELECT -- Based Data
-           VoidingHistoryCollectionId                                    VoidingHistoryCollectionId,
-           ConversationGroupId                                           ConversationGroupId,
-           ChannelId                                                     ChannelId,
-           ChatTypeId                                                    ChatTypeId,
-           LanguageId                                                    LanguageId,
-           CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END Status,
+           d1.VoidingHistoryCollectionId                                      VoidingHistoryCollectionId,
+           d1.ConversationGroupId                                             ConversationGroupId,
+           d1.ChannelId                                                       ChannelId,
+           d1.ChatTypeId                                                      ChatTypeId,
+           d1.LanguageId                                                      LanguageId,
+           CASE WHEN d1.IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END Status,
            -- Aggregated Data
-           STRING_AGG(CAST(AffectedList AS VARCHAR(MAX)), '<br/>')       AffectedList,
-           STRING_AGG(CAST(HeadlineList AS VARCHAR(MAX)), ',')           HeadlineList,
-           MIN(CONVERT(TINYINT, IsTest))                                 IsTest,
-           STRING_AGG(CAST(MessageId    AS VARCHAR(MAX)), ',')           MessageIdList,
-           STRING_AGG(CAST(RelatedIds   AS VARCHAR(MAX)), ',')           RelatedIds
-    FROM CTE_Group_AggregatedData_AffectedListHeadlineIdRelatedIds
-    GROUP BY VoidingHistoryCollectionId,
-             ConversationGroupId,
-             ChannelId,
-             ChatTypeId,
-             LanguageId,
-             CASE WHEN IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END,
-             BatchOfGroup
+           STRING_AGG(CAST(d1.AffectedList AS VARCHAR(MAX)), '<br/>')         AffectedList,
+           STRING_AGG(CAST(d1.HeadlineList AS VARCHAR(MAX)), ',')             HeadlineList,
+           MIN(CONVERT(TINYINT, d1.IsTest))                                   IsTest,
+           STRING_AGG(CAST(d1.MessageId    AS VARCHAR(MAX)), ',')             MessageIdList,
+           STRING_AGG(CAST(d2.RelatedIds   AS VARCHAR(MAX)), ',')             RelatedIds
+    FROM CTE_Group_AggregatedData_AffectedListHeadlineId d1
+         LEFT JOIN CTE_Personal_AggregatedData_RelatedId d2 ON d1.VoidingHistoryCollectionId = d2.VoidingHistoryCollectionId AND
+                                                               d1.ConversationGroupId        = d2.ConversationGroupId        AND
+                                                               d1.ChannelId                  = d2.ChannelId                  AND
+                                                               d1.ChatTypeId                 = d2.ChatTypeId                 AND
+                                                               d1.LanguageId                 = d2.LanguageId                 AND
+                                                               d1.IsDuplicated               = d2.IsDuplicated
+    GROUP BY d1.VoidingHistoryCollectionId,
+             d1.ConversationGroupId,
+             d1.ChannelId,
+             d1.ChatTypeId,
+             d1.LanguageId,
+             CASE WHEN d1.IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END,
+             d1.BatchOfGroup
     -- + Update to correct data or to get data for NULL value
     -- + --> AffectedList | Ta thay the ky tu '<br/>' bang ky tu xuong dong
     UPDATE tmp

@@ -493,8 +493,7 @@ BEGIN
     ----------------------------------------------------------------------------------------------------------------------------
 
     -- Declare variables
-    -- + Because of the maximum character in message of Letstalk/Telegram
-    --   So we need to limit info about affected list will appear on message
+    -- + Because of the maximum character in message of Letstalk/Telegram, so we need to limit info about affected list will appear on message
     DECLARE @MaxBatchOfLetstalkGroup INT = 250
     DECLARE @MaxBatchOfTelegramGroup INT = 100
     -- + For test Template status of Notification must be Draft
@@ -565,8 +564,9 @@ BEGIN
          INNER JOIN bodb_CRM.dbo.crmConversationGroupHeadline cgh WITH (NOLOCK) ON m.HeadlineId = cgh.HeadlineId AND g.ConversationGroupId = cgh.ConversationGroupId
 
     -- Get final data | Ta tach lay data theo Group truoc roi moi lay data theo Personal
-    --                | Boi vi ta can dam bao la neu mot PIC da nhan tin nhan trong Group roi
-    --                | Thi se khong gui tin nhan Personal cho PIC do nua
+    --                | Va cong viec nay can thuc hien lien mach mot lan lien tuc chu ko the tach roi duoc
+    --                | Boi vi ta can dam bao la neu mot PIC da nhan tin nhan trong Group roi thi se khong gui tin nhan Personal cho PIC do nua
+    --                | Can xem ky cho code luc  gen data cho Personal de hieu vi sao ta ko tach thanh cac bang tam de code do cong kenh hon
     -- + Create temp table
     CREATE TABLE #tmpNotificationFinalData (
         -- Based Data
@@ -590,10 +590,11 @@ BEGIN
         Content_vn                 NVARCHAR(4000),
         [Type]                     TINYINT
     )
-    -- + Gen data to temp table for Group (ChatTypeId=1) | Vi tinh chat phuc tap cua du lieu nen o day se dung nhieu CTE
-    --                                                   | Ta can debug code can than de hieu cho nay
+    -- + Gen data to temp table for Group (ChatTypeId=1) | De code them phan tuong minh va de hieu
+    --                                                   | O day ta chia data thanh tung cum aggregate khac nhau roi cuoi cung join chung lai voi nhau
+    --                                                   | Viec nay se phat sinh them nhieu CTE va lam code hoi dai dong nhung de hieu
     ;WITH
-    -- + --> CTE_Group_DetailData | Dau tien ta lay ra data detail cua Group
+    -- + --> Group - DetailData
     CTE_Group_DetailData AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
@@ -609,8 +610,9 @@ BEGIN
         FROM #tmpNotificationPrepareData
         WHERE ChatTypeId = 1
     ),
-    -- + --> CTE_Group_AggregatedData_Username | Ta gom data cua column Username
-    CTE_Group_AggregatedData_Username AS (
+    -- + --> Group - AggregatedData - AffectedList
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Group_AggregatedData_AffectedList_RemoveDuplicate AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
@@ -618,10 +620,7 @@ BEGIN
                LanguageId,
                BatchOfGroup,
                Supername,
-               STRING_AGG(CAST(Username AS VARCHAR(MAX)), ', ') UsernameList,
-               HeadlineId,
-               IsTest,
-               MessageId
+               Username
         FROM CTE_Group_DetailData
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
@@ -630,56 +629,134 @@ BEGIN
                  LanguageId,
                  BatchOfGroup,
                  Supername,
-                 HeadlineId,
-                 IsTest,
-                 MessageId
+                 Username
     ),
-    -- + --> CTE_Group_AggregatedData_SupernameUsernameList | Ta gom data cua column Supername va UsernameList
-    CTE_Group_AggregatedData_SupernameUsernameList AS (
+    --       _ Sau do ta tien hanh tong hop data | Lan thu nhat
+    CTE_Group_AggregatedData_AffectedList_Username AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               STRING_AGG(CAST(('- ' + Supername + ': ' + UsernameList) AS VARCHAR(MAX)), '<br/>') AffectedList,
-               HeadlineId,
-               IsTest,
-               MessageId
-        FROM CTE_Group_AggregatedData_Username
+               Supername,
+               STRING_AGG(CAST(Username AS VARCHAR(MAX)), ', ') UsernameList
+        FROM CTE_Group_AggregatedData_AffectedList_RemoveDuplicate
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
                  ChatTypeId,
                  LanguageId,
                  BatchOfGroup,
-                 HeadlineId,
-                 IsTest,
-                 MessageId
+                 Supername
     ),
-    -- + --> CTE_Group_AggregatedData_AffectedListHeadlineId | Ta gom data cua column AffectedList va HeadlineId
-    CTE_Group_AggregatedData_AffectedListHeadlineId AS (
+    --       _ Sau do ta tien hanh tong hop data | Lan thu hai
+    CTE_Group_AggregatedData_AffectedList AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               STRING_AGG(CAST(AffectedList AS VARCHAR(MAX)), '<br/>') AffectedList,
-               STRING_AGG(CAST(HeadlineId   AS VARCHAR(MAX)), ',')     HeadlineList,
-               IsTest,
-               MessageId
-        FROM CTE_Group_AggregatedData_SupernameUsernameList
+               STRING_AGG(CAST(('- ' + Supername + ': ' + UsernameList) AS VARCHAR(MAX)), '<br/>') AffectedList
+        FROM CTE_Group_AggregatedData_AffectedList_Username
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
                  ChatTypeId,
                  LanguageId,
-                 IsTest,
-                 MessageId,
+                 BatchOfGroup
+    ),
+    -- + --> Group - AggregatedData - HeadlineList
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Group_AggregatedData_HeadlineList_RemoveDuplicate AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               HeadlineId
+        FROM CTE_Group_DetailData
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 HeadlineId
+    ),
+    --       _ Sau do ta tien hanh tong hop data
+    CTE_Group_AggregatedData_HeadlineList AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               STRING_AGG(CAST(HeadlineId AS VARCHAR(MAX)), ',') HeadlineList
+        FROM CTE_Group_AggregatedData_HeadlineList_RemoveDuplicate
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup
+    ),
+    -- + --> Group - AggregatedData - IsTest
+    CTE_Group_AggregatedData_IsTest AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               MIN(CONVERT(TINYINT, IsTest)) IsTest
+        FROM CTE_Group_DetailData
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup
+    ),
+    -- + --> Group - AggregatedData - MessageIdList
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Group_AggregatedData_MessageIdList_RemoveDuplicate AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               MessageId
+        FROM CTE_Group_DetailData
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 MessageId
+    ),
+    --       _ Sau do ta tien hanh tong hop data
+    CTE_Group_AggregatedData_MessageIdList AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               STRING_AGG(CAST(MessageId AS VARCHAR(MAX)), ',') MessageIdList
+        FROM CTE_Group_AggregatedData_MessageIdList_RemoveDuplicate
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
                  BatchOfGroup
     )
-    -- + --> Insert data to main table | Cuoi cung ta se gom data cua tat cac measure can thiet
+    -- + --> Insert data to main table
     INSERT INTO #tmpNotificationFinalData (
         -- Based Data
         VoidingHistoryCollectionId,
@@ -695,26 +772,39 @@ BEGIN
         MessageIdList
     )
     SELECT -- Based Data
-           VoidingHistoryCollectionId                              VoidingHistoryCollectionId,
-           ConversationGroupId                                     ConversationGroupId,
-           ChannelId                                               ChannelId,
-           ChatTypeId                                              ChatTypeId,
-           LanguageId                                              LanguageId,
-           @Status                                                 Status,
+           af.VoidingHistoryCollectionId VoidingHistoryCollectionId,
+           af.ConversationGroupId        ConversationGroupId,
+           af.ChannelId                  ChannelId,
+           af.ChatTypeId                 ChatTypeId,
+           af.LanguageId                 LanguageId,
+           @Status                       Status,
            -- Aggregated Data
-           STRING_AGG(CAST(AffectedList AS VARCHAR(MAX)), '<br/>') AffectedList,
-           STRING_AGG(CAST(HeadlineList AS VARCHAR(MAX)), ',')     HeadlineList,
-           MIN(CONVERT(TINYINT, IsTest))                           IsTest,
-           STRING_AGG(CAST(MessageId    AS VARCHAR(MAX)), ',')     MessageIdList
-    FROM CTE_Group_AggregatedData_AffectedListHeadlineId
-    GROUP BY VoidingHistoryCollectionId,
-             ConversationGroupId,
-             ChannelId,
-             ChatTypeId,
-             LanguageId,
-             BatchOfGroup
-    -- + Gen data to temp table for Personal (ChatTypeId=2) | Vi tinh chat phuc tap cua du lieu nen o day se dung nhieu CTE
-    --                                                      | Ta can debug code can than de hieu cho nay
+           af.AffectedList               AffectedList,
+           hl.HeadlineList               HeadlineList,
+           it.IsTest                     IsTest,
+           ml.MessageIdList              MessageIdList
+    FROM CTE_Group_AggregatedData_AffectedList af
+         LEFT JOIN CTE_Group_AggregatedData_HeadlineList  hl ON af.VoidingHistoryCollectionId = hl.VoidingHistoryCollectionId AND
+                                                                af.ConversationGroupId        = hl.ConversationGroupId        AND
+                                                                af.ChannelId                  = hl.ChannelId                  AND
+                                                                af.ChatTypeId                 = hl.ChatTypeId                 AND
+                                                                af.LanguageId                 = hl.LanguageId                 AND
+                                                                af.BatchOfGroup               = hl.BatchOfGroup
+         LEFT JOIN CTE_Group_AggregatedData_IsTest        it ON af.VoidingHistoryCollectionId = it.VoidingHistoryCollectionId AND
+                                                                af.ConversationGroupId        = it.ConversationGroupId        AND
+                                                                af.ChannelId                  = it.ChannelId                  AND
+                                                                af.ChatTypeId                 = it.ChatTypeId                 AND
+                                                                af.LanguageId                 = it.LanguageId                 AND
+                                                                af.BatchOfGroup               = it.BatchOfGroup
+         LEFT JOIN CTE_Group_AggregatedData_MessageIdList ml ON af.VoidingHistoryCollectionId = ml.VoidingHistoryCollectionId AND
+                                                                af.ConversationGroupId        = ml.ConversationGroupId        AND
+                                                                af.ChannelId                  = ml.ChannelId                  AND
+                                                                af.ChatTypeId                 = ml.ChatTypeId                 AND
+                                                                af.LanguageId                 = ml.LanguageId                 AND
+                                                                af.BatchOfGroup               = ml.BatchOfGroup
+    -- + Gen data to temp table for Personal (ChatTypeId=2) | De code them phan tuong minh va de hieu
+    --                                                      | O day ta chia data thanh tung cum aggregate khac nhau roi cuoi cung join chung lai voi nhau
+    --                                                      | Viec nay se phat sinh them nhieu CTE va lam code hoi dai dong nhung de hieu
     ;WITH
     -- + --> CTE_Group | Dau tien ta can lay ra danh sach Group can gui notification da tao kem theo thong tin RecipientId
     --                 | Ta can thong tin nay de cross check voi thong tin cua Personal de biet duoc xem PIC nao data nhan notification tu group de khong gui lai lan nua
@@ -762,18 +852,18 @@ BEGIN
                                         cg.RecipientId                = gr.RecipientId
         WHERE pd.ChatTypeId = 2
     ),
-    -- + --> CTE_Personal_DetailData_01 | Doan code cho nay se khac voi code cua Group
-    --                                  | Ta se tach phan data lien quan den RelatedId ra xu ly rieng o day
-    --                                  | Dau tien ta can chong duplicate data
-    CTE_Personal_DetailData_01 AS (
+    -- + --> Personal - AggregatedData - AffectedList
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Personal_AggregatedData_AffectedList_RemoveDuplicate AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               RelatedId,
-               IsDuplicated
+               IsDuplicated,
+               Supername,
+               Username
         FROM CTE_Personal_DetailData
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
@@ -781,20 +871,42 @@ BEGIN
                  ChatTypeId,
                  LanguageId,
                  BatchOfGroup,
-                 RelatedId,
-                 IsDuplicated
+                 IsDuplicated,
+                 Supername,
+                 Username
     ),
-    -- + --> CTE_Personal_AggregatedData_RelatedId | Sau do ta moi tien hanh gom data cua column RelatedId
-    CTE_Personal_AggregatedData_RelatedId AS (
+    --       _ Sau do ta tien hanh tong hop data | Lan thu nhat
+    CTE_Personal_AggregatedData_AffectedList_Username AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               STRING_AGG(CAST(RelatedId AS VARCHAR(MAX)), ',') RelatedIds,
-               IsDuplicated
-        FROM CTE_Personal_DetailData_01
+               IsDuplicated,
+               Supername,
+               STRING_AGG(CAST(Username AS VARCHAR(MAX)), ', ') UsernameList
+        FROM CTE_Personal_AggregatedData_AffectedList_RemoveDuplicate
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 IsDuplicated,
+                 Supername
+    ),
+    --       _ Sau do ta tien hanh tong hop data | Lan thu hai
+    CTE_Personal_AggregatedData_AffectedList AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               IsDuplicated,
+               STRING_AGG(CAST(('- ' + Supername + ': ' + UsernameList) AS VARCHAR(MAX)), '<br/>') AffectedList
+        FROM CTE_Personal_AggregatedData_AffectedList_Username
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
@@ -803,21 +915,17 @@ BEGIN
                  BatchOfGroup,
                  IsDuplicated
     ),
-    -- + --> CTE_Personal_DetailData_02 | Den doan code nay ta xu lu giong nhu ben Group tu la ko can ban tam gi den cot RelatedId
-    --                                  | Dau tien ta can chong duplicate data
-    CTE_Personal_DetailData_02 AS (
+    -- + --> Personal - AggregatedData - HeadlineList
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Personal_AggregatedData_HeadlineList_RemoveDuplicate AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               Supername,
-               Username,
-               HeadlineId,
-               IsTest,
-               MessageId,
-               IsDuplicated
+               IsDuplicated,
+               HeadlineId
         FROM CTE_Personal_DetailData
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
@@ -825,92 +933,128 @@ BEGIN
                  ChatTypeId,
                  LanguageId,
                  BatchOfGroup,
-                 Supername,
-                 Username,
-                 HeadlineId,
-                 IsTest,
-                 MessageId,
-                 IsDuplicated
+                 IsDuplicated,
+                 HeadlineId
     ),
-    -- + --> CTE_Personal_AggregatedData_Username | Den doan code nay ta xu lu giong nhu ben Group tu la ko can ban tam gi den cot RelatedId
-    --                                            | Ta gom data cua column Username
-    CTE_Personal_AggregatedData_Username AS (
+    --       _ Sau do ta tien hanh tong hop data
+    CTE_Personal_AggregatedData_HeadlineList AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               Supername,
-               STRING_AGG(CAST(Username AS VARCHAR(MAX)), ', ') UsernameList,
-               HeadlineId,
-               IsTest,
-               MessageId,
-               IsDuplicated
-        FROM CTE_Personal_DetailData_02
+               IsDuplicated,
+               STRING_AGG(CAST(HeadlineId AS VARCHAR(MAX)), ',') HeadlineList
+        FROM CTE_Personal_AggregatedData_HeadlineList_RemoveDuplicate
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
                  ChatTypeId,
                  LanguageId,
                  BatchOfGroup,
-                 Supername,
-                 HeadlineId,
-                 IsTest,
-                 MessageId,
                  IsDuplicated
     ),
-    -- + --> CTE_Group_AggregatedData_SupernameUsernameList | Ta gom data cua column Supername va UsernameList
-    CTE_Group_AggregatedData_SupernameUsernameList AS (
+    -- + --> Personal - AggregatedData - IsTest
+    CTE_Personal_AggregatedData_IsTest AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               STRING_AGG(CAST(('- ' + Supername + ': ' + UsernameList) AS VARCHAR(MAX)), '<br/>') AffectedList,
-               HeadlineId,
-               IsTest,
-               MessageId,
-               IsDuplicated
-        FROM CTE_Personal_AggregatedData_Username
+               IsDuplicated,
+               MIN(CONVERT(TINYINT, IsTest)) IsTest
+        FROM CTE_Personal_DetailData
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
                  ChatTypeId,
                  LanguageId,
                  BatchOfGroup,
-                 HeadlineId,
-                 IsTest,
-                 MessageId,
                  IsDuplicated
     ),
-    -- + --> CTE_Group_AggregatedData_AffectedListHeadlineId | O buoc nay ta gom data cua column AffectedList va HeadlineId
-    CTE_Group_AggregatedData_AffectedListHeadlineId AS (
+    -- + --> Personal - AggregatedData - MessageIdList
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Personal_AggregatedData_MessageIdList_RemoveDuplicate AS (
         SELECT VoidingHistoryCollectionId,
                ConversationGroupId,
                ChannelId,
                ChatTypeId,
                LanguageId,
                BatchOfGroup,
-               STRING_AGG(CAST(AffectedList AS VARCHAR(MAX)), '<br/>') AffectedList,
-               STRING_AGG(CAST(HeadlineId   AS VARCHAR(MAX)), ',')     HeadlineList,
-               IsTest,
-               MessageId,
-               IsDuplicated
-        FROM CTE_Group_AggregatedData_SupernameUsernameList
+               IsDuplicated,
+               MessageId
+        FROM CTE_Personal_DetailData
         GROUP BY VoidingHistoryCollectionId,
                  ConversationGroupId,
                  ChannelId,
                  ChatTypeId,
                  LanguageId,
                  BatchOfGroup,
-                 IsTest,
-                 MessageId,
+                 IsDuplicated,
+                 MessageId
+    ),
+    --       _ Sau do ta tien hanh tong hop data
+    CTE_Personal_AggregatedData_MessageIdList AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               IsDuplicated,
+               STRING_AGG(CAST(MessageId AS VARCHAR(MAX)), ',') MessageIdList
+        FROM CTE_Personal_AggregatedData_MessageIdList_RemoveDuplicate
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 IsDuplicated
+    ),
+    -- + --> Personal - AggregatedData - RelatedIds
+    --       _ Dau tien ta can remove duplicate data
+    CTE_Personal_AggregatedData_RelatedIds_RemoveDuplicate AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               IsDuplicated,
+               RelatedId
+        FROM CTE_Personal_DetailData
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
+                 IsDuplicated,
+                 RelatedId
+    ),
+    --       _ Sau do ta tien hanh tong hop data
+    CTE_Personal_AggregatedData_RelatedIds AS (
+        SELECT VoidingHistoryCollectionId,
+               ConversationGroupId,
+               ChannelId,
+               ChatTypeId,
+               LanguageId,
+               BatchOfGroup,
+               IsDuplicated,
+               STRING_AGG(CAST(RelatedId AS VARCHAR(MAX)), ',') RelatedIds
+        FROM CTE_Personal_AggregatedData_RelatedIds_RemoveDuplicate
+        GROUP BY VoidingHistoryCollectionId,
+                 ConversationGroupId,
+                 ChannelId,
+                 ChatTypeId,
+                 LanguageId,
+                 BatchOfGroup,
                  IsDuplicated
     )
-    -- + --> Insert data to main table | Ta se merge data hai hai tap dataset lai voi nhau (mot dataset cua RelatedId va mot dataset binh thuong)
-    --                                 | Ta nhien ta cung se gom data cua tat cac measure can thiet
+    -- + --> Insert data to main table
     INSERT INTO #tmpNotificationFinalData (
         -- Based Data
         VoidingHistoryCollectionId,
@@ -927,32 +1071,47 @@ BEGIN
         RelatedIds
     )
     SELECT -- Based Data
-           d1.VoidingHistoryCollectionId                                      VoidingHistoryCollectionId,
-           d1.ConversationGroupId                                             ConversationGroupId,
-           d1.ChannelId                                                       ChannelId,
-           d1.ChatTypeId                                                      ChatTypeId,
-           d1.LanguageId                                                      LanguageId,
-           CASE WHEN d1.IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END Status,
+           af.VoidingHistoryCollectionId                                    VoidingHistoryCollectionId,
+           af.ConversationGroupId                                           ConversationGroupId,
+           af.ChannelId                                                     ChannelId,
+           af.ChatTypeId                                                    ChatTypeId,
+           af.LanguageId                                                    LanguageId,
+           CASE WHEN af.IsDuplicated = 1 THEN 'Duplicated' ELSE @Status END Status,
            -- Aggregated Data
-           STRING_AGG(CAST(d1.AffectedList AS VARCHAR(MAX)), '<br/>')         AffectedList,
-           STRING_AGG(CAST(d1.HeadlineList AS VARCHAR(MAX)), ',')             HeadlineList,
-           MIN(CONVERT(TINYINT, d1.IsTest))                                   IsTest,
-           STRING_AGG(CAST(d1.MessageId    AS VARCHAR(MAX)), ',')             MessageIdList,
-           STRING_AGG(CAST(d2.RelatedIds   AS VARCHAR(MAX)), ',')             RelatedIds
-    FROM CTE_Group_AggregatedData_AffectedListHeadlineId d1
-         LEFT JOIN CTE_Personal_AggregatedData_RelatedId d2 ON d1.VoidingHistoryCollectionId = d2.VoidingHistoryCollectionId AND
-                                                               d1.ConversationGroupId        = d2.ConversationGroupId        AND
-                                                               d1.ChannelId                  = d2.ChannelId                  AND
-                                                               d1.ChatTypeId                 = d2.ChatTypeId                 AND
-                                                               d1.LanguageId                 = d2.LanguageId                 AND
-                                                               d1.IsDuplicated               = d2.IsDuplicated
-    GROUP BY d1.VoidingHistoryCollectionId,
-             d1.ConversationGroupId,
-             d1.ChannelId,
-             d1.ChatTypeId,
-             d1.LanguageId,
-             CASE WHEN d1.IsDuplicated = 1 THEN 'Duplicated' ELSE 'Planned' END,
-             d1.BatchOfGroup
+           af.AffectedList                                                  AffectedList,
+           hl.HeadlineList                                                  HeadlineList,
+           it.IsTest                                                        IsTest,
+           ml.MessageIdList                                                 MessageIdList,
+           rl.RelatedIds                                                    RelatedIds
+    FROM CTE_Personal_AggregatedData_AffectedList af
+         LEFT JOIN CTE_Personal_AggregatedData_HeadlineList  hl ON af.VoidingHistoryCollectionId = hl.VoidingHistoryCollectionId AND
+                                                                   af.ConversationGroupId        = hl.ConversationGroupId        AND
+                                                                   af.ChannelId                  = hl.ChannelId                  AND
+                                                                   af.ChatTypeId                 = hl.ChatTypeId                 AND
+                                                                   af.LanguageId                 = hl.LanguageId                 AND
+                                                                   af.BatchOfGroup               = hl.BatchOfGroup               AND
+                                                                   af.IsDuplicated               = hl.IsDuplicated
+         LEFT JOIN CTE_Personal_AggregatedData_IsTest        it ON af.VoidingHistoryCollectionId = it.VoidingHistoryCollectionId AND
+                                                                   af.ConversationGroupId        = it.ConversationGroupId        AND
+                                                                   af.ChannelId                  = it.ChannelId                  AND
+                                                                   af.ChatTypeId                 = it.ChatTypeId                 AND
+                                                                   af.LanguageId                 = it.LanguageId                 AND
+                                                                   af.BatchOfGroup               = it.BatchOfGroup               AND
+                                                                   af.IsDuplicated               = it.IsDuplicated
+         LEFT JOIN CTE_Personal_AggregatedData_MessageIdList ml ON af.VoidingHistoryCollectionId = ml.VoidingHistoryCollectionId AND
+                                                                   af.ConversationGroupId        = ml.ConversationGroupId        AND
+                                                                   af.ChannelId                  = ml.ChannelId                  AND
+                                                                   af.ChatTypeId                 = ml.ChatTypeId                 AND
+                                                                   af.LanguageId                 = ml.LanguageId                 AND
+                                                                   af.BatchOfGroup               = ml.BatchOfGroup               AND
+                                                                   af.IsDuplicated               = ml.IsDuplicated
+         LEFT JOIN CTE_Personal_AggregatedData_RelatedIds    rl ON af.VoidingHistoryCollectionId = rl.VoidingHistoryCollectionId AND
+                                                                   af.ConversationGroupId        = rl.ConversationGroupId        AND
+                                                                   af.ChannelId                  = rl.ChannelId                  AND
+                                                                   af.ChatTypeId                 = rl.ChatTypeId                 AND
+                                                                   af.LanguageId                 = rl.LanguageId                 AND
+                                                                   af.BatchOfGroup               = rl.BatchOfGroup               AND
+                                                                   af.IsDuplicated               = rl.IsDuplicated
     -- + Update to correct data or to get data for NULL value
     -- + --> AffectedList | Ta thay the ky tu '<br/>' bang ky tu xuong dong
     UPDATE tmp

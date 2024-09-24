@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogSel
 					@FeedbackID			INT
 					,@UserRole			TINYINT
@@ -20,6 +24,7 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
+        - 20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 */
 BEGIN
 	DECLARE   @AutoField       NVARCHAR(MAX)
@@ -74,7 +79,7 @@ BEGIN
 	WHERE	f.FeedbackID = @FeedbackID
 		AND((@UserRole=1 AND c.SiteID=33002) OR (@UserRole=2 AND ISNULL(c.SiteID,0)<>33002))
 
-	SELECT	cf.CustID
+	SELECT	CASE WHEN cf.CustID > 0 AND c1.custid IS NULL THEN 0 ELSE cf.CustID END CustID
 		,	ISNULL(c.UserName, c1.username ) UserName
 		,	CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee
 		,	ISNULL(s.IsActive,0) as IsSiteActive

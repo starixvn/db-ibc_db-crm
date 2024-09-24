@@ -3,7 +3,7 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_NewLeftPanel_CustomerSearch @SearchInfo        VARCHAR(200)  = '',
+ALTER PROCEDURE dbo.Acc_CRM_NewLeftPanel_CustomerSearch @SearchInfo        NVARCHAR(200) = '',
                                                         @IsGuest           BIT           = 0,
                                                         @UserRole          TINYINT       = 2,
                                                         @LicenseeType      TINYINT       = 0,
@@ -21,6 +21,7 @@ AS
 
     Revisions:    
         20231212@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 
     Param's Explanation:
         @UserRole = 0: Manager 
@@ -149,7 +150,7 @@ BEGIN
             SELECT @CustID = custid,
                    @RoleID = roleid
             FROM bodb02.dbo.Customer WITH (NOLOCK)
-            WHERE username = @SearchInfo
+            WHERE username = CAST(@SearchInfo AS VARCHAR(200))
                   AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))
         END
 
@@ -159,7 +160,7 @@ BEGIN
             SELECT @CustID = custid,
                    @RoleID = roleid
             FROM bodb02.dbo.customer WITH (NOLOCK)
-            WHERE username2 = @SearchInfo
+            WHERE username2 = CAST(@SearchInfo AS VARCHAR(200))
                   AND ((@UserRole=1 AND site = 'CN88') OR (@UserRole=2 AND (site <> 'CN88' OR Site IS NULL)))
         END
 

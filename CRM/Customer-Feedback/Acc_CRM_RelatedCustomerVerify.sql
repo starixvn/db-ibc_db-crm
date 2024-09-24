@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -29,6 +29,7 @@ AS
         - 20210528@Johnson: get site status for list related customers [Redmine: #154840]
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
         - 20240305@Ned.Le: [CRM] Create feedback and related 1 user but show 2 same user (HotFix #201863)
+        - 20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 
     Param's Explanation:
         - @UserRole = 0: Manager 
@@ -47,7 +48,7 @@ BEGIN
 
     -- #tmpUserName
     -- + Create temp table
-    CREATE TABLE #tmpUserName (UserName VARCHAR(50))
+    CREATE TABLE #tmpUserName (UserName NVARCHAR(50))
     -- + Gen data to temp table
     INSERT INTO #tmpUserName (UserName)
     SELECT ltrim(rtrim(value)) UserName
@@ -130,7 +131,7 @@ BEGIN
     -- + Create temp table
     CREATE TABLE #tmpCustomer (
         CustID         INT,
-        UserName       VARCHAR(50),
+        UserName       NVARCHAR(50),
         SitePermission NVARCHAR(100),
         IsLicensee     BIT,
         IsSiteActive   BIT,
@@ -156,7 +157,7 @@ BEGIN
                                        WHEN c.site = 'KeenOcean' THEN 'LIVV88'
                                        ELSE c.site END = si.SiteName
          LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
-    WHERE c.username IN (SELECT UserName FROM #tmpUserName)
+    WHERE c.username IN (SELECT CAST(UserName AS VARCHAR(50)) FROM #tmpUserName)
           AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
     -- + Gen data from CRM to temp table
     INSERT INTO #tmpCustomer (

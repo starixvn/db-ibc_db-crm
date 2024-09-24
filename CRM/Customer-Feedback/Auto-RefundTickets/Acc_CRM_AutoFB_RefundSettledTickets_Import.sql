@@ -22,6 +22,7 @@ AS
         - 20240318@Ned.Le: Fix bug relate to table crmSettingMapping
         - 20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
 		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
+        - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
 		
 	Param's Explanation:
 		. @MessageContent = 
@@ -117,7 +118,7 @@ BEGIN
 
 	CREATE TABLE #Message (MessageId INT, MsgTargetId INT, TransId BIGINT, CustId INT, Username VARCHAR(30), Recommend INT, Mrecommend INT
 		,Srecommend INT, Content_en NVARCHAR(MAX), Content_cs NVARCHAR(MAX), BetransIds VARCHAR(MAX), HeadlineId INT, HeadlineName VARCHAR(30)
-		,GroupName VARCHAR(50), MainDBSportTypeId TINYINT, MainDBBettypeId INT, SportTypeId INT, BettypeId INT, ProductId INT, MatchId INT, IsTest BIT DEFAULT 0)
+		,GroupName VARCHAR(50), MainDBSportTypeId TINYINT, MainDBBettypeId INT, SportTypeId INT, BettypeId INT, ProductId INT, MatchId INT, EventType INT, IsTest BIT DEFAULT 0)
 
 	INSERT INTO #Message (MessageId, MsgTargetId, TransId)
 	SELECT DISTINCT  
@@ -153,11 +154,13 @@ BEGIN
 			,m.Srecommend = b.srecommend
 			,m.Username = b.Username
 			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
-			,M.MainDBBettypeId = b.bettype
+			,m.MainDBBettypeId = b.bettype
+            ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) TransId, custId, recommend, mrecommend, srecommend, Username, matchId, currency, bettype
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm.EventType
 		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
+             LEFT JOIN (SELECT DISTINCT BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm ON b.bettype = sbm.BetType
 		WHERE m.TransId = b.TransId
 	) AS b
 
@@ -170,10 +173,12 @@ BEGIN
 			,m.Username = b.Username
 			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
 			,m.MainDBBettypeId = b.bettype
+            ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) TransId, custId, recommend, mrecommend, srecommend, Username, matchId, currency, bettype
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm.EventType
 		FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
+             LEFT JOIN (SELECT DISTINCT BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm ON b.bettype = sbm.BetType
 		WHERE m.TransId = b.TransId
 	) AS b
 	WHERE m.TransId IS NULL
@@ -304,13 +309,21 @@ BEGIN
 			INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = CONVERT(INT, h.value)
 	) AS n
 	
-
+    --EventType=1
 	UPDATE m
 		SET m.MainDBSportTypeId = mt.sporttype
 	FROM #Message m		
 		INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
+    WHERE m.EventType = 1
 
-	--VS5
+    --EventType=3
+    UPDATE m
+		SET m.MainDBSportTypeId = mt.sporttype
+	FROM #Message m		
+		INNER JOIN bodb02.dbo.VSRaceInfo mt WITH(NOLOCK) ON mt.EventID = m.MatchId
+    WHERE m.EventType = 3
+
+	--EventType=5
 	UPDATE m
 		SET m.MainDBSportTypeId = mt.sporttype
 	FROM #Message m		
@@ -469,10 +482,11 @@ BEGIN
 				+ N'Affected user / Tài khoản bị ảnh hưởng: {affected_list}'
 			) AS SolutionENYN
 	), CTE_Result AS (
-		SELECT m.HeadlineId, m.MessageId, MAX(m.MatchId) AS MatchId
+		SELECT m.HeadlineId, m.MessageId, MAX(m.MatchId) AS MatchId, MAX(m.EventType) EventType
 		FROM #Message m
 		GROUP BY m.HeadlineId, m.MessageId
 	), CTE_EventInfo AS (
+        --EventType=1
 		SELECT
 			m.MatchId
 			,FORMAT(mt.eventdate, 'dd-MMM-yyyy') AS EventDate
@@ -480,15 +494,27 @@ BEGIN
 			,h.teamname + ' -vs- ' + a.teamname AS Match
 			,s.SportName
 		FROM (
-			SELECT DISTINCT MatchId FROM CTE_Result
+			SELECT DISTINCT MatchId FROM CTE_Result WHERE EventType = 1
 		) AS m	
 			INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
 			INNER JOIN bodb02.dbo.Team h WITH(NOLOCK) ON h.teamId = mt.homeId
 			INNER JOIN bodb02.dbo.Team a WITH(NOLOCK) ON a.teamId = mt.awayId
 			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
-
+        --EventType=3
+        UNION ALL
+		SELECT
+			m.MatchId
+			,FORMAT(mt.EventTime, 'dd-MMM-yyyy') AS EventDate
+			,FORMAT(DATEADD(HH, 12, mt.EventTime), 'hh:mm tt') AS KO_time
+			,mt.VendorMatchId AS Match
+			,s.SportName
+		FROM (
+			SELECT DISTINCT MatchId FROM CTE_Result WHERE EventType = 3
+		) AS m	
+			INNER JOIN bodb02.dbo.VSRaceInfo mt WITH(NOLOCK) ON mt.EventID = m.MatchId
+			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
+        --EventType=5
 		UNION ALL
-
 		SELECT
 			m.MatchId
 			,FORMAT(mt.eventdate, 'dd-MMM-yyyy') AS EventDate
@@ -496,7 +522,7 @@ BEGIN
 			,h.teamname + ' -vs- ' + a.teamname AS Match
 			,s.SportName
 		FROM (
-			SELECT DISTINCT MatchId FROM CTE_Result
+			SELECT DISTINCT MatchId FROM CTE_Result WHERE EventType = 5
 		) AS m	
 			INNER JOIN bodb02.dbo.Match3rd mt WITH(NOLOCK) ON mt.Match3rdId = m.MatchId
 			INNER JOIN bodb02.dbo.Team3rd h WITH(NOLOCK) ON h.Team3rdId = mt.homeId

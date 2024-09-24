@@ -19,6 +19,7 @@ AS
 		- 20230223@Tacy: CRM - Split 789y site [redmineID: #182438]
         - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
+        - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
 	Parameter's Explanation:
 		
 */
@@ -112,23 +113,21 @@ BEGIN
 	Update r
 	SET r.sporttype = vi.sporttype
 		,r.leagueid = vi.leagueid
-        ,r.leaguegroupid = l.LeagueGroupID
 		,r.eventdate = vi.EventTime
 		,r.race_time = vi.EventTime
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.VSRaceInfo vi WITH(NOLOCK) ON r.MatchId = vi.EventID
-        INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON vi.leagueid = l.leagueid
+        INNER JOIN bodb02.dbo.League3rd l WITH(NOLOCK) ON vi.leagueid = l.League3rdId
 	WHERE 	r.EventType = 3
 	
 	Update r
 	SET r.sporttype = vi.sporttype
 		,r.leagueid = vi.leagueid
-        ,r.leaguegroupid = l.LeagueGroupID
 		,r.eventdate = vi.EventTime
 		,r.race_time = vi.EventTime
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.VSRaceInfo14 vi WITH(NOLOCK) ON r.MatchId = vi.EventID
-        INNER JOIN bodb02.dbo.League l WITH(NOLOCK) ON vi.leagueid = l.leagueid
+        INNER JOIN bodb02.dbo.League3rd l WITH(NOLOCK) ON vi.leagueid = l.League3rdId
 	WHERE 	r.EventType = 3  AND r.Sporttype IS NULL
 
 	-- Get data from Match when EventType = 0

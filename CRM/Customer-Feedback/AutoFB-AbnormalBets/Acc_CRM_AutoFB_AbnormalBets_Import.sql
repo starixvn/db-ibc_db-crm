@@ -26,6 +26,7 @@ AS
         - 20240404@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
         - 20240825@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
+        - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
 		
 	Param's Explanation:
 		. @Message = 
@@ -158,6 +159,7 @@ BEGIN
 		,BettypeId					INT
 		,ProductId					INT
 		,MatchId					INT
+        ,EventType                  INT
 		,IsTest						BIT DEFAULT 0
 		,IsDeposit					BIT
 		,IssueTypeId				TINYINT
@@ -277,11 +279,13 @@ BEGIN
 			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
 			,M.MainDBBettypeId = b.bettype
 			,m.MatchId = b.matchid
+            ,m.EventType = b.EventType
 			,m.WinlostDate = b.winlostdate
 	FROM #VoidedCollectionInfo m
 	CROSS APPLY (
-		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, b.winlostdate
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, b.winlostdate, sbm.EventType
 		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
+             LEFT JOIN (SELECT DISTINCT BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm ON b.bettype = sbm.BetType
 		WHERE m.TransId = b.TransId
 	) AS b
 
@@ -295,11 +299,13 @@ BEGIN
 			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
 			,m.MainDBBettypeId = b.bettype
 			,m.MatchId = b.matchid
+            ,m.EventType = b.EventType
 			,m.WinlostDate = b.winlostdate
 	FROM #VoidedCollectionInfo m
 	CROSS APPLY (
-		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, b.winlostdate
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, b.winlostdate, sbm.EventType
 		FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
+             LEFT JOIN (SELECT DISTINCT BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm ON b.bettype = sbm.BetType
 		WHERE m.TransId = b.TransId
 	) AS b
 	WHERE m.CustId IS NULL
@@ -505,18 +511,22 @@ BEGIN
 	
 	/*Get Sub - Product, Bettype*/
 	;WITH CTE_match AS (
-		SELECT matchid, sporttype FROM bodb02.dbo.match WITH (NOLOCK)
+		SELECT matchid, sporttype, 1 EventType FROM bodb02.dbo.match WITH (NOLOCK)
 		UNION
-		SELECT matchid, sporttype FROM bodb02.dbo.match14 WITH (NOLOCK)
+		SELECT matchid, sporttype, 1 EventType FROM bodb02.dbo.match14 WITH (NOLOCK)
 		UNION
-		SELECT Match3rdId AS matchid, sporttype FROM bodb02.dbo.Match3rd WITH (NOLOCK)
+        SELECT EventID AS matchid, sporttype, 3 EventType FROM bodb02.dbo.VSRaceInfo WITH (NOLOCK)
         UNION
-		SELECT Match3rdId AS matchid, sporttype FROM bodb02.dbo.Match3rd14 WITH (NOLOCK)
+        SELECT EventID AS matchid, sporttype, 3 EventType FROM bodb02.dbo.VSRaceInfo14 WITH (NOLOCK)
+        UNION
+		SELECT Match3rdId AS matchid, sporttype, 5 EventType FROM bodb02.dbo.Match3rd WITH (NOLOCK)
+        UNION
+		SELECT Match3rdId AS matchid, sporttype, 5 EventType FROM bodb02.dbo.Match3rd14 WITH (NOLOCK)
 	)
 	UPDATE m
 	SET m.MainDBSportTypeId = mt.sporttype
 	FROM #VoidedCollectionInfo m
-		INNER JOIN CTE_match mt ON m.matchid = mt.matchid
+		INNER JOIN CTE_match mt ON m.matchid = mt.matchid AND m.EventType = m.EventType
 
 	UPDATE m
 		SET m.MainDBProductId = n.ProductID

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBMSG-bodb_Message" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBMSG-bodb_Message" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 
 USE bodb_Message
 GO
@@ -14,6 +14,7 @@ AS
 
     Revisions:
         - 20231115@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID (#196660)
+        - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
 
     Param's Explanation:
         - @LastMsgTargetId: the last MsgTargetId
@@ -81,6 +82,7 @@ BEGIN
            mt.MsgTargetId,
            mt.TargetId,
            mt.BetTransId,
+           m.CreatorName,
            m.Content_en,
            m.Content_cs
     FROM bodb_Message.dbo.MsgTarget mt WITH (NOLOCK)

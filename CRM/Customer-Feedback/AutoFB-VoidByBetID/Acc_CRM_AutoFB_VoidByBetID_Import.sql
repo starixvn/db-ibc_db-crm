@@ -23,12 +23,13 @@ AS
         20240207@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
         20240318@Ned.Le: Fix bug relate to table crmSettingMapping
         20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        20240827@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook (#209707)
 
     Param's Explanation:
         @Message:
             <root>
-                <r MessageId="1" ListBetTransId="1,2,3,4" Content_en="" Content_cs=""/>
-                <r MessageId="2" ListBetTransId="5,6,7,8" Content_en="" Content_cs=""/>
+                <r MessageId="1" ListBetTransId="1,2,3,4" CreatorName="" Content_en="" Content_cs=""/>
+                <r MessageId="2" ListBetTransId="5,6,7,8" CreatorName="" Content_en="" Content_cs=""/>
             </root>
 */
 
@@ -75,14 +76,15 @@ BEGIN
     -- [01] Global variables --
 
     DECLARE @CreatorId                    INT = 10278938
+    DECLARE @ServiceName                  VARCHAR(50) = 'AutoFB - Void by BetID'
 
     DECLARE @IncludeUUSCurrency           BIT
-    SELECT  @IncludeUUSCurrency           = CONVERT(BIT, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE ServiceName = 'AutoFB - Void by BetID' AND SettingName = 'IncludeUUSCurrency'
+    SELECT  @IncludeUUSCurrency           = CONVERT(BIT, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE ServiceName = @ServiceName AND SettingName = 'IncludeUUSCurrency'
     
     DECLARE @SettingNameOfLastRuntime     VARCHAR(50)
     SELECT  @SettingNameOfLastRuntime     = CASE WHEN @Environment = 'UAT' THEN 'LastRuntimeUAT' ELSE 'LastRuntime' END
     DECLARE @LastRuntime                  DATETIME
-    SELECT  @LastRuntime                  = CONVERT(DATETIME, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = 'AutoFB - Void by BetID'
+    SELECT  @LastRuntime                  = CONVERT(DATETIME, Value) FROM bodb_CRM.dbo.SystemSetting WITH (NOLOCK) WHERE SettingName = @SettingNameOfLastRuntime AND ServiceName = @ServiceName
     
     DECLARE @SettingNameOfJobStatus       VARCHAR(50)
     SELECT  @SettingNameOfJobStatus       = CASE WHEN @Environment = 'UAT' THEN 'JobStatusUAT' ELSE 'JobStatus' END
@@ -101,9 +103,9 @@ BEGIN
 
     -- Update status to running
     UPDATE s
-    SET s.Value = 'running'
+    SET s.Value = 'Running'
     FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
+    WHERE s.ServiceName = @ServiceName
           AND s.SettingName = @SettingNameOfJobStatus
           AND s.Value = 'Completed'
 
@@ -116,22 +118,23 @@ BEGIN
             UPDATE s
             SET s.Value = 'Completed'
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfJobStatus
-                  AND s.Value = 'running'
+                  AND s.Value = 'Running'
 
             UPDATE s
             SET s.Value = CONVERT(VARCHAR(20), GETDATE(), 120)
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfLastRuntime
         END
         -- + If not, it means the job still running and still not over 5mi
         ELSE
         BEGIN
             SELECT @ErrCode = 100
-            SELECT @ErrMsg = 'Server Name: ' + @ServerName + ' - Database Name: ' + @DBName + ' - SP Name: ' + @SPName + ' - Error Message: ' + 'AutoFB - Void by BetID - Job is running.'
+            SELECT @ErrMsg = 'Server Name: ' + @ServerName + ' - Database Name: ' + @DBName + ' - SP Name: ' + @SPName + ' - Error Message: ' + @ServiceName + ' - Job is running.'
         END
+        -- + Return
         RETURN
     END
 
@@ -139,7 +142,7 @@ BEGIN
     UPDATE s
     SET s.Value = CONVERT(VARCHAR(20), GETDATE(), 120)
     FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
+    WHERE s.ServiceName = @ServiceName
           AND s.SettingName = @SettingNameOfLastRuntime
 
 
@@ -150,13 +153,15 @@ BEGIN
     CREATE TABLE #tmpXMLData (
         MessageId      INT,
         ListBetTransId VARCHAR(MAX),
+        CreatorName    NVARCHAR(200),
         Content_en     NVARCHAR(MAX),
         Content_cs     NVARCHAR(MAX)
     )
 
-    INSERT INTO #tmpXMLData (MessageId, ListBetTransId, Content_en, Content_cs)
+    INSERT INTO #tmpXMLData (MessageId, ListBetTransId, CreatorName, Content_en, Content_cs)
     SELECT t.c.value('@MessageId',      'INT')           AS MessageId,
            t.c.value('@ListBetTransId', 'VARCHAR(MAX)')  AS ListBetTransId,
+           t.c.value('@CreatorName',    'NVARCHAR(200)') AS CreatorName,
            t.c.value('@Content_en',     'NVARCHAR(MAX)') AS Content_en,
            t.c.value('@Content_cs',     'NVARCHAR(MAX)') AS Content_cs
     FROM @Messages.nodes('root/r') AS t(c)
@@ -170,16 +175,18 @@ BEGIN
             UPDATE s
             SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfLastMsgTargetId
         END
 
-        UPDATE s
-        SET s.Value = 'Completed'
-        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
-              AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'running'
+        BEGIN
+            UPDATE s
+            SET s.Value = 'Completed'
+            FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+            WHERE s.ServiceName = @ServiceName
+                  AND s.SettingName = @SettingNameOfJobStatus
+                  AND s.Value = 'Running'
+        END
 
         RETURN
     END
@@ -233,7 +240,7 @@ BEGIN
     FROM #tmpMessageData d
          CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchid, m.sporttype, b.bettype
                       FROM bodb02.dbo.bettrans b WITH (NOLOCK)
-                           INNER JOIN bodb02.dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
+                           LEFT JOIN bodb02.dbo.match m WITH (NOLOCK) ON b.matchid = m.matchid
                       WHERE b.transid = d.TransId) b
     -- + Get data from bettrans14
     UPDATE d
@@ -249,18 +256,14 @@ BEGIN
     FROM #tmpMessageData d
          CROSS APPLY (SELECT TOP(1) b.currency, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchid, m.sporttype, b.bettype
                       FROM bodb02.dbo.bettrans14 b WITH (NOLOCK)
-                           INNER JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
+                           LEFT JOIN bodb02.dbo.match14 m WITH (NOLOCK) ON b.matchid = m.matchid
                       WHERE b.transid = d.TransId) b
     -- + Clean data, only import testing data with UAT environment
     IF (@Environment = 'UAT')
     BEGIN
-        ;WITH
-        CTE_Data AS (
-            SELECT DISTINCT MessageId FROM #tmpMessageData WHERE IsTest = 0
-        )
         DELETE m
         FROM #tmpMessageData m
-        WHERE m.MessageId IN (SELECT MessageId FROM CTE_Data)
+        WHERE m.IsTest = 0
     END
     -- + Clean data, exclude UUS currency with LIVE environment
     IF (@Environment = 'LIVE' AND @IncludeUUSCurrency = 0)
@@ -268,6 +271,12 @@ BEGIN
         DELETE m
         FROM #tmpMessageData m
         WHERE m.IsTest = 1
+    END
+    -- + Clean data, remove records that no longer existed in bettrans & bettrans14
+    BEGIN
+        DELETE m
+        FROM #tmpMessageData m
+        WHERE m.CustId IS NULL
     END
     -- + Check data existence
     IF NOT EXISTS (SELECT 1 FROM #tmpMessageData)
@@ -277,16 +286,18 @@ BEGIN
             UPDATE s
             SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
             FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-            WHERE s.ServiceName = 'AutoFB - Void by BetID'
+            WHERE s.ServiceName = @ServiceName
                   AND s.SettingName = @SettingNameOfLastMsgTargetId
         END
 
-        UPDATE s
-        SET s.Value = 'Completed'
-        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
-              AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'running'
+        BEGIN
+            UPDATE s
+            SET s.Value = 'Completed'
+            FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+            WHERE s.ServiceName = @ServiceName
+                  AND s.SettingName = @SettingNameOfJobStatus
+                  AND s.Value = 'Running'
+        END
 
         RETURN
     END
@@ -320,7 +331,7 @@ BEGIN
          LEFT JOIN bodb02.dbo.Dep_CustSuper d WITH (NOLOCK) ON h.HeadlineId = d.custid
          LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON h.CustId = c.custid
     -- + Delete ignored data
-    -- + --> for #tmpBasedData
+    -- + --> for #tmpMessageData
     DELETE d
     FROM #tmpMessageData d
          INNER JOIN #tmpHeadlineData h ON d.CustId = h.CustId
@@ -358,54 +369,54 @@ BEGIN
         -- + --> Run sp to sync data
         IF NOT EXISTS (SELECT 1 FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK) WHERE CustId = @SyncHeadline_CustID)
         BEGIN
-            EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerIns_New @UserId                  = @CreatorId
-                                                         ,@CustId                 = @SyncHeadline_CustId
-                                                         ,@UserName               = @SyncHeadline_Username
-                                                         ,@FirstName              = NULL
-                                                         ,@LastName               = NULL
-                                                         ,@TitleId                = NULL
-                                                         ,@Birthday               = NULL
-                                                         ,@LanguageId             = 0
-                                                         ,@Phone                  = NULL
-                                                         ,@PhoneCountryCode       = NULL
-                                                         ,@PhoneAreaCode          = NULL
-                                                         ,@Phone2                 = NULL
-                                                         ,@Phone2CountryCode      = NULL
-                                                         ,@Phone2AreaCode         = NULL
-                                                         ,@Phone3                 = NULL
-                                                         ,@Phone3CountryCode      = NULL
-                                                         ,@Phone3AreaCode         = NULL
-                                                         ,@MobilePhone            = NULL
-                                                         ,@MobilePhoneCountryCode = NULL
-                                                         ,@MobilePhoneAreaCode    = NULL
-                                                         ,@Fax                    = NULL
-                                                         ,@FaxCountryCode         = NULL
-                                                         ,@FaxAreaCode            = NULL
-                                                         ,@Email                  = NULL
-                                                         ,@Passport               = NULL
-                                                         ,@BettingCode            = NULL
-                                                         ,@RefCode2               = NULL
-                                                         ,@Skype                  = NULL
-                                                         ,@MSN                    = NULL
-                                                         ,@CountryId              = NULL
-                                                         ,@IsVIP                  = 0
-                                                         ,@SiteId                 = NULL
-                                                         ,@CreatorId              = @CreatorId
-                                                         ,@LicenseeType           = NULL
-                                                         ,@WhatsApp               = NULL
-                                                         ,@Line                   = NULL
-                                                         ,@WeChat                 = NULL
-                                                         ,@Yahoo                  = NULL
-                                                         ,@QQ                     = NULL
-                                                         ,@BBM                    = NULL
-                                                         ,@IP                     = @IP
-                                                         ,@Pic1                   = NULL
-                                                         ,@Pic2                   = NULL
-                                                         ,@Pic3                   = NULL
-                                                         ,@Pic4                   = NULL
-                                                         ,@ProvinceId             = NULL                    
-                                                         ,@ErrCode                = @ErrCode OUTPUT
-                                                         ,@ErrMsg                 = @ErrMsg  OUTPUT
+            EXECUTE bodb_CRM.dbo.Acc_CRM_CustomerIns_New @UserId                 = @CreatorId,
+                                                         @CustId                 = @SyncHeadline_CustId,
+                                                         @UserName               = @SyncHeadline_Username,
+                                                         @FirstName              = NULL,
+                                                         @LastName               = NULL,
+                                                         @TitleId                = NULL,
+                                                         @Birthday               = NULL,
+                                                         @LanguageId             = 0,
+                                                         @Phone                  = NULL,
+                                                         @PhoneCountryCode       = NULL,
+                                                         @PhoneAreaCode          = NULL,
+                                                         @Phone2                 = NULL,
+                                                         @Phone2CountryCode      = NULL,
+                                                         @Phone2AreaCode         = NULL,
+                                                         @Phone3                 = NULL,
+                                                         @Phone3CountryCode      = NULL,
+                                                         @Phone3AreaCode         = NULL,
+                                                         @MobilePhone            = NULL,
+                                                         @MobilePhoneCountryCode = NULL,
+                                                         @MobilePhoneAreaCode    = NULL,
+                                                         @Fax                    = NULL,
+                                                         @FaxCountryCode         = NULL,
+                                                         @FaxAreaCode            = NULL,
+                                                         @Email                  = NULL,
+                                                         @Passport               = NULL,
+                                                         @BettingCode            = NULL,
+                                                         @RefCode2               = NULL,
+                                                         @Skype                  = NULL,
+                                                         @MSN                    = NULL,
+                                                         @CountryId              = NULL,
+                                                         @IsVIP                  = 0,
+                                                         @SiteId                 = NULL,
+                                                         @CreatorId              = @CreatorId,
+                                                         @LicenseeType           = NULL,
+                                                         @WhatsApp               = NULL,
+                                                         @Line                   = NULL,
+                                                         @WeChat                 = NULL,
+                                                         @Yahoo                  = NULL,
+                                                         @QQ                     = NULL,
+                                                         @BBM                    = NULL,
+                                                         @IP                     = @IP,
+                                                         @Pic1                   = NULL,
+                                                         @Pic2                   = NULL,
+                                                         @Pic3                   = NULL,
+                                                         @Pic4                   = NULL,
+                                                         @ProvinceId             = NULL,                    
+                                                         @ErrCode                = @ErrCode OUTPUT,
+                                                         @ErrMsg                 = @ErrMsg  OUTPUT
 
             IF (@ErrCode <> 0)
             BEGIN
@@ -418,9 +429,9 @@ BEGIN
                 UPDATE s
                 SET s.Value = 'Completed'
                 FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-                WHERE s.ServiceName = 'AutoFB - Void by BetID'
+                WHERE s.ServiceName = @ServiceName
                       AND s.SettingName = @SettingNameOfJobStatus
-                      AND s.Value = 'running'
+                      AND s.Value = 'Running'
 
                 RETURN
             END
@@ -468,9 +479,9 @@ BEGIN
         UPDATE s
         SET s.Value = 'Completed'
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+        WHERE s.ServiceName = @ServiceName
               AND s.SettingName = @SettingNameOfJobStatus
-              AND s.Value = 'running'
+              AND s.Value = 'Running'
 
         RETURN
     END
@@ -488,22 +499,26 @@ BEGIN
     -- Group 01, Feedback fixed information > From spec
     --                                      > We can know Feedback's field that info is fixed
     --                                      > And we just collect data for them first
-    DECLARE @Feedback_Date           DATETIME     = GETDATE()
-    DECLARE @Feedback_ResolutionDate DATETIME     = DATEADD(MINUTE, 1, @Feedback_Date)
-    DECLARE @Feedback_Subject        VARCHAR(200) = 'Special Notification'
-    DECLARE @Feedback_StationId      INT
-    DECLARE @Feedback_CategoryId     INT
-    DECLARE @Feedback_SubCategoryId  INT
-    DECLARE @Feedback_ProductId      INT
-    DECLARE @Feedback_StatusId       INT
-    DECLARE @Feedback_ResponseId     INT
+    DECLARE @Feedback_Date                DATETIME     = GETDATE()
+    DECLARE @Feedback_ResolutionDate      DATETIME     = DATEADD(MINUTE, 1, @Feedback_Date)
+    DECLARE @Feedback_Subject             VARCHAR(200) = 'Special Notification'
+    DECLARE @Feedback_StationId           INT
+    DECLARE @Feedback_CategoryId          INT
+    DECLARE @Feedback_SubCategoryId       INT
+    DECLARE @Feedback_ProductId           INT
+    DECLARE @Feedback_SubProductId_Parlay INT
+    DECLARE @Feedback_BettypeId_Parlay    INT
+    DECLARE @Feedback_StatusId            INT
+    DECLARE @Feedback_ResponseId          INT
 
-    SELECT @Feedback_StationId     = MAX(CASE WHEN SettingName = 'Station'      AND SettingValue = 'N/A'                  THEN SettingId ELSE NULL END),
-           @Feedback_CategoryId    = MAX(CASE WHEN SettingName = 'MainCategory' AND SettingValue = 'Special Notification' THEN SettingId ELSE NULL END),
-           @Feedback_SubCategoryId = MAX(CASE WHEN SettingName = 'SubCategory'  AND SettingValue = 'Abnormal Bets'        THEN SettingId ELSE NULL END),
-           @Feedback_ProductId     = MAX(CASE WHEN SettingName = 'Product'      AND SettingValue = 'Sportsbook'           THEN SettingId ELSE NULL END),
-           @Feedback_StatusId      = MAX(CASE WHEN SettingName = 'Status'       AND SettingValue = 'Closed'               THEN SettingId ELSE NULL END),
-           @Feedback_ResponseId    = MAX(CASE WHEN SettingName = 'Response'     AND SettingValue = 'Neutral'              THEN SettingId ELSE NULL END)
+    SELECT @Feedback_StationId           = MAX(CASE WHEN SettingName = 'Station'      AND SettingValue = 'N/A'                  THEN SettingId ELSE NULL END),
+           @Feedback_CategoryId          = MAX(CASE WHEN SettingName = 'MainCategory' AND SettingValue = 'Special Notification' THEN SettingId ELSE NULL END),
+           @Feedback_SubCategoryId       = MAX(CASE WHEN SettingName = 'SubCategory'  AND SettingValue = 'Abnormal Bets'        THEN SettingId ELSE NULL END),
+           @Feedback_ProductId           = MAX(CASE WHEN SettingName = 'Product'      AND SettingValue = 'Sportsbook'           THEN SettingId ELSE NULL END),
+           @Feedback_SubProductId_Parlay = MAX(CASE WHEN SettingName = 'SubProduct'   AND SettingValue = 'Multiple Sports'      THEN SettingId ELSE NULL END),
+           @Feedback_BettypeId_Parlay    = MAX(CASE WHEN SettingName = 'Bettype'      AND SettingValue = 'Mix Parlay'           THEN SettingId ELSE NULL END),
+           @Feedback_StatusId            = MAX(CASE WHEN SettingName = 'Status'       AND SettingValue = 'Closed'               THEN SettingId ELSE NULL END),
+           @Feedback_ResponseId          = MAX(CASE WHEN SettingName = 'Response'     AND SettingValue = 'Neutral'              THEN SettingId ELSE NULL END)
     FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
     WHERE SiteOffer = 2
 
@@ -517,6 +532,7 @@ BEGIN
         MessageId       INT,
         HeadlineId      INT,
         isLicensee      BIT,
+        isParlay        BIT,
         RelatedCustId   VARCHAR(MAX),
         RelatedUsername NVARCHAR(MAX),
         MappingCustId   INT
@@ -526,16 +542,18 @@ BEGIN
         MessageId,
         HeadlineId,
         isLicensee,
+        isParlay,
         RelatedCustId,
         RelatedUsername,
         MappingCustId
     )
-    SELECT b.MessageId  MessageId,
-           h.HeadlineId HeadlineId,
-           0            isLicensee,
-           b.CustId     RelatedCustId,
-           b.Username   RelatedUsername,
-           b.CustId     MappingCustId
+    SELECT b.MessageId                                           MessageId,
+           h.HeadlineId                                          HeadlineId,
+           0                                                     isLicensee,
+           CASE WHEN MAX(b.Bettype) IN (9, 29) THEN 1 ELSE 0 END isParlay,
+           b.CustId                                              RelatedCustId,
+           b.Username                                            RelatedUsername,
+           b.CustId                                              MappingCustId
     FROM #tmpMessageData b
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
     WHERE h.isLicensee = 0
@@ -548,16 +566,18 @@ BEGIN
         MessageId,
         HeadlineId,
         isLicensee,
+        isParlay,
         RelatedCustId,
         RelatedUsername,
         MappingCustId
     )
-    SELECT b.MessageId MessageId,
-           a.CustID    HeadlineId,
-           1           isLicensee,
-           lm.custid   RelatedCustId,
-           c.UserName  RelatedUsername,
-           b.CustId    MappingCustId
+    SELECT b.MessageId                                           MessageId,
+           a.CustID                                              HeadlineId,
+           1                                                     isLicensee,
+           CASE WHEN MAX(b.Bettype) IN (9, 29) THEN 1 ELSE 0 END isParlay,
+           lm.custid                                             RelatedCustId,
+           c.UserName                                            RelatedUsername,
+           b.CustId                                              MappingCustId
     FROM #tmpMessageData b
          LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
          LEFT JOIN bodb_CRM.dbo.crmLicenseeMapping lm WITH (NOLOCK) ON h.HeadlineSite = lm.Site
@@ -584,15 +604,15 @@ BEGIN
     )
     SELECT b.MessageId,
            h.HeadlineId,
-           mp.SettingID SubProductId
+           CASE WHEN h.isParlay = 1 THEN @Feedback_SubProductId_Parlay ELSE mp.SettingID END SubProductId
     FROM #tmpMessageData b
-         INNER JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
-         INNER JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON b.Sporttype = s.SportType
-         INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON s.SportName = mp.SettingSource
-         INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'SubProduct' AND mp.SettingID = st.SettingID
+         LEFT JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
+         LEFT JOIN bodb02.dbo.Sports s WITH (NOLOCK) ON b.Sporttype = s.SportType
+         LEFT JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON s.SportName = mp.SettingSource
+         LEFT JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'SubProduct' AND mp.SettingID = st.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
-             mp.SettingID
+             CASE WHEN h.isParlay = 1 THEN @Feedback_SubProductId_Parlay ELSE mp.SettingID END
     -- + Get Bettype data
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_base_bettype (
@@ -608,16 +628,16 @@ BEGIN
     )
     SELECT b.MessageId,
            h.HeadlineId,
-           mp.SettingID BettypeId
+           CASE WHEN h.isParlay = 1 THEN @Feedback_BettypeId_Parlay ELSE mp.SettingID END BettypeId
     FROM #tmpMessageData b
          LEFT JOIN #tmpFeedback_base_cust h ON b.MessageId = h.MessageId AND b.CustId = h.MappingCustId
-         INNER JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
-         INNER JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON bt.typenamee = mp.SettingSource
-         INNER JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'BetType' AND mp.SettingID = st.SettingID
-         INNER JOIN bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK) ON sr.ParentID IN (SELECT SubProductId FROM #tmpFeedback_base_subproduct) AND st.SettingID = sr.SettingID
+         LEFT JOIN bodb02.dbo.bettype bt WITH (NOLOCK) ON b.Bettype = bt.typeid
+         LEFT JOIN bodb_CRM.dbo.crmSettingMapping mp WITH (NOLOCK) ON bt.typenamee = mp.SettingSource
+         LEFT JOIN bodb_CRM.dbo.crmSetting st WITH (NOLOCK) ON st.SettingName = 'BetType' AND mp.SettingID = st.SettingID
+         LEFT JOIN bodb_CRM.dbo.crmSettingRelation sr WITH (NOLOCK) ON sr.ParentID IN (SELECT SubProductId FROM #tmpFeedback_base_subproduct) AND st.SettingID = sr.SettingID
     GROUP BY b.MessageId,
              h.HeadlineId,
-             mp.SettingID
+             CASE WHEN h.isParlay = 1 THEN @Feedback_BettypeId_Parlay ELSE mp.SettingID END
     -- + Get final data
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_base (
@@ -625,6 +645,7 @@ BEGIN
         MessageId          INT,
         HeadlineId         INT,
         isLicensee         BIT,
+        isParlay           BIT,
         RelatedCustIds     VARCHAR(MAX),
         RelatedUsernames   NVARCHAR(MAX),
         SubProductIds      VARCHAR(MAX),
@@ -641,14 +662,16 @@ BEGIN
         SELECT c.MessageId,
                c.HeadlineId,
                c.isLicensee,
+               c.isParlay,
                STRING_AGG(CAST(c.RelatedCustId AS VARCHAR(MAX)), ',')   RelatedCustIds,
                STRING_AGG(CAST(c.RelatedUsername AS VARCHAR(MAX)), ', ') RelatedUsernames
-        FROM (SELECT MessageId, HeadlineId, isLicensee, RelatedCustId, RelatedUsername
+        FROM (SELECT MessageId, HeadlineId, isLicensee, isParlay, RelatedCustId, RelatedUsername
               FROM #tmpFeedback_base_cust
-              GROUP BY MessageId, HeadlineId, isLicensee, RelatedCustId, RelatedUsername) c
+              GROUP BY MessageId, HeadlineId, isLicensee, isParlay, RelatedCustId, RelatedUsername) c
         GROUP BY c.MessageId,
                  c.HeadlineId,
-                 c.isLicensee
+                 c.isLicensee,
+                 c.isParlay
     ),
     CTE_subproduct AS (
         SELECT MessageId,
@@ -670,6 +693,7 @@ BEGIN
         MessageId,
         HeadlineId,
         isLicensee,
+        isParlay,
         RelatedCustIds,
         RelatedUsernames,
         SubProductIds,
@@ -678,6 +702,7 @@ BEGIN
     SELECT c.MessageId,
            c.HeadlineId,
            c.isLicensee,
+           c.isParlay,
            c.RelatedCustIds,
            c.RelatedUsernames,
            sp.SubProductIds,
@@ -769,7 +794,7 @@ BEGIN
 
     -- Group 03, Feedback match information > Base on spec
     --                                      > When create Feedback for Credit model
-    --                                      > Field Description need info about match
+    --                                      > Field Description of single ticket need info about match
     -- + Get data about SABA LeagueGroupID
     CREATE TABLE #tmpFeedback_event_SABALeagueGroupID (LeagueGroupID INT)
     INSERT INTO  #tmpFeedback_event_SABALeagueGroupID (LeagueGroupID)
@@ -799,6 +824,7 @@ BEGIN
         FROM #tmpMessageData b
              LEFT JOIN #tmpHeadlineData h ON b.CustId = h.CustId
         WHERE h.isLicensee = 0
+              AND b.Bettype NOT IN (9, 29)
         GROUP BY b.MessageId,
                  h.HeadlineId,
                  h.HeadlineSite,
@@ -816,7 +842,8 @@ BEGIN
         HomeTeamName,
         AwayTeamName
     )
-    SELECT cte.MessageId,
+    SELECT DISTINCT
+           cte.MessageId,
            cte.HeadlineId,
            cte.MatchId,
            m.eventdate EventDate,
@@ -928,6 +955,7 @@ BEGIN
         Description NVARCHAR(MAX)
     )
     -- + Gen data for credit model
+    -- + --> For single ticket
     ;WITH
     CTE_eventinfo AS (
         SELECT MessageId,
@@ -961,6 +989,34 @@ BEGIN
             FOR XML PATH('row'), ROOT('ROOT')
         ) AS d(Description)
     WHERE b.isLicensee = 0
+          AND b.isParlay = 0
+    -- + --> For parlay ticket
+    INSERT INTO #tmpFeedback_description (
+        MessageId,
+        HeadlineId,
+        Description
+    )
+    SELECT b.MessageId,
+           b.HeadlineId,
+           d.Description
+    FROM #tmpFeedback_base b
+         LEFT JOIN #tmpXMLData x ON b.MessageId = x.MessageId
+         OUTER APPLY (
+            SELECT (
+                       'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Feedback_Date), 'yyyyMMdd/hh:mmtt') + '/' + b.CommunicationNames + CHAR(13) + CHAR(10)
+                       + 'System ID: ' + ISNULL(b.RelatedUsernames, '')
+                   ) AS '@AutoField'
+                   ,
+                   (
+                       '<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br/><span style="color: rgb(255, 0, 0);">'
+                       + 'Msg ID: ' + CONVERT(VARCHAR(20), b.MessageId) + '</span><br/><br/>'
+                       + 'Due to Abnormal Bets, some Mix Parlay tickets were VOIDED.' + '<br/>'
+                       + 'Voided By: ' + x.CreatorName
+                   ) AS '@Remark'
+            FOR XML PATH('row'), ROOT('ROOT')
+        ) AS d(Description)
+    WHERE b.isLicensee = 0
+          AND b.isParlay = 1
     -- + Gen data for licensee model
     INSERT INTO #tmpFeedback_description (
         MessageId,
@@ -1015,9 +1071,10 @@ BEGIN
            b.HeadlineId,
            (
                REPLACE(x.Content_en, '@@', '') + '<br/><br/>' +
-               REPLACE(x.Content_cs, '@@', '') + '<br/><br/>' +
                'Kindly refer to Agency site "Cancelled Bets" for Voided user.' + '<br/><br/>' +
-               'Affected users and tickets:' + '<br/>' +
+               REPLACE(x.Content_cs, '@@', '') + '<br/><br/>' +
+               N'请浏览代理网 “已删除/作废注单” 查询有关作废账号。' + '<br/><br/>' +
+               'Affected user/' + N'受影响会员:' + '<br/>' +
                t.TransidInfo
            ) Solution
     FROM #tmpFeedback_base b
@@ -1352,16 +1409,18 @@ BEGIN
         UPDATE s
         SET s.Value = CONVERT(VARCHAR(20), @MAXMsgTargetId)
         FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-        WHERE s.ServiceName = 'AutoFB - Void by BetID'
+        WHERE s.ServiceName = @ServiceName
               AND s.SettingName = @SettingNameOfLastMsgTargetId
     END
 
-    UPDATE s
-    SET s.Value = 'Completed'
-    FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
-    WHERE s.ServiceName = 'AutoFB - Void by BetID'
-          AND s.SettingName = @SettingNameOfJobStatus
-          AND s.Value = 'running'
+    BEGIN
+        UPDATE s
+        SET s.Value = 'Completed'
+        FROM bodb_CRM.dbo.SystemSetting s WITH (ROWLOCK)
+        WHERE s.ServiceName = @ServiceName
+              AND s.SettingName = @SettingNameOfJobStatus
+              AND s.Value = 'Running'
+    END
 
 
     ---------------------------

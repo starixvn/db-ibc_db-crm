@@ -24,6 +24,7 @@ AS
         - 20240305@Ned.Le: Remove SABA text for site 777777 [RedmineId : #198905]
         - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
         - 20240404@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+        - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
 		
 	Param's Explanation:
 		. @Message = 
@@ -1171,7 +1172,7 @@ BEGIN
 				CONVERT(NVARCHAR(MAX),
 					N'<span style="color: rgb(255, 0, 0);">This is an auto-generated entry.</span><br /><span style="color: rgb(255, 0, 0);">'
 					+ N'Msg ID: {MessageList}, Request No.: {RequestList}'+ N'</span><br /><br />'
-					+ N'Announcement sent to affected Licensees and informed our related department found tickets of abnormal accounts.<br/>'
+					+ N'Announcement sent to affected Licensees and informed our related department found tickets of abnormal accounts.<br/><br/>'
 					+ N'Please refer to the system email subject "Voided Bets Report" for those affected customers & tickets for reference.'
 				) AS Remark
 				,IsParlay

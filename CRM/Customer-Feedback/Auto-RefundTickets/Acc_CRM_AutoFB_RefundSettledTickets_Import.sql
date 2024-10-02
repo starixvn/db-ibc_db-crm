@@ -158,9 +158,10 @@ BEGIN
             ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm.EventType
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm2.EventType
 		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-             LEFT JOIN (SELECT DISTINCT BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm ON b.bettype = sbm.BetType
+             LEFT JOIN (SELECT DISTINCT ProductID, BetType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
+             LEFT JOIN (SELECT ProductID, MAX(EventType) EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) GROUP BY ProductID) sbm2 ON sbm1.ProductID = sbm2.ProductID
 		WHERE m.TransId = b.TransId
 	) AS b
 
@@ -176,9 +177,10 @@ BEGIN
             ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm.EventType
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm2.EventType
 		FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
-             LEFT JOIN (SELECT DISTINCT BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm ON b.bettype = sbm.BetType
+             LEFT JOIN (SELECT DISTINCT ProductID, BetType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
+             LEFT JOIN (SELECT ProductID, MAX(EventType) EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) GROUP BY ProductID) sbm2 ON sbm1.ProductID = sbm2.ProductID
 		WHERE m.TransId = b.TransId
 	) AS b
 	WHERE m.TransId IS NULL
@@ -328,6 +330,7 @@ BEGIN
 		SET m.MainDBSportTypeId = mt.sporttype
 	FROM #Message m		
 		INNER JOIN bodb02.dbo.Match3rd mt WITH(NOLOCK) ON mt.Match3rdId = m.MatchId
+    WHERE m.EventType = 5
 	
 	/*Sub-Product*/
 	;WITH CTE_Sporttype AS (

@@ -436,10 +436,10 @@ BEGIN
 	WHERE tp.RequiredParam = '{NotificationID}'
 	
 	UPDATE tp
-	SET tp.ParamValue = (CASE WHEN tp.RequiredParam = '{Content_en}' THEN n.Content_en
-							WHEN tp.RequiredParam = '{Content_ch}' THEN n.Content_ch
-							WHEN tp.RequiredParam = '{Content_cs}' THEN n.Content_cs
-							WHEN tp.RequiredParam = '{Content_zhcn}' THEN n.Content_zhcn
+	SET tp.ParamValue = (CASE WHEN tp.RequiredParam = '{Content_en}' THEN ISNULL(n.Content_en,'(NULL)')
+							WHEN tp.RequiredParam = '{Content_ch}' THEN ISNULL(n.Content_ch,'(NULL)')
+							WHEN tp.RequiredParam = '{Content_cs}' THEN ISNULL(n.Content_cs,'(NULL)')
+							WHEN tp.RequiredParam = '{Content_zhcn}' THEN ISNULL(n.Content_zhcn,'(NULL)')
 						END)
 	FROM #tmpTemplateDetl AS tp
 		INNER JOIN #tmpSendingAlert AS a ON tp.AlertID = a.AlertID AND tp.ChatGroupID = a.ChatGroupID

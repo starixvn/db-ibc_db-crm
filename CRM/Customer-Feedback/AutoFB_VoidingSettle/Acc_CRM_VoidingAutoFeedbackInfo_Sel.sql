@@ -42,7 +42,8 @@ BEGIN
 							KO_time DATETIME,
 							race_time DATETIME,
 							Product_Sort INT,
-							SportName_Sort NVARCHAR(150)
+							SportName_Sort NVARCHAR(150),
+                            VendorMatchId VARCHAR(50)
 							)
 	DECLARE @Message  TABLE (LogVoidingID INT )
 	DECLARE @tmpIgnoreCust TABLE (MessageID INT, ListMsgTargetId VARCHAR(MAX))
@@ -115,6 +116,8 @@ BEGIN
 		,r.leagueid = vi.leagueid
 		,r.eventdate = vi.EventTime
 		,r.race_time = vi.EventTime
+        ,r.VendorMatchId = vi.VendorMatchId
+        ,r.KO_time = vi.EventTime
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.VSRaceInfo vi WITH(NOLOCK) ON r.MatchId = vi.EventID
         INNER JOIN bodb02.dbo.League3rd l WITH(NOLOCK) ON vi.leagueid = l.League3rdId
@@ -125,6 +128,8 @@ BEGIN
 		,r.leagueid = vi.leagueid
 		,r.eventdate = vi.EventTime
 		,r.race_time = vi.EventTime
+        ,r.VendorMatchId = vi.VendorMatchId
+        ,r.KO_time = vi.EventTime
 	FROM #ResultDetail r
 		INNER JOIN bodb02.dbo.VSRaceInfo14 vi WITH(NOLOCK) ON r.MatchId = vi.EventID
         INNER JOIN bodb02.dbo.League3rd l WITH(NOLOCK) ON vi.leagueid = l.League3rdId
@@ -211,7 +216,8 @@ BEGIN
 		KO_time ,
 		eventdate ,
 		race_time ,
-		ProductID
+		ProductID,
+        VendorMatchId
 	FROM #ResultDetail
 	order by Product_Sort , EventDate DESC, SportName_Sort , KO_time DESC, leaguenametc
 	

@@ -145,7 +145,49 @@ BEGIN
 
 	SELECT @LastMsgTargetId = MAX(MsgTargetId) FROM #Message m
 
-	/*Get headline*/
+	/*
+    Ned.Le@20241014
+    - Cho nay hoi phuc tao vi lien quan den Parlay Bettype
+    - Parlay Bettype thi EventType=0
+    - Nhung o day can lay len duoc EventType cua ticket con (bettransm) cua Parlay
+    - Chinh vi vay code se hoi lang nhang va cung kho hieu
+    - Gio co viet them bao nhieu dong comment cung ko giai thich het duoc cho nay nen cac tot nhat de hieu LAG
+    - 1. Doc ky spec
+    - 2. Hoi QC co kinh nghiem
+    - 3. Debug code
+    */
+    ;WITH
+    CTE_PreventHardcode_VSProduct AS (
+        SELECT b.ProductID 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS ProductID 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Group'
+    ),
+    CTE_PreventHardcode_VSParlay AS (
+        SELECT b.BetType 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS BetType 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Parlay Bettype'
+    ),
+    CTE_VSParlay_Sport AS (
+        SELECT DISTINCT SportType
+        FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND BetType IN (SELECT BetType FROM CTE_PreventHardcode_VSParlay)
+    ),
+    CTE_VSParlay_Final AS (
+        SELECT DISTINCT ProductID, EventType
+        FROM bodb02.dbo.SportBettypeMatrix
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND SportType IN (SELECT SportType FROM CTE_VSParlay_Sport)
+              AND EventType <> 0
+    )
 	UPDATE m
 		SET m.TransId = b.TransId
 			,m.CustId = b.custId
@@ -158,13 +200,46 @@ BEGIN
             ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm2.EventType
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, CASE WHEN cte.bettype IS NULL THEN sbm1.EventType ELSE sbm2.EventType END EventType
 		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-             LEFT JOIN (SELECT DISTINCT ProductID, BetType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
-             LEFT JOIN (SELECT ProductID, MAX(EventType) EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) GROUP BY ProductID) sbm2 ON sbm1.ProductID = sbm2.ProductID
+             LEFT JOIN (SELECT DISTINCT ProductID, BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
+             LEFT JOIN CTE_VSParlay_Final sbm2 ON sbm1.ProductID = sbm2.ProductID
+			 LEFT JOIN CTE_PreventHardcode_VSParlay cte ON sbm1.BetType = cte.bettype
 		WHERE m.TransId = b.TransId
 	) AS b
 
+    ;WITH
+    CTE_PreventHardcode_VSProduct AS (
+        SELECT b.ProductID 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS ProductID 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Group'
+    ),
+    CTE_PreventHardcode_VSParlay AS (
+        SELECT b.BetType 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS BetType 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Parlay Bettype'
+    ),
+    CTE_VSParlay_Sport AS (
+        SELECT DISTINCT SportType
+        FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND BetType IN (SELECT BetType FROM CTE_PreventHardcode_VSParlay)
+    ),
+    CTE_VSParlay_Final AS (
+        SELECT DISTINCT ProductID, EventType
+        FROM bodb02.dbo.SportBettypeMatrix
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND SportType IN (SELECT SportType FROM CTE_VSParlay_Sport)
+              AND EventType <> 0
+    )
 	UPDATE m
 		SET m.TransId = b.TransId
 			,m.CustId = b.custId
@@ -177,10 +252,11 @@ BEGIN
             ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, sbm2.EventType
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, CASE WHEN cte.bettype IS NULL THEN sbm1.EventType ELSE sbm2.EventType END EventType
 		FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
-             LEFT JOIN (SELECT DISTINCT ProductID, BetType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
-             LEFT JOIN (SELECT ProductID, MAX(EventType) EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK) GROUP BY ProductID) sbm2 ON sbm1.ProductID = sbm2.ProductID
+             LEFT JOIN (SELECT DISTINCT ProductID, BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
+             LEFT JOIN CTE_VSParlay_Final sbm2 ON sbm1.ProductID = sbm2.ProductID
+			 LEFT JOIN CTE_PreventHardcode_VSParlay cte ON sbm1.BetType = cte.bettype
 		WHERE m.TransId = b.TransId
 	) AS b
 	WHERE m.TransId IS NULL

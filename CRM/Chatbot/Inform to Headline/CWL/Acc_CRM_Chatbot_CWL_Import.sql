@@ -1,4 +1,8 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
+
+USE bodb_CRM
+GO
+
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_CWL_Import]
 	@XmlData				XML
 	,@Environment			VARCHAR(50) = ''
@@ -17,6 +21,7 @@ AS
 		- 20210726@Malcolm: Change data type of logId [RedmineID: #157303]
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+        - 20240719@Ned.Le:  CRM - Auto FB and Headline Notification - CWL service for 777 site - Adjust product name to TaraPlay xD for SABA xD (#203438)
 
 	Param's Explanation:
 		. @XmlData
@@ -125,6 +130,14 @@ BEGIN
 
 		RETURN
 	END
+
+    UPDATE tmp
+    SET tmp.ProductNameEN = CASE WHEN ISNULL(c.site, '') = '777777' AND ProductNameEN = 'SABA xD' THEN 'TaraPlays xD' ELSE tmp.ProductNameEN END,
+        tmp.ProductNameSC = CASE WHEN ISNULL(c.site, '') = '777777' AND ProductNameEN = 'SABA xD' THEN 'TaraPlays xD' ELSE tmp.ProductNameSC END,
+        tmp.ProductNameTH = CASE WHEN ISNULL(c.site, '') = '777777' AND ProductNameEN = 'SABA xD' THEN 'TaraPlays xD' ELSE tmp.ProductNameTH END,
+        tmp.ProductNameVN = CASE WHEN ISNULL(c.site, '') = '777777' AND ProductNameEN = 'SABA xD' THEN 'TaraPlays xD' ELSE tmp.ProductNameVN END
+    FROM #ImportData tmp
+         LEFT JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON tmp.CustId = c.custid
 
 	SELECT @lastLogId = MAX(LogId) FROM #ImportData
 

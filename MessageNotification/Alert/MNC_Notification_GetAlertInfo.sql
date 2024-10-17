@@ -9,7 +9,6 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
-		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Explanation:
 		Get Valid Alert to create Alert Message
@@ -191,9 +190,7 @@ BEGIN
 	SELECT DISTINCT a.AlertID
 		,CONVERT(TINYINT,a.IsTest) AS IsTest
 		,ISNULL(TRIM(cg.value),@IT_ChatGroupID) AS ChatGroupID
-		,(CASE WHEN ISNULL(TRIM(cg.value),@IT_ChatGroupID) <> @IT_ChatGroupID THEN 
-			(CASE WHEN @Environment = 'LIVE' THEN ar.TemplateID ELSE ar.TemplateTestID END) --support for Template testing
-		END) --TemplateID NULL for @IT_ChatGroupID
+		,(CASE WHEN ISNULL(TRIM(cg.value),@IT_ChatGroupID) <> @IT_ChatGroupID THEN ar.TemplateID END) --TemplateID NULL for @IT_ChatGroupID
 		,ext.MatchID
 		-----
 		,ext.RefInfo

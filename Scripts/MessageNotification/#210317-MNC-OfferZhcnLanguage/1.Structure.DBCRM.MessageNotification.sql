@@ -23,8 +23,3 @@ GO
 ALTER TABLE NotiTemplate
 ADD Content_zhcn NVARCHAR(4000)
 GO
-
-/***** AlertRule ****/
-ALTER TABLE AlertRule
-ADD TemplateTestID SMALLINT
-GO

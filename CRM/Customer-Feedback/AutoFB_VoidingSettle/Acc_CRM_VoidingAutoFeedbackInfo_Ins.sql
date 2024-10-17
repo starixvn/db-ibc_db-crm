@@ -19,7 +19,7 @@ AS
 		- 20210908@Winfred: Integrate Auto generate Feedbacks for Voiding Settled Tickets [RedmineId : #157481]
 		- 20231030@Malcolm: Add Virtual Sports 3 [RedmineId: #191355]
         - 20240126@Ned.Le: CRM - Support auto Feedback and Notification to headlines/ Accounting PIC when having Refund and Result Amendment for VS4 product [RedmineId: #200080]
-	
+		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
 	Parameter's Explanation:
 		- @xml = '<ROOT>
 					<r MessageId="1074531549" TransId="111882173239" CustId="2211693" UserName="P11DD07011" HeadlineID="18838369" HeadlineName="PK" MatchId="701010342" MatchCode=NULL Bettype="485" EventType="1" EventDate = "2021-06-14 11:13:27.4026070"  ProductID="1" ListMsgTargetId="1076587408,1076587409,1076587410,1076587411"/>
@@ -187,6 +187,22 @@ BEGIN
 		
 			SET @LogVoidingID = SCOPE_IDENTITY()
 			
+			--Get dynamic VS parlay bettype from crmSetting
+			DECLARE @bettypes AS TABLE (bettype SMALLINT)
+
+			INSERT INTO @bettypes (bettype)
+			SELECT b.bettype 
+			FROM dbo.crmSetting s WITH (NOLOCK) 
+				OUTER APPLY (
+					SELECT TRIM(value) AS bettype 
+					FROM STRING_SPLIT(s.ExtraInfo, ',')
+					WHERE value <> ''
+				) AS b
+			WHERE s.SettingName = 'Prevent Hardcode'
+				AND s.SettingValue = 'Virtual Sport Parlay Bettype'
+			UNION SELECT 9
+			UNION SELECT 29
+
 			UPDATE a 
 			SET a.LogVoidingID = @LogVoidingID ,a.isFinished = 1
 			FROM @tmpCust a
@@ -208,7 +224,9 @@ BEGIN
 				   A.ProductID,
 				   GETDATE() AS CreatedDate
 			FROM @tmpCust a
-			WHERE a.MessageId = @MessageId AND a.HeadlineID = @HeadlineID AND a.Bettype NOT IN (9,29,2799,10449)
+			WHERE a.MessageId = @MessageId 
+				AND a.HeadlineID = @HeadlineID 
+				AND a.Bettype NOT IN (SELECT bettype FROM @bettypes)
 			
 			--  get main ticket
 			
@@ -232,7 +250,7 @@ BEGIN
 				SELECT STUFF(( SELECT ', '+ cast(ps.TransId as VARCHAR(30))  as [text()]
 					FROM @tmpCust ps  
 					WHERE ps.HeadlineID = a.HeadlineID AND ps.MessageId = a.MessageId  
-							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799,10449)
+							AND ps.MatchId = a.MatchId AND a.Bettype IN (SELECT bettype FROM @bettypes)
 					GROUP BY ps.TransId
 					ORDER by MAX(ps.TransId)
 					FOR XML PATH('')
@@ -242,13 +260,15 @@ BEGIN
 				SELECT STUFF(( SELECT ', '+ cast(ps.Username as VARCHAR(max))  as [text()]
 					FROM @tmpCust ps  
 					WHERE ps.HeadlineID = a.HeadlineID AND ps.MessageId = a.MessageId  
-							AND ps.MatchId = a.MatchId AND a.Bettype IN (9,29,2799,10449)
+							AND ps.MatchId = a.MatchId AND a.Bettype IN (SELECT bettype FROM @bettypes)
 					GROUP BY ps.Username
 					ORDER by MAX(ps.Username)
 					FOR XML PATH('')
 					),1,1,'')
 			)c (Username)
-			WHERE a.MessageId = @MessageId AND a.HeadlineID = @HeadlineID AND a.Bettype IN (9,29,2799,10449)
+			WHERE a.MessageId = @MessageId 
+				AND a.HeadlineID = @HeadlineID 
+				AND a.Bettype IN (SELECT bettype FROM @bettypes)
 		END	
 	  END TRY  
 	  BEGIN CATCH  

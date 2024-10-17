@@ -21,6 +21,8 @@ AS
 		- 20210731@Malcolm: Initialize SP [RedmineId: #195404]
         - 20240318@Ned.Le: Fix bug relate to table crmSettingMapping
         - 20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
+        - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
 		
 	Param's Explanation:
 		. @MessageContent = 
@@ -116,7 +118,7 @@ BEGIN
 
 	CREATE TABLE #Message (MessageId INT, MsgTargetId INT, TransId BIGINT, CustId INT, Username VARCHAR(30), Recommend INT, Mrecommend INT
 		,Srecommend INT, Content_en NVARCHAR(MAX), Content_cs NVARCHAR(MAX), BetransIds VARCHAR(MAX), HeadlineId INT, HeadlineName VARCHAR(30)
-		,GroupName VARCHAR(50), MainDBSportTypeId TINYINT, MainDBBettypeId INT, SportTypeId INT, BettypeId INT, ProductId INT, MatchId INT, IsTest BIT DEFAULT 0)
+		,GroupName VARCHAR(50), MainDBSportTypeId TINYINT, MainDBBettypeId INT, SportTypeId INT, BettypeId INT, ProductId INT, MatchId INT, EventType INT, IsTest BIT DEFAULT 0)
 
 	INSERT INTO #Message (MessageId, MsgTargetId, TransId)
 	SELECT DISTINCT  
@@ -143,23 +145,49 @@ BEGIN
 
 	SELECT @LastMsgTargetId = MAX(MsgTargetId) FROM #Message m
 
-	/*Get headline*/
-	UPDATE m
-		SET m.TransId = b.TransId
-			,m.CustId = b.custId
-			,m.Recommend = b.recommend
-			,m.Mrecommend = b.mrecommend
-			,m.Srecommend = b.srecommend
-			,m.Username = b.Username
-			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
-			,M.MainDBBettypeId = b.bettype
-	FROM #Message m
-	CROSS APPLY (
-		SELECT TOP(1) TransId, custId, recommend, mrecommend, srecommend, Username, matchId, currency, bettype
-		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
-		WHERE m.TransId = b.TransId
-	) AS b
-
+	/*
+    Ned.Le@20241014
+    - Cho nay hoi phuc tao vi lien quan den Parlay Bettype
+    - Parlay Bettype thi EventType=0
+    - Nhung o day can lay len duoc EventType cua ticket con (bettransm) cua Parlay
+    - Chinh vi vay code se hoi lang nhang va cung kho hieu
+    - Gio co viet them bao nhieu dong comment cung ko giai thich het duoc cho nay nen cac tot nhat de hieu LAG
+    - 1. Doc ky spec
+    - 2. Hoi QC co kinh nghiem
+    - 3. Debug code
+    */
+    ;WITH
+    CTE_PreventHardcode_VSProduct AS (
+        SELECT b.ProductID 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS ProductID 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Group'
+    ),
+    CTE_PreventHardcode_VSParlay AS (
+        SELECT b.BetType 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS BetType 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Parlay Bettype'
+    ),
+    CTE_VSParlay_Sport AS (
+        SELECT DISTINCT SportType
+        FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND BetType IN (SELECT BetType FROM CTE_PreventHardcode_VSParlay)
+    ),
+    CTE_VSParlay_Final AS (
+        SELECT DISTINCT ProductID, EventType
+        FROM bodb02.dbo.SportBettypeMatrix
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND SportType IN (SELECT SportType FROM CTE_VSParlay_Sport)
+              AND EventType <> 0
+    )
 	UPDATE m
 		SET m.TransId = b.TransId
 			,m.CustId = b.custId
@@ -169,10 +197,66 @@ BEGIN
 			,m.Username = b.Username
 			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
 			,m.MainDBBettypeId = b.bettype
+            ,m.EventType = b.EventType
 	FROM #Message m
 	CROSS APPLY (
-		SELECT TOP(1) TransId, custId, recommend, mrecommend, srecommend, Username, matchId, currency, bettype
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, CASE WHEN cte.bettype IS NULL THEN sbm1.EventType ELSE sbm2.EventType END EventType
+		FROM bodb02.dbo.bettrans b WITH(NOLOCK)
+             LEFT JOIN (SELECT DISTINCT ProductID, BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
+             LEFT JOIN CTE_VSParlay_Final sbm2 ON sbm1.ProductID = sbm2.ProductID
+			 LEFT JOIN CTE_PreventHardcode_VSParlay cte ON sbm1.BetType = cte.bettype
+		WHERE m.TransId = b.TransId
+	) AS b
+
+    ;WITH
+    CTE_PreventHardcode_VSProduct AS (
+        SELECT b.ProductID 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS ProductID 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Group'
+    ),
+    CTE_PreventHardcode_VSParlay AS (
+        SELECT b.BetType 
+        FROM bodb_CRM.dbo.crmSetting s WITH (NOLOCK) 
+             OUTER APPLY (SELECT TRIM(value) AS BetType 
+                          FROM STRING_SPLIT(s.ExtraInfo, ',')
+                          WHERE value <> '') AS b
+        WHERE s.SettingName = 'Prevent Hardcode'
+              AND s.SettingValue = 'Virtual Sport Parlay Bettype'
+    ),
+    CTE_VSParlay_Sport AS (
+        SELECT DISTINCT SportType
+        FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND BetType IN (SELECT BetType FROM CTE_PreventHardcode_VSParlay)
+    ),
+    CTE_VSParlay_Final AS (
+        SELECT DISTINCT ProductID, EventType
+        FROM bodb02.dbo.SportBettypeMatrix
+        WHERE ProductID IN (SELECT ProductID FROM CTE_PreventHardcode_VSProduct)
+              AND SportType IN (SELECT SportType FROM CTE_VSParlay_Sport)
+              AND EventType <> 0
+    )
+	UPDATE m
+		SET m.TransId = b.TransId
+			,m.CustId = b.custId
+			,m.Recommend = b.recommend
+			,m.Mrecommend = b.mrecommend
+			,m.Srecommend = b.srecommend
+			,m.Username = b.Username
+			,m.IsTest = CASE WHEN b.currency = 20 THEN 1 ELSE 0 END
+			,m.MainDBBettypeId = b.bettype
+            ,m.EventType = b.EventType
+	FROM #Message m
+	CROSS APPLY (
+		SELECT TOP(1) b.TransId, b.custId, b.recommend, b.mrecommend, b.srecommend, b.Username, b.matchId, b.currency, b.bettype, CASE WHEN cte.bettype IS NULL THEN sbm1.EventType ELSE sbm2.EventType END EventType
 		FROM bodb02.dbo.bettrans14 b WITH(NOLOCK)
+             LEFT JOIN (SELECT DISTINCT ProductID, BetType, EventType FROM bodb02.dbo.SportBettypeMatrix WITH (NOLOCK)) sbm1 ON b.bettype = sbm1.BetType
+             LEFT JOIN CTE_VSParlay_Final sbm2 ON sbm1.ProductID = sbm2.ProductID
+			 LEFT JOIN CTE_PreventHardcode_VSParlay cte ON sbm1.BetType = cte.bettype
 		WHERE m.TransId = b.TransId
 	) AS b
 	WHERE m.TransId IS NULL
@@ -303,11 +387,26 @@ BEGIN
 			INNER JOIN dbo.crmSetting s WITH(NOLOCK) ON s.SettingID = CONVERT(INT, h.value)
 	) AS n
 	
-
+    --EventType=1
 	UPDATE m
 		SET m.MainDBSportTypeId = mt.sporttype
 	FROM #Message m		
 		INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
+    WHERE m.EventType = 1
+
+    --EventType=3
+    UPDATE m
+		SET m.MainDBSportTypeId = mt.sporttype
+	FROM #Message m		
+		INNER JOIN bodb02.dbo.VSRaceInfo mt WITH(NOLOCK) ON mt.EventID = m.MatchId
+    WHERE m.EventType = 3
+
+	--EventType=5
+	UPDATE m
+		SET m.MainDBSportTypeId = mt.sporttype
+	FROM #Message m		
+		INNER JOIN bodb02.dbo.Match3rd mt WITH(NOLOCK) ON mt.Match3rdId = m.MatchId
+    WHERE m.EventType = 5
 	
 	/*Sub-Product*/
 	;WITH CTE_Sporttype AS (
@@ -451,7 +550,7 @@ BEGIN
 			CONVERT(NVARCHAR(MAX), 
 				N'Dear Sir, Customer Support would like to inform the below announcement:<br/>'
 				+ N'您好，客服部在此通知以下的通告：<br/><br/>' 
-				+ N'{message_content_en}<br/>'                    
+				+ N'{message_content_en}<br/>'
 				+ N'{message_content_sc}<br/><br/>'
 				+ N'Affected user/受影响会员: {affected_list}'
 			) AS SolutionENSC
@@ -462,22 +561,51 @@ BEGIN
 				+ N'Affected user / Tài khoản bị ảnh hưởng: {affected_list}'
 			) AS SolutionENYN
 	), CTE_Result AS (
-		SELECT m.HeadlineId, m.MessageId, MAX(m.MatchId) AS MatchId
+		SELECT m.HeadlineId, m.MessageId, MAX(m.MatchId) AS MatchId, MAX(m.EventType) EventType
 		FROM #Message m
 		GROUP BY m.HeadlineId, m.MessageId
 	), CTE_EventInfo AS (
+        --EventType=1
 		SELECT
 			m.MatchId
 			,FORMAT(mt.eventdate, 'dd-MMM-yyyy') AS EventDate
-			,FORMAT(mt.GlobalShowTime, 'hh:mm tt') AS KO_time
+			,FORMAT(DATEADD(HH, 12, mt.GlobalShowTime), 'hh:mm tt') AS KO_time
 			,h.teamname + ' -vs- ' + a.teamname AS Match
 			,s.SportName
 		FROM (
-			SELECT DISTINCT MatchId FROM CTE_Result
+			SELECT DISTINCT MatchId FROM CTE_Result WHERE EventType = 1
 		) AS m	
 			INNER JOIN bodb02.dbo.match mt WITH(NOLOCK) ON mt.matchId = m.MatchId
 			INNER JOIN bodb02.dbo.Team h WITH(NOLOCK) ON h.teamId = mt.homeId
 			INNER JOIN bodb02.dbo.Team a WITH(NOLOCK) ON a.teamId = mt.awayId
+			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
+        --EventType=3
+        UNION ALL
+		SELECT
+			m.MatchId
+			,FORMAT(mt.EventTime, 'dd-MMM-yyyy') AS EventDate
+			,FORMAT(DATEADD(HH, 12, mt.EventTime), 'hh:mm tt') AS KO_time
+			,mt.VendorMatchId AS Match
+			,s.SportName
+		FROM (
+			SELECT DISTINCT MatchId FROM CTE_Result WHERE EventType = 3
+		) AS m	
+			INNER JOIN bodb02.dbo.VSRaceInfo mt WITH(NOLOCK) ON mt.EventID = m.MatchId
+			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
+        --EventType=5
+		UNION ALL
+		SELECT
+			m.MatchId
+			,FORMAT(mt.eventdate, 'dd-MMM-yyyy') AS EventDate
+			,FORMAT(DATEADD(HH, 12, mt.StartTime), 'hh:mm tt') AS KO_time
+			,h.teamname + ' -vs- ' + a.teamname AS Match
+			,s.SportName
+		FROM (
+			SELECT DISTINCT MatchId FROM CTE_Result WHERE EventType = 5
+		) AS m	
+			INNER JOIN bodb02.dbo.Match3rd mt WITH(NOLOCK) ON mt.Match3rdId = m.MatchId
+			INNER JOIN bodb02.dbo.Team3rd h WITH(NOLOCK) ON h.Team3rdId = mt.homeId
+			INNER JOIN bodb02.dbo.Team3rd a WITH(NOLOCK) ON a.Team3rdId = mt.awayId
 			LEFT JOIN bodb02.dbo.Sports s WITH(NOLOCK) ON s.SportType = mt.sporttype
 	), CTE_CommonInfo AS (
 		SELECT 

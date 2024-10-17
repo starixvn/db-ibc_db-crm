@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -21,6 +21,7 @@ AS
 		- 20190905@Winnie: CRM - Left panel did not show Super, Master, Agent  [RedmineId: #119708] 
         - 20230427@Ned.Le: Database - HA DB061/DB062 (#169643)
         - 20230523@Ned.Le: CRM | Report-> Deleted Feedback Statistic: Unable to show feedback of licensee which deleted by function Multiple Review & Update status (#188634)
+        - 20240826@Ned.Le:  CRM - Upgrade code to 3 tiers network (#197742)
 	Parameters' Explanation:
 */
 
@@ -142,6 +143,22 @@ BEGIN
              INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
         WHERE l.ActionID = 205
               AND ISNULL(l.Doing.value('(/Acc_CRM_FeedbackUpdMultiple/StatusID)[1]', 'INT'), 0) IN (11004,11019)
+              AND l.UserID = ISNULL(@DeletorID, l.UserID);
+
+        INSERT INTO #ResultTable (CreateDate, CreatorID, DeletorID, FeedbackID, Subject, Username)
+        SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
+        FROM #feedback f
+             INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
+        WHERE l.ActionID = 207
+              AND ISNULL(l.Doing.value('(/Acc_CRM_NewManualFeedback_FeedbackIns/StatusID)[1]', 'INT'), 0) IN (11004,11019)
+              AND l.UserID = ISNULL(@DeletorID, l.UserID);
+
+        INSERT INTO #ResultTable (CreateDate, CreatorID, DeletorID, FeedbackID, Subject, Username)
+        SELECT f.CreateDate, f.CreatorID, l.UserID DeletorID, f.FeedbackID, f.Subject, f.UserName
+        FROM #feedback f
+             INNER JOIN bodb_CRM.dbo.crmLogFeedback l (NOLOCK) ON f.FeedbackID = l.FeedbackID
+        WHERE l.ActionID = 208
+              AND ISNULL(l.Doing.value('(/Acc_CRM_NewManualFeedback_FeedbackUpd/StatusID)[1]', 'INT'), 0) IN (11004,11019)
               AND l.UserID = ISNULL(@DeletorID, l.UserID);
 	END;
 

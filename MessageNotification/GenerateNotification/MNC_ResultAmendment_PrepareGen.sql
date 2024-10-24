@@ -8,6 +8,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Explanation:
 		@Environment
@@ -225,26 +226,6 @@ BEGIN
 	GROUP BY rf.GroupName
 		,rf.RefId1
 		,rf.RefId2
-	
-	--Mark completed process
-	IF NOT EXISTS (SELECT 1 FROM #tmpRemotingRef)
-	BEGIN
-		UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
-		SET VValue = 'Done'
-		WHERE VID = @ProcessID
-			AND VValue = 'Running'
-	
-		INSERT INTO UserLog (
-			ActionID
-			,UserID
-			,LogBef
-		)
-		SELECT @LogActionID
-			,@LogUserID
-			,COMPRESS(@InfLogPrefix + 'Completed - Change ProcessID(' + ISNULL(CONVERT(VARCHAR,@ProcessID),'NULL') + ') to [' + ISNULL(VValue,'NULL') + ']') AS LogBef
-		FROM SystemSetting WITH (NOLOCK)
-		WHERE VID = @ProcessID
-	END
 	
 	----------------------
 	INSERT INTO UserLog (

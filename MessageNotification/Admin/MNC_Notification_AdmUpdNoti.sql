@@ -6,6 +6,7 @@ ALTER PROCEDURE MNC_Notification_AdmUpdNoti
 	,@NewContentEN NVARCHAR(MAX) = NULL
 	,@NewContentCH NVARCHAR(MAX) = NULL
 	,@NewContentCS NVARCHAR(MAX) = NULL
+	,@NewContentZHCN NVARCHAR(MAX) = NULL
 	,@UpdaterID INT
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
@@ -16,6 +17,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 	
 	Param's Explanation:
 	
@@ -81,6 +83,7 @@ BEGIN
 						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+						+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')')
 	
 	-----------------verify before update---------------
@@ -109,6 +112,7 @@ BEGIN
 						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+						+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 			)
 		
@@ -122,6 +126,7 @@ BEGIN
 			ISNULL(CHARINDEX ('@@', @NewContentEN),0) = 0
 			OR ISNULL(CHARINDEX ('@@', @NewContentCH),0) = 0
 			OR ISNULL(CHARINDEX ('@@', @NewContentCS),0) = 0
+			OR ISNULL(CHARINDEX ('@@', @NewContentZHCN),0) = 0
 		)
 	BEGIN
 		SELECT @ErrCode = 50006
@@ -144,6 +149,7 @@ BEGIN
 						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+						+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 			)
 		
@@ -157,6 +163,7 @@ BEGIN
 		,Content_en NVARCHAR(MAX)
 		,Content_ch NVARCHAR(MAX)
 		,Content_cs NVARCHAR(MAX)
+		,Content_zhcn NVARCHAR(MAX)
 	)
 	
 	CREATE TABLE #tmpCurNoti (
@@ -166,6 +173,7 @@ BEGIN
 		,Content_en NVARCHAR(MAX)
 		,Content_ch NVARCHAR(MAX)
 		,Content_cs NVARCHAR(MAX)
+		,Content_zhcn NVARCHAR(MAX)
 	)
 	
 	/*
@@ -187,6 +195,7 @@ BEGIN
 		,Content_en
 		,Content_ch
 		,Content_cs
+		,Content_zhcn
 	)
 	SELECT n.NotificationID
 		,s.Status
@@ -194,6 +203,7 @@ BEGIN
 		,n.Content_en
 		,n.Content_ch
 		,n.Content_cs
+		,n.Content_zhcn
 	FROM Notification AS n WITH (ROWLOCK,UPDLOCK)
 		LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID
 	WHERE n.NotificationID = @NotiID
@@ -204,6 +214,7 @@ BEGIN
 		SELECT NULLIF(TRIM(@NewContentEN), '') AS Content_en
 			,NULLIF(TRIM(@NewContentCH), '') AS Content_ch
 			,NULLIF(TRIM(@NewContentCS), '') AS Content_cs
+			,NULLIF(TRIM(@NewContentZHCN), '') AS Content_zhcn
 			
 			,NULLIF(TRIM(@NewSubject), '') AS Subject
 	)
@@ -213,12 +224,14 @@ BEGIN
 		,Content_en
 		,Content_ch
 		,Content_cs
+		,Content_zhcn
 	)
 	SELECT @NotiID
 		,Subject
 		,Content_en
 		,Content_ch
 		,Content_cs
+		,Content_zhcn
 	FROM CTE_NewNoti
 	
 	-------------------------- Subject DIFF - Only for LAP --------------------------
@@ -319,6 +332,7 @@ BEGIN
 				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+				+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 				+ ' - tmpNewNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
@@ -359,6 +373,7 @@ BEGIN
 			WHERE ISNULL(n.Content_en,'') <> ISNULL(c.Content_en,'')
 				OR ISNULL(n.Content_ch,'') <> ISNULL(c.Content_ch,'')
 				OR ISNULL(n.Content_cs,'') <> ISNULL(c.Content_cs,'')
+				OR ISNULL(n.Content_zhcn,'') <> ISNULL(c.Content_zhcn,'')
 		)
 	BEGIN TRY
 		
@@ -366,10 +381,14 @@ BEGIN
 		SET c.Content_en = (CASE WHEN ISNULL(n.Content_en,'') <> ISNULL(c.Content_en,'') THEN ISNULL(n.Content_en,'') ELSE c.Content_en END)
 			,c.Content_ch = (CASE WHEN ISNULL(n.Content_ch,'') <> ISNULL(c.Content_ch,'') THEN ISNULL(n.Content_ch,'') ELSE c.Content_ch END)
 			,c.Content_cs = (CASE WHEN ISNULL(n.Content_cs,'') <> ISNULL(c.Content_cs,'') THEN ISNULL(n.Content_cs,'') ELSE c.Content_cs END)
-			,c.LastModifiedTime = (CASE WHEN (ISNULL(n.Content_en,'') + ISNULL(n.Content_ch,'') + ISNULL(n.Content_cs,'')) <> (ISNULL(c.Content_en,'') + ISNULL(c.Content_ch,'') + ISNULL(c.Content_cs,''))
-										THEN GETDATE() ELSE c.LastModifiedTime END)
+			,c.Content_zhcn = (CASE WHEN ISNULL(n.Content_zhcn,'') <> ISNULL(c.Content_zhcn,'') THEN ISNULL(n.Content_zhcn,'') ELSE c.Content_zhcn END)
+			,c.LastModifiedTime = GETDATE()
 		FROM Notification AS c WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN #tmpNewNoti AS n ON c.NotificationID = n.NotiID
+		WHERE ISNULL(n.Content_en,'') <> ISNULL(c.Content_en,'')
+				OR ISNULL(n.Content_ch,'') <> ISNULL(c.Content_ch,'')
+				OR ISNULL(n.Content_cs,'') <> ISNULL(c.Content_cs,'')
+				OR ISNULL(n.Content_zhcn,'') <> ISNULL(c.Content_zhcn,'')
 		
 		--------------------------
 		SELECT @NotiUpdCnt = @@ROWCOUNT
@@ -389,15 +408,18 @@ BEGIN
 								+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 								+ ' - Notification.Content_en before (' + ISNULL(c.Content_en,'NULL') + ')'
 								+ ' - Notification.Content_ch before (' + ISNULL(c.Content_ch,'NULL') + ')'
-								+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')')
+								+ ' - Notification.Content_cs before (' + ISNULL(c.Content_cs,'NULL') + ')'
+								+ ' - Notification.Content_zhcn before (' + ISNULL(c.Content_zhcn,'NULL') + ')')
 				,COMPRESS(N'New Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
 					+ ' - New Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
-					+ ' - New Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')')
+					+ ' - New Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
+					+ ' - New Content_zhcn (' + ISNULL(n.Content_zhcn,'NULL') + ')')
 			FROM #tmpCurNoti AS c
 				INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 			WHERE ISNULL(n.Content_en,'') <> ISNULL(c.Content_en,'')
 				OR ISNULL(n.Content_ch,'') <> ISNULL(c.Content_ch,'')
 				OR ISNULL(n.Content_cs,'') <> ISNULL(c.Content_cs,'')
+				OR ISNULL(n.Content_zhcn,'') <> ISNULL(c.Content_zhcn,'')
 		END
 		ELSE
 		BEGIN
@@ -422,6 +444,7 @@ BEGIN
 					+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 					+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 					+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+					+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 					+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 					+ ' - tmpNewNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
@@ -460,6 +483,7 @@ BEGIN
 				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+				+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 				+ ' - tmpNewNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
@@ -521,6 +545,7 @@ BEGIN
 						+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 						+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 						+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+						+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 						+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 					)
 			END
@@ -547,6 +572,7 @@ BEGIN
 				+ ' - @NewContentEN(' + ISNULL(@NewContentEN,'NULL') + ')'
 				+ ' - @NewContentCH(' + ISNULL(@NewContentCH,'NULL') + ')'
 				+ ' - @NewContentCS(' + ISNULL(@NewContentCS,'NULL') + ')'
+				+ ' - @NewContentZHCN(' + ISNULL(@NewContentZHCN,'NULL') + ')'
 				+ ' - @UpdaterID(' + ISNULL(CONVERT(VARCHAR,@UpdaterID),'NULL') + ')'
 			)
 	END CATCH
@@ -598,12 +624,14 @@ BEGIN
 							+ ' - Content_en (' + ISNULL(c.Content_en,'NULL') + ')'
 							+ ' - Subject (' + ISNULL(c.Subject,'NULL') + ')'
 							+ ' - Content_ch (' + ISNULL(c.Content_ch,'NULL') + ')'
-							+ ' - Content_cs (' + ISNULL(c.Content_cs,'NULL') + ')')
+							+ ' - Content_cs (' + ISNULL(c.Content_cs,'NULL') + ')'
+							+ ' - Content_zhcn (' + ISNULL(c.Content_zhcn,'NULL') + ')')
 			,COMPRESS(N'Status = ' + ISNULL(s.Status,'NULL')
 							+ ', Subject (' + ISNULL(n.Subject,'NULL') + ')'
 							+ ', Content_en (' + ISNULL(n.Content_en,'NULL') + ')'
 							+ ', Content_ch (' + ISNULL(n.Content_ch,'NULL') + ')'
-							+ ', Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')')
+							+ ', Content_cs (' + ISNULL(n.Content_cs,'NULL') + ')'
+							+ ', Content_zhcn (' + ISNULL(n.Content_zhcn,'NULL') + ')')
 		FROM #tmpCurNoti AS c
 			INNER JOIN Notification AS n WITH (NOLOCK) ON c.NotiID = n.NotificationID
 			LEFT JOIN NotiStatus AS s WITH (NOLOCK) ON n.StatusID = s.StatusID

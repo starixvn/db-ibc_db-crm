@@ -29,6 +29,7 @@ AS
         - 20231110@Ned.Le: CRM - Auto generate Feedback and send Headline Notification for voiding Abnormal Bets by Void By BetID [RedmineId : #196660]
         - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
         - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
+        - 20241001@Ned.Le: [CRM] Enhance SP Acc_CRM_Chatbot_AbnormalBets_Import to avoid time out issue [HotFix : #211660]
 
     Param's Explanation:
         - @XmlData
@@ -138,7 +139,8 @@ BEGIN
         Content_cs                 NVARCHAR(4000),
         Content_th                 NVARCHAR(4000),
         Content_vn                 NVARCHAR(4000),
-        [Type]                     TINYINT
+        [Type]                     TINYINT,
+        isLoopProcessed            BIT DEFAULT 0
     )
     INSERT INTO #tmpXMLData (
         VoidingHistoryCollectionId,
@@ -368,38 +370,118 @@ BEGIN
         RecipientId                INT
     )
     -- + Gen data to temp table
-    INSERT INTO #tmpNotificationMessageInfo (
-        VoidingHistoryCollectionId,
-        MessageId,
-        Supername,
-        Username,
-        DirectAccount,
-        HeadlineId,
-        IsTest,
-        Content_en,
-        Content_cs,
-        Content_th,
-        Content_vn,
-        RecipientId
+    -- + --> Declare variables
+    DECLARE @Loop_CountTable INT = 0
+    DECLARE @Loop_BatchSize  INT = 20
+    -- + --> Create buffer temp table
+    CREATE TABLE #tmpXMLData_LoopBuffer (
+        VoidingHistoryCollectionId INT,
+        MessageId                  INT,
+        Username                   VARCHAR(50),
+        CustId                     INT,
+        Recommend                  INT,
+        Mrecommend                 INT,
+        Srecommend                 INT,
+        IsTest                     BIT,
+        Content_en                 NVARCHAR(4000),
+        Content_cs                 NVARCHAR(4000),
+        Content_th                 NVARCHAR(4000),
+        Content_vn                 NVARCHAR(4000),
+        [Type]                     TINYINT
     )
-    SELECT m.VoidingHistoryCollectionId VoidingHistoryCollectionId,
-           m.MessageId                  MessageId,
-           sup.username                 Supername,
-           m.Username                   Username,
-           pm.CustId                    DirectAccount,
-           pm.HeadlineId                HeadlineId,
-           m.IsTest                     IsTest,
-           m.Content_en                 Content_en,
-           m.Content_cs                 Content_cs,
-           m.Content_th                 Content_th,
-           m.Content_vn                 Content_vn,
-           r.RecipientId                RecipientId
-    FROM #tmpXMLData m
-         INNER JOIN bodb02.dbo.Customer mem WITH (NOLOCK) ON m.Username = mem.username
-         INNER JOIN bodb02.dbo.Customer sup WITH (NOLOCK) ON mem.srecommend = sup.custid AND sup.roleid = 4
-         INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
-         INNER JOIN bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
-         INNER JOIN bodb_CRM.dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+    -- + --> Run the loop to process data
+    WHILE (1=1)
+    BEGIN
+        -- Check to break the loop
+        SELECT @Loop_CountTable = COUNT(1) FROM #tmpXMLData WHERE isLoopProcessed = 0
+        IF (@Loop_CountTable = 0) BREAK
+
+        -- Truncate buffer temp table
+        TRUNCATE TABLE #tmpXMLData_LoopBuffer
+
+        -- Gen data to buffer temp table
+        INSERT INTO #tmpXMLData_LoopBuffer (
+            VoidingHistoryCollectionId,
+            MessageId,
+            Username,
+            CustId,
+            Recommend,
+            Mrecommend,
+            Srecommend,
+            IsTest,
+            Content_en,
+            Content_cs,
+            Content_th,
+            Content_vn,
+            [Type]
+        )
+        SELECT TOP(@Loop_BatchSize)
+               VoidingHistoryCollectionId,
+               MessageId,
+               Username,
+               CustId,
+               Recommend,
+               Mrecommend,
+               Srecommend,
+               IsTest,
+               Content_en,
+               Content_cs,
+               Content_th,
+               Content_vn,
+               [Type]
+        FROM #tmpXMLData
+        WHERE isLoopProcessed = 0
+        ORDER BY VoidingHistoryCollectionId,
+                 MessageId,
+                 Username,
+                 [Type]
+
+        -- Gen data to destination temp table
+        INSERT INTO #tmpNotificationMessageInfo (
+            VoidingHistoryCollectionId,
+            MessageId,
+            Supername,
+            Username,
+            DirectAccount,
+            HeadlineId,
+            IsTest,
+            Content_en,
+            Content_cs,
+            Content_th,
+            Content_vn,
+            RecipientId
+        )
+        SELECT m.VoidingHistoryCollectionId VoidingHistoryCollectionId,
+               m.MessageId                  MessageId,
+               sup.username                 Supername,
+               m.Username                   Username,
+               pm.CustId                    DirectAccount,
+               pm.HeadlineId                HeadlineId,
+               m.IsTest                     IsTest,
+               m.Content_en                 Content_en,
+               m.Content_cs                 Content_cs,
+               m.Content_th                 Content_th,
+               m.Content_vn                 Content_vn,
+               r.RecipientId                RecipientId
+        FROM #tmpXMLData_LoopBuffer m
+             INNER JOIN bodb02.dbo.Customer mem WITH (NOLOCK) ON m.Username = mem.username
+             INNER JOIN bodb02.dbo.Customer sup WITH (NOLOCK) ON mem.srecommend = sup.custid AND sup.roleid = 4
+             INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
+             INNER JOIN bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
+             INNER JOIN bodb_CRM.dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+
+        -- Update data to continue the loop
+        UPDATE tmp
+        SET tmp.isLoopProcessed = 1
+        FROM #tmpXMLData tmp
+             INNER JOIN #tmpXMLData_LoopBuffer buf ON tmp.VoidingHistoryCollectionId = buf.VoidingHistoryCollectionId AND
+                                                      tmp.MessageId                  = buf.MessageId                  AND
+                                                      tmp.Username                   = buf.Username                   AND
+                                                      tmp.[Type]                     = buf.[Type]
+        WHERE tmp.isLoopProcessed = 0
+    END
+    -- + --> Drop buffer temp table
+    DROP TABLE #tmpXMLData_LoopBuffer
     
     -- Get detail group chat info | Notes
     --                            | + From RecipientId we know ConversationGroupId belong to (from table crmConversationGroupRecipient)

@@ -22,6 +22,7 @@ AS
     Revisions:    
         20231212@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
+        20240926@Ned.Le: CRM - Search Left Panel - System is displaying role as Guest if searching an archive account (#211269)
 
     Param's Explanation:
         @UserRole = 0: Manager 
@@ -394,19 +395,20 @@ BEGIN
                         WHEN c.roleid=2 AND @UserRole=2 THEN 7001
                         WHEN c.roleid=3 AND @UserRole=2 THEN 7002
                         WHEN c.roleid=4 AND @UserRole=2 THEN 7003
-                        WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
+                        WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN -1
                         WHEN c.roleid=1 AND @UserRole=1 THEN 7011
                         WHEN c.roleid=2 AND @UserRole=1 THEN 7007
                         WHEN c.roleid=3 AND @UserRole=1 THEN 7008
                         WHEN c.roleid=4 AND @UserRole=1 THEN 7009
                         WHEN c.roleid=0 AND @UserRole=1 THEN 7006
-                        WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
+                        WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN -1
                    END AS RoleID,
                    c.danger,
                    c.danger2,
                    c.danger3,
                    CASE WHEN @UserRole = 2 THEN CASE WHEN ((s.custid IS NOT NULL AND c.Closed = 1) OR (s.custid IS NULL AND ISNULL(CloseInfo,0) > 0)) THEN 'Closed'
                                                      WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 1 ) OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) = 0 AND ISNULL(ps.SuspendInfo,0) > 0)) THEN 'Suspended'
+                                                     WHEN c.custid IS NULL THEN 'Archived'
                                                      WHEN s.custid IS NULL AND ps.Locked > 0 THEN 'Locked'
                                                      WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 0) OR (s.custid IS NULL AND ISNULL(ps.SuspendInfo,0) = 0 AND ISNULL(ps.CloseInfo,0) = 0))THEN 'Active' END
                         WHEN @UserRole = 1 THEN @StatusCN88 END AS CustStatus,
@@ -488,19 +490,20 @@ BEGIN
                         WHEN c.roleid=2 AND @UserRole=2 THEN 7001
                         WHEN c.roleid=3 AND @UserRole=2 THEN 7002
                         WHEN c.roleid=4 AND @UserRole=2 THEN 7003
-                        WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN 7004
+                        WHEN (c.roleid NOT IN(1,2,3,4) OR c.roleid IS NULL) AND @UserRole=2  THEN -1
                         WHEN c.roleid=1 AND @UserRole=1 THEN 7011
                         WHEN c.roleid=2 AND @UserRole=1 THEN 7007
                         WHEN c.roleid=3 AND @UserRole=1 THEN 7008
                         WHEN c.roleid=4 AND @UserRole=1 THEN 7009
                         WHEN c.roleid=0 AND @UserRole=1 THEN 7006
-                        WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN 7010
+                        WHEN (c.roleid NOT IN(1,2,3,4,0) OR c.roleid IS NULL) AND @UserRole=1 THEN -1
                    END AS RoleID,
                    c.danger,
                    c.danger2,
                    c.danger3,
                    CASE WHEN @UserRole = 2 THEN CASE WHEN ((s.custid IS NOT NULL AND c.Closed = 1) OR (s.custid IS NULL AND ISNULL(CloseInfo,0) > 0)) THEN 'Closed'
                                                      WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 1 ) OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) = 0 AND ISNULL(ps.SuspendInfo,0) > 0)) THEN 'Suspended'
+                                                     WHEN c.custid IS NULL THEN 'Archived'
                                                      WHEN s.custid IS NULL AND ps.Locked > 0 THEN 'Locked'
                                                      WHEN ((s.custid IS NOT NULL AND c.Closed = 0 AND ISNULL(c.reject,0) = 0) OR (s.custid IS NULL AND ISNULL(ps.SuspendInfo,0) = 0 AND ISNULL(ps.CloseInfo,0) = 0))THEN 'Active' END
                         WHEN @UserRole = 1 THEN @StatusCN88 END AS CustStatus,

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap,vnteam" viewers="wsv_nap,vnteam" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUsername]
 (
 	@NewUsername VARCHAR(30),

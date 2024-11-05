@@ -1,3 +1,4 @@
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_CustomerUpdUsername]
 (
 	@NewUsername VARCHAR(30),
@@ -17,6 +18,8 @@ AS
 
 	Revisions:
 		- 20140303@Dom: Modify for new structure
+		- 20241010@Helen:edit username for CREDIT - [Redmine:#212007]
+
 	Param's Explanation:
 	
 */
@@ -30,33 +33,48 @@ BEGIN
 	BEGIN
 		SELECT @ErrCode = 100
 		SELECT @ErrMsg = 'Username already existed.'
+		--> go to rollback customer/custinfo and Mini table called by WEB
+
 		RETURN
 	END
 
-	 DECLARE @Username_Old VARCHAR(30)
-	 SELECT @Username_Old = UserName
-	 FROM crmCustomer WITH(NOLOCK) 
-	 WHERE CustID = @CustID
+	DECLARE @Username_Old VARCHAR(30)
+	 
+	SELECT @Username_Old = UserName
+	FROM crmCustomer WITH(NOLOCK) 
+	WHERE CustID = @CustID
 
-	UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
-	SET username = @NewUsername
-	WHERE custid = @custid
-	IF @@ERROR <> 0
-	BEGIN
-		SELECT	@ErrCode = 101,
-				@ErrMsg = 'crmCustomer: Update username unsuccessfully.'
+	IF @@ROWCOUNT = 0
 		RETURN
-	END
 
-	UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
-	SET username = @NewUsername
-	WHERE custid = @custid
-	IF @@ERROR <> 0
-	BEGIN
-		SELECT	@ErrCode = 100,
-				@ErrMsg = 'crmCustsearch: Update username unsuccessfully.'
+	BEGIN TRY
+
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
+			SET username = @NewUsername
+		WHERE custid = @custid
+
+		UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
+			SET username = @NewUsername
+		WHERE custid = @custid
+
+		
+	END TRY
+	BEGIN CATCH
+
+		UPDATE crmCustomer WITH(ROWLOCK,UPDLOCK)
+			SET username = @Username_Old
+		WHERE custid = @custid
+
+		UPDATE crmCustomerSearch WITH(ROWLOCK,UPDLOCK)
+			SET username = @Username_Old
+		WHERE custid = @custid
+
+		SELECT @ErrMsg = 'Update crm username does not successfully. ' + @ErrMsg
+			, @ErrCode = 100
+		--> go to rollback customer/custinfo and Mini table called by WEB
 		RETURN
-	END
+
+	END CATCH
 
 	-- write log
 	DECLARE @OldValues XML,@NewValues XML
@@ -78,17 +96,4 @@ BEGIN
 					@NewValues = @NewValues,
 					@OldValues = @OldValues
 END
-
-GO
-
-SET QUOTED_IDENTIFIER OFF 
-GO
-SET ANSI_NULLS ON 
-GO
-
-
-GO 
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerUpdUsername] TO [bodbAdminNet]
-GO 
- GRANT VIEW DEFINITION ON [dbo].[Acc_CRM_CustomerUpdUsername] TO [vnteam]
 GO 

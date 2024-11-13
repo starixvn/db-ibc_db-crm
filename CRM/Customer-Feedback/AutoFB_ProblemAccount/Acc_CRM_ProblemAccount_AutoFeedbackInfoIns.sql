@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_CRM_ProblemAccount_AutoFeedbackInfoIns] 
 	@xml XML,
@@ -13,6 +13,7 @@ AS
 	Revisions:
 		- 20210510@Johnson: Initial sp [redmine:#142194]
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
+		- 20241105@Tacy: CC - Change datatype [Redmine: #213308]
 	Parameter's Explanation:
 		- @xml = <ROOT>
 					<r logid="1" custid="1000" hl="101" hlname="XT" related="1000" catid="51" />
@@ -27,7 +28,7 @@ BEGIN
 						HeadlineID		INT,
 						HeadlineName	VARCHAR(50),
 						RelatedCustID	INT,
-						CategoryID		SMALLINT					
+						CategoryID		INT					
 						)
 		
 	INSERT INTO @tmpCust(LogID,CustID,HeadlineID,HeadlineName,RelatedCustID,CategoryID)

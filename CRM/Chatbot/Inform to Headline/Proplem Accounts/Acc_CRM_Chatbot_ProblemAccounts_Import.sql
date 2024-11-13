@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_ProblemAccounts_Import]
 	@XmlData		XML
 	,@Environment	VARCHAR(50) = ''
@@ -18,6 +18,7 @@ AS
 		- 20220330@Malcolm: remove space [RedmineId: #170666]
 		- 20221109@Malcolm: Add log [RedmineId: #180493]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		- 20241105@Tacy: CC - Change datatype [Redmine: #213308]
 
 	Param's Explanation:
 		. @XmlData = '<root>
@@ -149,7 +150,7 @@ BEGIN
 		Recommend			INT, 
 		Mrecommend			INT, 
 		Srecommend			INT, 
-		CategoryId			SMALLINT, 
+		CategoryId			INT, 
 		CategoryNameEN		NVARCHAR(100), 
 		CategoryNameSC		NVARCHAR(100), 
 		CategoryNameTH		NVARCHAR(100),
@@ -166,7 +167,7 @@ BEGIN
 		,t.c.value('@Recommend', 'INT')						AS Recommend
 		,t.c.value('@Mrecommend', 'INT')					AS Mrecommend
 		,t.c.value('@Srecommend', 'INT')					AS Srecommend
-		,t.c.value('@CategoryId', 'SMALLINT')			    AS CategoryId
+		,t.c.value('@CategoryId', 'INT')					AS CategoryId
 		,t.c.value('@CategoryNameEN', 'NVARCHAR(100)')		AS CategoryNameEN
 		,t.c.value('@CategoryNameSC', 'NVARCHAR(100)')		AS CategoryNameSC
 		,t.c.value('@CategoryNameTH', 'NVARCHAR(100)')		AS CategoryNameTH
@@ -410,7 +411,7 @@ BEGIN
 		,Recommend			INT 
 		,Mrecommend			INT 
 		,Srecommend			INT 
-		,CategoryId			SMALLINT
+		,CategoryId			INT
 		,RecipientId		INT
 		,CategoryNameEn		NVARCHAR(100)
 		,CategoryNameSC		NVARCHAR(100)
@@ -462,7 +463,7 @@ BEGIN
 		Id					INT, 
 		LogId				BIGINT, 
 		CustId				INT, 
-		CategoryId			SMALLINT, 
+		CategoryId			INT, 
 		ConversationGroupId	SMALLINT, 
 		ChannelId			TINYINT,
 		ChatTypeId			TINYINT, 

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE dbo.Acc_CRM_AutoFB_SystemSetting_Sel
 	@ServiceName VARCHAR(100) 
 	,@Environment VARCHAR(50) = ''
@@ -36,6 +36,7 @@ BEGIN
 				,('String', 'VARCHAR(50)')
 				,('Int32', 'INT')
 				,('Boolean', 'BIT')
+				,('XML', 'XML')
 		) AS n (DatatypeSetting, DataTypeSql)
 	)
 	INSERT INTO #Setting (SettingName, DataTypeSql, Value)

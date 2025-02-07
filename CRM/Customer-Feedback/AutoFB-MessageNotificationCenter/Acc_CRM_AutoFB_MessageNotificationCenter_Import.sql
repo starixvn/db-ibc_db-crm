@@ -18,6 +18,7 @@ AS
     Revisions:
         20240502@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621]
         20240821@Ned.Le: Include Feedback for Licensee
+		20241231@Virgil: Add Remark section [Redmine: #214619]
 
     Param's Explanation:
         @MsgInfo:
@@ -1030,22 +1031,30 @@ BEGIN
             CTE_up AS (
                 SELECT LineNumber UpNumber
                 FROM CTE_raw
-                WHERE LineText LIKE 'MatchID%'
+                WHERE LineText LIKE 'MatchID:%'
+            ),
+			CTE_upRemark AS (
+                SELECT LineNumber UpNumber2
+                FROM CTE_raw
+                WHERE LineText LIKE '**Remark:**%'
             ),
             CTE_down AS (
                 SELECT LineNumber DownNumber
                 FROM CTE_raw
-                WHERE LineText LIKE 'Attn%'
+                WHERE LineText LIKE 'Attn:%'
             ),
             CTE_clean AS (
                 SELECT r.LineText
                 FROM CTE_raw r
                      CROSS JOIN CTE_up u
                      CROSS JOIN CTE_down d
-                WHERE r.LineNumber >= u.UpNumber
-                      AND r.LineNumber <= (d.DownNumber - 2)
-                      AND r.LineText NOT LIKE '%Affected Credit sites%'
-                      AND r.LineText NOT LIKE '%Credit Total Bets%'
+					 OUTER APPLY CTE_upRemark ur
+                WHERE ( r.LineNumber >= u.UpNumber
+						AND r.LineNumber <= (d.DownNumber - 2)
+						AND r.LineText NOT LIKE '%Affected Credit sites%'
+						AND r.LineText NOT LIKE '%Credit Total Bets%'
+						)
+						OR r.LineNumber >= ur.UpNumber2
             )
             SELECT @Loop_Lic_Des_ContentOutput = STRING_AGG(CAST(REPLACE(REPLACE(LineText, '\', ''), '**', '') AS NVARCHAR(MAX)), '<br />')
             FROM CTE_clean

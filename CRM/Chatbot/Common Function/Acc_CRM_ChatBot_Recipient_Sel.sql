@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_Recipient_Sel]
 	@RecipientType	TINYINT = NULL
 	,@RecipientName NVARCHAR(200) = ''
@@ -15,6 +15,8 @@ AS
 		- 20200810@Malcolm: Initialize SPs [Redmine: #130544]
 		- 20201126@Malcolm: Change bodb02.dbo.f_StringSplit to dbo.f_CRM_strSplit [Redmine: #144265]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		- 20250214@Virgil: Show incorrect text in Chat Type Mapping [Hotfix: #217923]
+
 	Param's Explanation:
 		
 */
@@ -27,7 +29,7 @@ BEGIN
 
 	DECLARE @Recipients TABLE (RecipientId INT PRIMARY KEY)
 
-	DECLARE @Tmp TABLE (RecipientId INT, RecipientName NVARCHAR(200), LetsTalkIds VARCHAR(MAX), Usernames VARCHAR(MAX), RowNum INT)
+	DECLARE @Tmp TABLE (RecipientId INT, RecipientName NVARCHAR(200), LetsTalkIds NVARCHAR(MAX), Usernames NVARCHAR(MAX), RowNum INT)
 
 	INSERT INTO @Recipients (RecipientId)
 	SELECT DISTINCT f.value

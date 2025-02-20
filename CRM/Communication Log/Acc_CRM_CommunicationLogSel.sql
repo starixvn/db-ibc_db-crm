@@ -4,8 +4,9 @@ USE bodb_CRM
 GO
 
 ALTER PROCEDURE	dbo.Acc_CRM_CommunicationLogSel
-					@FeedbackID			INT
-					,@UserRole			TINYINT
+	@FeedbackID INT
+	,@UserRole  TINYINT
+	,@Mode		TINYINT = 0
 AS
 /*
 	Created:	Dom
@@ -25,6 +26,10 @@ AS
 		- 20191106@Winnie: Enhancement - Support "0" value on "No. of Inquiry" RedmineID: #123426
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
         - 20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
+		- 20250204@Virgil.Phan: CRM - Feedback site 789y(old) is created although this site is not used anymore [HotFix #217435]
+
+	Parameter Explain:
+		@Mode = 0 : Feedback view / @Mode = 1: Duplicate view
 */
 BEGIN
 	DECLARE   @AutoField       NVARCHAR(MAX)
@@ -52,8 +57,9 @@ BEGIN
 		,	f.StatusID
 		,	f.RoleID	
 		,	f.CountryID
-		,	f.LanguageID	
-		,	f.SiteID
+		,	f.LanguageID
+		,	CASE WHEN @Mode = 0 THEN f.SiteID
+				ELSE ISNULL(c.SiteID, f.SiteID) END AS SiteID	-- for Duplicate view 
 		,	f.ResponseID
 		,	f.Subject
 		,	@AutoField	AS AutoField

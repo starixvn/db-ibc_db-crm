@@ -10,9 +10,10 @@ AS
 	Task: generate message
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
-		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
-	
+		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket (#197621)
+		- 20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
+		- 20241101@Tacy: MNC - Apply new table NotiTemplateMapping [Redmine: #213498]
+		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 	Explanation:
 		@Environment
 			If IncludeTestMatch = ON
@@ -78,7 +79,7 @@ BEGIN
 		,@JSResource NVARCHAR(MAX) = ''
 		,@iLoop INT
 		,@LogMode VARCHAR(500)
-		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122,151,215'
+		,@SabaLeagueGroup VARCHAR(500) = '42,74,108,113,122'
 		,@Sites777 VARCHAR(500) = ''
 	
 	/****************************************************************************
@@ -289,16 +290,28 @@ BEGIN
 		,M VARCHAR(50)
 		,X VARCHAR(50)
 		,Y VARCHAR(50)
+		,O VARCHAR(50)
+		,GroupBT VARCHAR(50)
+	)
+
+	CREATE TABLE #tmpResourceOrder (
+		ResourceOrder INT 
+		,NotiTempID INT
+		,ResourceID NVARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpAffectedResult (
 		NotiTempID INT
+		,Sporttype INT
 		,ResourceID VARCHAR(50)
 		,OtherInfo VARCHAR(50)
 		,G VARCHAR(50)
 		,M VARCHAR(50)
 		,X VARCHAR(50)
 		,Y VARCHAR(50)
+		,O VARCHAR(50)
+		,GroupBT VARCHAR(50)
+
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
 		,ResultName_cs NVARCHAR(4000)
@@ -333,6 +346,7 @@ BEGIN
 		NotiTempID INT NOT NULL
 		,IsNoneSaba TINYINT NOT NULL --0: Normal / 1: Saba
 		,TemplateID SMALLINT NOT NULL
+		,TemplateName VARCHAR(200)
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
 		,Content_cs NVARCHAR(4000)
@@ -623,12 +637,18 @@ BEGIN
 					AND c.UUSCurrency = 0
 				) --generate only for real cust if real match
 		)
-		,CTE_ResourceID AS (
+		,CTE_MultiResourceID AS (
 			SELECT DISTINCT SettlementLogID
 				,TRIM(a.c.value('@Id', 'VARCHAR(50)')) AS ResourceID
 			FROM CTE_DetailXML
 				OUTER APPLY ExtraXML.nodes('root/r') a(c)
 			WHERE ISNULL(TRIM(a.c.value('@Id', 'VARCHAR(50)')),'') <> ''
+		)
+		,CTE_ResourceID AS (
+			SELECT DISTINCT SettlementLogID
+				,s.ResourceID
+			FROM CTE_MultiResourceID
+				CROSS APPLY (SELECT VALUE AS ResourceID FROM string_split(ResourceID,',') ss ) s
 		)
 		INSERT INTO #tmpResultInfo (
 			SettlementLogID
@@ -643,6 +663,8 @@ BEGIN
 			,M
 			,X
 			,Y
+			,O
+			,GroupBT
 		)
 		SELECT DISTINCT sr.SettlementLogID
 			,sr.AmendInfo --ActualResult / WrongResult / ..
@@ -656,6 +678,8 @@ BEGIN
 			,sr.M
 			,sr.X
 			,sr.Y
+			,sr.O
+			,sr.GroupBT
 		FROM OPENJSON(@JSResource) WITH (
 				SettlementLogID INT '$.SettlementLogID'
 				,AmendInfo VARCHAR(50) '$.AmendInfo'
@@ -669,6 +693,8 @@ BEGIN
 				,M VARCHAR(50) '$.M'
 				,X VARCHAR(50) '$.X'
 				,Y VARCHAR(50) '$.Y'
+				,O VARCHAR(50) '$.O'
+				,GroupBT VARCHAR(50) '$.GroupBT'
 		) AS sr--OPENJSON case-sensitive
 			INNER JOIN CTE_ResourceID AS dr ON sr.SettlementLogID = dr.SettlementLogID AND sr.ResourceID = dr.ResourceID
 		WHERE sr.RefBettypeID IS NOT NULL
@@ -709,6 +735,7 @@ BEGIN
 		SET ri.NotiTempID = rh.NotiTempID
 		FROM #tmpResultInfo AS ri
 			INNER JOIN #tmpResultHist AS rh ON rh.SettlementLogID = ri.SettlementLogID
+		
 		/*
 			***************************************************<<<!IMPORTANT HARDCODE>>>***************************************************
 			Mapping SettlementLogID vs TemplateID, output tables:
@@ -761,19 +788,19 @@ BEGIN
 		;WITH CTE_Noti AS (
 			SELECT DISTINCT ntgt.NotiTempID
 				,ntgt.IsNoneSaba
-				,(CASE WHEN rh.ActionType = 1 AND rh.AmendedCnt = 1 THEN 3 --CAL to CAL, AmendedCnt=1
-					WHEN rh.ActionType = 1 AND rh.AmendedCnt = 2 THEN 4 --CAL to CAL, AmendedCnt=2
-					WHEN rh.ActionType = 1 AND rh.AmendedCnt > 2 THEN 5 --CAL to CAL, AmendedCnt = more than 2
-					WHEN rh.ActionType IN (2,3) AND rh.AmendedCnt IN (1,2) THEN 1 --CAL to Refund / Refund to CAL, AmendedCnt = more than 2
-					WHEN rh.ActionType IN (2,3) AND rh.AmendedCnt > 2 THEN 2 --CAL to Refund / Refund to CAL, AmendedCnt = more than 2
-				END) AS TemplateID
+				,tm.TemplateID
 			FROM #tmpResultHist AS rh
 				INNER JOIN #tmpStagingTarget AS ntgt ON rh.NotiTempID = ntgt.NotiTempID
+				INNER JOIN NotiTemplateMapping tm WITH (NOLOCK) ON tm.Sporttype=rh.SportType
+																AND tm.ActionType=rh.ActionType
+			WHERE tm.NotificationType=1 
+				AND rh.AmendedCnt BETWEEN tm.MinAmended AND tm.MaxAmended
 		)
 		INSERT INTO #tmpStagingNoti (
 			NotiTempID
 			,IsNoneSaba
 			,TemplateID
+			,TemplateName
 			,Content_en
 			,Content_ch
 			,Content_cs
@@ -782,6 +809,7 @@ BEGIN
 		SELECT DISTINCT n.NotiTempID
 			,n.IsNoneSaba
 			,n.TemplateID
+			,tp.TemplateName
 			,tp.Content_en
 			,tp.Content_ch
 			,tp.Content_cs
@@ -790,7 +818,7 @@ BEGIN
 			INNER JOIN NotiTemplate AS tp WITH (NOLOCK) ON n.TemplateID = tp.TemplateID
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpStagingNoti ON #tmpStagingNoti (NotiTempID, IsNoneSaba)
-		
+
 		----------#tmpTemplateDetl-------------
 		INSERT INTO #tmpTemplateDetl (
 			NotiTempID
@@ -953,6 +981,45 @@ BEGIN
 		END
 		
 		/*
+			Get resource order
+				#tmpResourceOrder
+		*/
+		SELECT @JSResource=''
+
+		EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
+			@SettlementLogIDs = @ValidSettlementLogIDs
+			,@ParseAmendInfo = 'ResourceOrder'
+			,@ParseTo = 'RawData'
+			,@OutJSResource = @JSResource OUTPUT
+			,@ErrCode = @ErrCode OUTPUT --from SP params
+			,@ErrMsg = @ErrMsg OUTPUT --from SP params
+
+		INSERT INTO #tmpResourceOrder (ResourceOrder, NotiTempID, ResourceID)
+		SELECT DISTINCT sr.ID
+			,ri.NotiTempID
+			,sr.ResourceID
+		FROM OPENJSON(@JSResource) WITH (
+				ID INT '$.ID'
+				,SettlementLogID INT '$.SettlementLogID'
+				,ResourceID VARCHAR(50) '$.ResourceID'
+		) AS sr--OPENJSON case-sensitive
+			INNER JOIN #tmpResultInfo AS ri ON sr.SettlementLogID = ri.SettlementLogID
+		WHERE sr.ResourceID IS NOT NULL
+			AND ISJSON(@JSResource) = 1
+		
+		;WITH CTE_reOrder AS (
+			SELECT NotiTempID, ResourceID, MIN(ResourceOrder) AS ReOrder
+			FROM #tmpResourceOrder
+			GROUP BY NotiTempID, ResourceID
+		)
+		DELETE ro
+		FROM #tmpResourceOrder AS ro
+		LEFT JOIN CTE_reOrder re ON re.NotiTempID=ro.NotiTempID AND re.ResourceID=ro.ResourceID AND re.ReOrder=ro.ResourceOrder
+		WHERE re.ReOrder IS NULL
+
+		CREATE CLUSTERED INDEX CIX_tmpResourceOrder ON #tmpResourceOrder (NotiTempID, ResourceID)
+
+		/*
 			*****Message Template may NOT {affected_result_name} but use it for: gen LAP, chatbot LIC,..*****
 			+ DON'T care ControlGrp
 				+ DON'T care IsNoneSaba
@@ -974,24 +1041,30 @@ BEGIN
 			*/
 			INSERT INTO #tmpAffectedResult (
 				NotiTempID
+				,Sporttype
 				,ResourceID
 				,OtherInfo
 				,G
 				,M
 				,X
 				,Y
+				,O
+				,GroupBT
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
 				,ResultName_zhcn
 			)
 			SELECT DISTINCT tp.NotiTempID
+				,s.SportType
 				,ISNULL(atl.ResourceID, wrg.ResourceID) AS ResourceID
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.OtherInfo ELSE wrg.OtherInfo END AS OtherInfo
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.G ELSE wrg.G END AS G
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.M ELSE wrg.M END AS M
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.X ELSE wrg.X END AS X
 				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.Y ELSE wrg.Y END AS Y
+				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.O ELSE wrg.O END AS O
+				,CASE WHEN atl.RefBettypeID IS NOT NULL THEN atl.GroupBT ELSE wrg.GroupBT END AS GroupBT
 				,rf.RefValueEN AS ResultName_en
 				,rf.RefValueCH AS ResultName_ch
 				,rf.RefValueCS AS ResultName_cs
@@ -1000,14 +1073,20 @@ BEGIN
 				LEFT JOIN #tmpResultInfo AS atl ON tp.NotiTempID = atl.NotiTempID AND atl.AmendInfo = 'ActualResult'
 				LEFT JOIN #tmpResultInfo AS wrg ON tp.NotiTempID = wrg.NotiTempID AND wrg.AmendInfo = 'WrongResult'
 				INNER JOIN #tmpRemotingRef AS rf ON rf.RefId2 = ISNULL(atl.RefBettypeID, wrg.RefBettypeID)
+				-- sportname
+				LEFT JOIN #tmpResultHist rhA ON rhA.NotiTempID=atl.NotiTempID AND rhA.SettlementLogID=atl.SettlementLogID
+				LEFT JOIN #tmpResultHist rhW ON rhW.NotiTempID=wrg.NotiTempID AND rhW.SettlementLogID=wrg.SettlementLogID
+				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(rhA.SportType, rhW.SportType)) s
+
 			WHERE ISNULL(atl.ResourceID, wrg.ResourceID) IS NOT NULL
 				AND ISNULL(atl.RefBettypeID, wrg.RefBettypeID) IS NOT NULL
+				AND ISNULL(rhA.SportType, rhW.SportType) IS NOT NULL
 				AND rf.GroupName = 'RefResource'
-				AND rf.RefId1 = 'ResourceCricket'
+				AND rf.RefId1 = 'Resource' + s.SportName --Resource{sport_name}
 			
 			CREATE CLUSTERED INDEX CIX_tmpAffectedResult ON #tmpAffectedResult (NotiTempID, ResourceID)
 			
-			--step #2 - Replace X / Y
+			--step #2 - Replace X / Y / O
 			UPDATE #tmpAffectedResult
 			SET ResultName_en = REPLACE(ResultName_en,'@X',X)
 				,ResultName_ch = REPLACE(ResultName_ch,'@X',X)
@@ -1027,6 +1106,19 @@ BEGIN
 				OR ISNULL(CHARINDEX('@Y',ResultName_ch),0) > 0
 				OR ISNULL(CHARINDEX('@Y',ResultName_cs),0) > 0
 				OR ISNULL(CHARINDEX('@Y',ResultName_zhcn),0) > 0
+
+			UPDATE t
+			SET ResultName_en = REPLACE(ResultName_en,'@O',rf.RefValueEN)
+				,ResultName_ch = REPLACE(ResultName_ch,'@O',rf.RefValueCH)
+				,ResultName_cs = REPLACE(ResultName_cs,'@O',rf.RefValueCS)
+				,ResultName_zhcn = REPLACE(ResultName_zhcn,'@O',rf.RefValueZHCN)
+			FROM #tmpAffectedResult t
+				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel (t.Sporttype) s
+				INNER JOIN #tmpRemotingRef rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SportName) AND rf.RefId2=t.O
+			WHERE ISNULL(CHARINDEX('@O',ResultName_en),0) > 0
+				OR ISNULL(CHARINDEX('@O',ResultName_ch),0) > 0
+				OR ISNULL(CHARINDEX('@O',ResultName_cs),0) > 0
+				OR ISNULL(CHARINDEX('@O',ResultName_zhcn),0) > 0
 			
 			--step #2 - 2.1 Replace G / M for GameSession IN (1,8) - match 2 inning
 			;WITH CTE_G_Inns AS (
@@ -1047,7 +1139,8 @@ BEGIN
 				,ResultName_zhcn = REPLACE(af.ResultName_zhcn,'@G',rf.RefValueZHCN)
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_G_Inns AS inn ON af.NotiTempID = inn.NotiTempID AND af.ResourceID = inn.ResourceID
-				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rG
+				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel (af.Sporttype) s
+				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SportName) AND rf.RefId2 = inn.rG
 			
 			;WITH CTE_M_Inns AS (
 				SELECT DISTINCT af.NotiTempID
@@ -1067,7 +1160,8 @@ BEGIN
 				,ResultName_zhcn = REPLACE(af.ResultName_zhcn,'@M',ISNULL(rf.RefValueZHCN,''))
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_M_Inns AS inn ON af.NotiTempID = inn.NotiTempID AND af.ResourceID = inn.ResourceID
-				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResourceCricket' AND rf.RefId2 = inn.rM
+				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel (af.Sporttype) s
+				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SportName) AND rf.RefId2 = inn.rM
 			
 			----step #2 - 2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
 			UPDATE #tmpAffectedResult
@@ -1108,13 +1202,15 @@ BEGIN
 		
 		-- IF EXISTS {affected_result_name}
 		;WITH CTE_Affected AS (
-			SELECT NotiTempID
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') AS ResultName_en
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') AS ResultName_ch
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') AS ResultName_cs
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_zhcn,'')),', ') AS ResultName_zhcn
-			FROM #tmpAffectedResult
-			GROUP BY NotiTempID
+			SELECT af.NotiTempID
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_en
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_ch
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_zhcn,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_zhcn
+			FROM #tmpAffectedResult af
+			INNER JOIN #tmpResourceOrder ro
+						 ON ro.NotiTempID=af.NotiTempID AND ro.ResourceID=af.ResourceID
+			GROUP BY af.NotiTempID
 		)
 		UPDATE tp
 		SET tp.Content_en = '"' + af.ResultName_en + '"'
@@ -1147,7 +1243,7 @@ BEGIN
 		FROM #tmpAffectedResult AS af
 			INNER JOIN #tmpResultHist AS rh ON rh.NotiTempID = af.NotiTempID
 		WHERE rh.ActionType = 2 --CAL to Refund => WrongResult [have value] + ActualResult [blank]
-		
+
 		--Rule#1.If exists TeamIDs
 		;WITH CTE_TeamID AS (
 			SELECT DISTINCT atl.NotiTempID
@@ -1194,7 +1290,31 @@ BEGIN
 			4.<xml Home="01" TeamIDs="" OtherInfo="123,456">
 				=> Home = 01 => position 1 of [OtherInfo="123,456"] => Home = "123" BUT [TeamIDs=""]
 				=> IGNORE case because very complex to handle (must check bettype, convert this case to Rule#1 template...)
+			5.<xml Home="01" Away="20" GroupBettype="5">
+				=> show timing result: 01 min 20 sec
 		*/
+		;WITH CTE_HomeNumber AS (
+			SELECT DISTINCT atl.NotiTempID
+				,atl.ResourceID
+				,atl.HomeValue
+				,atl.AwayValue
+				,'GBT' + atl.GroupBT AS rGroupBT 
+			FROM #tmpResultInfo AS atl
+			WHERE atl.AmendInfo = 'ActualResult'
+				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
+				AND atl.GroupBT IS NOT NULL
+		)
+		UPDATE af
+		SET af.ActualValue_en = REPLACE(REPLACE(rf.RefValueEN,'@Home', atl.HomeValue),'@Away', atl.AwayValue)
+			,af.ActualValue_ch = REPLACE(REPLACE(rf.RefValueCH,'@Home', atl.HomeValue),'@Away', atl.AwayValue)
+			,af.ActualValue_cs = REPLACE(REPLACE(rf.RefValueCS,'@Home', atl.HomeValue),'@Away', atl.AwayValue)
+			,af.ActualValue_zhcn = REPLACE(REPLACE(rf.RefValueZHCN,'@Home', atl.HomeValue),'@Away', atl.AwayValue)
+		FROM #tmpAffectedResult AS af
+			INNER JOIN CTE_HomeNumber AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
+			INNER JOIN #tmpRemotingRef rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2=atl.rGroupBT
+		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
+		
+		--no GroupBettype
 		;WITH CTE_HomeNumber AS (
 			SELECT DISTINCT atl.NotiTempID
 				,atl.ResourceID
@@ -1203,6 +1323,7 @@ BEGIN
 			FROM #tmpResultInfo AS atl
 			WHERE atl.AmendInfo = 'ActualResult'
 				AND ISNUMERIC(REPLACE(ISNULL(atl.HomeValue,''),',','')) = 1
+				AND atl.GroupBT IS NULL
 		)
 		UPDATE af
 		SET af.ActualValue_en = atl.HomeValue + ISNULL('-' + atl.AwayValue,'')
@@ -1212,7 +1333,7 @@ BEGIN
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_HomeNumber AS atl ON af.NotiTempID = atl.NotiTempID AND af.ResourceID = atl.ResourceID
 		WHERE af.ActualValue_en IS NULL --EXCLUDE above rules
-		
+
 		--Rule#3.If HomeValue is NOT number
 		;WITH CTE_HomeNotNumber AS (
 			SELECT DISTINCT atl.NotiTempID
@@ -1316,6 +1437,29 @@ BEGIN
 		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
 		
 		--Rule#2.If HomeValue is number
+		--GroupBettype
+		;WITH CTE_HomeNumber AS (
+			SELECT DISTINCT wrg.NotiTempID
+				,wrg.ResourceID
+				,wrg.HomeValue
+				,wrg.AwayValue
+				,'GBT' + wrg.GroupBT AS rGroupBT
+			FROM #tmpResultInfo AS wrg
+			WHERE wrg.AmendInfo = 'WrongResult'
+				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
+				AND wrg.GroupBT IS NOT NULL
+		)
+		UPDATE af
+		SET af.WrongValue_en = REPLACE(REPLACE(rf.RefValueEN,'@Home', wrg.HomeValue),'@Away', wrg.AwayValue)
+			,af.WrongValue_ch = REPLACE(REPLACE(rf.RefValueCH,'@Home', wrg.HomeValue),'@Away', wrg.AwayValue)
+			,af.WrongValue_cs = REPLACE(REPLACE(rf.RefValueCS,'@Home', wrg.HomeValue),'@Away', wrg.AwayValue)
+			,af.WrongValue_zhcn = REPLACE(REPLACE(rf.RefValueZHCN,'@Home', wrg.HomeValue),'@Away', wrg.AwayValue)
+		FROM #tmpAffectedResult AS af
+			INNER JOIN CTE_HomeNumber AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
+			INNER JOIN #tmpRemotingRef rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = 'ResultSettlement' AND rf.RefId2=wrg.rGroupBT
+		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
+				
+		--No GroupBettype
 		;WITH CTE_HomeNumber AS (
 			SELECT DISTINCT wrg.NotiTempID
 				,wrg.ResourceID
@@ -1324,6 +1468,7 @@ BEGIN
 			FROM #tmpResultInfo AS wrg
 			WHERE wrg.AmendInfo = 'WrongResult'
 				AND ISNUMERIC(REPLACE(ISNULL(wrg.HomeValue,''),',','')) = 1
+				AND wrg.GroupBT IS NULL
 		)
 		UPDATE af
 		SET af.WrongValue_en = wrg.HomeValue + ISNULL('-' + wrg.AwayValue,'')
@@ -1333,7 +1478,7 @@ BEGIN
 		FROM #tmpAffectedResult AS af
 			INNER JOIN CTE_HomeNumber AS wrg ON af.NotiTempID = wrg.NotiTempID AND af.ResourceID = wrg.ResourceID
 		WHERE af.WrongValue_en IS NULL --EXCLUDE above rules
-		
+
 		--Rule#3.If HomeValue is NOT number
 		;WITH CTE_HomeNotNumber AS (
 			SELECT DISTINCT wrg.NotiTempID
@@ -1408,7 +1553,8 @@ BEGIN
 		BEGIN
 			--Start to replace RequiredParams
 			UPDATE ms
-			SET ms.Content_en = REPLACE(ms.Content_en,tpd.RequiredParam,tpd.Content_en)
+			SET ms.TemplateName=REPLACE(ms.TemplateName,tpd.RequiredParam,tpd.Content_en)
+				,ms.Content_en = REPLACE(ms.Content_en,tpd.RequiredParam,tpd.Content_en)
 				,ms.Content_ch = REPLACE(ms.Content_ch,tpd.RequiredParam,tpd.Content_ch)
 				,ms.Content_cs = REPLACE(ms.Content_cs,tpd.RequiredParam,tpd.Content_cs)
 				,ms.Content_zhcn = REPLACE(ms.Content_zhcn,tpd.RequiredParam,tpd.Content_zhcn)
@@ -1805,6 +1951,7 @@ BEGIN
 			SELECT s.NotiTempID
 				,CONVERT(NVARCHAR(MAX),(
 					SELECT DISTINCT t.ResourceID
+						,ro.ResourceOrder
 						,t.ResultName_en
 						,t.ResultName_ch
 						,t.ResultName_cs
@@ -1820,8 +1967,10 @@ BEGIN
 						,t.WrongValue_cs
 						,t.WrongValue_zhcn
 					FROM #tmpAffectedResult AS t
+					INNER JOIN #tmpResourceOrder ro ON t.NotiTempID=ro.NotiTempID
+													AND t.ResourceID=ro.ResourceID
 					WHERE t.NotiTempID = s.NotiTempID
-					ORDER BY t.ResourceID
+					ORDER BY ro.ResourceOrder
 					FOR JSON PATH
 				)) AS afResult
 			FROM #tmpAffectedResult AS s
@@ -1882,7 +2031,7 @@ BEGIN
 					,rfs.RefValueCH AS SportNameCH
 					,rfs.RefValueCS AS SportNameCS
 					,rfs.RefValueZHCN AS SportNameZHCN
-					,tp.TemplateName
+					,sn.TemplateName
 				FROM #tmpResultHist AS t
 					LEFT JOIN CTE_AffectedResult AS af ON t.NotiTempID = af.NotiTempID
 					LEFT JOIN #tmpRemotingRef AS rfh ON rfh.GroupName = 'EventInfo' AND rfh.RefId1 = 'TeamID' AND TRY_CONVERT(INT,rfh.RefId2) = t.HomeID
@@ -1891,7 +2040,6 @@ BEGIN
 					LEFT JOIN #tmpRemotingRef AS rfs ON rfs.GroupName = 'EventInfo' AND rfs.RefId1 = 'SportType' AND TRY_CONVERT(INT,rfs.RefId2) = t.SportType
 					LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON c.CustID = @LogUserID AND i.SuccessStatusID = @StsSending --Sender = [configurated Executor] if IgnoreReviewContent
 					LEFT JOIN #tmpStagingNoti AS sn ON t.NotiTempID = sn.NotiTempID
-					LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON sn.TemplateID = tp.TemplateID
 				WHERE t.NotiTempID = il.NotiTempID
 				FOR JSON PATH
 			)) AS ExtraInfo
@@ -2235,5 +2383,5 @@ BEGIN
 	DROP TABLE #tmpResultInfo
 	DROP TABLE #tmpAffectedResult
 	DROP TABLE #tmpFailedNoti
-	DROP TABLE #tmpCustomer
+	DROP TABLE #tmpCustomer, #tmpResourceOrder
 END

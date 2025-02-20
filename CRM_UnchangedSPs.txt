@@ -1,3 +1,1 @@
-CRM\Chatbot\Inform to Headline\Abnormal Bet\Acc_CRM_Chatbot_AbnormalAccount_GetUsernameList.sql
-CRM\Chatbot\Inform to Headline\Abnormal Bet\Acc_CRM_Chatbot_AbnormalBets_GetMessage.sql
-CRM\Chatbot\Inform to Headline\Abnormal Bet\Acc_CRM_Chatbot_SystemSetting_Sel.sql
+CRM\Customer-Feedback\AutoFB-MessageNotificationCenter\Acc_CRM_AutoFB_MessageNotificationCenter_Import.sql

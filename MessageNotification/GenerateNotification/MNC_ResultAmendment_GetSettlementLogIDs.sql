@@ -9,8 +9,9 @@ AS
 	Task: get valid SettlementLogIDs and return it as list
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
-	
+		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+
 	Param's Explanation:
 		@Environment
 			If IncludeTestMatch = ON
@@ -785,7 +786,8 @@ BEGIN
 				WHEN EXISTS (
 					SELECT 1
 					FROM CTE_ResourceID AS d
-						LEFT JOIN CTE_ResourceID AS m ON m.ResourceID = d.ResourceID AND m.ResourceIDFrom = 'main'
+						CROSS APPLY (SELECT VALUE AS ResourceID FROM string_split(d.ResourceID,',') ss ) s
+						LEFT JOIN CTE_ResourceID AS m ON m.ResourceID = s.ResourceID AND m.ResourceIDFrom = 'main'
 					WHERE d.ResourceIDFrom = 'detail'
 						AND m.ResourceID IS NULL
 				) THEN 'SettlementResultHistDetail.ResourceID NOT EXISTS SettlementResultHist.ResourceID'

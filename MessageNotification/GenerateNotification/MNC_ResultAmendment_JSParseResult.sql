@@ -12,7 +12,9 @@ AS
 	Task: Parse ActualResult/WrongResult from XML to table
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+
 	
 	Param's Explanation:
 		@SettlementLogIDs: List of SettlementLogID
@@ -21,7 +23,8 @@ AS
 						- ActualResult
 						- WrongResult
 						- SettleMatch
-						- ALL (default)
+						- ALL (default) : SettleMatch,ActualResult,WrongResult
+						- ResourceOrder
 		@ParseTo: target format
 				- RemotingRef
 				- RawData
@@ -77,12 +80,26 @@ BEGIN TRY
 		,M NVARCHAR(50)
 		,X NVARCHAR(50)
 		,Y NVARCHAR(50)
+		,O NVARCHAR(50)
+		,GroupBT NVARCHAR(50)
 	)
 	
+	CREATE TABLE #tmpJSParseResourceOrder (
+		ID INT IDENTITY(1,1)
+		,SettlementLogID INT
+		,ResourceID NVARCHAR(50)
+	)
+
 	CREATE TABLE #tmpJSParseInputIDs (
 		SettlementLogID INT
 	)
 	
+	CREATE TABLE #tmpJSParseXML (
+		SettlementLogID INT
+		,ActualResultXML XML
+		,WrongResultXML XML
+	)
+
 	--write more info if LogMode = Debug
 	DECLARE @LogUserID INT
 		,@LogActionID SMALLINT
@@ -116,6 +133,7 @@ BEGIN TRY
 	IF ISNULL(CHARINDEX('SettleMatch',@ParseAmendInfo),0) = 0
 		AND ISNULL(CHARINDEX('ActualResult',@ParseAmendInfo),0) = 0
 		AND ISNULL(CHARINDEX('WrongResult',@ParseAmendInfo),0) = 0
+		AND ISNULL(CHARINDEX('ResourceOrder',@ParseAmendInfo),0) = 0
 	BEGIN
 		SET @ParseAmendInfo = 'SettleMatch,ActualResult,WrongResult'
 	END
@@ -127,26 +145,26 @@ BEGIN TRY
 	
 	DELETE i
 	FROM #tmpJSParseInputIDs AS i
-		LEFT JOIN MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK) ON sh.SettlementLogID = i.SettlementLogID
-	WHERE sh.SettlementLogID IS NULL
-		OR sh.SportType <> 50 --Cricket, need modify for others sport
-	
+		LEFT JOIN dbo.SettlementResultHist AS sh WITH (NOLOCK) ON sh.SettlementLogID = i.SettlementLogID
+		OUTER APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(sh.SportType,0)) s
+	WHERE sh.SettlementLogID IS NULL OR s.SportType IS NULL
+
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputID ON #tmpJSParseInputIDs (SettlementLogID)
 	/*
 		Insert #tmpJSParseResultInfo with format
-		----|---------------|-------------------|---------------|------------|---------------|----------------------|-----------|-------|-------|-------
-			|SettlementLogID|AmendInfo			|ResourceID		|RefBettypeID|HomeValue	|AwayValue	|OtherInfo		|TeamIDs	|G		|X		|Y
-		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------
-			| 2				| SettleMatch		| MatchID		| (NULL)	 | (NULL) 	| (NULL)	| 79288043 		| (NULL) 	| (NULL)|(NULL)	|(NULL)
-			| 2				| SettleMatch		| SportType		| (NULL)	 | (NULL) 	| (NULL)	| 50	 		| (NULL) 	| (NULL)|(NULL)	|(NULL)
-			| 2				| SettleMatch		| HomeID		| (NULL)	 | (NULL)	| (NULL)	| (NULL)		| 1103146	| (NULL)|(NULL)	|(NULL)
-			| 2				| ActualResult		| 96621004		| 9662		 | 01		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)
-			| 2				| WrongResult		| 96621004		| 9662		 | 02		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)
-			| 70			| ActualResult		| 94841004		| 9484		 | 2		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)
-			| 70			| WrongResult		| 94841004		| 9484		 | 1		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)
-			| 134			| ActualResult		| 96711			| 96711		 | 06,05	| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)
-			| 134			| WrongResult		| 96711			| 96711		 | 06		| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)
-		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|--------
+		----|---------------|-------------------|---------------|------------|---------------|----------------------|-----------|-------|-------|-------|-------|-------
+			|SettlementLogID|AmendInfo			|ResourceID		|RefBettypeID|HomeValue	|AwayValue	|OtherInfo		|TeamIDs	|G		|X		|Y		|O		|GroupBT		
+		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------|-------|-------
+			| 2				| SettleMatch		| MatchID		| (NULL)	 | (NULL) 	| (NULL)	| 79288043 		| (NULL) 	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)
+			| 2				| SettleMatch		| SportType		| (NULL)	 | (NULL) 	| (NULL)	| 50	 		| (NULL) 	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)
+			| 2				| SettleMatch		| HomeID		| (NULL)	 | (NULL)	| (NULL)	| (NULL)		| 1103146	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)
+			| 2				| ActualResult		| 96621004		| 9662		 | 01		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)	|(NULL)	|(NULL)
+			| 2				| WrongResult		| 96621004		| 9662		 | 02		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)	|(NULL)	|(NULL)
+			| 70			| ActualResult		| 94841004		| 9484		 | 2		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)	|(NULL)	|(NULL)
+			| 70			| WrongResult		| 94841004		| 9484		 | 1		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)	|(NULL)	|(NULL)
+			| 134			| ActualResult		| 96711			| 96711		 | 06,05	| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)	|(NULL)	|(NULL)
+			| 134			| WrongResult		| 96711			| 96711		 | 06		| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)	|(NULL)	|(NULL)
+		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------|-------|-------
 	*/
 	INSERT INTO #tmpJSParseEventInfo (
 		SettlementLogID
@@ -168,15 +186,16 @@ BEGIN TRY
 		LEFT JOIN bodb02.dbo.match14 AS m14 WITH (NOLOCK) ON sh.MatchID = m14.MatchID
 	WHERE ISNULL(CHARINDEX('SettleMatch',@ParseAmendInfo),0) > 0
 	
+	--XML Result:
+	INSERT INTO #tmpJSParseXML (SettlementLogID, ActualResultXML, WrongResultXML)
+	SELECT sh.SettlementLogID
+		,TRY_CONVERT(XML, sh.ActualResult) AS ActualResultXML
+		,TRY_CONVERT(XML, sh.WrongResult) AS WrongResultXML
+	FROM MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK)
+		INNER JOIN #tmpJSParseInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
+
 	--ActualResult / WrongResult
-	;WITH CTE_XML AS (
-		SELECT sh.SettlementLogID
-			,TRY_CONVERT(XML, sh.ActualResult) AS ActualResultXML
-			,TRY_CONVERT(XML, sh.WrongResult) AS WrongResultXML
-		FROM MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK)
-			INNER JOIN #tmpJSParseInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
-	)
-	,CTE_Actual AS (
+	;WITH CTE_Actual AS (
 		SELECT DISTINCT SettlementLogID
 			,'ActualResult' AS AmendInfo
 			,NULLIF(TRIM(a.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
@@ -189,7 +208,9 @@ BEGIN TRY
 			,NULLIF(TRIM(a.c.value('@M', 'NVARCHAR(50)')), '') AS M
 			,NULLIF(TRIM(a.c.value('@X', 'NVARCHAR(50)')), '') AS X
 			,NULLIF(TRIM(a.c.value('@Y', 'NVARCHAR(50)')), '') AS Y
-		FROM CTE_XML
+			,NULLIF(TRIM(a.c.value('@O', 'NVARCHAR(50)')), '') AS O
+			,NULLIF(TRIM(a.c.value('@GroupBetType', 'NVARCHAR(50)')), '') AS GroupBT
+		FROM #tmpJSParseXML
 			OUTER APPLY ActualResultXML.nodes('root/r') a(c)
 		WHERE ISNULL(CHARINDEX('ActualResult',@ParseAmendInfo),0) > 0
 	)
@@ -206,7 +227,9 @@ BEGIN TRY
 			,NULLIF(TRIM(w.c.value('@M', 'NVARCHAR(50)')), '') AS M
 			,NULLIF(TRIM(w.c.value('@X', 'NVARCHAR(50)')), '') AS X
 			,NULLIF(TRIM(w.c.value('@Y', 'NVARCHAR(50)')), '') AS Y
-		FROM CTE_XML
+			,NULLIF(TRIM(w.c.value('@O', 'NVARCHAR(50)')), '') AS O
+			,NULLIF(TRIM(w.c.value('@GroupBetType', 'NVARCHAR(50)')), '') AS GroupBT
+		FROM #tmpJSParseXML
 			OUTER APPLY WrongResultXML.nodes('root/r') w(c)
 		WHERE ISNULL(CHARINDEX('WrongResult',@ParseAmendInfo),0) > 0
 	)
@@ -223,6 +246,8 @@ BEGIN TRY
 		,M
 		,X
 		,Y
+		,O
+		,GroupBT
 	)
 	SELECT SettlementLogID
 		,AmendInfo
@@ -236,6 +261,8 @@ BEGIN TRY
 		,M
 		,X
 		,Y
+		,O
+		,GroupBT
 	FROM CTE_Actual
 	
 	UNION ALL
@@ -252,8 +279,12 @@ BEGIN TRY
 		,M
 		,X
 		,Y
+		,O
+		,GroupBT
 	FROM CTE_Wrong
 	
+	
+
 	/*
 		Start Parse data to format
 		
@@ -261,92 +292,138 @@ BEGIN TRY
 	*/
 	IF @ParseTo = 'RawData'
 	BEGIN
-		/*
-			SettleMatch info
-		*/
-		--MatchID--
-		INSERT INTO #tmpJSParseResultInfo (
-			SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,OtherInfo
-		)
-		SELECT DISTINCT SettlementLogID
-			,'SettleMatch' AS AmendInfo
-			,'MatchID' AS ResourceID
-			,MatchID AS OtherInfo
-		FROM #tmpJSParseEventInfo
-		WHERE MatchID IS NOT NULL
-		
-		--LeagueID--
-		INSERT INTO #tmpJSParseResultInfo (
-			SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,OtherInfo
-		)
-		SELECT DISTINCT SettlementLogID
-			,'SettleMatch' AS AmendInfo
-			,'LeagueID' AS ResourceID
-			,LeagueID AS OtherInfo
-		FROM #tmpJSParseEventInfo
-		WHERE LeagueID IS NOT NULL
-		
-		--SportType--
-		INSERT INTO #tmpJSParseResultInfo (
-			SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,OtherInfo
-		)
-		SELECT DISTINCT SettlementLogID
-			,'SettleMatch' AS AmendInfo
-			,'SportType' AS ResourceID
-			,SportType AS OtherInfo
-		FROM #tmpJSParseEventInfo
-		WHERE SportType IS NOT NULL
-		
-		--HomeID--
-		INSERT INTO #tmpJSParseResultInfo (
-			SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,TeamIDs
-		)
-		SELECT DISTINCT SettlementLogID
-			,'SettleMatch' AS AmendInfo
-			,'HomeID' AS ResourceID
-			,HomeID AS TeamIDs
-		FROM #tmpJSParseEventInfo
-		WHERE HomeID IS NOT NULL
-		
-		--AwayID--
-		INSERT INTO #tmpJSParseResultInfo (
-			SettlementLogID
-			,AmendInfo
-			,ResourceID
-			,TeamIDs
-		)
-		SELECT DISTINCT SettlementLogID
-			,'SettleMatch' AS AmendInfo
-			,'AwayID' AS ResourceID
-			,AwayID AS TeamIDs
-		FROM #tmpJSParseEventInfo
-		WHERE AwayID IS NOT NULL
-		
-		--return SettleMatch + ActualResult + WrongResult
-		SELECT @OutJSResource =
-			CONVERT(NVARCHAR(MAX)
-				,(
-					SELECT *
-					FROM #tmpJSParseResultInfo
-					ORDER BY SettlementLogID
-						,AmendInfo
-						,ResourceID
-						FOR JSON AUTO
-				)
+		IF @ParseAmendInfo = 'ResourceOrder'
+		BEGIN		
+			--ResourceOrder
+			--ActualResource
+			INSERT INTO #tmpJSParseResourceOrder (
+				SettlementLogID
+				,ResourceID
 			)
+			SELECT SettlementLogID
+				,NULLIF(TRIM(a.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
+			FROM #tmpJSParseXML
+				OUTER APPLY ActualResultXML.nodes('root/r') a(c)
+			WHERE ISNULL(CHARINDEX('ResourceOrder',@ParseAmendInfo),0) > 0
+	
+			--WrongResource
+			;WITH CTE_Wrong AS (
+				SELECT SettlementLogID
+					,NULLIF(TRIM(a.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
+				FROM #tmpJSParseXML t
+					OUTER APPLY ActualResultXML.nodes('root/r') a(c)
+				WHERE ISNULL(CHARINDEX('ResourceOrder',@ParseAmendInfo),0) > 0
+			)
+   			INSERT INTO #tmpJSParseResourceOrder (
+				SettlementLogID
+				,ResourceID
+			)
+			SELECT w.SettlementLogID, w.ResourceID
+			FROM CTE_Wrong w
+			LEFT JOIN #tmpJSParseResourceOrder o ON o.SettlementLogID=w.SettlementLogID
+												AND o.ResourceID=w.ResourceID
+			WHERE o.SettlementLogID IS NULL
+
+			--return ResourceOrder
+			SELECT @OutJSResource =
+				CONVERT(NVARCHAR(MAX)
+					,(
+						SELECT *
+						FROM #tmpJSParseResourceOrder
+						ORDER BY ID
+						FOR JSON AUTO
+					)
+				)
+		END
+		ELSE 
+		BEGIN
+			/*
+				SettleMatch info
+			*/
+			--MatchID--
+			INSERT INTO #tmpJSParseResultInfo (
+				SettlementLogID
+				,AmendInfo
+				,ResourceID
+				,OtherInfo
+			)
+			SELECT DISTINCT SettlementLogID
+				,'SettleMatch' AS AmendInfo
+				,'MatchID' AS ResourceID
+				,MatchID AS OtherInfo
+			FROM #tmpJSParseEventInfo
+			WHERE MatchID IS NOT NULL
 		
+			--LeagueID--
+			INSERT INTO #tmpJSParseResultInfo (
+				SettlementLogID
+				,AmendInfo
+				,ResourceID
+				,OtherInfo
+			)
+			SELECT DISTINCT SettlementLogID
+				,'SettleMatch' AS AmendInfo
+				,'LeagueID' AS ResourceID
+				,LeagueID AS OtherInfo
+			FROM #tmpJSParseEventInfo
+			WHERE LeagueID IS NOT NULL
+		
+			--SportType--
+			INSERT INTO #tmpJSParseResultInfo (
+				SettlementLogID
+				,AmendInfo
+				,ResourceID
+				,OtherInfo
+			)
+			SELECT DISTINCT SettlementLogID
+				,'SettleMatch' AS AmendInfo
+				,'SportType' AS ResourceID
+				,SportType AS OtherInfo
+			FROM #tmpJSParseEventInfo
+			WHERE SportType IS NOT NULL
+		
+			--HomeID--
+			INSERT INTO #tmpJSParseResultInfo (
+				SettlementLogID
+				,AmendInfo
+				,ResourceID
+				,TeamIDs
+			)
+			SELECT DISTINCT SettlementLogID
+				,'SettleMatch' AS AmendInfo
+				,'HomeID' AS ResourceID
+				,HomeID AS TeamIDs
+			FROM #tmpJSParseEventInfo
+			WHERE HomeID IS NOT NULL
+		
+			--AwayID--
+			INSERT INTO #tmpJSParseResultInfo (
+				SettlementLogID
+				,AmendInfo
+				,ResourceID
+				,TeamIDs
+			)
+			SELECT DISTINCT SettlementLogID
+				,'SettleMatch' AS AmendInfo
+				,'AwayID' AS ResourceID
+				,AwayID AS TeamIDs
+			FROM #tmpJSParseEventInfo
+			WHERE AwayID IS NOT NULL
+
+			--return SettleMatch + ActualResult + WrongResult
+			SELECT @OutJSResource =
+				CONVERT(NVARCHAR(MAX)
+					,(
+						SELECT *
+						FROM #tmpJSParseResultInfo
+						ORDER BY SettlementLogID
+							,AmendInfo
+							,ResourceID
+							FOR JSON AUTO
+					)
+				)
+		END
+
 		--write log--
 		INSERT INTO MessageNotification.dbo.UserLog (
 			ActionID
@@ -373,6 +450,7 @@ BEGIN TRY
 			
 			For GroupName=RefResource
 		*/
+	/*--Resource{sport_name}--*/
 		--<RefBettypeID>
 		INSERT INTO #tmpJSParseRemotingRef (
 			SettlementLogID
@@ -382,12 +460,12 @@ BEGIN TRY
 		)
 		SELECT DISTINCT SettlementLogID
 			,'RefResource' AS GroupName
-			,'ResourceCricket' AS RefId1
+			,'Resource{sport_name}' AS RefId1
 			,RefBettypeID AS RefId2
 		FROM #tmpJSParseResultInfo
 		WHERE RefBettypeID IS NOT NULL
 		
-		--<G> / <M>
+		--<G> / <M> / <O>
 		;WITH CTE_AffectedResult AS (
 			SELECT SettlementLogID
 				,'G' + G AS RefId2
@@ -400,6 +478,13 @@ BEGIN TRY
 				,'M' + M AS RefId2
 			FROM #tmpJSParseResultInfo
 			WHERE M IS NOT NULL
+			
+			UNION ALL
+
+			SELECT SettlementLogID
+				,O AS RefId2
+			FROM #tmpJSParseResultInfo
+			WHERE O IS NOT NULL
 		)
 		INSERT INTO #tmpJSParseRemotingRef (
 			SettlementLogID
@@ -409,10 +494,33 @@ BEGIN TRY
 		)
 		SELECT DISTINCT ar.SettlementLogID
 			,'RefResource' AS GroupName
-			,'ResourceCricket' AS RefId1
+			,'Resource{sport_name}' AS RefId1
 			,ar.RefId2
 		FROM CTE_AffectedResult AS ar
 		
+		--update: Resource{sport_name}
+		UPDATE ref
+		SET RefId1=REPLACE(RefId1,'{sport_name}', s.SportName)
+		FROM #tmpJSParseRemotingRef ref
+		INNER JOIN dbo.SettlementResultHist i ON i.SettlementLogID=ref.SettlementLogID
+		CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(i.SportType) s
+		WHERE RefId1='Resource{sport_name}'
+
+	/*--ResultSettlement--*/
+		--<GroupBetType>
+		INSERT INTO #tmpJSParseRemotingRef (
+			SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+		)
+		SELECT DISTINCT SettlementLogID
+			,'RefResource' AS GroupName
+			,'ResultSettlement' AS RefId1
+			,'GBT' + GroupBT AS RefId2
+		FROM #tmpJSParseResultInfo
+		WHERE GroupBT IS NOT NULL
+
 		--<HomeValue> / <AwayValue>
 		;WITH CTE_HA AS (
 			SELECT SettlementLogID
@@ -525,7 +633,7 @@ BEGIN TRY
 			,LeagueID AS RefId2
 		FROM #tmpJSParseEventInfo
 		WHERE LeagueID IS NOT NULL
-		
+
 		--return--
 		SELECT @OutJSResource =
 			CONVERT(NVARCHAR(MAX)

@@ -10,7 +10,9 @@ AS
 	Task: generate message
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20241101@Tacy: MNC - Apply new table NotiTemplateMapping [Redmine: #213498]
+		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 	
 	Explanation:
 		@Environment
@@ -173,6 +175,7 @@ BEGIN
 	CREATE TABLE #tmpAffectedResult (
 		Msg_NotiID INT
 		,ResourceID VARCHAR(50)
+		,ResourceOrder INT
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
 		,ResultName_cs NVARCHAR(4000)
@@ -217,6 +220,7 @@ BEGIN
 		Msg_NotiID INT NOT NULL
 		,MessageID INT NOT NULL
 		,TemplateID SMALLINT NOT NULL
+		,TemplateName VARCHAR(200)
 		,Subject NVARCHAR(1000)
 		,Content_en NVARCHAR(4000)
 		,Content_ch NVARCHAR(4000)
@@ -271,9 +275,10 @@ BEGIN
 			TemplateID for Cricket
 		*/
 		UPDATE i
-		SET i.TemplateID = (CASE WHEN i.SportType = 50 THEN 6 END) --currently, only have 1 message TemplateID for LAP Cricket
+		SET i.TemplateID = tm.TemplateID --currently, only have 1 message TemplateID for LAP Cricket
 		FROM #tmpInputNoti AS i
-		
+		INNER JOIN NotiTemplateMapping tm WITH (NOLOCK) ON tm.SportType=i.SportType AND tm.NotificationType = 2
+
 		--DELETE invalid NotificationID
 		DELETE i
 		FROM #tmpInputNoti AS i
@@ -310,6 +315,7 @@ BEGIN
 		FROM CTE_Ext AS c
 			CROSS APPLY c.ExtraInfoXML.nodes('root/r') rh(ex)
 		WHERE NULLIF(TRIM(rh.ex.value('@Id', 'VARCHAR(50)')), '') IS NOT NULL
+
 		CREATE CLUSTERED INDEX CIX_tmpExtraInfo ON #tmpExtraInfo (Msg_NotiID, SettlementLogID)
 		
 		;WITH CTE_LAP AS (
@@ -327,6 +333,7 @@ BEGIN
 			Msg_NotiID
 			,MessageID
 			,TemplateID
+			,TemplateName
 			,Content_en
 			,Content_ch
 			,Content_cs
@@ -334,6 +341,7 @@ BEGIN
 		SELECT DISTINCT ex.Msg_NotiID
 			,n.RefID AS MessageID
 			,tp.TemplateID
+			,tp.TemplateName
 			,tp.Content_en
 			,tp.Content_ch
 			,tp.Content_cs
@@ -537,7 +545,22 @@ BEGIN
 				INNER JOIN #tmpEventInfo AS ev ON tp.Msg_NotiID = ev.Msg_NotiID
 			WHERE tp.RequiredParam = '{league_name}'
 		END
-	
+		
+		/*
+			----------{sport_name}----------
+			The NotificationExtra handled for templatename
+		*/
+		IF EXISTS (SELECT 1 FROM #tmpTemplateDetl WHERE RequiredParam = '{sport_name}')
+		BEGIN
+			UPDATE tp
+			SET tp.Content_en = ev.SportNameEN
+				,tp.Content_ch = ev.SportNameCH
+				,tp.Content_cs = ev.SportNameCS
+			FROM #tmpTemplateDetl AS tp
+				INNER JOIN #tmpEventInfo AS ev ON tp.Msg_NotiID = ev.Msg_NotiID
+			WHERE tp.RequiredParam = '{sport_name}'
+		END
+
 		/*
 			----------{KO_date}----------
 		*/
@@ -577,6 +600,7 @@ BEGIN
 			INSERT INTO #tmpAffectedResult (
 				Msg_NotiID
 				,ResourceID
+				,ResourceOrder
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
@@ -589,6 +613,7 @@ BEGIN
 			)
 			SELECT DISTINCT ex.Msg_NotiID
 				,af.ResourceID
+				,af.ResourceOrder
 				,af.ResultName_en
 				,af.ResultName_ch
 				,af.ResultName_cs
@@ -605,6 +630,7 @@ BEGIN
 					) AS ext--OPENJSON case-sensitive
 				OUTER APPLY OPENJSON(ext.AffectedResult) WITH (
 						ResourceID VARCHAR(50) '$.ResourceID'
+						,ResourceOrder VARCHAR(50) '$.ResourceOrder'
 						,ResultName_en NVARCHAR(4000) '$.ResultName_en'
 						,ResultName_ch NVARCHAR(4000) '$.ResultName_ch'
 						,ResultName_cs NVARCHAR(4000) '$.ResultName_cs'
@@ -642,6 +668,7 @@ BEGIN
 					,r.ResultName_en + '; ' + r.WrongValue_en AS ResultName_en
 					,r.ResultName_ch + '; ' + r.WrongValue_ch AS ResultName_ch
 					,r.ResultName_cs + '; ' + r.WrongValue_cs AS ResultName_cs
+					,r.ResourceOrder
 				FROM #tmpExtraInfo AS ex
 					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
 			)
@@ -649,7 +676,7 @@ BEGIN
 				SELECT Msg_NotiID
 					,Calc AS LogDateTime
 					,'Calculation' AS LogType
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResultName_en) AS ResultName_en
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResourceOrder, ResultName_en) AS ResultName_en
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
 				FROM CTE_Calc_Raw
@@ -680,6 +707,7 @@ BEGIN
 					,r.ResultName_en + '; ' + ActualValue_en AS ResultName_en
 					,r.ResultName_ch + '; ' + ActualValue_ch AS ResultName_ch
 					,r.ResultName_cs + '; ' + ActualValue_cs AS ResultName_cs
+					,r.ResourceOrder
 				FROM #tmpExtraInfo AS ex
 					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
 			)
@@ -687,7 +715,7 @@ BEGIN
 				SELECT Msg_NotiID
 					,ReCalc AS LogDateTime
 					,'ReCalculation' AS LogType
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY Calc, ResultName_en) AS ResultName_en --order recal result by calc time
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResourceOrder, Calc, ResultName_en) AS ResultName_en --order recal result by calc time
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
 				FROM CTE_ReCalc_Raw
@@ -779,7 +807,8 @@ BEGIN
 		BEGIN
 			--Start to replace RequiredParams
 			UPDATE lap
-			SET lap.Content_en = REPLACE(lap.Content_en,tp.RequiredParam,tp.Content_en)
+			SET lap.TemplateName=REPLACE(lap.TemplateName,tp.RequiredParam,tp.Content_en)
+				,lap.Content_en = REPLACE(lap.Content_en,tp.RequiredParam,tp.Content_en)
 				,lap.Content_ch = REPLACE(lap.Content_ch,tp.RequiredParam,tp.Content_ch)
 				,lap.Content_cs = REPLACE(lap.Content_cs,tp.RequiredParam,tp.Content_cs)
 			FROM #tmpNoti AS lap
@@ -1039,15 +1068,14 @@ BEGIN
 					,m.SportNameCH
 					,m.SportNameCS
 					---------TemplateName------
-					,tp.TemplateName
+					,ii.TemplateName
 					----------SettlLog------
 					,sl.SettlLog
 					----------Match.EventDate------
 					,ext.EventDate
 				FROM #tmpEventInfo AS m
 					LEFT JOIN CTE_SettlLog AS sl ON m.Msg_NotiID = sl.Msg_NotiID
-					LEFT JOIN #tmpInputNoti AS ii ON m.Msg_NotiID = ii.Msg_NotiID
-					LEFT JOIN NotiTemplate AS tp WITH (NOLOCK) ON ii.TemplateID = tp.TemplateID
+					LEFT JOIN #tmpNoti AS ii ON m.Msg_NotiID = ii.Msg_NotiID
 					LEFT JOIN NotificationExtra AS ext WITH (NOLOCK) ON m.Msg_NotiID = ext.NotificationID
 				WHERE m.Msg_NotiID = i.Msg_NotiID
 				FOR JSON PATH

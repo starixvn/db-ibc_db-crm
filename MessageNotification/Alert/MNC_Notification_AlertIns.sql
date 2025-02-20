@@ -9,8 +9,9 @@ AS
 	Task: Insert Alert based on AlertRule
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
-		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
+		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
+		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 	
 	Explanation:
 
@@ -250,10 +251,10 @@ BEGIN
 			,rh.MatchID
 			,st.Status
 		FROM SettlementResultHist AS rh WITH (NOLOCK)
+			CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(rh.SportType) s
 			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
 		WHERE rh.LastModifiedTime > @FromTime
 			AND rh.LastModifiedTime <= @CurrTime
-			AND rh.SportType = 50 --Cricket, need modify for others sport
 			AND (
 				@IsTestFlag IS NULL
 				OR CONVERT(TINYINT,rh.IsTest) = @IsTestFlag
@@ -309,21 +310,17 @@ BEGIN
 			,SessionID
 			,SettlementLogID
 		
+		DELETE n
+		FROM #tmpMsgNoti AS n
+			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
+			OUTER APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(rh.SportType,0)) s
+		WHERE rh.SportType IS NULL OR s.SportType IS NULL
+
 		----filter by Environment/IncludeTestMatch
-		IF @IsTestFlag IS NULL --both REAL & TEST => no need to check IsTest
+		IF @IsTestFlag IS NOT NULL
 		BEGIN
-			DELETE n
-			FROM #tmpMsgNoti AS n
-				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
-			WHERE ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
-		END
-		ELSE
-		BEGIN
-			DELETE n
-			FROM #tmpMsgNoti AS n
-				LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
-			WHERE n.IsTest <> @IsTestFlag --@IsTestFlag = 0 => REAL data only => DEL <> REAL
-				OR ISNULL(rh.SportType,0) <> 50 --Cricket, need modify for others sport
+			DELETE FROM #tmpMsgNoti 
+			WHERE IsTest <> @IsTestFlag --@IsTestFlag = 0 => REAL data only => DEL <> REAL
 		END
 		
 		CREATE CLUSTERED INDEX CIX_tmpMsgNoti ON #tmpMsgNoti (MsgNotiID)

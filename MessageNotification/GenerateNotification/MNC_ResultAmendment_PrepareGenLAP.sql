@@ -7,8 +7,8 @@ AS
 	Task: Prepare to generate message for LAP
 	DB: DBCRM.MessageNotification
 	Revisions:
-		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
-	
+		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
+		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 	Explanation:
 		Steps
 			- List of DBMSG NotificationID
@@ -195,9 +195,9 @@ BEGIN
 		FROM Notification AS nMsg WITH (NOLOCK)
 			INNER JOIN NotiMapping AS mMsg WITH (NOLOCK) ON nMsg.NotificationID = mMsg.NotificationID
 			INNER JOIN SettlementResultHist AS rh WITH (NOLOCK) ON mMsg.SettlementLogID = rh.SettlementLogID
+			CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(rh.SportType) s
 		WHERE nMsg.LastModifiedTime >= DATEADD(HH, - 36, GETDATE())
 			AND nMsg.NotificationType = 1 --1: Result Amendment to Msg
-			AND rh.SportType = 50 --Cricket, need modify for others sport
 			AND nMsg.StatusID IN (13)--Sent only successful push to DBMSG
 			AND nMsg.RefID IS NOT NULL
 			AND (

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 					@UserID						INT
 				,	@FeedbackID					INT
@@ -71,6 +71,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@ErrCode					INT				= 0		OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 				,	@NoInquiries				SMALLINT		= NULL
+				,	@Rating						TINYINT			= 0
 )
 AS
 /*
@@ -99,6 +100,8 @@ AS
 		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]				
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]
+		- 20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -294,7 +297,8 @@ BEGIN
 		,	@WeChat_Old						NVARCHAR(100)	= NULL
 		,	@Yahoo_Old						NVARCHAR(100)	= NULL
 		,	@QQ_Old							NVARCHAR(100)	= NULL
-		,	@BBM_Old						NVARCHAR(100)	= NULL;
+		,	@BBM_Old						NVARCHAR(100)	= NULL
+		,	@Rating_Old						TINYINT			= 0;
 
 	SELECT	@TitleID_Old					= TitleID
 		,	@Birthday_Old					= Birthday
@@ -356,6 +360,7 @@ BEGIN
 		,	@BBM_Old						= BBM
 		,	@ProvinceID_Old					= ProvinceID
 		,	@NoInquiries_Old				= Inquiries
+		,	@Rating_Old						= Rating
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -596,6 +601,7 @@ BEGIN
 	,	BBM							= @BBM
 	,	ProvinceID					= @ProvinceID
 	,	Inquiries					= @NoInquiries
+	,	Rating						= @Rating
 	WHERE	FeedbackID = @FeedbackID;
 	
 	DELETE FROM crmfeedbackSetting WHERE FeedbackID=@FeedbackID
@@ -680,6 +686,7 @@ BEGIN
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM_Old),'')						+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID_Old),'')				+ '</ProvinceID>' +
 						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')				+ '</NoInquiries>' +
+						'<Rating>'						+ ISNULL(CONVERT(VARCHAR(5),@Rating_Old),'')					+ '</Rating>' +
 						'<IsOverWrite>'					+ ISNULL(CONVERT(VARCHAR(10),0),'')								+ '</IsOverWrite>' +
 					'</Acc_CRM_FeedbackUpd>';
 
@@ -748,6 +755,7 @@ BEGIN
 						'<BBM>'							+ ISNULL(dbo.f_EncodeXMLValue(@BBM),'')							+ '</BBM>' +
 						'<ProvinceID>'					+ ISNULL(dbo.f_EncodeXMLValue(@ProvinceID),'')					+ '</ProvinceID>' +
 						'<NoInquiries>'					+ ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')					+ '</NoInquiries>' +
+						'<Rating>'						+ ISNULL(CONVERT(VARCHAR(5),@Rating),'')						+ '</Rating>' +
 						'<IsOverWrite>'					+ ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')					+ '</IsOverWrite>' +
 					'</Acc_CRM_FeedbackUpd>';
 

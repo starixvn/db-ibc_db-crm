@@ -1,4 +1,4 @@
-﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 					@UserID						INT
 				,	@FeedbackID					INT
@@ -70,6 +70,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT
 				,	@IsOverWrite				BIT				= 0	
 				,	@NoInquiries				SMALLINT		= NULL
+				,	@Rating						TINYINT			= 0
 )
 AS
 /*
@@ -103,7 +104,9 @@ AS
 							- sync customer profile to CRM for related customers [redmine:#142194]
 		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]
 		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]		
-		- 20230418@Winfred: CRM - Update Feedback > Auto update Isvip=0 when checking Overwrite then Update FB [redmine:#187064]			
+		- 20230418@Winfred: CRM - Update Feedback > Auto update Isvip=0 when checking Overwrite then Update FB [redmine:#187064]	
+		- 20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
 			0	Do nothing
@@ -200,6 +203,7 @@ BEGIN
 		@IsVip = IsVip		
 	FROM crmFeedback WITH(NOLOCK)
 	WHERE FeedbackID = @FeedbackID AND CustID = @CustID
+
 	--- update feedback
 	EXECUTE	dbo.Acc_CRM_FeedbackUpd
 				@UserID					= @UserID
@@ -270,9 +274,11 @@ BEGIN
 			,	@NoInquiries			= @NoInquiries
 			,	@QQ						= @QQ
 			,	@BBM					= @BBM
+			,	@Rating					= @Rating
 			,	@IsOverWrite			= @IsOverWrite
 			,	@ErrCode				= @ErrCode OUTPUT
 			,	@ErrMsg					= @ErrMsg OUTPUT;
+
 	IF	@ErrCode <> 0	
 	BEGIN
 		--SELECT @ErrCode = 100

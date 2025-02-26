@@ -29,6 +29,7 @@ AS
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
+		20250225@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
     Param's Explanation:        
         @SiteType = 0: IBC
@@ -364,7 +365,8 @@ BEGIN
            base.SubCategoryID                                                    SubCategoryID,
            base.CommunicationID                                                  CommunicationID,
            base.StationID                                                        StationID,
-           ISNULL(fb.Inquiries,0)                                                NoInquiries,
+           ISNULL(fb.Inquiries,0)                                                NoInquiries,		   
+		   ISNULL(fb.Rating, '')												 Rating,
            --Old communication information
            ISNULL(fb.Email, '')                                                  Email,
            ISNULL(fb.Skype, '')                                                  Skype,

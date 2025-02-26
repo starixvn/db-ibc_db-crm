@@ -34,6 +34,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackUpd --KEY
                                                           @IsReviewed            BIT            = 0,
                                                           @Review                NVARCHAR(MAX)  = NULL,
                                                           @ReviewerID            INT            = NULL,
+														  @Rating				 TINYINT		= 0,
                                                           -->crmFeedbackNewCommunicationTool
                                                           @NewCommunicationTools NVARCHAR(MAX)  = NULL,
                                                           -->crmFeedbackSetting
@@ -64,6 +65,7 @@ AS
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
         20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
+		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -327,7 +329,8 @@ BEGIN
             @RefCode2_Old       NVARCHAR(100) = NULL,
             @IsVip_Old          BIT,
             @LicenseeType_Old   INT           = 0,
-            @NoInquiries_Old    SMALLINT      = NULL
+            @NoInquiries_Old    SMALLINT      = NULL,
+			@Rating_Old			TINYINT		  = 0
 
     SELECT @TitleID_Old        = TitleID,
            @FirstName_Old      = FirstName,
@@ -353,7 +356,8 @@ BEGIN
            @RefCode2_Old       = RefCode2,
            @IsVip_Old          = IsVip,
            @LicenseeType_Old   = LicenseeType,
-           @NoInquiries_Old    = Inquiries
+           @NoInquiries_Old    = Inquiries,
+		   @Rating_Old		   = Rating
     FROM bodb_CRM.dbo.crmFeedback WITH (NOLOCK)
     WHERE FeedbackID = @FeedbackID
 
@@ -691,7 +695,8 @@ BEGIN
         RefCode2       = @RefCode2,
         IsVip          = @IsVip_crmFeedback,
         LicenseeType   = @LicenseeType,
-        Inquiries      = @NoInquiries
+        Inquiries      = @NoInquiries,
+		Rating		   = @Rating
     WHERE FeedbackID = @FeedbackID
           AND CustID = @CustID
 
@@ -805,6 +810,7 @@ BEGIN
                          '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries_Old),'')     + '</NoInquiries>'           +
                          '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID_Old),'')   + '</RelatedCustID>'         +
                          '<NewCommunicationTools>' + ISNULL(@OldCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
+						 '<Rating>'				   + ISNULL(CONVERT(VARCHAR(5),@Rating_Old),'')			   + '</Rating>'                +
                          '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),0),'')                     + '</IsOverWrite>'           +
                          '</Acc_CRM_NewManualFeedback_FeedbackUpd>'
 
@@ -870,6 +876,7 @@ BEGIN
                          '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')         + '</NoInquiries>'           +
                          '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
                          '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
+						 '<Rating>'				   + ISNULL(CONVERT(VARCHAR(5),@Rating),'')				   + '</Rating>'				+
                          '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')          + '</IsOverWrite>'           +
                          '</Acc_CRM_NewManualFeedback_FeedbackUpd>'
 

@@ -17,6 +17,7 @@ AS
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
+		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
     Param's Explanation:
         @FeedbackID: ID be used to search data
@@ -78,7 +79,8 @@ BEGIN
            c.username AS                                                                 CreatorName,
            ISNULL(fb.ReviewerID, 0)                                                      ReviewerID,
            rv.username                                                                   ReviewerName,
-           CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END ProvinceID,           
+           CASE WHEN @UserRole=1 AND fb.ProvinceID IS NULL THEN 1 ELSE fb.ProvinceID END ProvinceID,
+		   ISNULL(fb.Rating, 0)															 Rating,
            ISNULL(fb.IsVip, 0)                                                           IsVip,
            CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END                          IsLicensee,
            ISNULL(s.IsActive,0)                                                          IsSiteActive

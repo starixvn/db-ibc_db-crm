@@ -35,6 +35,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns --KEY
                                                           @Review                NVARCHAR(MAX)  = NULL,
                                                           @ReviewerID            INT            = NULL,
                                                           @CreatorID             INT            = NULL,
+														  @Rating				 TINYINT		= 0,
                                                           -->crmFeedbackNewCommunicationTool
                                                           @NewCommunicationTools NVARCHAR(MAX)  = NULL,
                                                           -->crmFeedbackSetting
@@ -67,6 +68,7 @@ AS
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
         20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
+		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -657,7 +659,8 @@ BEGIN
         RefCode2,
         IsVip,
         LicenseeType,
-        Inquiries
+        Inquiries,
+		Rating
     )            
     SELECT @CustID,
            @TitleID,
@@ -686,7 +689,8 @@ BEGIN
            @RefCode2,
            @IsVip,
            @LicenseeType,
-           @NoInquiries
+           @NoInquiries,
+		   @Rating
 
     IF (@@ERROR <> 0)
     BEGIN
@@ -834,6 +838,7 @@ BEGIN
                           '<NoInquiries>'           + ISNULL(dbo.f_EncodeXMLValue(@NoInquiries),'')         + '</NoInquiries>'           +
                           '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
                           '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
+						  '<Rating>'				+ ISNULL(CONVERT(VARCHAR(5),@Rating),'')				+ '</Rating>'				 +
                           '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')          + '</IsOverWrite>'           +
                           '</Acc_CRM_NewManualFeedback_FeedbackIns>'
 

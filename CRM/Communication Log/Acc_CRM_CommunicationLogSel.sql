@@ -27,6 +27,7 @@ AS
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
         - 20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 		- 20250204@Virgil.Phan: CRM - Feedback site 789y(old) is created although this site is not used anymore [HotFix #217435]
+		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
 	Parameter Explain:
 		@Mode = 0 : Feedback view / @Mode = 1: Duplicate view
@@ -72,6 +73,7 @@ BEGIN
 		,	f.LicenseeType
 		,	CASE WHEN @UserRole=1 AND f.ProvinceID IS NULL THEN 1 ELSE f.ProvinceID END AS ProvinceID
 		,   ISNULL(f.Inquiries,0) AS NoInquiries
+		,	ISNULL(f.Rating,0) AS Rating
 		,	CASE WHEN sr.SettingID IS NOT NULL THEN 1 ELSE 0 END AS IsLicensee
 		,	ISNULL(s.IsActive,0) as IsSiteActive
 	FROM		dbo.crmFeedback AS f WITH (NOLOCK)

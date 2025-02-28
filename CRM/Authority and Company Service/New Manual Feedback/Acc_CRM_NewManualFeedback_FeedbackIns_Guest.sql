@@ -36,6 +36,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns_Guest --Guest Informat
                                                                 @Review                NVARCHAR(MAX)    = NULL,
                                                                 @ReviewerID            INT              = NULL,
                                                                 @CreatorID             INT,
+																@Rating				   TINYINT			= 0,
                                                                 --Log Information
                                                                 @UserID                INT,
                                                                 @IP                    VARCHAR(45),
@@ -53,6 +54,7 @@ AS
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
+		20250225@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -295,6 +297,7 @@ BEGIN
                                                             @Review                = @Review,
                                                             @ReviewerID            = @ReviewerID,
                                                             @CreatorID             = @CreatorID,
+															@Rating				   = @Rating,
                                                             -->crmFeedbackNewCommunicationTool
                                                             @NewCommunicationTools = NULL,
                                                             -->crmFeedbackSetting

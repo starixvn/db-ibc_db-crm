@@ -49,8 +49,10 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpdMultiple] (
 				  ,	@IsUpdateLicenseeType		BIT
 				  ,	@ProvinceID					INT	
 				  ,	@NoInquiries				SMALLINT		= NULL
-				   ,@IsUpdateNoInquiries		BIT
-				  ,	@IsUpdateProvinceID			BIT			= NULL			
+				  , @IsUpdateNoInquiries		BIT
+				  ,	@IsUpdateProvinceID			BIT				= NULL
+				  , @Rating						TINYINT			= 0
+				  , @IsUpdateRating				BIT
 				  ,	@ErrCode					INT				= 0		OUTPUT
 				  ,	@ErrMsg						NVARCHAR(4000)	= ''	OUTPUT	
 )
@@ -66,6 +68,7 @@ AS
 		- 20190814@Winnie: Multiple Edit RedmineID:#99434
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
         - 20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
+		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
@@ -200,7 +203,8 @@ BEGIN
 		,	@Creator_Old					INT		
 		,	@LicenseeType_Old				INT				= 0
 		,	@ProvinceID_Old					INT				= NULL	
-		,	@NoInquiries_Old				SMALLINT		= NULL	
+		,	@NoInquiries_Old				SMALLINT		= NULL
+		,	@Rating_Old						TINYINT			= 0
 
 	SELECT	@CountryID_Old					= CountryID
 		,	@LanguageID_Old					= LanguageID
@@ -222,6 +226,7 @@ BEGIN
 		,	@LicenseeType_Old				= LicenseeType		
 		,	@ProvinceID_Old					= ProvinceID
 		,	@NoInquiries_Old				= Inquiries
+		,	@Rating_Old						= Rating
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 
@@ -349,6 +354,7 @@ BEGIN
 	,	LicenseeType				= CASE WHEN @IsUpdateLicenseeType=1 THEN @LicenseeType ELSE LicenseeType END
 	,	ProvinceID					= CASE WHEN @IsUpdateProvinceID=1 THEN @ProvinceID ELSE ProvinceID END
 	,	Inquiries					= CASE WHEN @IsUpdateNoInquiries=1 THEN @NoInquiries ELSE Inquiries END
+	,	Rating						= CASE WHEN @IsUpdateRating=1 THEN @Rating ELSE Rating END
 	WHERE	FeedbackID = @FeedbackID;
 	
 	IF(@IsUpdateCategory=1)
@@ -601,6 +607,16 @@ BEGIN
 		SELECT	@NewValues = 	@NewValues+
 			'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(10),@NoInquiries),'')							+ '</NoInquiries>' +
 			'<IsUpdateNoInquiries>'			+ ISNULL(CONVERT(VARCHAR(1),@IsUpdateNoInquiries),'')					+ '</IsUpdateNoInquiries>' 
+	END
+	IF @IsUpdateRating=1
+	BEGIN
+		SELECT	@OldValues = 	@OldValues+
+			'<Rating>'					+ ISNULL(CONVERT(VARCHAR(10),@Rating_Old),'')						+ '</Rating>' +	
+			'<IsUpdateRating>'			+ ISNULL(CONVERT(VARCHAR(1),@IsUpdateRating),'')					+ '</IsUpdateRating>' 
+
+		SELECT	@NewValues = 	@NewValues+
+			'<Rating>'					+ ISNULL(CONVERT(VARCHAR(10),@Rating),'')							+ '</Rating>' +
+			'<IsUpdateRating>'			+ ISNULL(CONVERT(VARCHAR(1),@IsUpdateRating),'')					+ '</IsUpdateRating>' 
 	END
 
 	SELECT	@OldValues = 	@OldValues+

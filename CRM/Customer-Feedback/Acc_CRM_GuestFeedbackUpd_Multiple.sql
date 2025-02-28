@@ -49,6 +49,8 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_GuestFeedbackUpd_Multiple] (
 				,	@IsUpdateProvinceID			BIT				= 0
 				,	@NoInquiries				SMALLINT		= NULL
 				,	@IsUpdateNoInquiries		BIT				= 0
+				,	@Rating						TINYINT			= 0
+				,	@IsUpdateRating				BIT				= 0
 				,	@IP							VARCHAR(15)		
 				,	@ErrCode					INT				= 0 OUTPUT
 				,	@ErrMsg						NVARCHAR(4000)	= '' OUTPUT
@@ -67,6 +69,7 @@ AS
 		- 20190506@Winnie: CN88 Permission RedmineID: #112637
 		- 20190813@Winnie: Update multiple enhancement RedmineID: #99434
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
+		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
 	Param's Explanation:
 		
@@ -152,6 +155,8 @@ END;
 			,	@IsUpdateProvinceID		= @IsUpdateProvinceID
 			,	@NoInquiries			= @NoInquiries
 			,	@IsUpdateNoInquiries	= @IsUpdateNoInquiries
+			,	@Rating					= @Rating
+			,	@IsUpdateRating			= @IsUpdateRating
 			,	@ErrCode				= @ErrCode				OUTPUT
 			,	@ErrMsg					= @ErrMsg				OUTPUT;
 					  

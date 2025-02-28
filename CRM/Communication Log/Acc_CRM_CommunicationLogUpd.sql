@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -34,6 +34,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_CommunicationLogUpd]
 				,	@ErrCode				INT				= 0			OUTPUT
 				,	@ErrMsg					NVARCHAR(4000)	= ''		OUTPUT
 				,	@NoInquiries			SMALLINT		= NULL
+				,	@Rating					TINYINT			= 0
 AS
 /*
 	Created:	20140127@Dom
@@ -53,6 +54,7 @@ AS
 							- sync customer profile to CRM for related customers [redmine:#142194]
 		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
 	Param's Explanation:
 */
@@ -175,7 +177,8 @@ BEGIN
 		,	@SolveDate_Old				DATETIME
 		,	@LicenseeType_Old			INT
 		,	@NoInquiries_Old			SMALLINT
-		,	@ProvinceID_Old				INT;
+		,	@ProvinceID_Old				INT
+		,	@Rating_Old					TINYINT;
 
 	SELECT	@CustID_Old				= CustID		
 		,	@CountryID_Old			= CountryID
@@ -196,6 +199,7 @@ BEGIN
 		,	@LicenseeType_Old		= LicenseeType
 		,	@ProvinceID_Old			= ProvinceID
 		,	@NoInquiries_Old		= Inquiries
+		,	@Rating_Old				= Rating
 	FROM	crmFeedback WITH (NOLOCK)
 	WHERE	FeedbackID = @FeedbackID;
 	
@@ -393,6 +397,7 @@ BEGIN
 	,	LicenseeType		= @LicenseeType
 	,	ProvinceID			= @ProvinceID
 	,	Inquiries			= @NoInquiries
+	,	Rating				= @Rating
 	WHERE	FeedbackID = @FeedbackID;
 	IF	@@ERROR <> 0
 	BEGIN
@@ -553,12 +558,13 @@ BEGIN
 							'<ResponseID>'					+ ISNULL(CONVERT(VARCHAR(10),@ResponseID_Old),'')					+ '</ResponseID>' +
 							'<StatusID>'					+ ISNULL(CONVERT(VARCHAR(10),@StatusID_Old),'')						+ '</StatusID>' +
 							'<RelatedCustID>'				+ ISNULL(@RelatedCustID_Old,'')										+ '</RelatedCustID>' +
-							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5),@IsReviewed_Old),'')					+ '</IsReviewed>' +
+							'<IsReviewed>'					+ ISNULL(CONVERT(VARCHAR(5), @IsReviewed_Old),'')					+ '</IsReviewed>' +
 							'<Reviewer>'					+ ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')					+ '</Reviewer>' +	
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate_Old),'')					+ '</SolveDate>' +	
 							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType_Old),'')					+ '</LicenseeType>' +		
 							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID_Old),'')					+ '</ProvinceID>' +			
-							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries_Old),'')					+ '</NoInquiries>' +			
+							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries_Old),'')					+ '</NoInquiries>' +
+							'<Rating>'						+ ISNULL(CONVERT(VARCHAR(5), @Rating_Old),'')						+ '</Rating>' +
 					'</Acc_CRM_CommunicationLogUpd>';
 	 
 	SELECT	@NewValues =
@@ -589,7 +595,8 @@ BEGIN
 							'<SolveDate>'					+ ISNULL(CONVERT(VARCHAR(20),@SolveDate),'')					+ '</SolveDate>' +			
 							'<LicenseeType>'				+ ISNULL(CONVERT(VARCHAR(10),@LicenseeType),'')					+ '</LicenseeType>' +
 							'<ProvinceID>'					+ ISNULL(CONVERT(VARCHAR(20),@ProvinceID),'')					+ '</ProvinceID>' +		
-							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +			
+							'<NoInquiries>'					+ ISNULL(CONVERT(VARCHAR(20),@NoInquiries),'')					+ '</NoInquiries>' +
+							'<Rating>'						+ ISNULL(CONVERT(VARCHAR(5), @Rating),'')						+ '</Rating>' +
 					'</Acc_CRM_CommunicationLogUpd>';
 			
 	EXECUTE	dbo.WriteLog_UserLog_crmLogFeedback

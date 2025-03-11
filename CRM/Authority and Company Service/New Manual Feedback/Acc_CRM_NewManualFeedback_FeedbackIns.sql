@@ -36,6 +36,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns --KEY
                                                           @ReviewerID            INT            = NULL,
                                                           @CreatorID             INT            = NULL,
 														  @Rating				 TINYINT		= 0,
+														  @SourceFeedbackID		 INT			= NULL,
                                                           -->crmFeedbackNewCommunicationTool
                                                           @NewCommunicationTools NVARCHAR(MAX)  = NULL,
                                                           -->crmFeedbackSetting
@@ -69,6 +70,7 @@ AS
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
         20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
 		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250311@Virgil: CRM - Add para SourceFeedbackID for store Communication Info when duplicate feedback [Redmine: #218221]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -366,7 +368,7 @@ BEGIN
     IF (@IsCommunicationLog = 1)
     BEGIN
         -- + Headline
-        IF (@IsHeadline = 1)
+        IF (@IsHeadline = 1 AND @SourceFeedbackID IS NULL)
         BEGIN
             ;WITH CTE_HeadlineInfo AS (
                 SELECT DISTINCT
@@ -390,10 +392,9 @@ BEGIN
                    pc.CommunicationValue                                    PicCommunicationValue
             FROM CTE_HeadlineInfo cte
                  LEFT JOIN bodb_CRM.dbo.crmPICCommunication pc WITH (NOLOCK) ON cte.PicID = pc.PicID
-        END
-
+        END		
         -- + Other Account
-        IF (@IsHeadline = 0)
+        ELSE IF (@IsHeadline = 0 AND @SourceFeedbackID IS NULL) 
         BEGIN
             INSERT INTO @tblNewCommunicationTools (
                 isHeadline,
@@ -408,6 +409,21 @@ BEGIN
             FROM bodb_CRM.dbo.crmCustomerNewCommunicationTool ccc WITH (NOLOCK)
             WHERE ccc.CustID = @CustID
         END
+		ELSE IF (@SourceFeedbackID IS NOT NULL)
+		BEGIN
+			INSERT INTO @tblNewCommunicationTools (
+                isHeadline,
+                PicInfo,
+                CommunicationID,
+                CommunicationValue
+            )
+			SELECT isHeadline,
+					PicInfo,
+					CommunicationID,
+					CommunicationValue
+			FROM bodb_CRM.dbo.crmFeedbackNewCommunicationTool fnc WITH (NOLOCK)
+			WHERE FeedbackID = @SourceFeedbackID
+		END
 
         -- + Parse data to variable
         SELECT @NewCommunicationTools = x.xmlvalue
@@ -839,6 +855,7 @@ BEGIN
                           '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
                           '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
 						  '<Rating>'				+ ISNULL(CONVERT(VARCHAR(5),@Rating),'')				+ '</Rating>'				 +
+						  '<SourceFeedbackID>'		+ ISNULL(CONVERT(VARCHAR(10),@SourceFeedbackID),'')		+ '</SourceFeedbackID>'		 +
                           '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')          + '</IsOverWrite>'           +
                           '</Acc_CRM_NewManualFeedback_FeedbackIns>'
 

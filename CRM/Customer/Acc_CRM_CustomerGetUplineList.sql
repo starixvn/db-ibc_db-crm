@@ -1,14 +1,14 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBACC-bodb02" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
-ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList] @CustID INT = NULL
-	,@UserName NVARCHAR(50) = NULL
+ALTER PROCEDURE [dbo].[Acc_CRM_CustomerGetUplineList] 
+	@CustID INT = NULL
 	,@UserRole TINYINT
 AS
 /*
 	Created: Lukas
 	Date: 20101118
 	Task : get customer upline list
-	DB: DBCRM/bodb_CRM
+	DB: DBACC-bodb02
 	Original:
 
 	Revisions:
@@ -21,6 +21,7 @@ AS
 		- 20200320@Tim: fix bug get headline [RedmineId: #129144]
 		- 20210705@Johnson: get closed status from CustProductStatus for credit customer [redmine:#152350]
         - 20230508@Ned.Le: [CRM] Headline shown Unassigned if Headline is member level [RedmineID: #187854]
+		- 20241225@Tacy: Move to bodb02 [Redmine: #215809]
 	Param's Explanation:	
 */
 BEGIN
@@ -33,7 +34,7 @@ BEGIN
 	SELECT @srecommend = srecommend
 		,@mrecommend = mrecommend
 		,@recommend = recommend
-	FROM bodb02.dbo.customer WITH (NOLOCK)
+	FROM dbo.customer WITH (NOLOCK)
 	WHERE CustID = @CustID
 		AND (
 			(
@@ -60,8 +61,8 @@ BEGIN
 					WHEN st.CustStatus = 4 THEN 'Active'
 					END AS CustStatus
 				,ci.Closed AS Locked
-			FROM bodb02.dbo.custinfo ci WITH (NOLOCK)
-				CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
+			FROM dbo.custinfo ci WITH (NOLOCK)
+				CROSS APPLY dbo.f_CS_GetCustomerStatus(ci.custID) st
 			WHERE ci.CustID IN (@srecommend, @mrecommend, @recommend)
 			
 			UNION ALL
@@ -75,11 +76,11 @@ BEGIN
 					WHEN st.CustStatus = 4 THEN 'Active'
 					END AS CustStatus
 				,ci.Closed AS Locked
-			FROM bodb02.dbo.custAccount a WITH (NOLOCK)
-				LEFT JOIN bodb02.dbo.custAccount h WITH (NOLOCK) ON a.groupID = h.groupID
+			FROM dbo.custAccount a WITH (NOLOCK)
+				LEFT JOIN dbo.custAccount h WITH (NOLOCK) ON a.groupID = h.groupID
 				AND h.IsGroupHeadLine = 1
-				INNER JOIN bodb02.dbo.custInfo ci WITH (NOLOCK) ON h.custid = ci.custid
-				CROSS APPLY bodb02.dbo.f_CS_GetCustomerStatus(ci.custID) st
+				INNER JOIN dbo.custInfo ci WITH (NOLOCK) ON h.custid = ci.custid
+				CROSS APPLY dbo.f_CS_GetCustomerStatus(ci.custID) st
 			WHERE a.CustID = @CustID
 		END
 		ELSE
@@ -97,9 +98,9 @@ BEGIN
 						OR (s.custid IS NULL AND ISNULL(ps.CloseInfo,0) =0 AND ISNULL(ps.SuspendInfo,0)=0) THEN 'Active'
 					END AS CustStatus
 				,NULL AS Locked
-			FROM bodb02.dbo.custinfo ci WITH (NOLOCK)
-				LEFT JOIN bodb02.dbo.Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
-				LEFT JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) ON ci.custid = ps.custid
+			FROM dbo.custinfo ci WITH (NOLOCK)
+				LEFT JOIN dbo.Dep_CustSuper s WITH(NOLOCK) ON ci.srecommend = s.custid
+				LEFT JOIN dbo.CustProductStatus ps WITH(NOLOCK) ON ci.custid = ps.custid
 			WHERE ci.CustID IN (@srecommend, @mrecommend, @recommend)
 			
 			UNION ALL
@@ -115,8 +116,8 @@ BEGIN
 						AND ISNULL(h.SuspendInfo, 0) = 0 THEN 'Active'
 					END AS CustStatus
 				,NULL AS Locked
-			FROM bodb02.dbo.Customer AS c WITH (NOLOCK)
-				INNER JOIN bodb02.dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
+			FROM dbo.Customer AS c WITH (NOLOCK)
+				INNER JOIN dbo.custAccount AS upline WITH (NOLOCK) ON c.srecommend = upline.custid
 				OR c.mrecommend = upline.custid
 				OR c.recommend = upline.custid
                 OR c.custid = upline.custid
@@ -126,14 +127,14 @@ BEGIN
 					,ps.CloseInfo
 					,ps.SuspendInfo
 					,ps.Locked
-				FROM bodb02.dbo.custAccount AS h WITH (NOLOCK)
-					INNER JOIN bodb02.dbo.custInfo AS ci WITH (NOLOCK) ON h.custid = ci.custid
-					INNER JOIN bodb02.dbo.CustProductStatus ps WITH(NOLOCK) ON ps.custid = ci.custid
+				FROM dbo.custAccount AS h WITH (NOLOCK)
+					INNER JOIN dbo.custInfo AS ci WITH (NOLOCK) ON h.custid = ci.custid
+					INNER JOIN dbo.CustProductStatus ps WITH(NOLOCK) ON ps.custid = ci.custid
 				WHERE upline.groupID = h.groupID
 					AND h.IsGroupHeadLine = 1
 					AND NOT EXISTS (
 						SELECT 1
-						FROM bodb02.dbo.Acc_CustDirect AS cd WITH (NOLOCK)
+						FROM dbo.Acc_CustDirect AS cd WITH (NOLOCK)
 						WHERE upline.custid = cd.custid
 						)
 				) AS h
@@ -142,5 +143,4 @@ BEGIN
 		END
 	END
 END
-
-
+GO

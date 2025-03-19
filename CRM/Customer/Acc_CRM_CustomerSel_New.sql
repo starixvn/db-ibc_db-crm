@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO 
@@ -31,6 +31,7 @@ AS
 	    - 20190506@Winnie: CN88 Permission RedmineID: #112637
 	    - 20190829@Winnie: Fix issue SiteID ISNULL RedmineID: #112637
         - 20231128@Ned.Le: CRM - Left panel: Show site for IBO & KeenOcean site is N/A when search account on Left panel - Duplicate Communication Log: Don't insert into crmCustomer table when add related to Customer (#195329)
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
     Param's Explanation:	
 */
 
@@ -184,32 +185,15 @@ BEGIN
 	BEGIN
 		IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 		BEGIN
-			IF (SELECT roleid from bodb02.dbo.customer WITH(NOLOCK) WHERE custid = @CustID) = 1
-			BEGIN
-				SELECT @SiteID = SettingID 
-				FROM crmSetting WITH(NOLOCK) 
-				WHERE SettingValue = 
-									(SELECT CASE WHEN ag.site = 'IBO' THEN 'Kzing'
-                                                 WHEN ag.site = 'KeenOcean' THEN 'LIVV88'
-                                                 ELSE ag.site END site
-									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
-											INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON c.recommend = ag.custid
-									 WHERE c.custid = @CustID)
-					AND SettingName IN( 'Site','SiteCategory')
-			END
-			ELSE
-			BEGIN
-				SELECT @SiteID = SettingID 
-				FROM crmSetting WITH(NOLOCK) 
-				WHERE SettingValue = 
-									(SELECT CASE WHEN site = 'IBO' THEN 'Kzing'
-                                                 WHEN site = 'KeenOcean' THEN 'LIVV88'
-                                                 ELSE site END site
-									 FROM bodb02.dbo.customer c WITH(NOLOCK)
-									 WHERE c.custid = @CustID)
-					AND SettingName IN( 'Site','SiteCategory')
-
-			END
+			SELECT @SiteID = SettingID 
+			FROM crmSetting WITH(NOLOCK) 
+			WHERE SettingValue = 
+								(SELECT CASE WHEN c.site = 'IBO' THEN 'Kzing'
+                                                WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                                                ELSE c.site END site
+									FROM bodb02.dbo.customer c WITH(NOLOCK)
+									WHERE c.custid = @CustID)
+				AND SettingName IN( 'Site','SiteCategory')
 
 			SELECT @CountryName = Country,
 					@CountryID = c.CountryID

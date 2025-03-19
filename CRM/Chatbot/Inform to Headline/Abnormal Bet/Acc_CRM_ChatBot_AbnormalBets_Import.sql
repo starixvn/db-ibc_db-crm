@@ -30,6 +30,7 @@ AS
         - 20231218@Ned.Le: CRM - Auto generate Feedback and Headline Notification were created and sent for non-today matches [HotFix : #198492]
         - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
         - 20241001@Ned.Le: [CRM] Enhance SP Acc_CRM_Chatbot_AbnormalBets_Import to avoid time out issue [HotFix : #211660]
+		- 20250226@Tacy: CRM - Letstalk Headline Notification - Show the Direct account instead of Dummy Super [HotFix : #217622]
 
     Param's Explanation:
         - @XmlData
@@ -358,7 +359,7 @@ BEGIN
     CREATE TABLE #tmpNotificationMessageInfo (
         VoidingHistoryCollectionId INT,
         MessageId                  INT,
-        Supername                  VARCHAR(50),
+        Supername                  VARCHAR(50),		--Direct account's username
         Username                   VARCHAR(50),
         DirectAccount              INT,
         HeadlineId                 INT,
@@ -453,7 +454,7 @@ BEGIN
         )
         SELECT m.VoidingHistoryCollectionId VoidingHistoryCollectionId,
                m.MessageId                  MessageId,
-               sup.username                 Supername,
+               u.username					Supername,	--DirectAccount's
                m.Username                   Username,
                pm.CustId                    DirectAccount,
                pm.HeadlineId                HeadlineId,
@@ -465,10 +466,11 @@ BEGIN
                r.RecipientId                RecipientId
         FROM #tmpXMLData_LoopBuffer m
              INNER JOIN bodb02.dbo.Customer mem WITH (NOLOCK) ON m.Username = mem.username
-             INNER JOIN bodb02.dbo.Customer sup WITH (NOLOCK) ON mem.srecommend = sup.custid AND sup.roleid = 4
              INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
+             INNER JOIN bodb02.dbo.Customer sup WITH (NOLOCK) ON cda.CustID = sup.custid
              INNER JOIN bodb_CRM.dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
              INNER JOIN bodb_CRM.dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
+             INNER JOIN bodb02.dbo.Customer u WITH (NOLOCK) ON pm.CustId = u.custid
 
         -- Update data to continue the loop
         UPDATE tmp

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSearchSel]
 	@TitleID		INT,
 	@Currency		VARCHAR(1000) = '',
@@ -20,6 +20,7 @@ AS
 		- 20150706@Elodie: Exclude NULL value to compare data (Redmine: #38953)
 		- 20160915@Winnie: Return  'Checker' and 'Ignored Accounts' RedmineID #64067
 		- 20190729@Winnie:Change function edit inform headline RedmineID: #109775
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -33,7 +34,6 @@ BEGIN
 	DECLARE @SiteHardcode VARCHAR(10)
 	DECLARE @UsernameHardcode VARCHAR(30)
 	DECLARE @tmpSite TABLE (Site VARCHAR(50))
-	DECLARE @UplineID INT
 	DECLARE @CustID INT=2512
 	DECLARE @CurrencyID INT	
 	DECLARE @TypeAccountHardcode INT
@@ -63,9 +63,9 @@ BEGIN
 		SELECT @ErrCode = 101, @ErrMsg = 'At least 1 option is selected.'
 		RETURN
 	END		
-	SELECT @CurrencyID=Currency,@RoleID=RoleID,@UplineID=recommend FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 	
-	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+	SELECT @CurrencyID=Currency, @RoleID=RoleID, @SiteHardcode=Site 
+	FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
 	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0),@UsernameHardcode=UserName FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustID
 
@@ -115,8 +115,4 @@ BEGIN
 
 	DROP TABLE #DirectAcc 	
 END
-
-
-
 GO 
-GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSearchSel] TO [bodbAdminNet]

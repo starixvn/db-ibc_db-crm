@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 CREATE PROCEDURE [dbo].[Acc_CRM_AmendmentNoti_MultiCustIns]
 (
 	@RelatedCustomers			VARCHAR(MAX)	= NULL,
@@ -18,6 +18,7 @@ Original:
 
 Revisions:
 	- 20210312@Winfred: Sync Multiple Related Customers RedmineID: #147470
+	- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 Param's Explanation:
 	
 */
@@ -81,12 +82,11 @@ BEGIN
 			t.CountryID = ct.CountryID,
 			t.SiteID = (SELECT SettingID 
 						FROM crmSetting WITH(NOLOCK) 
-						WHERE SettingValue = ISNULL(c.site,ag.site)
+						WHERE SettingValue = c.site
 							AND SettingName IN( 'Site','SiteCategory')
 						)
 		FROM #tblRelatedCustomer t WITH(NOLOCK) 
 			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.RelatedCustId = c.custid
-			LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 			LEFT JOIN crmCountry ct WITH(NOLOCK) ON c.country = ct.CountryName
 		
 		UPDATE t

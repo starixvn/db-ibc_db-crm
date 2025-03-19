@@ -54,6 +54,7 @@ AS
 							- sync customer profile to CRM for related customers [redmine:#142194]
 		- 20210531@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
 	Param's Explanation:
@@ -474,12 +475,11 @@ BEGIN
 			t.CountryID = ct.CountryID,
 			t.SiteID = (SELECT SettingID 
 						FROM crmSetting WITH(NOLOCK) 
-						WHERE SettingValue = ISNULL(c.site,ag.site)
+						WHERE SettingValue = c.site
 							AND SettingName IN( 'Site','SiteCategory')
 						)
 		FROM @relatedCustomer t
 			INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.custid = c.custid
-			LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 			LEFT JOIN crmCountry ct ON c.country = ct.CountryName
 		WHERE isExistsCRM = 0	
 		

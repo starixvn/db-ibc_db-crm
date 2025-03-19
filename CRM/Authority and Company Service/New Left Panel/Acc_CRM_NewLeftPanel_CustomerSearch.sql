@@ -23,6 +23,7 @@ AS
         20231212@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
         20240926@Ned.Le: CRM - Search Left Panel - System is displaying role as Guest if searching an archive account (#211269)
+		20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 
     Param's Explanation:
         @UserRole = 0: Manager 
@@ -310,29 +311,14 @@ BEGIN
         IF NOT EXISTS (SELECT 1 FROM bodb_CRM.dbo.crmCustomer WITH (NOLOCK) WHERE CustID = @CustID)
         BEGIN
             -- + --> @SiteID
-            IF (@RoleID = 1)
-            BEGIN
-                SELECT @SiteID = SettingID 
-                FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
-                WHERE SettingValue = (SELECT CASE WHEN ag.site = 'IBO' THEN 'Kzing'
-                                                  WHEN ag.site = 'KeenOcean' THEN 'LIVV88'
-                                                  ELSE ag.site END site
-                                      FROM bodb02.dbo.customer c WITH (NOLOCK) 
-                                           INNER JOIN bodb02.dbo.customer ag WITH (NOLOCK) ON c.recommend = ag.custid
-                                      WHERE c.custid = @CustID)
+            SELECT @SiteID = SettingID 
+            FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) 
+            WHERE SettingValue = (SELECT CASE WHEN c.site = 'IBO' THEN 'Kzing'
+												WHEN c.site = 'KeenOcean' THEN 'LIVV88'
+                                                ELSE c.site END site
+                                    FROM bodb02.dbo.customer c WITH (NOLOCK)
+                                    WHERE c.custid = @CustID)
                     AND SettingName IN ('Site', 'SiteCategory')
-            END
-            ELSE
-            BEGIN
-                SELECT @SiteID = SettingID 
-                FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) 
-                WHERE SettingValue = (SELECT CASE WHEN site = 'IBO' THEN 'Kzing'
-                                                  WHEN site = 'KeenOcean' THEN 'LIVV88'
-                                                  ELSE site END site
-                                      FROM bodb02.dbo.customer c WITH (NOLOCK)
-                                      WHERE c.custid = @CustID)
-                      AND SettingName IN ('Site', 'SiteCategory')
-            END
 
             -- + --> @CountryName|@CountryID
             SELECT @CountryName = cm.country,

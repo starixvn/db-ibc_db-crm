@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineIns]
 	@Title			NVARCHAR(2000),
 	@Currency		VARCHAR(1000) = '',
@@ -18,14 +18,18 @@ AS
 	Date: 2015-04-03
 	Task: Insert inform title and headline
 	DB: DBCRM/bodb_CRM		
+
 	Revisions:
-	- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
-	- 20190131@Winnie: Check headline RedmineID #108504
-	- 20190311@Winnie: CRM - Enhance Inform Headline RedmineID:#109775	
+		- 20161005@Winnie: Include 'Checker' and 'Ignored Accounts' RedmineID: #64067
+		- 20190131@Winnie: Check headline RedmineID #108504
+		- 20190311@Winnie: CRM - Enhance Inform Headline RedmineID:#109775	
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
+
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
 						3: Both
+
 	Example: EXEC Acc_CRM_InformHeadlineIns @Title = 'aa', @Currency = '20,10,2', @Level = '3,4', @Site = 'BEST-ODDS,722222,222223', @TypeAccount = 3, @UserID = 8, @IP = '10.19.1.15'
 */
 BEGIN
@@ -41,7 +45,6 @@ BEGIN
 	--
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @CustIDHardcode INT=2512
-	DECLARE @UplineID INT
 	DECLARE @CurrencyID INT
 	DECLARE @SiteHardcode VARCHAR(10)
 	DECLARE @RoleID INT
@@ -60,9 +63,9 @@ BEGIN
 	SELECT val
 	FROM f_CRM_strSplit (@Level,',')
 
-	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustIDHardcode
-
-	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+	SELECT @CurrencyID=Currency, @RoleID=RoleID, @SiteHardcode=Site 
+	FROM bodb02.dbo.Customer WITH(NOLOCK) 
+	WHERE custid=@CustIDHardcode
 
 	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0) FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustIDHardcode
 
@@ -173,8 +176,4 @@ BEGIN
 	
 	DROP TABLE #DirectAcc 	
 END
-
-
-GO 
-GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineIns] TO [bodbAdminNet]
 GO 

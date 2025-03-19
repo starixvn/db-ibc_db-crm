@@ -21,6 +21,7 @@ AS
 		- 20220817@Winfred: Don't generate feedback for those ignored accounts [redmine:#173914]
 		- 20230214@Tacy:	CRM - Split 789y site [RedmineID: #182438]
         - 20240927@Ned.Le: CRM - Incorporate new product - Virtual Sports 5 (#207712)
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 
 	Parameter's Explanation:
 		- @xml = <ROOT>
@@ -112,7 +113,7 @@ BEGIN
 		,fb.CustID
 		,ci.currency
 		,ci.username
-		,ag.site
+		,ci.site
 		,s.SiteLabel
 		,HeadlineID
 		,HeadlineName
@@ -130,9 +131,8 @@ BEGIN
 	INTO #Result	
 	FROM crmWinLimitFeedbackInfo fb WITH(NOLOCK)		
 		INNER JOIN bodb02.dbo.Products p WITH(NOLOCK) ON fb.ProductID = p.ProductID
-		INNER JOIN bodb02.dbo.custinfo ci WITH(NOLOCK) ON fb.custid = ci.custid
-		INNER JOIN bodb02.dbo.customer ag WITH(NOLOCK) ON ci.recommend = ag.custid
-		INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=ag.site
+		INNER JOIN bodb02.dbo.Customer ci WITH(NOLOCK) ON fb.custid = ci.custid
+		INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=ci.site
 		LEFT JOIN crmCustomer c WITH(NOLOCK) ON fb.HeadlineID = c.custid
 	WHERE status IN ('initial','fail')
 		AND retryCount < 5

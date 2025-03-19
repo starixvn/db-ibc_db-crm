@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_CRM_InformHeadlineSel]
 	@Currency		VARCHAR(1000) = '',
@@ -23,6 +23,7 @@ AS
 		- 20180911@Winnie: Add IsVip RedmineID #99982
 		- 20190130@Winnie: Hardcode for this account BA03RM headline RedmineID #108504
 		- 20190311@Winnie: CRM - Enhance Inform Headline RedmineID:##109775
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 	Parameter's Explanation:				
 		- @TypeAccount =1: Headline
 						2: Direct account
@@ -38,7 +39,6 @@ BEGIN
 	END	
 	DECLARE @tmpCurrency TABLE (currency INT)	
 	DECLARE @CustID INT=2512
-	DECLARE @UplineID INT
 	DECLARE @CurrencyID INT
 	DECLARE @SiteHardcode VARCHAR(10)
 	DECLARE @UsernameHardcode VARCHAR(30)
@@ -58,9 +58,7 @@ BEGIN
 	FROM f_split (@Site,',') v
 		INNER JOIN dbo.crmSite s ON v.val = s.SiteID
 
-	SELECT @CurrencyID=Currency,@UplineID=recommend,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
-
-	SELECT @SiteHardcode=Site FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@UplineID
+	SELECT @CurrencyID=Currency,@SiteHardcode=Site,@RoleID=RoleID FROM bodb02.dbo.Customer WITH(NOLOCK) WHERE custid=@CustID
 
 	SELECT @IgnoredHardCode=Ignored,@IsVipHardCode=ISNULL(IsVIP,0),@UsernameHardcode=UserName FROM crmCustomer WITH(NOLOCK) WHERE custid=@CustID
 
@@ -122,7 +120,4 @@ BEGIN
 
 	DROP TABLE #DirectAcc 	
 END
-
-GO
-GRANT EXECUTE ON [dbo].[Acc_CRM_InformHeadlineSel] TO [bodbAdminNet]
 GO

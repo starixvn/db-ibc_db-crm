@@ -36,6 +36,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns --KEY
                                                           @ReviewerID            INT            = NULL,
                                                           @CreatorID             INT            = NULL,
 														  @Rating				 TINYINT		= 0,
+														  @SourceFeedbackID		 INT			= NULL,
                                                           -->crmFeedbackNewCommunicationTool
                                                           @NewCommunicationTools NVARCHAR(MAX)  = NULL,
                                                           -->crmFeedbackSetting
@@ -68,7 +69,9 @@ AS
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
         20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
+		20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250311@Virgil: CRM - Add para SourceFeedbackID for store Communication Info when duplicate feedback [Redmine: #218221]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -221,11 +224,10 @@ BEGIN
             t.CountryID   = ct.CountryID,
             t.SiteID      = (SELECT SettingID 
                              FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) 
-                             WHERE SettingValue = ISNULL(c.site, ag.site)
+                             WHERE SettingValue = c.site
                                    AND SettingName IN ('Site', 'SiteCategory'))
         FROM #tmpSyncRelatedCustomer t
              INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.custid = c.custid
-             LEFT JOIN bodb02.dbo.Customer ag WITH (NOLOCK) ON c.recommend = ag.custid
              LEFT JOIN bodb_CRM.dbo.crmCountry ct ON c.country = ct.CountryName
         WHERE t.isExistsCRM = 0
 
@@ -365,7 +367,8 @@ BEGIN
     -- If new feedback is communication log
     IF (@IsCommunicationLog = 1)
     BEGIN
-        -- + Headline
+
+	        -- + Headline
         IF (@IsHeadline = 1)
         BEGIN
             ;WITH CTE_HeadlineInfo AS (
@@ -409,11 +412,27 @@ BEGIN
             WHERE ccc.CustID = @CustID
         END
 
-        -- + Parse data to variable
-        SELECT @NewCommunicationTools = x.xmlvalue
-        FROM (SELECT *
-              FROM @tblNewCommunicationTools
-              FOR XML RAW('NewCommunicationTool'), ROOT('ROOT')) AS x(xmlvalue)
+		IF NOT EXISTS (SELECT 1 FROM @tblNewCommunicationTools)
+		BEGIN
+			INSERT INTO @tblNewCommunicationTools (
+				isHeadline,
+				PicInfo,
+				CommunicationID,
+				CommunicationValue
+			)
+			SELECT isHeadline,
+					PicInfo,
+					CommunicationID,
+					CommunicationValue
+			FROM bodb_CRM.dbo.crmFeedbackNewCommunicationTool fnc WITH (NOLOCK)
+			WHERE FeedbackID = @SourceFeedbackID
+		END
+
+		-- + Parse data to variable
+		SELECT @NewCommunicationTools = x.xmlvalue
+		FROM (SELECT *
+				FROM @tblNewCommunicationTools
+				FOR XML RAW('NewCommunicationTool'), ROOT('ROOT')) AS x(xmlvalue)
     END
 
     -- If new feedback is normal feedback
@@ -839,6 +858,7 @@ BEGIN
                           '<RelatedCustID>'         + ISNULL(dbo.f_EncodeXMLValue(@RelatedCustID),'')       + '</RelatedCustID>'         +
                           '<NewCommunicationTools>' + ISNULL(@NewCommunicationTools_LogValue,'')            + '</NewCommunicationTools>' +
 						  '<Rating>'				+ ISNULL(CONVERT(VARCHAR(5),@Rating),'')				+ '</Rating>'				 +
+						  '<SourceFeedbackID>'		+ ISNULL(CONVERT(VARCHAR(10),@SourceFeedbackID),'')		+ '</SourceFeedbackID>'		 +
                           '<IsOverWrite>'           + ISNULL(CONVERT(VARCHAR(10),@IsOverWrite),'')          + '</IsOverWrite>'           +
                           '</Acc_CRM_NewManualFeedback_FeedbackIns>'
 

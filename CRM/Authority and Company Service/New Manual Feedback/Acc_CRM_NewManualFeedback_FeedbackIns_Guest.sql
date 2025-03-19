@@ -54,6 +54,7 @@ AS
     Revisions:
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
+		20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		20250225@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
     Param's Explanation:
@@ -203,11 +204,10 @@ BEGIN
             t.CountryID   = ct.CountryID,
             t.SiteID      = (SELECT SettingID 
                              FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK) 
-                             WHERE SettingValue = ISNULL(c.site, ag.site)
+                             WHERE SettingValue = c.site
                                    AND SettingName IN ('Site', 'SiteCategory'))
         FROM #tmpSyncRelatedCustomer t
              INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.custid = c.custid
-             LEFT JOIN bodb02.dbo.Customer ag WITH (NOLOCK) ON c.recommend = ag.custid
              LEFT JOIN bodb_CRM.dbo.crmCountry ct ON c.country = ct.CountryName
         WHERE t.isExistsCRM = 0
 

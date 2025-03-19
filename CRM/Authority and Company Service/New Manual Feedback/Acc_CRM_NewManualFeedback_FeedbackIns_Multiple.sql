@@ -247,11 +247,10 @@ BEGIN
             t.CountryID   = ct.CountryID,
             t.SiteID      = (SELECT SettingID
                              FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
-                             WHERE SettingValue = ISNULL(c.site, ag.site)
+                             WHERE SettingValue = c.site
                                    AND SettingName IN ('Site', 'SiteCategory'))
         FROM #tmpSyncCustomers t
              INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON t.custid = c.custid
-             LEFT JOIN bodb02.dbo.Customer ag WITH (NOLOCK) ON c.recommend = ag.custid
              LEFT JOIN bodb_CRM.dbo.crmCountry ct ON c.country = ct.CountryName
         WHERE t.isExistsCRM = 0
 

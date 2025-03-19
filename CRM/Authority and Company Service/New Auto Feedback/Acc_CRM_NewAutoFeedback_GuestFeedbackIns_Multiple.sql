@@ -57,7 +57,8 @@ AS
 	Original:   Acc_CRM_GuestFeedbackIns_Multiple
 
 	Revisions:
-		20240308@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+		- 20240308@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		
 	Param's Explanation:
 		@RelatedCustomers: <ROOT><Row CustId='1' RelatedCustId='2' Username='test' /></ROOT>
@@ -217,12 +218,11 @@ BEGIN
 		t.CountryID = CASE WHEN ISNULL(@CountryName,'') <> '' THEN @CountryID ELSE  ct.CountryID END,
 		t.SiteID = (SELECT SettingID 
 					FROM crmSetting WITH(NOLOCK) 
-					WHERE SettingValue = ISNULL(c.site,ag.site)
+					WHERE SettingValue = c.site
 						AND SettingName IN( 'Site','SiteCategory')
 					)
 	FROM #tblRelatedCustomer t
 		INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.RelatedCustId = c.custid
-		LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 		LEFT JOIN crmCountry ct ON c.country = ct.CountryName
 	
 	--remove customer belong to inactive site 

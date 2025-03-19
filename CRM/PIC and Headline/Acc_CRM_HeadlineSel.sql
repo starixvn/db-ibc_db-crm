@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_HeadlineSel]
 	@Username VARCHAR(30) = ''
 	,@Limit INT = NULL
@@ -13,6 +13,7 @@ Original:
 	Revisions:
 		- 20200511@Malcolm: Get all headline of system [Redmine: #108739]
 		- 20200813@Malcolm: Get top @Limit headline [Redmine : #130544]
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 	Param's Explanation:
 		
 */
@@ -36,8 +37,7 @@ BEGIN
 		   t.username AS HeadlineName
 	FROM bodb02.dbo.CustGroupHeadline c WITH(NOLOCK)
 		INNER JOIN bodb02.dbo.Customer t WITH(NOLOCK) ON c.custid = t.custid
-		LEFT  JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON ag.custid = t.recommend AND t.roleid = 1
-	WHERE (@Username = '' OR t.username LIKE '%'+ @Username + '%') AND c.GroupID <> 0 AND ISNULL(ag.site, t.site) <> 'CN88'
+	WHERE (@Username = '' OR t.username LIKE '%'+ @Username + '%') AND c.GroupID <> 0 AND t.site <> 'CN88'
 	ORDER BY t.username
 		
 	-- for direct account which haven't headline group

@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 ALTER PROCEDURE Acc_CRM_CustomerCommLogDefaultInfo_Sel
 	@CustID   INT,
 	@UserRole INT
@@ -12,7 +12,8 @@ BEGIN
 	Original:
 	
     Revisions:         
-			- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20190506@Winnie: CN88 Permission RedmineID: #112637
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 */
 	SET NOCOUNT ON
 
@@ -84,28 +85,14 @@ BEGIN
 	BEGIN
 		IF NOT EXISTS (SELECT 1 FROM crmCustomer WITH(NOLOCK) WHERE CustID = @CustID)
 		BEGIN
-			IF (SELECT roleid from bodb02.dbo.customer WITH(NOLOCK) WHERE custid = @CustID) = 1
-			BEGIN
-				SELECT @SiteID = SettingID 
-				FROM crmSetting WITH(NOLOCK) 
-				WHERE SettingValue = 
-									(SELECT s.site 
-									 FROM bodb02.dbo.customer c WITH(NOLOCK) 
-											INNER JOIN bodb02.dbo.customer s WITH(NOLOCK) ON c.srecommend = s.custid
-									 WHERE c.custid = @CustID)
-					AND SettingName IN( 'Site','SiteCategory')
-			END
-			ELSE
-			BEGIN
-				SELECT @SiteID = SettingID 
-				FROM crmSetting WITH(NOLOCK) 
-				WHERE SettingValue = 
-									(SELECT site 
-									 FROM bodb02.dbo.customer c WITH(NOLOCK)
-									 WHERE c.custid = @CustID)
-					AND SettingName IN( 'Site','SiteCategory')
+			SELECT @SiteID = SettingID 
+			FROM crmSetting WITH(NOLOCK) 
+			WHERE SettingValue = 
+								(SELECT site 
+									FROM bodb02.dbo.customer c WITH(NOLOCK)
+									WHERE c.custid = @CustID)
+				AND SettingName IN( 'Site','SiteCategory')
 
-			END
 
 			SELECT @CountryName = Country,
 					@CountryID = c.CountryID
@@ -177,6 +164,3 @@ BEGIN
 END
 
 GO
-
- GRANT EXECUTE ON [dbo].[Acc_CRM_CustomerCommLogDefaultInfo_Sel] TO [bodbAdminNet]
-GO 

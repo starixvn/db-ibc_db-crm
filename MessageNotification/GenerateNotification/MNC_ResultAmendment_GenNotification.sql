@@ -12,8 +12,10 @@ AS
 	Revisions:
 		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket (#197621)
 		- 20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
-		- 20241101@Tacy: MNC - Apply new table NotiTemplateMapping [Redmine: #213498]
+		- 20241101@Tacy: MNC - Apply new table NotiTemplateMapping [Redmine: #213498]		
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
+
 	Explanation:
 		@Environment
 			If IncludeTestMatch = ON
@@ -560,14 +562,9 @@ BEGIN
 			,tc.AgentID = c.recommend
 			,tc.MasterID = c.mrecommend
 			,tc.SuperID = c.srecommend
+			,tc.TargetSite = c.Site
 		FROM #tmpCustomer AS tc
 			LEFT JOIN bodb02.dbo.Customer AS c WITH (NOLOCK) ON tc.CustID = c.CustID
-		
-		--Get TargetSite
-		UPDATE tc
-		SET tc.TargetSite = ag.Site
-		FROM #tmpCustomer AS tc
-			LEFT JOIN bodb02.dbo.Customer AS ag WITH (NOLOCK) ON tc.AgentID = ag.CustID
 		
 		IF EXISTS (SELECT 1 FROM #tmpCustomer WHERE TargetSite IS NULL)
 		BEGIN
@@ -1868,6 +1865,7 @@ BEGIN
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
 				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsNoneSaba = ntgt.IsNoneSaba AND s.ControlGrp = ntgt.ControlGrp
+				INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.custid=ntgt.AgentID
 			GROUP BY s.NotiByContID
 				,ntgt.AgentID
 				,ntgt.TargetSite
@@ -1890,6 +1888,7 @@ BEGIN
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
 				INNER JOIN #tmpStagingTarget AS ntgt ON s.NotiTempID = ntgt.NotiTempID AND s.IsNoneSaba = ntgt.IsNoneSaba AND s.ControlGrp = ntgt.ControlGrp
+				INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.custid=ntgt.MasterID
 			GROUP BY s.NotiByContID
 				,ntgt.MasterID
 				,ntgt.TargetSite

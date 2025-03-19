@@ -105,6 +105,7 @@ AS
 		- 20201119@Johnson:	check relatedCustomer <> '' to sync customer [redmine:#145661]
 		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]		
 		- 20230418@Winfred: CRM - Update Feedback > Auto update Isvip=0 when checking Overwrite then Update FB [redmine:#187064]	
+		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		- 20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 
 	Param's Explanation:
@@ -339,12 +340,11 @@ BEGIN
 				t.CountryID = ct.CountryID,
 				t.SiteID = (SELECT SettingID 
 							FROM crmSetting WITH(NOLOCK) 
-							WHERE SettingValue = ISNULL(c.site,ag.site)
+							WHERE SettingValue = c.site
 								AND SettingName IN( 'Site','SiteCategory')
 							)
 			FROM @relatedCustomer t
 				INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON t.custid = c.custid
-				LEFT JOIN bodb02.dbo.Customer ag WITH(NOLOCK) ON c.recommend = ag.custid
 				LEFT JOIN crmCountry ct ON c.country = ct.CountryName
 			WHERE isExistsCRM = 0	
 			

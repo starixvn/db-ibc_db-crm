@@ -1,1 +1,5 @@
+CRM\Customer-Feedback\Auto-RefundTickets\Acc_CRM_AutoFB_RefundSettledTickets_Import.sql
+CRM\Customer-Feedback\AutoFB-AbnormalBets\Acc_CRM_AutoFB_AbnormalBets_Import.sql
 CRM\Customer-Feedback\AutoFB-MessageNotificationCenter\Acc_CRM_AutoFB_MessageNotificationCenter_Import.sql
+CRM\Customer-Feedback\AutoFB-RebateAndRetention\Acc_CRM_AutoFB_RebateRetention_Import.sql
+CRM\Customer-Feedback\AutoFB-VoidByBetID\Acc_CRM_AutoFB_VoidByBetID_Import.sql

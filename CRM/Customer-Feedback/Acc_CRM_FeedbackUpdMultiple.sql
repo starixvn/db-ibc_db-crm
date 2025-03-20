@@ -15,6 +15,8 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpdMultiple] (
 				  ,	@IsUpdateSubject			BIT
 				  ,	@FeedbackDate				DATETIME
 				  ,	@IsUpdateFeedbackDate		BIT
+				  ,	@FirstResponseTime			DATETIME
+				  ,	@IsUpdateFirstResponseTime	BIT
 				  ,	@ResolutionDate				DATETIME	
 				  ,	@IsUpdateResolutionDate		BIT		
 				  ,	@SiteID						INT
@@ -69,6 +71,7 @@ AS
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
         - 20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
 		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		- 20250320@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
@@ -171,6 +174,7 @@ BEGIN
 		,	@CountryID_Old					INT
 		,	@Subject_Old					NVARCHAR(200)	= NULL
 		,	@FeedbackDate_Old				DATETIME
+		,	@FirstResponseTime_Old			DATETIME
 		,	@ResolutionDate_Old				DATETIME
 		,	@CommunicationID_Old			VARCHAR(MAX)
 		,	@StationID_Old					VARCHAR(MAX)
@@ -210,6 +214,7 @@ BEGIN
 		,	@LanguageID_Old					= LanguageID
 		,	@Subject_Old					= Subject
 		,	@FeedbackDate_Old				= FeedbackDate
+		,	@FirstResponseTime_Old			= FirstResponseTime
 		,	@ResolutionDate_Old				= ResolutionDate
 		,	@SolveDate_Old					= SolveDate	
 		,	@SiteID_Old						= SiteID
@@ -340,6 +345,7 @@ BEGIN
 	,	LanguageID					= CASE WHEN @IsUpdateLanguageID=1 THEN @LanguageID ELSE LanguageID END
 	,	Subject						= CASE WHEN @IsUpdateSubject=1 THEN @Subject ELSE Subject END
 	,	FeedbackDate				= CASE WHEN @IsUpdateFeedbackDate=1 THEN @FeedbackDate ELSE FeedbackDate END
+	,	FirstResponseTime			= CASE WHEN @IsUpdateFirstResponseTime=1 THEN @FirstResponseTime ELSE FirstResponseTime END
 	,	ResolutionDate				= CASE WHEN @IsUpdateResolutionDate=1 THEN @ResolutionDate ELSE ResolutionDate END
 	,	SolveDate					= CASE WHEN @IsUpdateReview=1 THEN @SolveDate ELSE SolveDate END
 	,	SiteID						= CASE WHEN @IsUpdateSiteID=1 THEN @SiteID ELSE SiteID END
@@ -447,6 +453,16 @@ BEGIN
 		SELECT	@NewValues = 	@NewValues+
 			'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
 			'<IsUpdateFeedbackDate>'		+ ISNULL(CONVERT(VARCHAR(1),@IsUpdateFeedbackDate),'')			+ '</IsUpdateFeedbackDate>' 
+	END
+	IF @IsUpdateFirstResponseTime=1
+	BEGIN
+		SELECT	@OldValues = 	@OldValues+
+			'<FirstResponseTime>'				+ ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime_Old),'')	+ '</FirstResponseTime>' +
+			'<IsUpdateFirstResponseTime>'		+ ISNULL(CONVERT(VARCHAR(1),@IsUpdateFirstResponseTime),'')	+ '</IsUpdateFirstResponseTime>' 
+
+		SELECT	@NewValues = 	@NewValues+
+			'<FirstResponseTime>'				+ ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime),'')		+ '</FirstResponseTime>' +
+			'<IsUpdateFirstResponseTime>'		+ ISNULL(CONVERT(VARCHAR(1),@IsUpdateFirstResponseTime),'') + '</IsUpdateFirstResponseTime>' 
 	END
 	IF @IsUpdateResolutionDate=1
 	BEGIN

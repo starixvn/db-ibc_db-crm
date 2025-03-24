@@ -18,6 +18,7 @@ AS
 
     Revisions:
         - 20241022@Virgil: Initialize SP [RedmineID: #210688]
+		- 20250324@Virgil: CRM - hotfix displaying Currency Code instead of Currency Name [RedmineID: #221391]
 
 	 Param's Explanation:
         - @XmlData: 
@@ -236,7 +237,7 @@ BEGIN
 			cd.Recommend,
 			cd.Mrecommend,
 			cd.Srecommend,
-			CONCAT(cus.username,' ', REPLACE(FORMAT(cd.TotalAmount, 'N'),'.00',''), ' ', e.currency) AS AffectedMember,
+			CONCAT(cus.username,' ', REPLACE(FORMAT(cd.TotalAmount, 'N'),'.00',''), ' ', e.Code) AS AffectedMember,
 			cd.IsTest
 	FROM CTE_Data cd
 	JOIN dbo.Exchange e WITH (NOLOCK) 

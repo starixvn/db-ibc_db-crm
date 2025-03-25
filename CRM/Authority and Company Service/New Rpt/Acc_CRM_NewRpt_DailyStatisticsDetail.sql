@@ -30,6 +30,7 @@ AS
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
 		20250225@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250320@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
     Param's Explanation:        
         @SiteType = 0: IBC
@@ -346,6 +347,7 @@ BEGIN
            fb.CreatorID                                                          CreatorID,
            ci.UserName                                                           CreatorName,
            fb.FeedbackDate                                                       FeedbackDate,
+		   fb.FirstResponseTime													 FirstResponseTime,
            fb.ResolutionDate                                                     ResolutionDate,
            fb.SolveDate                                                          SolveDate,
            ISNULL(base.SiteName, 'N/A')                                          SiteName,

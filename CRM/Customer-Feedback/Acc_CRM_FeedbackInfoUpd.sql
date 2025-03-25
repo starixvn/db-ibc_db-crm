@@ -30,6 +30,7 @@ ALTER PROCEDURE	dbo.Acc_CRM_FeedbackInfoUpd (
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@RelatedCustID				VARCHAR(MAX)	= NULL
 				,	@FeedbackDate				DATETIME
+				,	@FirstResponseTime			DATETIME		= NULL
 				,	@ResolutionDate				DATETIME
 				,	@CommunicationID			VARCHAR(MAX)	
 				,	@StationID					VARCHAR(MAX)
@@ -107,6 +108,7 @@ AS
 		- 20230418@Winfred: CRM - Update Feedback > Auto update Isvip=0 when checking Overwrite then Update FB [redmine:#187064]	
 		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		- 20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		- 20250319@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
@@ -241,6 +243,7 @@ BEGIN
 			,	@ProvinceID				= @ProvinceID
 			,	@Subject				= @Subject
 			,	@FeedbackDate			= @FeedbackDate
+			,	@FirstResponseTime		= @FirstResponseTime
 			,	@ResolutionDate			= @ResolutionDate
 			,	@CommunicationID		= @CommunicationID
 			,	@StationID				= @StationID

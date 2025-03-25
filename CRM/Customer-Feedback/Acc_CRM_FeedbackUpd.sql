@@ -29,6 +29,7 @@ ALTER PROCEDURE [dbo].[Acc_CRM_FeedbackUpd] (
 				,	@CountryID					INT
 				,	@Subject					NVARCHAR(200)	= NULL
 				,	@FeedbackDate				DATETIME
+				,	@FirstResponseTime			DATETIME		= NULL
 				,	@ResolutionDate				DATETIME			
 				,	@SiteID						INT
 				,	@RoleID						INT		
@@ -101,6 +102,7 @@ AS
 		- 20210601@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
 		- 20230412@Winfred: NAP CRM - Some of our Headline Contact info was missing in CRM [redmine:#186726]
 		- 20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		- 20250319@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
 	Param's Explanation:
 		- @UpdateReviewedMode: Kind of update review
@@ -247,6 +249,7 @@ BEGIN
 		,	@CountryID_Old					INT
 		,	@Subject_Old					NVARCHAR(200)	= NULL
 		,	@FeedbackDate_Old				DATETIME
+		,	@FirstResponseTime_Old			DATETIME
 		,	@ResolutionDate_Old				DATETIME
 		,	@CommunicationID_Old			VARCHAR(MAX)
 		,	@StationID_Old					VARCHAR(MAX)
@@ -326,6 +329,7 @@ BEGIN
 		,	@LanguageID_Old					= LanguageID
 		,	@Subject_Old					= Subject
 		,	@FeedbackDate_Old				= FeedbackDate
+		,	@FirstResponseTime_Old			= FirstResponseTime
 		,	@ResolutionDate_Old				= ResolutionDate
 		,	@SolveDate_Old					= SolveDate	
 		,	@SiteID_Old						= SiteID
@@ -569,6 +573,7 @@ BEGIN
 	,	LanguageID					= @LanguageID
 	,	Subject						= @Subject
 	,	FeedbackDate				= @FeedbackDate
+	,	FirstResponseTime			= @FirstResponseTime
 	,	ResolutionDate				= @ResolutionDate
 	,	SolveDate					= @SolveDate
 	,	SiteID						= @SiteID
@@ -653,6 +658,7 @@ BEGIN
 						'<Subject>'						+ ISNULL(dbo.f_EncodeXMLValue(@Subject_Old),'')					+ '</Subject>' +
 						'<Creator>'						+ ISNULL(CONVERT(VARCHAR(10),@Creator_Old),'')					+ '</Creator>' +
 						'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate_Old),'')				+ '</FeedbackDate>' +
+						'<FirstResponseTime>'			+ ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime_Old),'')		+ '</FirstResponseTime>' +
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')			+ '</ResolutionDate>' +
 						'<CommunicationID>'				+ ISNULL(@CommunicationID_Old,'')								+ '</CommunicationID>' +
 						'<StationID>'					+ ISNULL(@StationID_Old,'')										+ '</StationID>' +
@@ -722,6 +728,7 @@ BEGIN
 						'<Subject>'						+ ISNULL(dbo.f_EncodeXMLValue(@Subject),'')						+ '</Subject>' +
 						'<Creator>'						+ ISNULL(CONVERT(VARCHAR(10),@Creator_Old),'')					+ '</Creator>' +
 						'<FeedbackDate>'				+ ISNULL(CONVERT(VARCHAR(20),@FeedbackDate),'')					+ '</FeedbackDate>' +
+						'<FirstResponseTime>'			+ ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime),'')			+ '</FirstResponseTime>' +
 						'<ResolutionDate>'				+ ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')				+ '</ResolutionDate>' +
 						'<CommunicationID>'				+ ISNULL(@CommunicationID_New,'')								+ '</CommunicationID>' +
 						'<StationID>'					+ ISNULL(@StationID_New,'')										+ '</StationID>' +

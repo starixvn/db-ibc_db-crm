@@ -18,6 +18,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns --KEY
                                                           @IsVip                 BIT            = NULL,
                                                           -->+FeedbackInfo
                                                           @FeedbackDate          DATETIME,
+														  @FirstResponseTime	 DATETIME = NULL ,
                                                           @ResolutionDate        DATETIME,
                                                           @StatusID              INT,
                                                           @LanguageID            INT,
@@ -72,6 +73,7 @@ AS
 		20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
 		20250311@Virgil: CRM - Add para SourceFeedbackID for store Communication Info when duplicate feedback [Redmine: #218221]
+		20250319@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -671,6 +673,7 @@ BEGIN
         Review,
         ReviewerID,
         Subject,
+		FirstResponseTime,
         ResolutionDate,
         Passport,
         Birthday,
@@ -701,6 +704,7 @@ BEGIN
            @Review,
            @ReviewerID,
            @Subject,
+		   @FirstResponseTime,
            @ResolutionDate,
            @Passport,
            @Birthday,
@@ -847,6 +851,7 @@ BEGIN
                           '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review),'')              + '</Review>'                +
                           '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')           + '</Reviewer>'              +
                           '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject),'')             + '</Subject>'               +
+						  '<FirstResponseTime>'		+ ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime),'')	+ '</FirstResponseTime>'     +
                           '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')       + '</ResolutionDate>'        +
                           '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport),'')            + '</Passport>'              +
                           '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')         + '</Birthday>'              +

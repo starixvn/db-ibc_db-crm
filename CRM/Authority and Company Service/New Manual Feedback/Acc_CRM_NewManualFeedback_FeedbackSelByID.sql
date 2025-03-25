@@ -18,6 +18,7 @@ AS
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250319@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
     Param's Explanation:
         @FeedbackID: ID be used to search data
@@ -60,6 +61,7 @@ BEGIN
            fb.RefCode2                                                                   RefCode2,
            fb.LicenseeType                                                               LicenseeType,
            fb.FeedbackDate                                                               FeedbackDate,
+		   fb.FirstResponseTime															 FirstResponseTime,
            fb.ResolutionDate                                                             ResolutionDate,
            ISNULL(fb.ResponseID, 0)                                                      ResponseID,
            ISNULL(fb.LanguageID, 0)                                                      LanguageID,

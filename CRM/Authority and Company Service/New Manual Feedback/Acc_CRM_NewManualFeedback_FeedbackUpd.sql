@@ -18,6 +18,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackUpd --KEY
                                                           @RefCode2              NVARCHAR(100)  = NULL,
                                                           -->+FeedbackInfo
                                                           @FeedbackDate          DATETIME,
+														  @FirstResponseTime	 DATETIME		= NULL,
                                                           @ResolutionDate        DATETIME,
                                                           @StatusID              INT,
                                                           @LanguageID            INT,
@@ -67,6 +68,7 @@ AS
         20240605@Ned.Le: CRM - Activity Log - Adjust text format (#206075)
 		20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250319@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -303,61 +305,63 @@ BEGIN
     -- 4. Process data for old value --
 
     -- crmFeedback
-    DECLARE @TitleID_Old        INT,
-            @FirstName_Old      NVARCHAR(50),
-            @LastName_Old       NVARCHAR(50),
-            @LanguageID_Old     INT,
-            @CountryID_Old      INT,
-            @FeedbackDate_Old   DATETIME,
-            @SolveDate_old      DATETIME,
-            @SiteID_Old         INT,
-            @RoleID_Old         INT,
-            @ResponseID_Old     INT,
-            @StatusID_Old       INT,
-            @Description_Old    NVARCHAR(MAX),
-            @Remark_Old         NVARCHAR(MAX),
-            @AutoField_Old      NVARCHAR(MAX),
-            @Solution_Old       NVARCHAR(MAX),
-            @IsReviewed_Old     BIT           = 0,
-            @Review_Old         NVARCHAR(MAX) = NULL,
-            @ReviewerID_Old     INT           = NULL,
-            @Subject_Old        NVARCHAR(200) = NULL,
-            @ResolutionDate_Old DATETIME,
-            @Passport_Old       NVARCHAR(100) = NULL,
-            @Birthday_Old       DATETIME,
-            @BettingCode_Old    NVARCHAR(100) = NULL,
-            @RefCode2_Old       NVARCHAR(100) = NULL,
-            @IsVip_Old          BIT,
-            @LicenseeType_Old   INT           = 0,
-            @NoInquiries_Old    SMALLINT      = NULL,
-			@Rating_Old			TINYINT		  = 0
+    DECLARE @TitleID_Old			INT,
+            @FirstName_Old			NVARCHAR(50),
+            @LastName_Old			NVARCHAR(50),
+            @LanguageID_Old			INT,
+            @CountryID_Old			INT,
+            @FeedbackDate_Old		DATETIME,
+            @SolveDate_old			DATETIME,
+            @SiteID_Old				INT,
+            @RoleID_Old				INT,
+            @ResponseID_Old			INT,
+            @StatusID_Old			INT,
+            @Description_Old		NVARCHAR(MAX),
+            @Remark_Old				NVARCHAR(MAX),
+            @AutoField_Old			NVARCHAR(MAX),
+            @Solution_Old			NVARCHAR(MAX),
+            @IsReviewed_Old			BIT           = 0,
+            @Review_Old				NVARCHAR(MAX) = NULL,
+            @ReviewerID_Old			INT           = NULL,
+            @Subject_Old			NVARCHAR(200) = NULL,
+			@FirstResponseTime_Old	DATETIME,
+            @ResolutionDate_Old		DATETIME,
+            @Passport_Old			NVARCHAR(100) = NULL,
+            @Birthday_Old			DATETIME,
+            @BettingCode_Old		NVARCHAR(100) = NULL,
+            @RefCode2_Old			NVARCHAR(100) = NULL,
+            @IsVip_Old				BIT,
+            @LicenseeType_Old		INT           = 0,
+            @NoInquiries_Old		SMALLINT      = NULL,
+			@Rating_Old				TINYINT		  = 0
 
-    SELECT @TitleID_Old        = TitleID,
-           @FirstName_Old      = FirstName,
-           @LastName_Old       = LastName,
-           @CountryID_Old      = CountryID,
-           @LanguageID_Old     = LanguageID,
-           @FeedbackDate_Old   = FeedbackDate,
-           @SolveDate_Old      = SolveDate,
-           @SiteID_Old         = SiteID,
-           @RoleID_Old         = RoleID,       
-           @ResponseID_Old     = ResponseID,
-           @StatusID_Old       = StatusID,
-           @Description_Old    = Description,
-           @Solution_Old       = Solution,
-           @IsReviewed_Old     = IsReviewed,
-           @Review_Old         = Review,
-           @ReviewerID_Old     = ReviewerID,
-           @Subject_Old        = Subject,
-           @ResolutionDate_Old = ResolutionDate,
-           @Passport_Old       = Passport,
-           @Birthday_Old       = Birthday,
-           @BettingCode_Old    = RefCode1,
-           @RefCode2_Old       = RefCode2,
-           @IsVip_Old          = IsVip,
-           @LicenseeType_Old   = LicenseeType,
-           @NoInquiries_Old    = Inquiries,
-		   @Rating_Old		   = Rating
+    SELECT @TitleID_Old				= TitleID,
+           @FirstName_Old			= FirstName,
+           @LastName_Old			= LastName,
+           @CountryID_Old			= CountryID,
+           @LanguageID_Old			= LanguageID,
+           @FeedbackDate_Old		= FeedbackDate,
+           @SolveDate_Old			= SolveDate,
+           @SiteID_Old				= SiteID,
+           @RoleID_Old				= RoleID,       
+           @ResponseID_Old			= ResponseID,
+           @StatusID_Old			= StatusID,
+           @Description_Old			= Description,
+           @Solution_Old			= Solution,
+           @IsReviewed_Old			= IsReviewed,
+           @Review_Old				= Review,
+           @ReviewerID_Old			= ReviewerID,
+           @Subject_Old				= Subject,
+		   @FirstResponseTime_Old	= FirstResponseTime,
+           @ResolutionDate_Old		= ResolutionDate,
+           @Passport_Old			= Passport,
+           @Birthday_Old			= Birthday,
+           @BettingCode_Old			= RefCode1,
+           @RefCode2_Old			= RefCode2,
+           @IsVip_Old				= IsVip,
+           @LicenseeType_Old		= LicenseeType,
+           @NoInquiries_Old			= Inquiries,
+		   @Rating_Old				= Rating
     FROM bodb_CRM.dbo.crmFeedback WITH (NOLOCK)
     WHERE FeedbackID = @FeedbackID
 
@@ -671,32 +675,33 @@ BEGIN
 
     -- crmFeedback
     UPDATE bodb_CRM.dbo.crmFeedback WITH (ROWLOCK, UPDLOCK)
-    SET TitleID        = @TitleID,
-        FirstName      = @FirstName,
-        LastName       = @LastName,
-        LanguageID     = @LanguageID,
-        CountryID      = @CountryID,
-        FeedbackDate   = @FeedbackDate,
-        SolveDate      = @SolveDate,
-        SiteID         = @SiteID,
-        RoleID         = @RoleID,
-        ResponseID     = @ResponseID,
-        StatusID       = @StatusID,
-        Description    = @Description,
-        Solution       = @Solution,
-        IsReviewed     = @IsReviewed,
-        Review         = @Review,
-        ReviewerID     = @ReviewerID,
-        Subject        = @Subject,
-        ResolutionDate = @ResolutionDate,
-        Passport       = @Passport,
-        Birthday       = @Birthday,
-        RefCode1       = @BettingCode,
-        RefCode2       = @RefCode2,
-        IsVip          = @IsVip_crmFeedback,
-        LicenseeType   = @LicenseeType,
-        Inquiries      = @NoInquiries,
-		Rating		   = @Rating
+    SET TitleID				= @TitleID,
+        FirstName			= @FirstName,
+        LastName			= @LastName,
+        LanguageID			= @LanguageID,
+        CountryID			= @CountryID,
+        FeedbackDate		= @FeedbackDate,
+        SolveDate			= @SolveDate,
+        SiteID				= @SiteID,
+        RoleID				= @RoleID,
+        ResponseID			= @ResponseID,
+        StatusID			= @StatusID,
+        Description			= @Description,
+        Solution			= @Solution,
+        IsReviewed			= @IsReviewed,
+        Review				= @Review,
+        ReviewerID			= @ReviewerID,
+        Subject				= @Subject,
+		FirstResponseTime	= @FirstResponseTime,
+        ResolutionDate		= @ResolutionDate,
+        Passport			= @Passport,
+        Birthday			= @Birthday,
+        RefCode1			= @BettingCode,
+        RefCode2			= @RefCode2,
+        IsVip				= @IsVip_crmFeedback,
+        LicenseeType		= @LicenseeType,
+        Inquiries			= @NoInquiries,
+		Rating				= @Rating
     WHERE FeedbackID = @FeedbackID
           AND CustID = @CustID
 
@@ -800,6 +805,7 @@ BEGIN
                          '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review_Old),'')          + '</Review>'                +
                          '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID_Old),'')       + '</Reviewer>'              +
                          '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject_Old),'')         + '</Subject>'               +
+						 '<FirstResponseTime>'     + ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime_Old),'')+ '</FirstResponseTime>'     +
                          '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate_Old),'')   + '</ResolutionDate>'        +
                          '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport_Old),'')        + '</Passport>'              +
                          '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday_Old,107),'')     + '</Birthday>'              +
@@ -866,6 +872,7 @@ BEGIN
                          '<Review>'                + ISNULL(dbo.f_EncodeXMLValue(@Review),'')              + '</Review>'                +
                          '<Reviewer>'              + ISNULL(CONVERT(VARCHAR(10),@ReviewerID),'')           + '</Reviewer>'              +
                          '<Subject>'               + ISNULL(dbo.f_EncodeXMLValue(@Subject),'')             + '</Subject>'               +
+						 '<FirstResponseTime>'     + ISNULL(CONVERT(VARCHAR(20),@FirstResponseTime),'')	   + '</FirstResponseTime>'     +
                          '<ResolutionDate>'        + ISNULL(CONVERT(VARCHAR(20),@ResolutionDate),'')       + '</ResolutionDate>'        +
                          '<Passport>'              + ISNULL(dbo.f_EncodeXMLValue(@Passport),'')            + '</Passport>'              +
                          '<Birthday>'              + ISNULL(CONVERT(VARCHAR(20),@Birthday,107),'')         + '</Birthday>'              +

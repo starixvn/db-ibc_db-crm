@@ -30,6 +30,7 @@ AS
 		- 20210604@Johnson: Prevent CSD create new feedback mistakenly If the licensee is terminated [redmine:#154840]
         - 20240509@Ned.Le: CRM - Can NOT searching for guest account with username is Thai language on Leftpanel and show related customer of an archive account is NOT being resused is Unauthorized Access on Feedback (HotFix #210353)
 		- 20250224@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		- 20250319@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
 	Param's Explanation:
 		
@@ -91,6 +92,7 @@ BEGIN
 		,	fb.CreatorID
 		,	c.username AS CreatorName
 		,	fb.FeedbackDate
+		,	fb.FirstResponseTime
 		,	fb.ResolutionDate
 		,	fb.CreateDate
 		,	fb.SolveDate

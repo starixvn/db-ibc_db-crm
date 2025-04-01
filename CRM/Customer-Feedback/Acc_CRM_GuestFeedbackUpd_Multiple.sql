@@ -17,6 +17,8 @@ ALTER PROCEDURE	[dbo].[Acc_CRM_GuestFeedbackUpd_Multiple] (
 				,	@UpdateReviewedMode			TINYINT			= 0
 				,	@FeedbackDate				DATETIME		= NULL
 				,	@IsUpdateFeedbackDate		BIT				= 0
+				,	@FirstResponseTime			DATETIME		= NULL
+				,	@IsUpdateFirstResponseTime	BIT				= 0
 				,	@ResolutionDate				DATETIME		= NULL
 				,	@IsUpdateResolutionDate		BIT				= 0
 				,	@CommunicationID			VARCHAR(MAX)	= NULL
@@ -70,6 +72,7 @@ AS
 		- 20190813@Winnie: Update multiple enhancement RedmineID: #99434
 		- 20190923@Winnie: CRM - Include no. of Inquiries in Feedbacks RedmineID: #120596
 		- 20250226@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		- 20250320@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
 	Param's Explanation:
 		
@@ -119,6 +122,8 @@ END;
 			,	@IsUpdateSubject		= @IsUpdateSubject
 			,	@FeedbackDate			= @FeedbackDate
 			,	@IsUpdateFeedbackDate	= @IsUpdateFeedbackDate
+			,	@FirstResponseTime		= @FirstResponseTime
+			,	@IsUpdateFirstResponseTime = @IsUpdateFirstResponseTime
 			,	@ResolutionDate			= @ResolutionDate
 			,	@IsUpdateResolutionDate	= @IsUpdateResolutionDate
 			,	@SiteID					= @SiteID

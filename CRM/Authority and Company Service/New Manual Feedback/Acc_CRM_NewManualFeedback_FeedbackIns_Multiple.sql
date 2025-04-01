@@ -6,6 +6,7 @@ GO
 ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns_Multiple @ListCustID           VARCHAR(MAX)    = NULL,
                                                                    @RelatedCustomers     NVARCHAR(MAX)   = NULL,
                                                                    @FeedbackDate         DATETIME        = NULL,
+																   @FirstResponseTime	 DATETIME        = NULL,
                                                                    @ResolutionDate       DATETIME        = NULL,
                                                                    @StationID            VARCHAR(MAX),
                                                                    @IsCheckedDefaultComm BIT             = 0,
@@ -48,6 +49,7 @@ AS
         20240220@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
 		20250225@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250320@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
         
     Param's Explanation:
         @ListCustID       = '<ROOT>
@@ -562,6 +564,7 @@ BEGIN
                                                                     @IsVip                 = @input_IsVip,
                                                                     -->+FeedbackInfo
                                                                     @FeedbackDate          = @FeedbackDate,
+																	@FirstResponseTime	   = @FirstResponseTime,
                                                                     @ResolutionDate        = @ResolutionDate,
                                                                     @StatusID              = @StatusID,
                                                                     @LanguageID            = @LanguageID,

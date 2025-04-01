@@ -14,6 +14,7 @@ ALTER PROCEDURE dbo.Acc_CRM_NewManualFeedback_FeedbackIns_Guest --Guest Informat
                                                                 @NewCommunicationTools NVARCHAR(MAX) = NULL,
                                                                 --Feedback Information
                                                                 @FeedbackDate          DATETIME         = NULL,
+																@FirstResponseTime	   DATETIME			= NULL,
                                                                 @ResolutionDate        DATETIME         = NULL,
                                                                 @StationID             VARCHAR(MAX)     = NULL,
                                                                 @CommunicationID       VARCHAR(MAX),
@@ -56,6 +57,7 @@ AS
         20240516@Ned.Le: CRM - Allow to add new Communication tools while Adding Feedback and allow to overwrite communication tools on Account Details page (#205068)
 		20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		20250225@Virgil: CRM - Add Rating Column for Feedback [Redmine: #218235]
+		20250320@Virgil: CRM - Add 1st Reponse Time for Feedback [Redmine: #220801]
 
     Param's Explanation:
         @Category: <ROOT>
@@ -280,6 +282,7 @@ BEGIN
                                                             @IsVip                 = @IsVip,
                                                             -->+FeedbackInfo
                                                             @FeedbackDate          = @FeedbackDate,
+															@FirstResponseTime	   = @FirstResponseTime,
                                                             @ResolutionDate        = @ResolutionDate,
                                                             @StatusID              = @StatusID,
                                                             @LanguageID            = @LanguageID,

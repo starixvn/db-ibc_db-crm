@@ -14,6 +14,7 @@ AS
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 		20241204@Virgil: CRM - Add Remark and File attachment section (MNC) [Redmine: #214619]
+		20250305@Virgil: CRM - Add Reason column (MNC) [Redmine: #219040]
 	
 	Param's Explanation:
 		@NotiID: Notification.NotificationID
@@ -326,6 +327,7 @@ BEGIN
 		,n.Content_zhcn
 		,n.Remark
 		,n.Filename
+		,n.ReasonID
 	FROM dbo.Notification AS n WITH (NOLOCK)
 		INNER JOIN #tmpNotiExt AS ext ON n.NotificationID = ext.NotiID
 		INNER JOIN #tmpAffectedTicket AS nt ON n.NotificationID = nt.NotiID

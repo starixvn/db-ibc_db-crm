@@ -27,6 +27,7 @@ AS
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
+		20250305@Virgil: CRM - Add Reason column (MNC) [Redmine: #219040]
 	
 	Param's Explanation:
 		@FCreatedDate, @TCreatedDate: created date of notifications - Default Yesterday and Today
@@ -116,6 +117,7 @@ BEGIN
 		,Status VARCHAR(50)
 		,Sender VARCHAR(50)
 		,SendDateGMT8 VARCHAR(50)
+		,ReasonID INT
 	)
 	
 	CREATE TABLE #tmpValidSite (
@@ -570,6 +572,7 @@ BEGIN
 		,Status
 		,Sender
 		,SendDateGMT8
+		,ReasonID
 	)
 	SELECT DISTINCT n.NotificationID
 		,ext.MsgID AS MessageID
@@ -585,6 +588,7 @@ BEGIN
 		,s.ViewStatus AS Status
 		,ext.Sender
 		,FORMAT(DATEADD(HH, 12, ext.SendDate), 'MMM dd, yyyy hh:mm:ss tt') AS SendDate --GMT+8
+		,n.ReasonID
 	FROM #tmpNoti AS i
 		INNER JOIN #tmpNotiExt AS ext ON i.NotiID = ext.NotiID
 		INNER JOIN #tmpAffectedSite AS si ON i.NotiID = si.NotiID
@@ -622,6 +626,7 @@ BEGIN
 		,Status
 		,Sender
 		,SendDateGMT8 AS SendDate
+		,ReasonID
 	FROM #tmpResult
 	WHERE RNo BETWEEN @RStart AND @REnd
 	ORDER BY RNo

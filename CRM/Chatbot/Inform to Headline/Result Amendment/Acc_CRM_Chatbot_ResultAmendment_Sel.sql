@@ -20,6 +20,7 @@ AS
 		- 20210922@Malcolm: notify for Settled Ticket to Refund/Running and Missing Actual/Wrong Result [RedmineID: #161524]
         - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
+		- 20250418@Virgil: CRM - Integrate new product - Virtual Sports 7 [RedmineId: #219592]
 
 	Param's Explanation:
 		Type = 1: Result Amendment Template - Sportsbook	
@@ -196,10 +197,10 @@ BEGIN
 	UPDATE t
 		SET t.Type = CASE WHEN	t.EventType IN (2, 9) THEN 5
 						  WHEN  t.ProductId = 1  AND t.MessageId IS NULL THEN 1
-						  WHEN  t.ProductId IN (27, 88) AND t.MessageId IS NULL THEN 2
+						  WHEN  t.ProductId IN (27, 88, 106) AND t.MessageId IS NULL THEN 2
 						  WHEN  t.ProductId = 5  THEN 3
 						  WHEN  t.ProductId = 3  THEN 4
-						  WHEN t.ProductId IN (1, 27, 88) AND t.MessageId IS NOT NULL THEN 7
+						  WHEN t.ProductId IN (1, 27, 88, 106) AND t.MessageId IS NOT NULL THEN 7
 				     END
 	FROM #TicketEvent t
 

@@ -16,6 +16,7 @@ AS
 
 	Revisions:
 		20250305@Virgil: Initial SP [Redmine #219040]
+		20250403@Virgil: Hotfix - The Message Notifications Center for Result Amendment has been duplicated [Redmine #222859]
 	
 	Example:
 */
@@ -39,6 +40,27 @@ BEGIN
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
+	
+	-- Insert if NOT EXISTS
+	INSERT INTO LogAction (ActName)
+	SELECT o.[name]
+	FROM sys.objects AS o WITH (NOLOCK)
+	WHERE o.[is_ms_shipped] = 0 --created by user
+		AND o.[type] IN (
+			'P', -- stored procedures
+			'FN', -- scalar functions 
+			'IF', -- inline table-valued functions
+			'TF' -- table-valued functions
+		)
+		AND o.[name] NOT LIKE '_delete%'
+		AND o.[name] NOT LIKE '[_delete%'
+		AND o.[name] NOT LIKE '_DEL%'
+		AND o.[name] NOT LIKE 'DEL_%'
+		AND NOT EXISTS (
+			SELECT 1
+			FROM LogAction AS a
+			WHERE a.ActName = o.[name]
+		)
 	
 	SELECT @LogActionID = ActionID
 	FROM LogAction WITH (NOLOCK)
@@ -105,7 +127,6 @@ BEGIN
 		
 		UPDATE c
 		SET c.ReasonID = (CASE WHEN ISNULL(n.ReasonID,'') <> ISNULL(c.ReasonID,'') THEN ISNULL(n.ReasonID,'') ELSE c.ReasonID END)
-			,c.LastModifiedTime = GETDATE()
 		FROM Notification AS c WITH (ROWLOCK,UPDLOCK)
 			INNER JOIN #tmpNewNoti AS n ON c.NotificationID = n.NotiID
 		WHERE ISNULL(n.ReasonID,'') <> ISNULL(c.ReasonID,'')
@@ -124,13 +145,13 @@ BEGIN
 				)
 			INSERT INTO @LogSPData
 			SELECT CONVERT(NVARCHAR(MAX),(
-						SELECT 'ReasonID'						AS AffectedField,
+						SELECT 'ReasonID'					AS AffectedField,
 								ISNULL(NewReasonID, 0)		AS ReasonID
 						FROM CTE_Data
 						FOR JSON PATH, ROOT('MNC_Notification_AdmUpdNotiReason')
 					)) AS NewValue,
 					CONVERT(NVARCHAR(MAX),(
-						SELECT 'ReasonID'						AS AffectedField,
+						SELECT 'ReasonID'					AS AffectedField,
 								ISNULL(OldReasonID, 0)		AS ReasonID
 						FROM CTE_Data
 						FOR JSON PATH, ROOT('MNC_Notification_AdmUpdNotiReason')

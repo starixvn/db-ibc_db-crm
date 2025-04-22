@@ -28,6 +28,7 @@ AS
         - 20240102@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
         - 20240327@Ned.Le: CRM - Support Auto Feedback for voiding System Parlay tickets of Abnormal bet from TVS [RedmineId : #201913]
         - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
+		- 20250421@Virgil: CRM - Hotfix time out due to void multiple abnormal account [RedmineId : #224860]
 
     Param's Explanation:
         @Messages:
@@ -60,14 +61,14 @@ BEGIN
     -- Parse XML data to temp table
 
     -- #Messages
-    CREATE TABLE #tmpInput_Messages (VoidingHistoryCollectionId INT, MessageId INT, IssueTypeId INT, TransIdList VARCHAR(MAX), UsernameList NVARCHAR(MAX), FilterBy INT)
+    CREATE TABLE #tmpInput_Messages (VoidingHistoryCollectionId INT, MessageId INT, IssueTypeId INT, TransIdList VARCHAR(MAX), UsernameList VARCHAR(MAX), FilterBy INT)
 
     INSERT INTO #tmpInput_Messages (VoidingHistoryCollectionId, MessageId, IssueTypeId, TransIdList, UsernameList, FilterBy)
     SELECT t.c.value('@VoidingHistoryCollectionId', 'INT')           AS VoidingHistoryCollectionId,
            t.c.value('@MessageId',                  'INT')           AS MessageId,
            t.c.value('@IssueTypeId',                'INT')           AS IssueTypeId,
            t.c.value('@TransIdList',                'VARCHAR(MAX)')  AS TransIdList,
-           t.c.value('@UsernameList',               'NVARCHAR(MAX)') AS UsernameList,
+           t.c.value('@UsernameList',               'VARCHAR(MAX)') AS UsernameList,
            t.c.value('@FilterBy',                   'INT')           AS FilterBy
     FROM @Messages.nodes('root/r') AS t(c)
     OPTION (OPTIMIZE FOR (@Messages = NULL))
@@ -285,7 +286,7 @@ BEGIN
            CASE WHEN c.currency = 20 THEN 1 ELSE 0 END IsTest,
            cda.CustID                                  DirectAccount
     FROM #tmpInput_Messages ac
-         CROSS APPLY (SELECT value Username FROM STRING_SPLIT(ac.UsernameList, ',')) u
+         CROSS APPLY (SELECT CAST(value AS VARCHAR(30)) Username FROM STRING_SPLIT(ac.UsernameList, ',')) u
          INNER JOIN bodb02.dbo.Customer c WITH (NOLOCK) ON c.username = u.Username
          LEFT JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustID IN (c.custid, c.srecommend, c.mrecommend, c.recommend)
     WHERE ac.IssueTypeId IN (13)

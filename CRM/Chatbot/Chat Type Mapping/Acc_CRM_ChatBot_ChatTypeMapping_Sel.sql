@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_ChatBot_ChatTypeMapping_Sel]
 	@ChatTypeId				TINYINT = NULL
 	,@ConversationGroupName	NVARCHAR(1000) = ''
@@ -25,6 +25,7 @@ AS
 	 	- 20221028@Malcolm: Exclude groups is deleted [RedmineId: #179240]
 	 	- 20221222@Malcolm: Get Ignored notificationType list [RedmineId : #179118]
 	 	- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
+		- 20250429@Virgil: Hotfix Got loading when searching the headline [RedmineId: #225649]
 	 	
 	 Param's Explanation:
 		
@@ -146,11 +147,12 @@ BEGIN
 		IF NOT EXISTS (SELECT 1 FROM #HeadlineId)
 		BEGIN
 			DECLARE @HeadlineGroup TABLE (CustId INT PRIMARY KEY, GroupId SMALLINT)
+
 			INSERT INTO @HeadlineGroup (CustId, GroupId)
 			SELECT h.CustID, h.GroupID
 			FROM bodb02.dbo.CustGroupHeadline h WITH(NOLOCK)
 				INNER JOIN bodb02.dbo.Customer c WITH(NOLOCK) ON c.custid = h.CustID
-			WHERE c.username LIKE '%' + @Headline + '%'
+			WHERE c.username LIKE @Headline + '%'
 
 			IF NOT EXISTS (
 				SELECT 1

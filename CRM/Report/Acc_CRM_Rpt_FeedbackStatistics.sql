@@ -33,6 +33,7 @@ AS
         20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
         20240130@Ned.Le: Fix bug at dynamic query
         20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
+        20250318@Virgil: CRM - Rating for Feedback Statistics report [RedmineID: #219594]
 
     Param's Explanation:
         @Type = 1:  By Creator
@@ -45,6 +46,7 @@ AS
                 8:  By Category
                 9:  By Licensee
                 10: By Communication Tool
+				11: By Rating
         @UserRole = 0: Manager
                     1: CN88 staff
                     2: Company staff
@@ -570,6 +572,50 @@ BEGIN
                    OR sp.SitePermission = usp.SitePermission)
     END
 
+	-- @Type= 11 - By Rating
+	IF (@Type = 11 AND @UserRole = 2)
+    BEGIN
+        INSERT INTO #tmpFeedbackData (
+            FeedbackID,
+            MainCategoryID,
+            MainCategory,
+            SubCategoryID,
+            SubCategory,
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT DISTINCT fb.FeedbackID			FeedbackID, 
+                        fs.SettingID			MainCategoryID,
+                        m.SettingValue			MainCategory, 
+                        fs.SubSettingID			SubCategoryID,
+                        s.SettingValue			SubCategory,
+                        ISNULL(fb.Rating, 0)	ShowColumnID,
+                        CASE
+							WHEN fb.Rating = 5 THEN CONCAT(fb.Rating,' (Excellent)')
+							WHEN fb.Rating = 4 THEN CONCAT(fb.Rating,' (Good)')
+							WHEN fb.Rating = 3 THEN CONCAT(fb.Rating,' (Neutral)')
+							WHEN fb.Rating = 2 THEN CONCAT(fb.Rating,' (Poor)')
+							WHEN fb.Rating = 1 THEN CONCAT(fb.Rating,' (Very Poor)')
+						END AS ShowColumnName
+        FROM bodb_CRM.dbo.crmFeedback fb WITH (NOLOCK) 
+             INNER JOIN bodb_CRM.dbo.crmFeedbackSetting fs WITH (NOLOCK) ON fb.FeedbackID = fs.FeedbackID    
+             INNER JOIN bodb_CRM.dbo.crmSetting m WITH (NOLOCK) ON fs.SettingID = m.SettingID AND m.SettingName = 'MainCategory' AND m.siteOffer = 2
+             INNER JOIN bodb_CRM.dbo.crmSetting s WITH (NOLOCK) ON fs.SubSettingID = s.SettingID AND s.SettingName = 'SubCategory' AND s.siteOffer = 2
+             LEFT JOIN #tmpSite si ON fb.SiteID = si.SiteID
+             LEFT JOIN #tmpSitePermission sp ON si.SiteID = sp.SiteID
+             LEFT JOIN #tmpUserSitePermission usp ON sp.SitePermission = usp.SitePermission
+        WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+			  AND ISNULL(fb.Rating, 0) <> 0
+              AND fb.StatusID NOT IN (11001, 11004, 11019, 11016)
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) >= @fDuration
+              AND DATEDIFF(s,FeedbackDate, ResolutionDate) <= @tDuration
+              AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+              AND @LicenseeType <> -1
+              AND (si.IsLicensee IS NULL
+                   OR si.IsLicensee = CASE WHEN @LicenseeType = 0 THEN si.IsLicensee WHEN @LicenseeType = 1 THEN 0 ELSE 1 END)
+              AND ((sp.SitePermission IS NULL AND ISNULL(si.IsLicensee, 1) = 1)
+                   OR sp.SitePermission = usp.SitePermission)
+    END
 
     --------------
     -- Return data
@@ -592,6 +638,18 @@ BEGIN
         GROUP BY ShowColumnID, ShowColumnName
         ORDER BY ShowColumnID
     END
+	ELSE IF (@type = 11)
+    BEGIN
+        INSERT INTO #tmpShowColumnName (
+            ShowColumnID,
+            ShowColumnName
+        )
+        SELECT ShowColumnID,
+               ShowColumnName
+        FROM #tmpFeedbackData
+        GROUP BY ShowColumnID, ShowColumnName
+        ORDER BY ShowColumnID DESC
+    END
     ELSE
     BEGIN
         INSERT INTO #tmpShowColumnName (
@@ -605,9 +663,10 @@ BEGIN
         ORDER BY CASE WHEN ShowColumnName IN ('N/A', 'N/A.') THEN 'ZZZ' ELSE ShowColumnName END
     END           
 
-    DECLARE @cols NVARCHAR(MAX)
-    SELECT  @cols = COALESCE(@cols + ',[' + ShowColumnName + ']','[' + ShowColumnName + ']')
-    FROM #tmpShowColumnName
+    DECLARE @cols NVARCHAR(MAX);
+
+	SELECT @cols = COALESCE(@cols + ',[' + ShowColumnName + ']','[' + ShowColumnName + ']')
+	FROM #tmpShowColumnName
 
     DECLARE @sql  NVARCHAR(MAX)
     SELECT  @sql =

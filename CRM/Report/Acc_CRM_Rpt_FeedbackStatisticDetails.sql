@@ -3,17 +3,21 @@
 USE bodb_CRM
 GO
 
-ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticDetails @Type           INT,
-                                                         @MainCategoryID INT,
-                                                         @SubCategoryID  INT,
-                                                         @ValueID        INT,
-                                                         @FromDate       DATETIME,
-                                                         @ToDate         DATETIME,
-                                                         @FromDuration   VARCHAR(100),
-                                                         @ToDuration     VARCHAR(100),
-                                                         @UserRole       TINYINT       = 2,
-                                                         @LicenseeType   INT           = 0,
-                                                         @SitePermission NVARCHAR(MAX) = NULL
+ALTER PROCEDURE dbo.Acc_CRM_Rpt_FeedbackStatisticDetails 
+	@Type				INT,
+	@MainCategoryID		INT,
+	@SubCategoryID		INT,
+	@FromFeedbackDate	DATETIME	= NULL,
+	@ToFeedbackDate		DATETIME	= NULL,
+	@CreatorId			INT			= -1,
+	@ValueID			INT,
+	@FromDate			DATETIME,
+	@ToDate				DATETIME,
+	@FromDuration		VARCHAR(100),
+	@ToDuration			VARCHAR(100),
+	@UserRole			TINYINT       = 2,
+	@LicenseeType		INT           = 0,
+	@SitePermission		NVARCHAR(MAX) = NULL
 AS
 
 /*
@@ -33,6 +37,7 @@ AS
         - 20231128@Ned.Le: CRM - Security improvement - Separate accessible data for Credit Sites (#197343)
         - 20240131@Ned.Le: Turning performance
         - 20240829@Ned.Le: CRM - When clicking Latest Feedback not found the feedback Due to permission limitations for account P5S (#210055)
+		- 20250318@Virgil: CRM - Rating for Feedback Statistics report [RedmineID: #219594]
 
 	Param's Explanation:
 		@Type:	- 1		Creator
@@ -45,6 +50,9 @@ AS
 				- 8		Category
 				- 9		Licensee
 				- 10	Communication
+				- 11	Rating
+				- 12	Date and Rating
+				- 13	Creator and Rating
         @UserRole = 0: Manager 
                     1: CN88 staff
                     2: Company staff
@@ -76,6 +84,7 @@ BEGIN
 					StatusID				INT, 
 					ReviewerName			NVARCHAR(50),	
 					Subject					NVARCHAR(200),
+					Rating					TINYINT
 					PRIMARY KEY(FeedbackID)					
 	)
 	CREATE TABLE #tempRelated 
@@ -125,7 +134,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 			)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 
@@ -139,7 +149,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
@@ -174,7 +185,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 			)	
 				SELECT DISTINCT			
 					fb.FeedbackID, 
@@ -188,7 +200,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 						crmFeedback fb WITH(NOLOCK)	
 						INNER JOIN crmFeedbackCustomer fbc WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
@@ -222,7 +235,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 			)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 
@@ -236,7 +250,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM					
 						crmFeedback fb WITH(NOLOCK)		
 						INNER JOIN crmFeedbackCustomer fbc WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
@@ -273,7 +288,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT DISTINCT			
 					fb.FeedbackID, 
@@ -287,7 +303,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM					
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -322,7 +339,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 
@@ -336,7 +354,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
@@ -371,7 +390,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 				
@@ -385,7 +405,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -420,7 +441,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 
@@ -434,7 +456,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -467,7 +490,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 
@@ -481,7 +505,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -517,7 +542,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	
 					DISTINCT		
@@ -532,7 +558,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
@@ -565,7 +592,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	
 					DISTINCT		
@@ -580,7 +608,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID
@@ -614,7 +643,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 			
 					DISTINCT
@@ -629,7 +659,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -667,7 +698,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 		
 					DISTINCT	
@@ -682,7 +714,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -716,7 +749,8 @@ BEGIN
 					SolveDate,	
 					StatusID,
 					ReviewerName,	
-					Subject		
+					Subject,
+					Rating
 				)	
 				SELECT 	DISTINCT		
 					fb.FeedbackID, 
@@ -730,7 +764,8 @@ BEGIN
 					fb.SolveDate,
 					fb.StatusID, 				
 					rv.username AS ReviewerName,
-					fb.Subject
+					fb.Subject,
+					fb.Rating
 				FROM	
 					crmFeedbackCustomer fbc WITH(NOLOCK)
 						INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID						
@@ -748,7 +783,117 @@ BEGIN
 					AND
 					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration		
 					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
+	END
+	ELSE IF @Type IN (11,13)    --- Rating & Creator and Rating
+	BEGIN
+			INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject,
+					Rating
+				)	
+				SELECT 	DISTINCT		
+					fb.FeedbackID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
+					c.username AS CreatorName,
+					fb.FeedbackDate,
+					fb.ResolutionDate,
+					fb.CreateDate,
+					fb.SolveDate,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
+					fb.Subject,
+					fb.Rating
+				FROM					
+						crmFeedback fb WITH(NOLOCK)		
+						INNER JOIN crmFeedbackCustomer fbc WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
+						INNER JOIN crmCustomer ctm WITH(NOLOCK) ON  fb.CustID=ctm.CustID								
+						INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+						LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID					
+				WHERE					
+					fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+					AND
+					ISNULL(fb.Rating, 0) <> 0
+					AND
+					(@ValueID=-1 OR ISNULL(fb.Rating,0) = @ValueID)
+					AND
+					(@CreatorId=-1 OR fb.CreatorID = @CreatorId)
+					AND 
+					fbc.IsRelated = 0
+					AND 
+					statusID NOT IN( 11004,11019)
+					AND 
+					DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+					AND
+					DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+					AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
+
 	END; 
+	IF @Type = 12	--- By Date and Rating
+	BEGIN
+			INSERT INTO #tempFeedback (
+					FeedbackID,	
+					UserName,	
+					FirstName,
+					LastName,
+					Creator,					
+					FeedbackDate,			
+					ResolutionDate,			
+					CreateDate,				
+					SolveDate,	
+					StatusID,
+					ReviewerName,	
+					Subject,
+					Rating
+			)	
+			SELECT 	DISTINCT		
+					fb.FeedbackID, 
+					ctm.Username AS Username,
+					fb.FirstName,
+					fb.LastName,
+					c.username AS CreatorName,
+					fb.FeedbackDate,
+					fb.ResolutionDate,
+					fb.CreateDate,
+					fb.SolveDate,
+					fb.StatusID, 				
+					rv.username AS ReviewerName,
+					fb.Subject,
+					fb.Rating
+			FROM
+				crmFeedbackCustomer fbc WITH(NOLOCK)
+					INNER JOIN crmFeedback fb WITH(NOLOCK) ON fb.FeedbackID = fbc.FeedbackID	
+					INNER JOIN crmCustomer ctm WITH(NOLOCK) ON ctm.CustID = fb.CustID
+					INNER JOIN bodb02.dbo.custinfo c WITH(NOLOCK) ON fb.CreatorID = c.custID
+					LEFT JOIN bodb02.dbo.custinfo rv WITH(NOLOCK) ON fb.ReviewerID = rv.custID
+			WHERE fb.FeedbackDate BETWEEN @FromDate AND @ToDate
+				AND 
+				((@FromFeedbackDate IS NULL AND @ToFeedbackDate IS NULL) OR fb.FeedbackDate BETWEEN @FromFeedbackDate AND @ToFeedbackDate)
+				AND
+				ISNULL(fb.Rating, 0) <> 0
+				AND
+				(@ValueID=-1 OR ISNULL(fb.Rating,0) = @ValueID)
+				AND		
+				fbc.IsRelated = 0	
+				AND 
+				statusID NOT IN( 11004,11019)
+				AND 
+				DATEDIFF(s,FeedbackDate,ResolutionDate) >= @fDuration
+				AND
+				DATEDIFF(s,FeedbackDate,ResolutionDate) <= @tDuration
+				AND ((@UserRole=1 AND ctm.siteID=33002) OR (@UserRole=2 AND ctm.siteID<>33002))
+	END;
 
 
     ------------------------------
@@ -849,26 +994,23 @@ BEGIN
 	
 	IF (@MainCategoryID<>0)
 	BEGIN
-		INSERT INTO #tempRelated 
-			(
-				FeedbackID
-			)		
+		INSERT INTO #tempRelated (FeedbackID)		
 		SELECT DISTINCT t.FeedbackID
 		FROM #tempFeedback t 
-			INNER JOIN crmFeedbackCustomer fc WITH(NOLOCK)  ON t.FeedbackID=fc.FeedbackID
+			INNER JOIN crmFeedbackCustomer fc WITH(NOLOCK) ON t.FeedbackID=fc.FeedbackID
 		WHERE fc.IsRelated = 1
 		
 		UPDATE #tempRelated
 			SET RelatedCustomer=(SELECT list FROM dbo.f_GetRelatedCustomer(FeedbackID))		
 		
-		SELECT DISTINCT t.*,r.RelatedCustomer
+		SELECT DISTINCT t.*, r.RelatedCustomer
 		FROM #tempFeedback t		
 		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID
 		LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 	
 		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
 		ORDER BY t.FeedbackDate	DESC
 						
-		SELECT t.FeedbackID,fs.SettingID AS MainCategory, fs.SubSettingID AS SubCategory
+		SELECT t.FeedbackID, fs.SettingID AS MainCategory, fs.SubSettingID AS SubCategory
 		FROM #tempFeedback t		
 		INNER JOIN crmFeedbackSetting fs ON t.FeedbackID=fs.FeedbackID	 	
 		WHERE fs.SettingID=@MainCategoryID AND (@SubCategoryID=0 OR fs.SubSettingID=@SubCategoryID)
@@ -880,11 +1022,13 @@ BEGIN
 		
         -- Dataset 01
         CREATE TABLE #tmpcrmFeedbackCustomer (FeedbackID INT, CustID INT)
+
         INSERT INTO  #tmpcrmFeedbackCustomer (FeedbackID, CustID)
         SELECT FeedbackID, CustID
         FROM bodb_CRM.dbo.crmFeedbackCustomer WITH (NOLOCK)
         WHERE FeedbackID IN (SELECT FeedbackID FROM #tempFeedback)
               AND IsRelated = 1
+
         CREATE CLUSTERED INDEX CIX_FeedbackID ON #tmpcrmFeedbackCustomer(FeedbackID)
 
         INSERT INTO #tempRelated (FeedbackID, RelatedCustomer)
@@ -894,7 +1038,7 @@ BEGIN
 		     LEFT JOIN DBLIC.bodb_CRM.dbo.crmcustomer d WITH(NOLOCK) ON fc.CustID = d.CustID
         GROUP BY FeedbackID
 		
-		SELECT DISTINCT t.*,r.RelatedCustomer
+		SELECT DISTINCT t.*, r.RelatedCustomer
 		FROM #tempFeedback t 		
 			 LEFT JOIN #tempRelated r ON t.FeedbackID=r.FeedbackID 		
 		ORDER BY t.FeedbackDate	DESC
@@ -903,10 +1047,12 @@ BEGIN
 
         -- Dataset 02
         CREATE TABLE #tmpcrmFeedbackSetting (FeedbackID INT, SettingID INT, SubSettingID INT)
+
         INSERT INTO  #tmpcrmFeedbackSetting (FeedbackID, SettingID, SubSettingID)
         SELECT FeedbackID, SettingID, SubSettingID
         FROM bodb_CRM.dbo.crmFeedbackSetting WITH (NOLOCK)
         WHERE FeedbackID IN (SELECT FeedbackID FROM #tempFeedback)
+
         CREATE CLUSTERED INDEX CIX_FeedbackID ON #tmpcrmFeedbackSetting(FeedbackID)
 
 		SELECT t.FeedbackID,fm.SettingID AS MainCategory,fm.SubSettingID AS SubCategory
@@ -917,5 +1063,8 @@ BEGIN
         DROP TABLE #tmpcrmFeedbackSetting
 		
 	END
+
+	DROP TABLE #tempRelated;
+	DROP TABLE #tempFeedback;
 END
 GO

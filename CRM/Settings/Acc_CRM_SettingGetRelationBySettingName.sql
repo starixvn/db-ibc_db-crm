@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap,wsv_alp" viewers="" isFunction="0"></info>*/
 
 USE bodb_CRM
 GO
@@ -25,6 +25,7 @@ Revisions:
 	- 20190506@Winnie: CN88 Permission RedmineID: #112637
 	- 20201030@Johnson: add filter IsActive [redmine: #142194]
     - 20231107@Ned.Le: CRM - Category/sub-category/admin tool (Setting Management) can show by Alphabet (#193380)
+	- 20250414@Virgil: CRM - Manage SMA Feedback in effective way [Redmine: #220766]
 
 Param's Explanation:
 	- @Active = 1: get active

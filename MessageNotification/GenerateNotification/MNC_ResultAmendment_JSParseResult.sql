@@ -14,6 +14,7 @@ AS
 	Revisions:
 		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+		- 20250429@Dave: MNC - for Result Amendment of Tennis, Table Tennis, Badminton & Volleyball [RedmineID: #218014]
 
 	
 	Param's Explanation:
@@ -500,7 +501,7 @@ BEGIN TRY
 		
 		--update: Resource{sport_name}
 		UPDATE ref
-		SET RefId1=REPLACE(RefId1,'{sport_name}', s.SportName)
+		SET RefId1=REPLACE(RefId1,'{sport_name}', s.SuffixRefID)
 		FROM #tmpJSParseRemotingRef ref
 		INNER JOIN dbo.SettlementResultHist i ON i.SettlementLogID=ref.SettlementLogID
 		CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(i.SportType) s

@@ -15,6 +15,7 @@ AS
 		- 20241101@Tacy: MNC - Apply new table NotiTemplateMapping [Redmine: #213498]		
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
+		- 20250429@Dave: MNC - for Result Amendment of Tennis, Table Tennis, Badminton & Volleyball [RedmineID: #218014]
 
 	Explanation:
 		@Environment
@@ -1079,7 +1080,7 @@ BEGIN
 				AND ISNULL(atl.RefBettypeID, wrg.RefBettypeID) IS NOT NULL
 				AND ISNULL(rhA.SportType, rhW.SportType) IS NOT NULL
 				AND rf.GroupName = 'RefResource'
-				AND rf.RefId1 = 'Resource' + s.SportName --Resource{sport_name}
+				AND rf.RefId1 = 'Resource' + s.SuffixRefID --Resource{sport_name}
 			
 			CREATE CLUSTERED INDEX CIX_tmpAffectedResult ON #tmpAffectedResult (NotiTempID, ResourceID)
 			
@@ -1111,7 +1112,7 @@ BEGIN
 				,ResultName_zhcn = REPLACE(ResultName_zhcn,'@O',rf.RefValueZHCN)
 			FROM #tmpAffectedResult t
 				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel (t.Sporttype) s
-				INNER JOIN #tmpRemotingRef rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SportName) AND rf.RefId2=t.O
+				INNER JOIN #tmpRemotingRef rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SuffixRefID) AND rf.RefId2=t.O
 			WHERE ISNULL(CHARINDEX('@O',ResultName_en),0) > 0
 				OR ISNULL(CHARINDEX('@O',ResultName_ch),0) > 0
 				OR ISNULL(CHARINDEX('@O',ResultName_cs),0) > 0
@@ -1137,7 +1138,7 @@ BEGIN
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_G_Inns AS inn ON af.NotiTempID = inn.NotiTempID AND af.ResourceID = inn.ResourceID
 				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel (af.Sporttype) s
-				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SportName) AND rf.RefId2 = inn.rG
+				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SuffixRefID) AND rf.RefId2 = inn.rG
 			
 			;WITH CTE_M_Inns AS (
 				SELECT DISTINCT af.NotiTempID
@@ -1158,7 +1159,7 @@ BEGIN
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_M_Inns AS inn ON af.NotiTempID = inn.NotiTempID AND af.ResourceID = inn.ResourceID
 				CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel (af.Sporttype) s
-				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SportName) AND rf.RefId2 = inn.rM
+				LEFT JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'RefResource' AND rf.RefId1 = ('Resource' + s.SuffixRefID) AND rf.RefId2 = inn.rM
 			
 			----step #2 - 2.2 Replace G / M for GameSession NOT IN (1,8) - match 1 inning only
 			UPDATE #tmpAffectedResult

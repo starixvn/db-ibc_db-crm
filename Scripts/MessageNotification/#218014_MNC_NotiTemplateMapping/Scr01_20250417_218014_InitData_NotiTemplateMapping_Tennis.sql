@@ -1,7 +1,7 @@
 /*<info serverAlias="DBCRM-MessageNotification"></info>*/
 /*
 	Created: 20250417@Dave
-	Task: Init data - [NotiTemplateMapping] [Redmine: #218014]
+	Task: Init data - [NotiTemplateMapping] [Redmine: #218014] up SIT
 	DB: DBCRM.MessageNotification
 */
 

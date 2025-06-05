@@ -24,6 +24,7 @@ AS
         20240318@Ned.Le: Fix bug relate to table crmSettingMapping
         20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240827@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook (#209707)
+		20250603@Dave: Change Communication Tool default Skype -> Telegram (For Licensee Model) [RedmineId : #229468]
 
     Param's Explanation:
         @Message:
@@ -759,7 +760,7 @@ BEGIN
         SELECT TOP 1 SettingID
         FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
         WHERE SettingName = 'Communication'
-              AND SettingValue = 'Skype'
+              AND SettingValue = 'Telegram'
               AND SiteOffer = 2
     )
     UPDATE h

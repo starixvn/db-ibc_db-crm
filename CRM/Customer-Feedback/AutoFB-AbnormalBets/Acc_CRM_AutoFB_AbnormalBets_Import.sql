@@ -27,6 +27,7 @@ AS
         - 20240823@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook [RedmineId : #209707]
         - 20240825@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
         - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
+		- 20250603@Dave: Change Communication Tool default Skype -> Telegram (Abnormal Bet, AB Real Member, Abnormal Account - All Licensee Feedback) [RedmineId : #229468]
 		
 	Param's Explanation:
 		. @Message = 
@@ -424,8 +425,8 @@ BEGIN
 		,IsDeposit				 BIT
 		,Email_CommunicationName NVARCHAR(MAX)
 		,Email_Communicationid	 VARCHAR(MAX)
-		,Skype_CommunicationName NVARCHAR(MAX)
-		,Skype_Communicationid   VARCHAR(MAX)
+		,DFAb_CommunicationName NVARCHAR(MAX)
+		,DFAb_Communicationid   VARCHAR(MAX)
 	)
 
 	INSERT INTO #Headline (HeadlineId, HeadlineName, IsDeposit)
@@ -444,16 +445,16 @@ BEGIN
 	/*
 		For Credit : Default Communication of Headline Group / Direct Account Headline Group / Direct Account without default communication shall be set to "N/A"
 		For Deposit: 
-			+ Skype -- Abnormal Bets, Ab real member, Abnormal Accounts
+			+ Telegram -- Abnormal Bets, Ab real member, Abnormal Accounts
 			+ Email -- Duplicated Tickets
 	*/
-	DECLARE @Skype_CommunicationId INT, @Email_CommunicationId INT
+	DECLARE @DFAb_CommunicationId INT, @Email_CommunicationId INT
 
 	SELECT
-		@Skype_CommunicationId	= CASE WHEN SettingValue = 'Skype' THEN SettingID ELSE @Skype_CommunicationId END
+		@DFAb_CommunicationId	= CASE WHEN SettingValue = 'Telegram' THEN SettingID ELSE @DFAb_CommunicationId END
 		,@Email_CommunicationId = CASE WHEN SettingValue = 'Email' THEN SettingID ELSE @Email_CommunicationId END
     FROM bodb_CRM.dbo.crmSetting WITH (NOLOCK)
-    WHERE SettingName = 'Communication' AND SiteOffer = 2 AND SettingValue IN ('Skype', 'Email')
+    WHERE SettingName = 'Communication' AND SiteOffer = 2 AND SettingValue IN ('Telegram', 'Email')
 
 	;WITH CTE_Setting AS (
 		SELECT 
@@ -503,8 +504,8 @@ BEGIN
 
 	-- For Deposit
 	UPDATE #Headline
-		SET Skype_Communicationid		= CONVERT(VARCHAR(MAX), @Skype_CommunicationId)
-			,Skype_CommunicationName	= 'Skype'
+		SET DFAb_CommunicationId		= CONVERT(VARCHAR(MAX), @DFAb_CommunicationId)
+			,DFAb_CommunicationName	= 'Telegram'
 			,Email_Communicationid		= CONVERT(VARCHAR(MAX), @Email_CommunicationId)
 			,Email_CommunicationName	= 'Email'
 	WHERE IsDeposit = 1
@@ -1381,14 +1382,14 @@ BEGIN
 				SELECT 
 					N'Date Time & Tool: ' + FORMAT(DATEADD(HOUR, 12, @Getdate), 'yyyyMMdd/hh:mmtt') + '/' 
 					+ CASE WHEN r.IsDeposit = 1 AND r.IssueTypeId = 20 THEN h.Email_CommunicationName
-						   WHEN r.IsDeposit = 1 AND r.IssueTypeId IN (11, 15, 13) THEN h.Skype_CommunicationName
+						   WHEN r.IsDeposit = 1 AND r.IssueTypeId IN (11, 15, 13) THEN h.DFAb_CommunicationName
 					  ELSE ISNULL(h.CommunicationNames, '') END 
 					+ CHAR(13) + CHAR(10)
 					+ N'System ID: ' + ISNULL(r.RelatedUsernames, '')
 			) AS n(AutoField)
 			OUTER APPLY (
 				SELECT CASE WHEN r.IsDeposit = 1 AND r.IssueTypeId = 20 THEN h.Email_Communicationid
-							WHEN r.IsDeposit = 1 AND r.IssueTypeId IN (11, 15, 13) THEN h.Skype_Communicationid
+							WHEN r.IsDeposit = 1 AND r.IssueTypeId IN (11, 15, 13) THEN h.DFAb_Communicationid
 					   ELSE h.CommunicationIds END AS CommunicationIds
 			) AS ci
 

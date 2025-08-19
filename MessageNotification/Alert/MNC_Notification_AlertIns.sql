@@ -251,7 +251,7 @@ BEGIN
 			,rh.MatchID
 			,st.Status
 		FROM SettlementResultHist AS rh WITH (NOLOCK)
-			CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(rh.SportType) s
+			CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(rh.SportType,@Environment) s
 			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON rh.StatusID = st.StatusID
 		WHERE rh.LastModifiedTime > @FromTime
 			AND rh.LastModifiedTime <= @CurrTime
@@ -313,7 +313,7 @@ BEGIN
 		DELETE n
 		FROM #tmpMsgNoti AS n
 			LEFT JOIN SettlementResultHist AS rh WITH (NOLOCK) ON n.SettlementLogID = rh.SettlementLogID
-			OUTER APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(rh.SportType,0)) s
+			OUTER APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(rh.SportType,0), @Environment) s
 		WHERE rh.SportType IS NULL OR s.SportType IS NULL
 
 		----filter by Environment/IncludeTestMatch

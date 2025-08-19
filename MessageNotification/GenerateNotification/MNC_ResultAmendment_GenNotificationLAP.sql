@@ -13,6 +13,7 @@ AS
 		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		- 20241101@Tacy: MNC - Apply new table NotiTemplateMapping [Redmine: #213498]
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+		- 20250829@Dave: MNC - Auto Result Amendment for Fast Market [RedmineID: #230646]
 	
 	Explanation:
 		@Environment
@@ -67,6 +68,7 @@ BEGIN
 		,@Refund_cs NVARCHAR(20) = N'退款'
 		,@PRODIncludeTest BIT = 0
 		,@IsTestFlag BIT
+		,@NumOfCharsContent INT = 1500;
 	
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
 	FROM SystemSetting WITH (NOLOCK)
@@ -147,6 +149,7 @@ BEGIN
 		,IsTest BIT
 		,MatchID INT
 		,KOTime DATETIME
+		,SportType INT
 		,SportNameEN NVARCHAR(500)
 		,SportNameCH NVARCHAR(500)
 		,SportNameCS NVARCHAR(500)
@@ -168,14 +171,19 @@ BEGIN
 		Msg_NotiID INT
 		,SettlementLogID INT
 		,ResourceID VARCHAR(50)
-		,ReCalc DATETIME
-		,Calc DATETIME
+		,ReCalc DATETIME2(0) /*content not include milli/second */
+		,Calc DATETIME2(0)
+		,Pos SMALLINT
+		,PosName NVARCHAR(50)
 	)
 	
 	CREATE TABLE #tmpAffectedResult (
 		Msg_NotiID INT
 		,ResourceID VARCHAR(50)
 		,ResourceOrder INT
+		,Pos SMALLINT
+		,PosName NVARCHAR(50)
+		,ActionTypeOnPos TINYINT
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
 		,ResultName_cs NVARCHAR(4000)
@@ -208,6 +216,9 @@ BEGIN
 		,ResultName_en NVARCHAR(4000)
 		,ResultName_ch NVARCHAR(4000)
 		,ResultName_cs NVARCHAR(4000)
+		,ResultName_en_ext NVARCHAR(MAX)
+		,ResultName_ch_ext NVARCHAR(MAX)
+		,ResultName_cs_ext NVARCHAR(MAX)
 	)
 	
 	CREATE TABLE #tmpInsertedNoti (
@@ -244,6 +255,15 @@ BEGIN
 		,SportType INT
 		,TemplateID SMALLINT
 	)
+
+	CREATE TABLE #tmpRefResource (
+		RefId1 VARCHAR(50)
+		,RefId2 VARCHAR(50)
+		,RefValueEN NVARCHAR(128)
+		,RefValueCH NVARCHAR(128)
+		,RefValueCS NVARCHAR(128)
+		,RefValueZHCN NVARCHAR(128)
+	)
 	
 	--write log for LogMode = Debug
 	INSERT INTO UserLog (
@@ -258,18 +278,49 @@ BEGIN
 		#1 - Start to Parse inputed JSON
 	*/
 	BEGIN TRY
+
+		INSERT INTO #tmpRefResource (
+			RefId1
+			,RefId2
+			,RefValueEN
+			,RefValueCH
+			,RefValueCS
+			,RefValueZHCN
+		)
+		SELECT DISTINCT 
+			RefId1
+			,RefId2
+			,RefValueEN
+			,RefValueCH
+			,RefValueCS
+			,RefValueZHCN
+		FROM OPENJSON(@JSRemotingRef) WITH (
+				RefId1 VARCHAR(50) '$.RefId1'
+				,RefId2 VARCHAR(50) '$.RefId2'
+				,RefValueEN NVARCHAR(128) '$.RefValueEN'
+				,RefValueCH NVARCHAR(128) '$.RefValueCH'
+				,RefValueCS NVARCHAR(128) '$.RefValueCS'
+				,RefValueZHCN NVARCHAR(128) '$.RefValueZHCN'
+				,GroupName VARCHAR(50) '$.GroupName'
+			)--OPENJSON case-sensitive
+		WHERE ISJSON(@JSRemotingRef) = 1
+			AND GroupName = 'RefResource';
+
+
 		INSERT INTO #tmpInputNoti (
 			Msg_NotiID
 			,SportType
 		)
 		SELECT DISTINCT TRY_CONVERT(INT,i.value) AS Msg_NotiID
-			,SportType
+			,CAST(RefId2 AS INT) AS SportType
 		FROM OPENJSON(@JSRemotingRef) WITH (
 				NotificationIDs VARCHAR(MAX) '$.NotificationIDs'
-				,SportType SMALLINT '$.RefId2'
+				,RefId2 VARCHAR(50) '$.RefId2'
+				,GroupName VARCHAR(50) '$.GroupName'
 			)--OPENJSON case-sensitive
 			CROSS APPLY STRING_SPLIT(NotificationIDs, ',') AS i
 		WHERE ISJSON(@JSRemotingRef) = 1
+			AND GroupName = 'EventInfo';
 		/*
 			***************************************************<<<!IMPORTANT HARDCODE>>>***************************************************
 			TemplateID for Cricket
@@ -277,7 +328,7 @@ BEGIN
 		UPDATE i
 		SET i.TemplateID = tm.TemplateID --currently, only have 1 message TemplateID for LAP Cricket
 		FROM #tmpInputNoti AS i
-		INNER JOIN NotiTemplateMapping tm WITH (NOLOCK) ON tm.SportType=i.SportType AND tm.NotificationType = 2
+		CROSS APPLY dbo.f_NotiTemplateMapping_Sel(i.SportType, 2, NULL, @Environment) AS tm;
 
 		--DELETE invalid NotificationID
 		DELETE i
@@ -306,28 +357,44 @@ BEGIN
 			,ResourceID
 			,ReCalc
 			,Calc
+			,Pos
+			,PosName
 		)
-		SELECT DISTINCT c.Msg_NotiID
-			,c.SettlementLogID
-			,NULLIF(TRIM(rh.ex.value('@Id', 'VARCHAR(50)')), '') AS ResourceID
-			,rh.ex.value('@ReCalc', 'DATETIME') AS ReCalc
-			,rh.ex.value('@Calc', 'DATETIME') AS Calc
+		SELECT
+			c.Msg_NotiID,
+			c.SettlementLogID,
+			NULLIF(LTRIM(RTRIM(x.ResourceID)), '') AS ResourceID,
+			TRY_CAST(x.ReCalc AS DATETIME2(0)) AS ReCalc,
+			TRY_CAST(x.Calc AS DATETIME2(0))   AS Calc,
+			ISNULL(x.Pos, -1)                   AS Pos,
+			x.PosName
 		FROM CTE_Ext AS c
-			CROSS APPLY c.ExtraInfoXML.nodes('root/r') rh(ex)
-		WHERE NULLIF(TRIM(rh.ex.value('@Id', 'VARCHAR(50)')), '') IS NOT NULL
+		CROSS APPLY c.ExtraInfoXML.nodes('root/r') rh(ex)
+		CROSS APPLY (SELECT
+			rh.ex.value('@Id',       'VARCHAR(50)')     AS ResourceID,
+			rh.ex.value('@ReCalc',   'VARCHAR(30)')     AS ReCalc,
+			rh.ex.value('@Calc',     'VARCHAR(30)')     AS Calc,
+			rh.ex.value('@Pos',      'SMALLINT')        AS Pos,
+			rh.ex.value('@PosName',  'NVARCHAR(50)')    AS PosName
+		) x
+		WHERE NULLIF(LTRIM(RTRIM(x.ResourceID)), '') IS NOT NULL;
 
 		CREATE CLUSTERED INDEX CIX_tmpExtraInfo ON #tmpExtraInfo (Msg_NotiID, SettlementLogID)
 		
 		;WITH CTE_LAP AS (
 			SELECT DISTINCT ex.Msg_NotiID
 			FROM NotificationTarget AS ntc WITH (NOLOCK)
-				INNER JOIN #tmpExtraInfo AS ex ON ntc.NotificationID = ex.Msg_NotiID
+				CROSS APPLY (
+					SELECT TOP 1 ex.Msg_NotiID
+					FROM #tmpExtraInfo AS ex
+					WHERE ntc.NotificationID = ex.Msg_NotiID
+				) AS ex
 				INNER JOIN bodb02.dbo.Site AS s WITH (NOLOCK) ON ntc.TargetSite = s.site AND s.isDeposit = 1 --deposit user
-				OUTER APPLY OPENJSON(ntc.ExtraInfo) WITH (
+				/*OUTER APPLY OPENJSON(ntc.ExtraInfo) WITH (
 					TransID BIGINT '$.TransID'
 				) AS t--OPENJSON case-sensitive
 			WHERE t.TransID IS NOT NULL
-				AND ISJSON(ntc.ExtraInfo) = 1
+				AND ISJSON(ntc.ExtraInfo) = 1*/
 		)
 		INSERT INTO #tmpNoti (
 			Msg_NotiID
@@ -379,6 +446,8 @@ BEGIN
 			,LeagueNameEN
 			,LeagueNameCS
 			,LeagueNameCH
+
+			,SportType
 		)
 		SELECT DISTINCT n.Msg_NotiID
 			,m.MatchID
@@ -404,6 +473,8 @@ BEGIN
 			,m.LeagueNameEN
 			,m.LeagueNameCS
 			,m.LeagueNameCH
+
+			,m.SportType
 		FROM #tmpNoti AS n
 			INNER JOIN NotificationExtra AS ex WITH (NOLOCK) ON n.Msg_NotiID = ex.NotificationID
 			OUTER APPLY OPENJSON(ex.ExtraInfo) WITH (
@@ -425,6 +496,7 @@ BEGIN
 					,IsTest BIT '$.IsTest'
 					,MatchID INT '$.MatchID'
 					,KOTime DATETIME '$.KOTime'
+					,SportType INT '$.SportType'
 				) AS m--OPENJSON case-sensitive
 		WHERE ISJSON(ex.ExtraInfo) = 1
 		
@@ -601,6 +673,8 @@ BEGIN
 				Msg_NotiID
 				,ResourceID
 				,ResourceOrder
+				,Pos
+				,ActionTypeOnPos
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
@@ -614,6 +688,8 @@ BEGIN
 			SELECT DISTINCT ex.Msg_NotiID
 				,af.ResourceID
 				,af.ResourceOrder
+				,ISNULL(af.Pos,-1) AS Pos
+				,ISNULL(af.ActionTypeOnPos, 0) AS ActionTypeOnPos
 				,af.ResultName_en
 				,af.ResultName_ch
 				,af.ResultName_cs
@@ -631,6 +707,8 @@ BEGIN
 				OUTER APPLY OPENJSON(ext.AffectedResult) WITH (
 						ResourceID VARCHAR(50) '$.ResourceID'
 						,ResourceOrder VARCHAR(50) '$.ResourceOrder'
+						,Pos SMALLINT '$.Pos'
+						,ActionTypeOnPos TINYINT '$.ActionTypeOnPos'
 						,ResultName_en NVARCHAR(4000) '$.ResultName_en'
 						,ResultName_ch NVARCHAR(4000) '$.ResultName_ch'
 						,ResultName_cs NVARCHAR(4000) '$.ResultName_cs'
@@ -643,7 +721,100 @@ BEGIN
 					) AS af--OPENJSON case-sensitive
 			WHERE ISJSON(ne.ExtraInfo) = 1
 				AND ISJSON(ext.AffectedResult) = 1
-			
+				AND ISNULL(af.Pos, -1) = ex.Pos;
+
+			IF EXISTS (SELECT TOP(1) 1 FROM #tmpAffectedResult WHERE ResourceID IN ('221','222','223','224','225','226','227'))
+			BEGIN
+
+				WITH Tally AS (
+					SELECT n FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7)) AS v(n)
+				),
+				RefId2List AS (
+					SELECT 
+						ar.Msg_NotiID,
+						ar.ResourceID,
+						ar.Pos,
+						STRING_AGG(CONVERT(NVARCHAR(MAX), rr.RefValueEN), ', ') AS RefValueEN,
+						STRING_AGG(CONVERT(NVARCHAR(MAX), rr.RefValueCH), ', ') AS RefValueCH,
+						STRING_AGG(CONVERT(NVARCHAR(MAX), rr.RefValueCS), ', ') AS RefValueCS
+					FROM #tmpAffectedResult ar
+						INNER JOIN Tally t 
+							ON (TRY_CAST(ar.ActualValue_en AS INT) & POWER(2, t.n)) <> 0
+						INNER JOIN #tmpRefResource rr 
+							ON rr.RefId1 = 'ResultSettlement'
+							AND rr.RefId2 = 'b' + CAST(t.n AS VARCHAR(10))
+					WHERE ar.ActionTypeOnPos IN (1, 3)
+						AND ar.ResourceID IN ('221','222','223','224','226','227')
+					GROUP BY ar.Msg_NotiID, ar.ResourceID, ar.Pos
+
+					UNION ALL
+					SELECT 
+						ar.Msg_NotiID,
+						ar.ResourceID,
+						ar.Pos,
+						rr.RefValueEN,
+						rr.RefValueCH,
+						rr.RefValueCS
+					FROM #tmpAffectedResult ar
+						INNER JOIN #tmpRefResource rr 
+							ON rr.RefId1 = 'ResultSettlement'
+							AND rr.RefId2 = CASE ar.ActualValue_en WHEN '1' THEN 'N' WHEN '44' THEN 'Y' END
+					WHERE ar.ActionTypeOnPos IN (1, 3)
+						AND ar.ResourceID IN ('225')
+				)
+				UPDATE ar
+				SET ar.ActualValue_en = r.RefValueEN
+					,ar.ActualValue_ch = r.RefValueCH
+					,ar.ActualValue_cs = r.RefValueCS
+				FROM #tmpAffectedResult ar
+					INNER JOIN RefId2List r ON ar.Msg_NotiID = r.Msg_NotiID AND ar.ResourceID = r.ResourceID AND ar.Pos = r.Pos;
+
+
+				WITH Tally AS (
+					SELECT n FROM (VALUES (0),(1),(2),(3),(4),(5),(6),(7)) AS v(n)
+				),
+				RefId2List AS (
+					SELECT 
+						ar.Msg_NotiID,
+						ar.ResourceID,
+						ar.Pos,
+						STRING_AGG(CONVERT(NVARCHAR(MAX), rr.RefValueEN), ', ') AS RefValueEN,
+						STRING_AGG(CONVERT(NVARCHAR(MAX), rr.RefValueCH), ', ') AS RefValueCH,
+						STRING_AGG(CONVERT(NVARCHAR(MAX), rr.RefValueCS), ', ') AS RefValueCS
+					FROM #tmpAffectedResult ar
+						INNER JOIN Tally t 
+							ON (TRY_CAST(ar.WrongValue_en AS INT) & POWER(2, t.n)) <> 0
+						INNER JOIN #tmpRefResource rr 
+							ON rr.RefId1 = 'ResultSettlement'
+							AND rr.RefId2 = 'b' + CAST(t.n AS VARCHAR(10))
+					WHERE ar.ActionTypeOnPos IN (1, 2)
+						AND ar.ResourceID IN ('221','222','223','224','226','227')
+					GROUP BY ar.Msg_NotiID, ar.ResourceID, ar.Pos
+
+					UNION ALL
+					SELECT 
+						ar.Msg_NotiID,
+						ar.ResourceID,
+						ar.Pos,
+						rr.RefValueEN,
+						rr.RefValueCH,
+						rr.RefValueCS
+					FROM #tmpAffectedResult ar
+						INNER JOIN #tmpRefResource rr 
+							ON rr.RefId1 = 'ResultSettlement'
+							AND rr.RefId2 = CASE ar.WrongValue_en WHEN '1' THEN 'N' WHEN '44' THEN 'Y' END
+					WHERE ar.ActionTypeOnPos IN (1, 2)
+						AND ar.ResourceID IN ('225')
+				)
+				UPDATE ar
+				SET ar.WrongValue_en = r.RefValueEN
+					,ar.WrongValue_ch = r.RefValueCH
+					,ar.WrongValue_cs = r.RefValueCS
+				FROM #tmpAffectedResult ar
+					INNER JOIN RefId2List r ON ar.Msg_NotiID = r.Msg_NotiID AND ar.ResourceID = r.ResourceID AND ar.Pos = r.Pos;
+
+			END
+
 			/*
 				build final data for [Settlement Log]
 				**LogDateTime = FORMAT(GETDATE(),'MMM dd, yyyy hh:mm:ss tt')
@@ -665,18 +836,19 @@ BEGIN
 			;WITH CTE_Calc_Raw AS (
 				SELECT DISTINCT ex.Msg_NotiID
 					,ex.Calc
-					,r.ResultName_en + '; ' + r.WrongValue_en AS ResultName_en
-					,r.ResultName_ch + '; ' + r.WrongValue_ch AS ResultName_ch
-					,r.ResultName_cs + '; ' + r.WrongValue_cs AS ResultName_cs
+					,r.ResultName_en + '; ' + CASE WHEN ex.PosName IS NOT NULL THEN ex.PosName + ': ' ELSE '' END + r.WrongValue_en AS ResultName_en
+					,r.ResultName_ch + '; ' + CASE WHEN ex.PosName IS NOT NULL THEN ex.PosName + ': ' ELSE '' END + r.WrongValue_ch AS ResultName_ch
+					,r.ResultName_cs + '; ' + CASE WHEN ex.PosName IS NOT NULL THEN ex.PosName + ': ' ELSE '' END + r.WrongValue_cs AS ResultName_cs
 					,r.ResourceOrder
+					,r.Pos
 				FROM #tmpExtraInfo AS ex
-					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
+					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID AND (ex.Pos = r.Pos OR r.Pos = -1)
 			)
 			,CTE_Calc AS (
 				SELECT Msg_NotiID
 					,Calc AS LogDateTime
 					,'Calculation' AS LogType
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResourceOrder, ResultName_en) AS ResultName_en
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResourceOrder, Pos, ResultName_en) AS ResultName_en
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
 				FROM CTE_Calc_Raw
@@ -690,32 +862,98 @@ BEGIN
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
+				,ResultName_en_ext
+				,ResultName_ch_ext
+				,ResultName_cs_ext
 			)
 			SELECT Msg_NotiID
 				,LogType
 				,LogDateTime
+				,LEFT(ResultName_en,@NumOfCharsContent)
+				,LEFT(ResultName_ch,@NumOfCharsContent)
+				,LEFT(ResultName_cs,@NumOfCharsContent)
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
-			FROM CTE_Calc
+			FROM CTE_Calc;
+
+			/*
+				If total char length > @NumOfCharsContent, need to trim each line
+				50 = reserve for other char in 1 line, e.g. Calculation Time: Sep 11, 2025 03:09:00 AM [] <br/>
+			*/
 			
+			IF EXISTS (
+				SELECT TOP(1) 1
+				FROM #tmpSettlLog
+				GROUP BY Msg_NotiID
+				HAVING SUM(LEN(ResultName_en) + 50) > @NumOfCharsContent
+					OR SUM(LEN(ResultName_ch) + 50) > @NumOfCharsContent
+					OR SUM(LEN(ResultName_cs) + 50) > @NumOfCharsContent
+			)
+			BEGIN
+
+				WITH TMP AS(
+					SELECT tmp_pm.Msg_NotiID, 
+							3900 - LEN(tmp_n.Content_en) - SUM(LEN(tmp_pm.Content_en) - LEN(tmp_pm.RequiredParam)) ln_en
+					FROM #tmpTemplateDetl AS tmp_pm
+						INNER JOIN #tmpNoti AS tmp_n ON tmp_pm.Msg_NotiID = tmp_n.Msg_NotiID
+					WHERE tmp_pm.Content_en IS NOT NULL
+					GROUP BY tmp_pm.Msg_NotiID, LEN(tmp_n.Content_en)
+				)
+				SELECT @NumOfCharsContent = ISNULL(MIN(ln_en)/2, @NumOfCharsContent) FROM TMP WHERE @NumOfCharsContent > ln_en/2;
+
+				WITH t AS (
+					SELECT 
+						Msg_NotiID,
+						LEN(ResultName_en) + 50 AS len_en,
+						LEN(ResultName_cs) + 50 AS len_cs,
+						LEN(ResultName_ch) + 50 AS len_ch,
+						@NumOfCharsContent / COUNT(1) OVER (PARTITION BY Msg_NotiID) - 50 AS num
+					FROM #tmpSettlLog
+				),
+				tmp_upd AS (
+					SELECT 
+						Msg_NotiID,
+						num,
+						c_lef   = SUM(CASE WHEN len_en < num THEN num - len_en ELSE 0 END),
+						c_count = SUM(CASE WHEN len_en > num THEN 1 ELSE 0 END)
+					FROM t
+					GROUP BY Msg_NotiID, num
+					HAVING SUM(len_en) > @NumOfCharsContent
+						OR SUM(len_cs) > @NumOfCharsContent
+						OR SUM(len_ch) > @NumOfCharsContent
+				)
+				UPDATE s
+				SET ResultName_en = LEFT(ResultName_en, num + c_lef / c_count)
+					,ResultName_ch = LEFT(ResultName_ch, num + c_lef / c_count)
+					,ResultName_cs = LEFT(ResultName_cs, num + c_lef / c_count)
+				FROM #tmpSettlLog s
+					INNER JOIN tmp_upd u ON s.Msg_NotiID = u.Msg_NotiID
+				WHERE LEN(s.ResultName_en) + 50 > u.num
+					OR LEN(s.ResultName_cs) + 50 > u.num
+					OR LEN(s.ResultName_ch) + 50 > u.num
+				;
+			END
+
 			----------------------------------
 			;WITH CTE_ReCalc_Raw AS (
 				SELECT DISTINCT ex.Msg_NotiID
 					,ex.ReCalc
-					,ex.Calc
-					,r.ResultName_en + '; ' + ActualValue_en AS ResultName_en
-					,r.ResultName_ch + '; ' + ActualValue_ch AS ResultName_ch
-					,r.ResultName_cs + '; ' + ActualValue_cs AS ResultName_cs
+					,CASE WHEN ex.PosName IS NULL THEN ex.Calc ELSE NULL END Calc /*For FM-TM, Calc will not be used to order ReCalc result*/
+					,r.ResultName_en + '; ' + CASE WHEN ex.PosName IS NOT NULL THEN ex.PosName + ': ' ELSE '' END +  ActualValue_en AS ResultName_en
+					,r.ResultName_ch + '; ' + CASE WHEN ex.PosName IS NOT NULL THEN ex.PosName + ': ' ELSE '' END +  ActualValue_ch AS ResultName_ch
+					,r.ResultName_cs + '; ' + CASE WHEN ex.PosName IS NOT NULL THEN ex.PosName + ': ' ELSE '' END +  ActualValue_cs AS ResultName_cs
 					,r.ResourceOrder
+					,r.Pos
 				FROM #tmpExtraInfo AS ex
-					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID
+					LEFT JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID AND (ex.Pos = r.Pos OR r.Pos = -1)
+				WHERE (r.ActionTypeOnPos <> 2 OR r.ActionTypeOnPos IS NULL) /*For FM-TM, NOT include [CAL to Refund]*/
 			)
 			,CTE_ReCalc AS (
 				SELECT Msg_NotiID
 					,ReCalc AS LogDateTime
 					,'ReCalculation' AS LogType
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResourceOrder, Calc, ResultName_en) AS ResultName_en --order recal result by calc time
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_en),' | ') WITHIN GROUP (ORDER BY ResourceOrder, Calc, Pos, ResultName_en) AS ResultName_en --order recal result by calc time
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_ch),' | ') AS ResultName_ch
 					,STRING_AGG(CONVERT(NVARCHAR(MAX),ResultName_cs),' | ') AS ResultName_cs
 				FROM CTE_ReCalc_Raw
@@ -729,15 +967,47 @@ BEGIN
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
+				,ResultName_en_ext
+				,ResultName_ch_ext
+				,ResultName_cs_ext
 			)
 			SELECT Msg_NotiID
+				,LogType
+				,LogDateTime
+				,LEFT(ResultName_en,@NumOfCharsContent)
+				,LEFT(ResultName_ch,@NumOfCharsContent)
+				,LEFT(ResultName_cs,@NumOfCharsContent)
+				,ResultName_en
+				,ResultName_ch
+				,ResultName_cs
+			FROM CTE_ReCalc;
+			
+			----------------------------------ReCalculation Refund for FM-TM
+			INSERT INTO #tmpSettlLog (
+				Msg_NotiID
 				,LogType
 				,LogDateTime
 				,ResultName_en
 				,ResultName_ch
 				,ResultName_cs
-			FROM CTE_ReCalc
-			
+				,ResultName_en_ext
+				,ResultName_ch_ext
+				,ResultName_cs_ext
+			)
+			SELECT DISTINCT ex.Msg_NotiID
+				,'ReCalculation' AS LogType
+				,ex.ReCalc AS LogDateTime
+				,r.ActualValue_en AS ResultName_en
+				,r.ActualValue_ch AS ResultName_ch
+				,r.ActualValue_cs AS ResultName_cs
+				,r.ActualValue_en AS ResultName_en_ext
+				,r.ActualValue_ch AS ResultName_ch_ext
+				,r.ActualValue_cs AS ResultName_cs_ext
+			FROM #tmpExtraInfo AS ex
+				INNER JOIN #tmpAffectedResult AS r ON ex.Msg_NotiID = r.Msg_NotiID AND ex.ResourceID = r.ResourceID AND ex.Pos = r.Pos
+			WHERE r.ActionTypeOnPos = 2;
+
+
 			/*
 				Convert LogDateTime to String
 				月	—>	Month
@@ -1032,9 +1302,9 @@ BEGIN
 						,t.LogDateTime_en
 						,t.LogDateTime_ch
 						,t.LogDateTime_cs
-						,t.ResultName_en
-						,t.ResultName_ch
-						,t.ResultName_cs
+						,t.ResultName_en_ext AS ResultName_en
+						,t.ResultName_ch_ext AS ResultName_ch
+						,t.ResultName_cs_ext AS ResultName_cs
 					FROM #tmpSettlLog AS t
 					WHERE t.Msg_NotiID = s.Msg_NotiID
 					ORDER BY t.LogType
@@ -1064,6 +1334,7 @@ BEGIN
 					,m.NeutralEN
 					,m.NeutralCH
 					,m.NeutralCS
+					,m.SportType
 					,m.SportNameEN
 					,m.SportNameCH
 					,m.SportNameCS
@@ -1327,4 +1598,5 @@ BEGIN
 	DROP TABLE #tmpInputNoti
 	DROP TABLE #tmpFailedNoti
 	DROP TABLE #tmpEventInfo
+	DROP TABLE #tmpRefResource
 END

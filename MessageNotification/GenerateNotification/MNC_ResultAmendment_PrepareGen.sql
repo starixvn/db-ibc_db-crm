@@ -10,6 +10,7 @@ AS
 		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		- 20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+		- 20250616@Dave: MNC - Auto Result Amendment for Fast Market [RedmineID: #230646]
 	Explanation:
 		@Environment
 			If IncludeTestMatch = ON
@@ -162,7 +163,7 @@ BEGIN
 	INSERT INTO #tmpPrepareRH ( SettlementLogID )
 	SELECT DISTINCT sh.SettlementLogID
 	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
-	CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(sh.SportType) s
+	CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(sh.SportType, @Environment) s
 	WHERE sh.StatusID = @StsRetrieved --Captured
 		AND (
 			@IsTestFlag IS NULL
@@ -195,6 +196,7 @@ BEGIN
 		EXEC MessageNotification.dbo.MNC_ResultAmendment_JSParseResult
 			@SettlementLogIDs = @SettlIDs
 			,@ParseTo = 'RemotingRef'
+			,@Environment = @Environment
 			,@OutJSResource = @JSResource OUTPUT
 		
 		INSERT INTO #tmpRemotingRef (

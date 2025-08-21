@@ -15,6 +15,8 @@ CREATE PROCEDURE [dbo].[Acc_CRM_ManageSMAFeedback] (
 	--- paging ---
 	,	@PageIndex				INT				= 1
 	,	@ItemsPerPage			INT				= 100
+	,	@ListRate				VARCHAR(50)		= NULL
+	,	@IsGetAllFBs			BIT				= 0
 	,	@TotalRows				INT				= 0 OUTPUT
 )
 AS
@@ -25,6 +27,7 @@ AS
 
 	Revisions:
 		20250310@Virgil: Initial SP [Redmine #196012]
+		20250807@Dave: CRM - Manage SMA Feedback in effective way - Add Rating [Redmine #235385]
 
     Param's Explanation:
         - @UserRole = 0: Manager 
@@ -35,6 +38,18 @@ AS
                            1: Credit
                            2: Licensee
         - @SitePermission: Value depend on user's permission and maybe NULL
+		- @IsGetAllFBs: 1 - Display all feedback:
+								regardless of whether the comment is blank. 
+								And no need to check for duplicate entries.
+		- @ListRate: Comma separated list of rating values to filter feedback (e.g. '1,2,3,4,5').
+				NULL = All ratings (no filter by rate).
+				Values:
+					0 = N/A
+					1 = Very Poor
+					2 = Poor
+					3 = Neutral
+					4 = Good
+					5 = Excellent
 */
 
 BEGIN		
@@ -55,7 +70,8 @@ BEGIN
 		[CreatedDate]		SMALLDATETIME,
 		[ReviewStatusID]	VARCHAR(50),
 		[Discussion]		NVARCHAR(4000),
-		[RowNum]			SMALLINT
+		[RowNum]			SMALLINT,
+		[Rate]				TINYINT
 	);
 
     -- #listSitePermission
@@ -97,8 +113,8 @@ BEGIN
 		WHERE	UserName LIKE @UserName + '%'
 			AND	CustID > 0;		
 		
-		INSERT INTO #Feedback([CustID], [UserName], [Level], [Site], [currency], [Comment], [FuncID], [FuncName], [CreatedDate], [ReviewStatusID], [Discussion], [RowNum])
-		SELECT	DISTINCT 
+		INSERT INTO #Feedback([CustID], [UserName], [Level], [Site], [currency], [Comment], [FuncID], [FuncName], [CreatedDate], [ReviewStatusID], [Discussion], [Rate], [RowNum])
+		SELECT 
 				ci.custid	AS [CustID],
 				ci.username AS [UserName],
 				CASE
@@ -118,17 +134,22 @@ BEGIN
 				fb.createddate		AS [CreatedDate],
 				fb.ReviewStatusID	AS [ReviewStatusID],
 				fb.Discussion		AS [Discussion],
-				ROW_NUMBER() OVER (PARTITION BY fb.comment, ci.username, fb.FuncID ORDER BY fb.createddate DESC) AS RowNum
+				fb.Rate				AS [Rate],
+				CASE WHEN @IsGetAllFBs = 0
+					THEN ROW_NUMBER() OVER (PARTITION BY fb.comment, ci.username, fb.FuncID ORDER BY fb.createddate DESC)
+					ELSE 1
+				END AS RowNum
 		FROM CustFeedback fb WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.Customer ci with (Nolock) ON ci.CustID = fb.CustID
 			LEFT JOIN Age_FeedbackFunc fc with (Nolock) on fb.FuncID = fc.FuncID
             INNER JOIN #listSitePermission si ON ci.site = si.SiteName
 		WHERE fb.CustID IN (SELECT CustID FROM #tmpCustList)
-			AND fb.Comment <> ''
+			AND (@IsGetAllFBs = 1 OR LEN(TRIM(fb.Comment)) > 0)
 			AND (fb.FuncID NOT IN (12) OR fb.FuncID IS NULL)
 			AND	fb.CreatedDate BETWEEN @FromDate AND @ToDate
 			AND (@ListReviewStatusIDs IS NULL OR fb.ReviewStatusID IN (SELECT value FROM STRING_SPLIT(@ListReviewStatusIDs,',')))
 		    AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+			AND (@ListRate IS NULL OR fb.Rate IN (SELECT CAST(value AS TINYINT) FROM STRING_SPLIT(@ListRate,',')))
 		ORDER BY fb.CreatedDate DESC;
 		
 		DROP TABLE #tmpCustList;
@@ -137,8 +158,8 @@ BEGIN
 	ELSE  
 	BEGIN	
 
-		INSERT INTO #Feedback([CustID], [UserName], [Level], [Site], [currency], [Comment], [FuncID], [FuncName], [CreatedDate], [ReviewStatusID], [Discussion], [RowNum])
-		SELECT DISTINCT 
+		INSERT INTO #Feedback([CustID], [UserName], [Level], [Site], [currency], [Comment], [FuncID], [FuncName], [CreatedDate], [ReviewStatusID], [Discussion], [Rate], [RowNum])
+		SELECT 
 				ci.custid	AS [CustId],
 				ci.username AS [UserName],
 				CASE
@@ -158,16 +179,21 @@ BEGIN
 				fb.createddate		AS [CreatedDate],
 				fb.ReviewStatusID	AS [ReviewStatusID],
 				fb.Discussion		AS [Discussion],
-				ROW_NUMBER() OVER (PARTITION BY fb.comment, ci.username, fb.FuncID ORDER BY fb.createddate DESC) AS RowNum
+				fb.Rate				AS [Rate],
+				CASE WHEN @IsGetAllFBs = 0
+					THEN ROW_NUMBER() OVER (PARTITION BY fb.comment, ci.username, fb.FuncID ORDER BY fb.createddate DESC)
+					ELSE 1
+				END AS RowNum
 		FROM CustFeedback fb WITH (NOLOCK)
 			INNER JOIN bodb02.dbo.Customer ci with (Nolock) ON ci.CustID = fb.CustID
 			LEFT JOIN Age_FeedbackFunc fc with (Nolock) on fb.FuncID = fc.FuncID
             INNER JOIN #listSitePermission si ON ci.site = si.SiteName
 		WHERE fb.CreatedDate BETWEEN @FromDate AND @ToDate
-			AND fb.Comment <> ''
+			AND (@IsGetAllFBs = 1 OR LEN(TRIM(fb.Comment)) > 0)
 			AND (fb.FuncID NOT IN (12) OR fb.FuncID IS NULL)
 			AND (@ListReviewStatusIDs IS NULL OR fb.ReviewStatusID IN (SELECT value FROM STRING_SPLIT(@ListReviewStatusIDs,',')))
 			AND (si.SiteOffer = @UserRole OR si.SiteOffer IS NULL)
+			AND (@ListRate IS NULL OR fb.Rate IN (SELECT CAST(value AS TINYINT) FROM STRING_SPLIT(@ListRate,',')))
 
 	END;
 
@@ -181,7 +207,7 @@ BEGIN
 
 	END
 
-	SET @TotalRows = ISNULL((SELECT	COUNT(*) AS total FROM #Feedback WHERE RowNum = 1), 0);
+	SET @TotalRows = ISNULL((SELECT	COUNT(1) AS total FROM #Feedback WHERE RowNum = 1), 0);
 	
 	SELECT [CustID],
 			[UserName],
@@ -192,7 +218,16 @@ BEGIN
 			[FuncName],
 			[CreatedDate],
 			[ReviewStatusID],
-			ISNULL([Discussion],'') AS [Discussion]
+			ISNULL([Discussion],'') AS [Discussion],
+			[Rate],
+			CASE [Rate]
+				WHEN 0 THEN 'N/A'
+				WHEN 1 THEN 'Very Poor'
+				WHEN 2 THEN 'Poor'
+				WHEN 3 THEN 'Neutral'
+				WHEN 4 THEN 'Good'
+				WHEN 5 THEN 'Excellent'
+			END AS [RateInfo]
 	FROM #Feedback fb
 	WHERE RowNum = 1
 	ORDER BY fb.CreatedDate DESC

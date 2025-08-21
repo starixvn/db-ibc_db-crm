@@ -4,7 +4,7 @@ GO
 
 CREATE PROCEDURE [dbo].[Acc_CRM_SMAFeedbackInfoUpd] (
 	@CustID			INT,
-	@CreatedDate	DATETIME,
+	@CreatedDate	SMALLDATETIME,
 	@FunctionID		INT,
 	@Comment		NVARCHAR(4000),
 	@ReviewStatusID	INT,
@@ -21,6 +21,7 @@ AS
 
 	Revisions:
 		- 20250317@Virgil: Initial SP [Redmine #196012]
+		- 20250807@Dave: CRM - Manage SMA Feedback in effective way - Add Rating [Redmine #235385]
 
 	Param's Explanation:
 		- @FunctionID = NULL - Function Name: N/A
@@ -31,12 +32,16 @@ BEGIN
 	SELECT @ErrCode	= 0,
 			@ErrMsg = '';
 
-	SET @FunctionID = ISNULL(@FunctionID,'');
+	SET @FunctionID = ISNULL(@FunctionID,0);
+	DECLARE @StartOfDay SMALLDATETIME = DATEADD(DAY, DATEDIFF(DAY, 0, @CreatedDate), 0);
 
-	IF NOT EXISTS (SELECT 1 
+	IF NOT EXISTS (SELECT TOP(1) 1 
 					FROM CustFeedback WITH (NOLOCK) 
 					WHERE custid = @CustID 
-						AND ISNULL(FuncID,'') = @FunctionID
+						AND (
+							(FuncID = @FunctionID)
+							OR (FuncID IS NULL AND @FunctionID = 0)
+						)
 						AND CreatedDate = @CreatedDate)
 	BEGIN
 		SELECT	@ErrCode = 100 ,
@@ -45,24 +50,19 @@ BEGIN
 		RETURN;
 	END;
 
-	DECLARE	@ReviewStatusID_Old	VARCHAR(30),
-			@Discussion_Old		VARCHAR(4000);
-
-	SELECT	@ReviewStatusID_Old	= ReviewStatusID,
-			@Discussion_Old		= Discussion
-	FROM	CustFeedback WITH (NOLOCK)
-	WHERE	custid = @CustID 
-			AND ISNULL(FuncID,'') = @FunctionID
-			AND CreatedDate = @CreatedDate;
-
 	--- Update SMA Feedback
 	UPDATE CustFeedback WITH (ROWLOCK, UPDLOCK)
 	SET	ReviewStatusID = @ReviewStatusID,
 		Discussion = @Discussion
 	WHERE custid = @CustID 
-		 AND ISNULL(FuncID,'') = @FunctionID
-		 AND Comment = @Comment
-		 AND CreatedDate = @CreatedDate;
+		AND (
+			(FuncID = @FunctionID)
+			OR (FuncID IS NULL AND @FunctionID = 0)
+		)
+		AND CreatedDate >= @StartOfDay
+		AND CreatedDate <= @CreatedDate
+		AND Comment = @Comment
+		AND LEN(Comment) = LEN(@Comment);
 	
 	IF @@ERROR <> 0
 	BEGIN

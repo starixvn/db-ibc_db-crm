@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_lap" isFunction="0" isNested="0"></info>*/
+﻿/*<info serverAlias="DBCRM-MessageNotification" executers="wsv_lap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE Lrf_AdmNotificationSel
 	@FEventDate DATE
 	,@TEventDate DATE
@@ -14,6 +14,7 @@ AS
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		20240610@Luke: LAP - Enhance Result Amendment [Redmine: #199443]
+		20250925@Tacy: LAP - Result Amendment for Soccer [Redmine: #228007]
 	
 	Param's Explanation:
 		@FEventDate, @TEventDate: Date range to view list notification [Match.EventDate]
@@ -33,7 +34,7 @@ BEGIN
 	
 	DECLARE @TotalRows INT = 0
 	DECLARE @DocHandler INT
-
+	
 	CREATE TABLE #AgentIDs (AgentId INT)
 
  	EXEC sp_xml_preparedocument @DocHandler OUTPUT, @AgentList
@@ -67,11 +68,21 @@ BEGIN
 		,LAPNotiID INT
 		,EventDate4GMT DATE
 		,Title NVARCHAR(1000)
-		,Content_en NVARCHAR(4000)
-		,Content_cs NVARCHAR(4000)
+		,Content_en NVARCHAR(MAX)
+		,Content_cs NVARCHAR(MAX)
 		,InsertedTime DATETIME
+		,SportType INT
+		,ExtraInfo NVARCHAR(MAX)
 	)
 	
+	-- Table variable to store formatted settlement logs
+	DECLARE @SettlementLogs TABLE (
+		RNo INT,
+		NotificationId INT,
+		SettlementLogContent_en NVARCHAR(MAX),
+		SettlementLogContent_cs NVARCHAR(MAX)
+	)	
+
 	/*****************************************   APPLY filter criterias   *********************************************************/
 	
 	--Get LAP Notifications
@@ -82,6 +93,8 @@ BEGIN
 		,Content_en
 		,Content_cs
 		,InsertedTime
+		,SportType
+		,ExtraInfo
 	)
 	SELECT DISTINCT n.NotificationID
 		,ne.EventDate
@@ -89,6 +102,11 @@ BEGIN
 		,n.Content_en
 		,n.Content_cs
 		,n.InsertedTime
+		,ISNULL(
+			CAST(JSON_VALUE(ne.ExtraInfo, '$[0].SportType') AS SMALLINT), 
+			0
+		) AS SportType
+		,ne.ExtraInfo
 	FROM #NotiIDs AS nd
 		INNER JOIN dbo.Notification AS n WITH (NOLOCK) ON nd.NotificationId = n.NotificationID
 		INNER JOIN dbo.NotificationExtra AS ne WITH (NOLOCK) ON nd.NotificationId = ne.NotificationID
@@ -118,6 +136,77 @@ BEGIN
 	END
 	
 	----------return----------
+	IF EXISTS (SELECT TOP 1 1 FROM #tmpResult WHERE SportType=1)
+	BEGIN
+		-- Process settlement logs for soccer matches
+		INSERT INTO @SettlementLogs (RNo,NotificationId, SettlementLogContent_en, SettlementLogContent_cs)
+		SELECT 
+			r.RNo,
+			r.LAPNotiID,
+			(
+				SELECT STRING_AGG(
+					CASE LogType 
+						WHEN 'Calculation' THEN 'Calculation Time: ' + LogDateTime_en + 
+							CASE WHEN ResultName_en IS NOT NULL THEN ' [' + ResultName_en + ']' ELSE '' END
+						WHEN 'ReCalculation' THEN 'ReCalculation Time: ' + LogDateTime_en + 
+							CASE WHEN ResultName_en IS NOT NULL THEN ' [' + ResultName_en + ']' ELSE '' END
+					END,
+					'<br/>'
+				) 
+				FROM OPENJSON(JSON_QUERY(r.ExtraInfo, '$[0].SettlLog'))
+				WITH (
+					LogType NVARCHAR(50) '$.LogType',
+					LogDateTime_en NVARCHAR(100) '$.LogDateTime_en',
+					ResultName_en NVARCHAR(MAX) '$.ResultName_en'
+				)
+			) as SettlementLogContent_en,
+			(
+				SELECT STRING_AGG(
+					CASE LogType 
+						WHEN 'Calculation' THEN N'结算时间: ' + LogDateTime_cs + 
+							CASE WHEN ResultName_cs IS NOT NULL THEN ' [' + ResultName_cs + ']' ELSE '' END
+						WHEN 'ReCalculation' THEN N'重新结算时间: ' + LogDateTime_cs + 
+							CASE WHEN ResultName_cs IS NOT NULL THEN ' [' + ResultName_cs + ']' ELSE '' END
+					END,
+					'<br/>'
+				)
+				FROM OPENJSON(JSON_QUERY(r.ExtraInfo, '$[0].SettlLog'))
+				WITH (
+					LogType NVARCHAR(50) '$.LogType',
+					LogDateTime_cs NVARCHAR(100) '$.LogDateTime_cs',
+					ResultName_cs NVARCHAR(MAX) '$.ResultName_cs'
+				)
+			) as SettlementLogContent_cs
+		FROM #tmpResult r
+		WHERE r.SportType = 1 -- Soccer matches only
+			AND r.RNo BETWEEN @RStart AND @REnd;
+
+		--update Content:
+		UPDATE r
+		SET r.Content_en = REPLACE(
+							r.Content_en,
+							SUBSTRING(
+								r.Content_en,
+								CHARINDEX('<b>Settlement log:<br/>(System Time)</b><br/>', r.Content_en),
+								CHARINDEX('<br/><br/><b style="color:red">', r.Content_en) - 
+								CHARINDEX('<b>Settlement log:<br/>(System Time)</b><br/>', r.Content_en)
+							),
+							'<b>Settlement log:<br/>(System Time)</b><br/>' + sl.SettlementLogContent_en
+						),
+			r.Content_cs = REPLACE(
+							r.Content_cs,
+							SUBSTRING(
+								r.Content_cs,
+								CHARINDEX('<b>Settlement log:<br/>(System Time)</b><br/>', r.Content_cs),
+								CHARINDEX('<br/><br/><b style="color:red">', r.Content_cs) - 
+								CHARINDEX('<b>Settlement log:<br/>(System Time)</b><br/>', r.Content_cs)
+							),
+							'<b>Settlement log:<br/>(System Time)</b><br/>' + sl.SettlementLogContent_cs
+						)
+		FROM #tmpResult r
+		INNER JOIN @SettlementLogs sl ON sl.RNo=r.RNo
+		WHERE r.SportType=1
+	END
 
 	IF @LanguageCode = 'en'
 	BEGIN

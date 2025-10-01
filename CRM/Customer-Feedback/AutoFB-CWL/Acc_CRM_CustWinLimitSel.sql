@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCUST-CustDB" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_CRM_CustWinLimitSel] 
 	@BatchSize 	INT = 10,			
@@ -19,6 +19,7 @@ AS
 		- 20201014@Johnson: Initial sp [redmine:#142194]
 		- 20201126@Johnson: add param @Environment [redmine:#145274]
         - 20230829@Ned.Le: CRM - don't include Company Max Payout rules per ticket (Exclude ActionID=255) into service (#193293)
+		- 20250929@Dave: CWL - Headline requests only trigger notifications under specific settings [RedmineId: #239736]
 
 	Parameter's Explanation:
 		- @ConfigUAT = 1: UUS customers
@@ -51,11 +52,15 @@ BEGIN
 		AND cg.WinlostDate >= CAST(GETDATE() -1  as DATE)
 		AND ActionID NOT IN (2,4) AND ActionID < 200
 		AND ci.site <> 'cn88'
+	),
+	TMP_NormalGroupList AS (
+		SELECT GroupID
+		FROM dbo.f_GetWinLimit_Group_NormalList(@Environment)
 	)
 	SELECT TOP (@BatchSize) 
 		LogID,
 		CustID,
-		ProductID,		
+		t.ProductID,		
 		wg.GroupName as ProductGroup,
 		l.LevelID,
 		l.LevelName as level, 
@@ -63,19 +68,26 @@ BEGIN
 		TotalWinAmt,
 		TotalWinAmt_RM,
 		ReachedTime,
-		BettypeIDList
+		BettypeIDList,
+		p.CasinoType,
+		CASE WHEN ng.GroupID IS NOT NULL THEN 1 ELSE 0 END AS IsNormalGame
 	FROM T
 		INNER JOIN Winlimit_LevelSetting l WITH(NOLOCK) ON t.LevelID = l.LevelID
 		INNER JOIN Winlimit_Group wg WITH(NOLOCK) ON t.GroupID = wg.GroupID
+		INNER JOIN Products p WITH(NOLOCK) ON t.ProductID = p.ProductID
+		LEFT JOIN TMP_NormalGroupList ng ON t.GroupID = ng.GroupID
 	WHERE 
-		1 = CASE WHEN @Environment = 'UAT' AND currency <> 20 THEN 0
-				ELSE 1 END				
-		AND 1 = CASE WHEN @ConfigUAT = 1 AND currency = 20 THEN 1
-					WHEN @ConfigPRO = 1 AND currency <> 20 THEN 1 
-					ELSE 0 END 
+		1 = CASE WHEN t.currency = 20 AND (@ConfigUAT = 1 OR @Environment = 'UAT') THEN 1
+				WHEN t.currency <> 20 AND @ConfigPRO = 1 AND @Environment <> 'UAT' THEN 1
+				ELSE 0 END
 		AND 1 = CASE WHEN @IsCredit = 1 AND IsDeposit = 0 THEN 1			
 					WHEN @IsDeposit = 1 AND IsDeposit = 1 THEN 1
 					ELSE 0 END
 	ORDER BY LogID ASC				
+		/*1 = CASE WHEN @Environment = 'UAT' AND currency <> 20 THEN 0
+				ELSE 1 END				
+		AND 1 = CASE WHEN @ConfigUAT = 1 AND currency = 20 THEN 1
+					WHEN @ConfigPRO = 1 AND currency <> 20 THEN 1 
+					ELSE 0 END */
 END	
 	

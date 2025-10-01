@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCRM-bodb_CRM" executers="bodbAdminNet" viewers="" isFunction="0"></info>*/
+/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
 
 ALTER PROCEDURE [dbo].[Acc_CRM_WinLimit_SystemSettingSel] 	
 AS
@@ -10,6 +10,7 @@ AS
 
 	Revisions:
 		- 20201014@Johnson: Initial sp [redmine:#142194]
+		- 20251021@Dave: CWL - Headline requests only trigger notifications under specific settings [RedmineId: #239736]
 		
 */
 BEGIN
@@ -23,7 +24,10 @@ BEGIN
 			@LastRuntime DATETIME,
 			@LastLogID 	BIGINT,
 			@IsCredit 	BIT,
-			@IsDeposit 	BIT 
+			@IsDeposit 	BIT ,
+			@LastRuntimeUAT DATETIME,
+			@LastLogIDUAT 	BIGINT,
+			@JobStatusUAT 	VARCHAR(50)
 	
 	SELECT @JobStatus = value 
 	FROM SystemSetting WITH(NOLOCK)
@@ -70,6 +74,21 @@ BEGIN
 	WHERE SettingName = 'IsDeposit'
 		AND ServiceName = 'WinLimitFB'	
 		
+	SELECT @LastLogIDUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'LastLogIDUAT'
+		AND ServiceName = 'WinLimitFB'	
+
+	SELECT @JobStatusUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'JobStatusUAT'
+		AND ServiceName = 'WinLimitFB'	
+
+	SELECT @LastRuntimeUAT = value
+	FROM SystemSetting WITH(NOLOCK)
+	WHERE SettingName = 'LastRuntimeUAT'
+		AND ServiceName = 'WinLimitFB'	
+		
 	SELECT @JobStatus as JobStatus, 
 		@BatchSize as BatchSize, 
 		@ConfigUAT as ConfigUAT,
@@ -78,5 +97,8 @@ BEGIN
 		@LastRuntime as LastRuntime,
 		@LastLogID as LastLogID,
 		@IsCredit as IsCredit,
-		@IsDeposit as IsDeposit
+		@IsDeposit as IsDeposit,
+		@LastLogIDUAT as LastLogIDUAT,
+		@JobStatusUAT as JobStatusUAT,
+		@LastRuntimeUAT as LastRuntimeUAT
 END

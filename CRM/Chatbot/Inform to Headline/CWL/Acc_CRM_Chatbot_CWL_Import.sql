@@ -22,6 +22,7 @@ AS
 		- 20220112@Malcolm: Update job status = 'Completed' when job runs longer than 5 minutes [RedmineID: #167358]
 		- 20230508@Malcolm: Offer Telegram bot service for Headlines [RedmineId : #179119]
         - 20240719@Ned.Le:  CRM - Auto FB and Headline Notification - CWL service for 777 site - Adjust product name to TaraPlay xD for SABA xD (#203438)
+		- 20250929@Dave: CWL - Headline requests only trigger notifications under specific settings [RedmineId: #239736]
 
 	Param's Explanation:
 		. @XmlData
@@ -100,8 +101,11 @@ BEGIN
 		,ProductNameVN		NVARCHAR(50)
 		,LevelId			INT
 		,GroupId			INT
+		,TotalWinAmt_RM		MONEY
+		,CasinoType			TINYINT
+		,IsNormalGame		BIT DEFAULT 0
 	)
-	INSERT INTO #ImportData (LogId, CustId, CurrencyName, Username, Recommend, Mrecommend, Srecommend, Winloss, ProductNameEN, ProductNameSC, ProductNameTH, ProductNameVN, LevelId, GroupId)
+	INSERT INTO #ImportData (LogId, CustId, CurrencyName, Username, Recommend, Mrecommend, Srecommend, Winloss, ProductNameEN, ProductNameSC, ProductNameTH, ProductNameVN, LevelId, GroupId, TotalWinAmt_RM, CasinoType, IsNormalGame)
 	SELECT
 		t.c.value('@LogId', 'BIGINT') AS LogId
 		,t.c.value('@CustId', 'INT') AS CustId
@@ -117,6 +121,9 @@ BEGIN
 		,t.c.value('@ProductNameVN', 'NVARCHAR(50)') AS ProductNameVN
 		,t.c.value('@LevelId', 'INT') AS LevelId
 		,t.c.value('@GroupId', 'INT') AS GroupId
+		,t.c.value('@TotalWinAmtRM', 'MONEY') AS TotalWinAmt_RM
+		,t.c.value('@CasinoType', 'TINYINT') AS CasinoType
+		,t.c.value('@IsNormalGame', 'BIT') AS IsNormalGame
 	FROM @XmlData.nodes('root/r') t(c)
 	OPTION (OPTIMIZE FOR (@XmlData = NULL))
 
@@ -259,14 +266,28 @@ BEGIN
 		,ProductNameTH		NVARCHAR(50)
 		,ProductNameVN		NVARCHAR(50)
 		,RecipientId		INT
+		,TotalWinAmt_RM		MONEY
+		,CasinoType			TINYINT
+		,IsNormalGame		BIT DEFAULT 0
 	)
-	INSERT INTO #LogRecipient (LogId, Username, DirectAccount, HeadlineId, Winloss, CurrencyName, ProductNameEN, ProductNameSC, ProductNameTH, ProductNameVN, RecipientId)
-	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameSC, m.ProductNameTH, m.ProductNameVN, r.RecipientId
+	INSERT INTO #LogRecipient (LogId, Username, DirectAccount, HeadlineId, Winloss, CurrencyName, ProductNameEN, ProductNameSC, ProductNameTH, ProductNameVN, RecipientId, TotalWinAmt_RM, CasinoType, IsNormalGame)
+	SELECT m.LogId, m.Username, pm.CustId, pm.HeadlineId, m.Winloss, m.CurrencyName, m.ProductNameEN, m.ProductNameSC, m.ProductNameTH, m.ProductNameVN, r.RecipientId, m.TotalWinAmt_RM, m.CasinoType, m.IsNormalGame
 	FROM #ImportData m
 		INNER JOIN bodb02.dbo.CustDirectAccount cda WITH (NOLOCK) ON cda.CustId IN (m.CustId, m.Recommend, m.Mrecommend, m.Srecommend)
 		INNER JOIN dbo.crmPicManagement pm WITH (NOLOCK) ON cda.CustId = pm.CustId
 		INNER JOIN dbo.crmRecipient r WITH (NOLOCK) ON pm.PicId = r.SourceId AND r.DataSource = 'bodb_CRM.dbo.crmPIC'
 	
+	/*Exclude notification if Winloss not reach threshold*/
+	DELETE TMP 
+	FROM #LogRecipient AS TMP
+		CROSS APPLY dbo.f_GetNotifyThresholdCWL(@Environment) AS THR
+	WHERE 
+		IsNormalGame = 1
+		AND TMP.HeadlineId = THR.HeadlineId AND TMP.CasinoType = THR.CasinoType 
+		AND ((TMP.TotalWinAmt_RM >= 0 AND TMP.TotalWinAmt_RM < THR.WinningThreshold)
+			OR (TMP.TotalWinAmt_RM < 0 AND TMP.TotalWinAmt_RM > THR.LosingThreshold))
+
+
 	-- Get group to receive message
 	CREATE TABLE #tmpGroup (LogId BIGINT, ConversationGroupId SMALLINT, ChannelId TINYINT, ChatTypeId TINYINT, LanguageId INT, DirectAccount INT, NoRecipient INT)
 	INSERT INTO #tmpGroup (LogId, ConversationGroupId, DirectAccount, NoRecipient)

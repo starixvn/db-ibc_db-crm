@@ -1,4 +1,0 @@
-MessageNotification\Alert\MNC_Notification_AlertIns.sql
-MessageNotification\GenerateNotification\MNC_ResultAmendment_PrepareGen.sql
-MessageNotification\GenerateNotification\MNC_ResultAmendment_PrepareGenLAP.sql
-MessageNotification\GenerateNotification\MNC_ResultAmendment_GetSettlementLogIDs.sql

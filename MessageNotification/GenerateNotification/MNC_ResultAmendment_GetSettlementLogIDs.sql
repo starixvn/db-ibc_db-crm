@@ -11,6 +11,7 @@ AS
 	Revisions:
 		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
+		- 20250617@Dave: MNC - Auto Result Amendment for Fast Market [RedmineID: #230646]
 
 	Param's Explanation:
 		@Environment
@@ -46,7 +47,7 @@ AS
 			- NOT match ResourceID between ActualResult and WrongResult
 				+ For ActionType = 2 (CAL to Refund), WrongResult can NOT blank
 				+ For ActionType = 3 (Refund to CAL), ActualResult can NOT blank
-				+ For ActionType = 1 (CAL to CAL), ResourceID between ActualResult and WrongResult must be match 1:1
+				+ For ActionType IN (1,5) (CAL to CAL), ResourceID between ActualResult and WrongResult must be match 1:1
 			
 			- write #tmpGSIRemotingRefData info if enable IncludeTestMatch AND any returned NULL value
 	
@@ -192,6 +193,8 @@ BEGIN
 		,ResourceID VARCHAR(50)
 		,RefBettypeID VARCHAR(50)
 		,HomeValue VARCHAR(50)
+		,Pos VARCHAR(50)
+		,ActionOnPos VARCHAR(10)
 	)
 	
 	CREATE TABLE #tmpGSIVerifyList (
@@ -351,6 +354,7 @@ BEGIN
 			@SettlementLogIDs = @VerifySettleIDs
 			,@ParseAmendInfo = 'ALL'
 			,@ParseTo = 'RemotingRef'
+			,@Environment = @Environment
 			,@OutJSResource = @JSResource OUTPUT
 			,@ErrCode = @ErrCode OUTPUT
 			,@ErrMsg = @ErrMsg OUTPUT
@@ -420,6 +424,7 @@ BEGIN
 					@SettlementLogIDs = @VerifySettleIDs
 					,@ParseAmendInfo = 'ActualResult,WrongResult'
 					,@ParseTo = 'RawData'
+					,@Environment = @Environment
 					,@OutJSResource = @JSResource OUTPUT
 					,@ErrCode = @ErrCode OUTPUT
 					,@ErrMsg = @ErrMsg OUTPUT
@@ -451,18 +456,24 @@ BEGIN
 				,ResourceID
 				,RefBettypeID
 				,HomeValue
+				,Pos
+				,ActionOnPos
 			)
 			SELECT DISTINCT SettlementLogID
 				,AmendInfo
 				,ResourceID
 				,RefBettypeID
 				,HomeValue
+				,Pos
+				,ActionOnPos
 			FROM OPENJSON(@JSResource) WITH (
 					SettlementLogID INT '$.SettlementLogID'
 					,AmendInfo VARCHAR(50) '$.AmendInfo'
 					,ResourceID VARCHAR(50) '$.ResourceID'
 					,RefBettypeID VARCHAR(50) '$.RefBettypeID'
 					,HomeValue VARCHAR(50) '$.HomeValue'
+					,Pos VARCHAR(50) '$.Pos'
+					,ActionOnPos VARCHAR(10) '$.ActionOnPos'	
 				)--OPENJSON case-sensitive
 			WHERE ISJSON(@JSResource) = 1
 			
@@ -703,11 +714,11 @@ BEGIN
 			SELECT 1
 			FROM SettlementResultHist WITH (NOLOCK)
 			WHERE SettlementLogID = @iSettleID
-				AND ActionType NOT IN (1,2,3) --1 (CAL to CAL) / 2 (CAL to Refund) / 3 (Refund to CAL)
+				AND ActionType NOT IN (1,2,3,5) --1 (CAL to CAL) / 2 (CAL to Refund) / 3 (Refund to CAL) / 5 (FastMarket)
 		)
 		BEGIN
 			UPDATE #tmpGSIVerifyList
-			SET RHLog = RHLog + 'ActionType NOT IN (1,2,3)'
+			SET RHLog = RHLog + 'ActionType NOT IN (1,2,3,5)'
 				,StatusID = @StsGenFailed
 			WHERE SettlementLogID = @iSettleID
 			
@@ -722,7 +733,7 @@ BEGIN
 			FROM SettlementResultHist WITH (NOLOCK)
 			WHERE SettlementLogID = @iSettleID
 				AND (
-					CASE WHEN ActionType = 1 --(CAL to CAL)
+					CASE WHEN ActionType IN (1,5) --(CAL to CAL)
 								AND (TRY_CONVERT(XML, ActualResult) IS NULL OR TRY_CONVERT(XML, WrongResult) IS NULL) THEN 0 --ActualResult/WrongResult must NOT NULL
 						WHEN ActionType = 2 --(CAL to Refund), WrongResult can NOT blank
 								AND TRY_CONVERT(XML, WrongResult) IS NULL THEN 0 --WrongResult must NOT NULL
@@ -995,6 +1006,154 @@ BEGIN
 			CONTINUE
 		END
 		
+		/*For ActionType = 5 (FastMarket), (CAL to Refund), WrongResult can NOT blank*/
+		IF EXISTS (
+			SELECT 1
+			FROM SettlementResultHist AS sh WITH (NOLOCK)
+				INNER JOIN #tmpGSIResourceRawData AS r 
+					ON sh.SettlementLogID = r.SettlementLogID
+					AND r.AmendInfo = 'ActualResult'
+					AND r.ActionOnPos = 'REFUND'
+				LEFT JOIN #tmpGSIResourceRawData AS w 
+					ON r.SettlementLogID = w.SettlementLogID 
+					AND w.AmendInfo = 'WrongResult' 
+					AND w.ActionOnPos = 'CAL'
+					AND w.ResourceID = r.ResourceID
+					AND w.Pos = r.Pos
+			WHERE sh.SettlementLogID = @iSettleID
+				AND sh.ActionType = 5
+				AND w.HomeValue IS NULL
+		)
+		BEGIN
+			;WITH CTE_LogTxt AS (
+				SELECT @iSettleID AS SettleID
+					,CONVERT(NVARCHAR(MAX),(
+						SELECT DISTINCT r.AmendInfo
+							,r.ResourceID
+							,r.RefBettypeID
+							,r.HomeValue
+							,r.Pos
+							,r.ActionOnPos
+						FROM #tmpGSIResourceRawData AS r
+						WHERE r.SettlementLogID = @iSettleID
+						ORDER BY r.AmendInfo
+							,r.ResourceID
+							,r.RefBettypeID
+							,r.HomeValue
+						FOR JSON AUTO
+					)) AS LTxt
+			)
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'Invalid [CAL to Refund] - [ActionType = 5], WrongResult NULL (' + ISNULL(l.LTxt,'NULL') + ')'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpGSIVerifyList AS v
+				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+
+		/*For ActionType = 5 (FastMarket), (Refund to CAL), ActualResult can NOT blank */
+		IF EXISTS (
+			SELECT 1
+			FROM SettlementResultHist AS sh WITH (NOLOCK)
+				INNER JOIN #tmpGSIResourceRawData AS w 
+					ON sh.SettlementLogID = w.SettlementLogID 
+					AND w.AmendInfo = 'WrongResult' 
+					AND w.ActionOnPos = 'REFUND'
+				LEFT JOIN #tmpGSIResourceRawData AS r 
+					ON w.SettlementLogID = r.SettlementLogID
+					AND r.AmendInfo = 'ActualResult'
+					AND r.ActionOnPos = 'CAL'
+					AND w.ResourceID = r.ResourceID
+					AND w.Pos = r.Pos
+			WHERE sh.SettlementLogID = @iSettleID
+				AND sh.ActionType = 5
+				AND r.HomeValue IS NULL
+				
+		)
+		BEGIN
+			;WITH CTE_LogTxt AS (
+				SELECT @iSettleID AS SettleID
+					,CONVERT(NVARCHAR(MAX),(
+						SELECT DISTINCT r.AmendInfo
+							,r.ResourceID
+							,r.RefBettypeID
+							,r.HomeValue
+							,r.Pos
+							,r.ActionOnPos
+						FROM #tmpGSIResourceRawData AS r
+						WHERE r.SettlementLogID = @iSettleID
+						ORDER BY r.AmendInfo
+							,r.ResourceID
+							,r.RefBettypeID
+							,r.HomeValue
+						FOR JSON AUTO
+					)) AS LTxt
+			)
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'Invalid [Refund to CAL] - [ActionType = 5], ActualResult NULL (' + ISNULL(l.LTxt,'NULL') + ')'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpGSIVerifyList AS v
+				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
+			
+			CONTINUE
+		END
+		/*For ActionType = 5 (FastMarket), (CAL to CAL) ResourceID between ActualResult and WrongResult must be match 1:1*/
+		IF EXISTS (
+			SELECT TOP(1) 1
+			FROM SettlementResultHist AS sh WITH (NOLOCK)
+			WHERE sh.SettlementLogID = @iSettleID
+				AND sh.ActionType = 5
+		)
+		AND EXISTS (
+			SELECT TOP(1) 1
+			FROM (SELECT SettlementLogID, ResourceID, Pos, HomeValue  FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'WrongResult' AND ActionOnPos = 'CAL') AS w
+				INNER JOIN (SELECT SettlementLogID, ResourceID, Pos, HomeValue FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'ActualResult' AND ActionOnPos = 'CAL') AS a
+					ON w.SettlementLogID = a.SettlementLogID
+						AND a.ResourceID = w.ResourceID
+						AND a.Pos = w.Pos
+			WHERE a.HomeValue IS NULL
+				OR w.HomeValue IS NULL
+		)
+		BEGIN
+			;WITH CTE_LogTxt AS (
+				SELECT DISTINCT @iSettleID AS SettleID
+					,CONVERT(NVARCHAR(MAX),(
+						SELECT DISTINCT t.AmendInfo
+							,t.ResourceID
+							,t.Pos
+							,t.HomeValue
+						FROM #tmpGSIResourceRawData AS t
+						WHERE t.SettlementLogID = ISNULL(w.SettlementLogID, a.SettlementLogID)
+						ORDER BY t.AmendInfo
+							,t.ResourceID
+							,t.Pos
+							,t.HomeValue
+						FOR JSON AUTO
+					)) AS LTxt
+				FROM (SELECT SettlementLogID, ResourceID, Pos, HomeValue  FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'WrongResult' AND ActionOnPos = 'CAL') AS w
+					INNER JOIN (SELECT SettlementLogID, ResourceID, Pos, HomeValue FROM #tmpGSIResourceRawData WHERE SettlementLogID = @iSettleID AND AmendInfo = 'ActualResult' AND ActionOnPos = 'CAL') AS a
+						ON w.SettlementLogID = a.SettlementLogID
+							AND a.ResourceID = w.ResourceID
+							AND a.Pos = w.Pos
+				WHERE a.HomeValue IS NULL
+					OR w.HomeValue IS NULL
+			)
+			UPDATE v
+			SET v.RHLog = v.RHLog + 'Invalid [CAL to CAL] - [ActionType = 5], NOT match ResourceID 1:1 between ActualResult and WrongResult (' + ISNULL(l.LTxt,'NULL') + ')'
+				,v.StatusID = @StsGenFailed
+			FROM #tmpGSIVerifyList AS v
+				INNER JOIN CTE_LogTxt AS l ON v.SettlementLogID = l.SettleID;
+			
+			SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID);
+			
+			CONTINUE;
+		END
+
 		----reset for loop------
 		SELECT @iSettleID = (SELECT MIN(SettlementLogID) FROM #tmpGSIVerifyList WHERE SettlementLogID > @iSettleID)
 	END TRY

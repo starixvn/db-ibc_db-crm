@@ -3,6 +3,7 @@ ALTER PROCEDURE MNC_ResultAmendment_JSParseResult
 	@SettlementLogIDs VARCHAR(MAX)
 	,@ParseAmendInfo VARCHAR(50) = 'ALL'
 	,@ParseTo VARCHAR(50) = 'RemotingRef'
+	,@Environment VARCHAR(10) = 'LIVE'
 	,@OutJSResource NVARCHAR(MAX) OUTPUT
 	,@ErrCode INT = 0 OUTPUT
 	,@ErrMsg NVARCHAR(2000) = '' OUTPUT
@@ -15,6 +16,7 @@ AS
 		- 20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 		- 20250429@Dave: MNC - for Result Amendment of Tennis, Table Tennis, Badminton & Volleyball [RedmineID: #218014]
+		- 20250616@Dave: CRM - Implement Message Notifications Center for Fast Market [RedmineID: #230646]
 
 	
 	Param's Explanation:
@@ -83,6 +85,9 @@ BEGIN TRY
 		,Y NVARCHAR(50)
 		,O NVARCHAR(50)
 		,GroupBT NVARCHAR(50)
+		,Pos NVARCHAR(50)
+		,ActionType TINYINT
+		,ActionOnPos NVARCHAR(10)
 	)
 	
 	CREATE TABLE #tmpJSParseResourceOrder (
@@ -99,6 +104,7 @@ BEGIN TRY
 		SettlementLogID INT
 		,ActualResultXML XML
 		,WrongResultXML XML
+		,ActionType TINYINT
 	)
 
 	--write more info if LogMode = Debug
@@ -147,25 +153,25 @@ BEGIN TRY
 	DELETE i
 	FROM #tmpJSParseInputIDs AS i
 		LEFT JOIN dbo.SettlementResultHist AS sh WITH (NOLOCK) ON sh.SettlementLogID = i.SettlementLogID
-		OUTER APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(sh.SportType,0)) s
+		OUTER APPLY dbo.f_MNC_ResultAmendment_SportSel(ISNULL(sh.SportType,0), @Environment) s
 	WHERE sh.SettlementLogID IS NULL OR s.SportType IS NULL
 
 	CREATE UNIQUE CLUSTERED INDEX CIX_tmpInputID ON #tmpJSParseInputIDs (SettlementLogID)
 	/*
 		Insert #tmpJSParseResultInfo with format
-		----|---------------|-------------------|---------------|------------|---------------|----------------------|-----------|-------|-------|-------|-------|-------
-			|SettlementLogID|AmendInfo			|ResourceID		|RefBettypeID|HomeValue	|AwayValue	|OtherInfo		|TeamIDs	|G		|X		|Y		|O		|GroupBT		
-		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------|-------|-------
-			| 2				| SettleMatch		| MatchID		| (NULL)	 | (NULL) 	| (NULL)	| 79288043 		| (NULL) 	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)
-			| 2				| SettleMatch		| SportType		| (NULL)	 | (NULL) 	| (NULL)	| 50	 		| (NULL) 	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)
-			| 2				| SettleMatch		| HomeID		| (NULL)	 | (NULL)	| (NULL)	| (NULL)		| 1103146	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)
-			| 2				| ActualResult		| 96621004		| 9662		 | 01		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)	|(NULL)	|(NULL)
-			| 2				| WrongResult		| 96621004		| 9662		 | 02		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)	|(NULL)	|(NULL)
-			| 70			| ActualResult		| 94841004		| 9484		 | 2		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)	|(NULL)	|(NULL)
-			| 70			| WrongResult		| 94841004		| 9484		 | 1		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)	|(NULL)	|(NULL)
-			| 134			| ActualResult		| 96711			| 96711		 | 06,05	| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)	|(NULL)	|(NULL)
-			| 134			| WrongResult		| 96711			| 96711		 | 06		| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)	|(NULL)	|(NULL)
-		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------|-------|-------
+		----|---------------|-------------------|---------------|------------|---------------|----------------------|-----------|-------|-------|-------|-------|-------|-------|-------------|-------
+			|SettlementLogID|AmendInfo			|ResourceID		|RefBettypeID|HomeValue	|AwayValue	|OtherInfo		|TeamIDs	|G		|X		|Y		|O		|GroupBT|  Pos	| ActionOnPos |
+		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------|-------|-------|-------|-------------|-------
+			| 2				| SettleMatch		| MatchID		| (NULL)	 | (NULL) 	| (NULL)	| 79288043 		| (NULL) 	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)	|(NULL)	|    (NULL)   |
+			| 2				| SettleMatch		| SportType		| (NULL)	 | (NULL) 	| (NULL)	| 50	 		| (NULL) 	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)	|(NULL)	|	 (NULL)   |
+			| 2				| SettleMatch		| HomeID		| (NULL)	 | (NULL)	| (NULL)	| (NULL)		| 1103146	| (NULL)|(NULL)	|(NULL)	|(NULL)	|(NULL)	|(NULL)	|	 (NULL)   |
+			| 2				| ActualResult		| 96621004		| 9662		 | 01		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)	|(NULL)	|(NULL)	|(NULL)	|	 (NULL)   |
+			| 2				| WrongResult		| 96621004		| 9662		 | 02		| (NULL)	| 20439,16776	| (NULL)	| 1		|(NULL)	|(NULL)	|(NULL)	|(NULL)	|(NULL)	|	 (NULL)   |
+			| 70			| ActualResult		| 94841004		| 9484		 | 2		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)	|(NULL)	|(NULL)	|(2)	|	 (CAL)    |
+			| 70			| WrongResult		| 94841004		| 9484		 | 1		| (NULL)	| (NULL)		| (NULL)	| 1		| 4		|(NULL)	|(NULL)	|(NULL)	|(2)	|	(REFUND)  |
+			| 134			| ActualResult		| 96711			| 96711		 | 06,05	| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)	|(NULL)	|(NULL)	|(0)	|	(REFUND)  |
+			| 134			| WrongResult		| 96711			| 96711		 | 06		| (NULL)	| (NULL)		| (NULL)	| 1		| (NULL)|(NULL)	|(NULL)	|(NULL)	|(0)	|	 (CAL)    |
+		----|---------------|-------------------|---------------|------------|----------|-----------|---------------|-----------|-------|-------|-------|-------|-------|-------|-------------|-------
 	*/
 	INSERT INTO #tmpJSParseEventInfo (
 		SettlementLogID
@@ -188,10 +194,11 @@ BEGIN TRY
 	WHERE ISNULL(CHARINDEX('SettleMatch',@ParseAmendInfo),0) > 0
 	
 	--XML Result:
-	INSERT INTO #tmpJSParseXML (SettlementLogID, ActualResultXML, WrongResultXML)
+	INSERT INTO #tmpJSParseXML (SettlementLogID, ActualResultXML, WrongResultXML, ActionType)
 	SELECT sh.SettlementLogID
 		,TRY_CONVERT(XML, sh.ActualResult) AS ActualResultXML
 		,TRY_CONVERT(XML, sh.WrongResult) AS WrongResultXML
+		,sh.ActionType
 	FROM MessageNotification.dbo.SettlementResultHist AS sh WITH (NOLOCK)
 		INNER JOIN #tmpJSParseInputIDs AS i ON sh.SettlementLogID = i.SettlementLogID
 
@@ -199,6 +206,7 @@ BEGIN TRY
 	;WITH CTE_Actual AS (
 		SELECT DISTINCT SettlementLogID
 			,'ActualResult' AS AmendInfo
+			,ActionType
 			,NULLIF(TRIM(a.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
 			,NULLIF(TRIM(a.c.value('@RefBettypeID', 'NVARCHAR(50)')), '') AS RefBettypeID
 			,NULLIF(TRIM(a.c.value('@Home', 'NVARCHAR(50)')), '') AS HomeValue
@@ -211,6 +219,8 @@ BEGIN TRY
 			,NULLIF(TRIM(a.c.value('@Y', 'NVARCHAR(50)')), '') AS Y
 			,NULLIF(TRIM(a.c.value('@O', 'NVARCHAR(50)')), '') AS O
 			,NULLIF(TRIM(a.c.value('@GroupBetType', 'NVARCHAR(50)')), '') AS GroupBT
+			,NULLIF(TRIM(a.c.value('@Pos', 'NVARCHAR(50)')), '') AS Pos
+			,NULLIF(TRIM(a.c.value('@Action', 'NVARCHAR(10)')), '') AS ActionOnPos
 		FROM #tmpJSParseXML
 			OUTER APPLY ActualResultXML.nodes('root/r') a(c)
 		WHERE ISNULL(CHARINDEX('ActualResult',@ParseAmendInfo),0) > 0
@@ -218,6 +228,7 @@ BEGIN TRY
 	,CTE_Wrong AS (
 		SELECT DISTINCT SettlementLogID
 			,'WrongResult' AS AmendInfo
+			,ActionType
 			,NULLIF(TRIM(w.c.value('@Id', 'NVARCHAR(50)')), '') AS ResourceID
 			,NULLIF(TRIM(w.c.value('@RefBettypeID', 'NVARCHAR(50)')), '') AS RefBettypeID
 			,NULLIF(TRIM(w.c.value('@Home', 'NVARCHAR(50)')), '') AS HomeValue
@@ -230,6 +241,8 @@ BEGIN TRY
 			,NULLIF(TRIM(w.c.value('@Y', 'NVARCHAR(50)')), '') AS Y
 			,NULLIF(TRIM(w.c.value('@O', 'NVARCHAR(50)')), '') AS O
 			,NULLIF(TRIM(w.c.value('@GroupBetType', 'NVARCHAR(50)')), '') AS GroupBT
+			,NULLIF(TRIM(w.c.value('@Pos', 'NVARCHAR(50)')), '') AS Pos
+			,NULLIF(TRIM(w.c.value('@Action', 'NVARCHAR(10)')), '') AS ActionOnPos
 		FROM #tmpJSParseXML
 			OUTER APPLY WrongResultXML.nodes('root/r') w(c)
 		WHERE ISNULL(CHARINDEX('WrongResult',@ParseAmendInfo),0) > 0
@@ -249,6 +262,9 @@ BEGIN TRY
 		,Y
 		,O
 		,GroupBT
+		,Pos
+		,ActionType
+		,ActionOnPos
 	)
 	SELECT SettlementLogID
 		,AmendInfo
@@ -264,6 +280,9 @@ BEGIN TRY
 		,Y
 		,O
 		,GroupBT
+		,Pos
+		,ActionType
+		,ActionOnPos
 	FROM CTE_Actual
 	
 	UNION ALL
@@ -282,6 +301,9 @@ BEGIN TRY
 		,Y
 		,O
 		,GroupBT
+		,Pos
+		,ActionType
+		,ActionOnPos
 	FROM CTE_Wrong
 	
 	
@@ -315,7 +337,7 @@ BEGIN TRY
 					OUTER APPLY ActualResultXML.nodes('root/r') a(c)
 				WHERE ISNULL(CHARINDEX('ResourceOrder',@ParseAmendInfo),0) > 0
 			)
-   			INSERT INTO #tmpJSParseResourceOrder (
+			INSERT INTO #tmpJSParseResourceOrder (
 				SettlementLogID
 				,ResourceID
 			)
@@ -504,8 +526,24 @@ BEGIN TRY
 		SET RefId1=REPLACE(RefId1,'{sport_name}', s.SuffixRefID)
 		FROM #tmpJSParseRemotingRef ref
 		INNER JOIN dbo.SettlementResultHist i ON i.SettlementLogID=ref.SettlementLogID
-		CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(i.SportType) s
+		CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(i.SportType, @Environment) s
 		WHERE RefId1='Resource{sport_name}'
+		
+	/*--BetInfo-- for ActionType = 5*/
+		--<ID>
+		/*As Action Type = 5, ID = ResourceID = RefBettypeID*/
+		INSERT INTO #tmpJSParseRemotingRef (
+			SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+		)
+		SELECT DISTINCT SettlementLogID
+			,'BetType' AS GroupName
+			,'BetTypeName' AS RefId1
+			,ResourceID AS RefId2
+		FROM #tmpJSParseResultInfo
+		WHERE ActionType = 5
 
 	/*--ResultSettlement--*/
 		--<GroupBetType>

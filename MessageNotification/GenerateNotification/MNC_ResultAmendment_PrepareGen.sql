@@ -11,6 +11,7 @@ AS
 		- 20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 		- 20250616@Dave: MNC - Auto Result Amendment for Fast Market [RedmineID: #230646]
+		- 20251003@Dave: MNC - Automate-result-amendment for Player Prop AIO of Basketball [RedmineID: #239848]
 	Explanation:
 		@Environment
 			If IncludeTestMatch = ON
@@ -55,11 +56,11 @@ BEGIN
 		Load setting
 	*/
 	SELECT @LogUserID = TRY_CONVERT(INT, VValue)
-	FROM SystemSetting WITH (NOLOCK)
+	FROM dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 2 --ID of StarixIT
 	
 	SELECT @StsRetrieved = StatusID
-	FROM NotiStatus WITH (NOLOCK)
+	FROM dbo.NotiStatus WITH (NOLOCK)
 	WHERE Status = 'Successfully Retrieved'
 	
 	--Insert if NOT EXISTS
@@ -83,11 +84,11 @@ BEGIN
 		)
 	
 	SELECT @LogActionID = ActionID
-	FROM LogAction WITH (NOLOCK)
+	FROM dbo.LogAction WITH (NOLOCK)
 	WHERE ActName = ISNULL(OBJECT_NAME(@@PROCID),'Unknown')
 	
 	SELECT @PRODIncludeTest = VValue
-	FROM SystemSetting WITH (NOLOCK)
+	FROM dbo.SystemSetting WITH (NOLOCK)
 	WHERE VID = 10 --IncludeTestMatch
 	
 	IF @Environment = 'LIVE'
@@ -151,6 +152,7 @@ BEGIN
 		,GroupName VARCHAR(50)
 		,RefId1 VARCHAR(50)
 		,RefId2 VARCHAR(50)
+		,OddsInfo NVARCHAR(1000)
 	)
 	
 	CREATE TABLE #tmpPrepareRH (
@@ -162,13 +164,14 @@ BEGIN
 	*/
 	INSERT INTO #tmpPrepareRH ( SettlementLogID )
 	SELECT DISTINCT sh.SettlementLogID
-	FROM SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
+	FROM dbo.SettlementResultHist AS sh WITH (ROWLOCK,UPDLOCK)
 	CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(sh.SportType, @Environment) s
 	WHERE sh.StatusID = @StsRetrieved --Captured
 		AND (
 			@IsTestFlag IS NULL
 			OR sh.IsTest = @IsTestFlag
 		) --filter by Environment/IncludeTestMatch
+
 		
 	--write log
 	INSERT INTO UserLog (
@@ -182,7 +185,7 @@ BEGIN
 		,@LogUserID
 		,COMPRESS(@InfLogPrefix + 'Changed SettlementLogID Status from [Successfully Retrieved] to [Generating]')
 	FROM #tmpPrepareRH AS rh
-	ORDER BY SettlementLogID
+	ORDER BY SettlementLogID ASC
 	
 	--Define ALL things need to use RemotingRef Func
 	DECLARE @JSResource NVARCHAR(MAX)
@@ -204,16 +207,19 @@ BEGIN
 			,GroupName
 			,RefId1
 			,RefId2
+			,OddsInfo
 		)
 		SELECT DISTINCT SettlementLogID
 			,GroupName
 			,RefId1
 			,RefId2
+			,OddsInfo
 		FROM OPENJSON(@JSResource) WITH (
 				SettlementLogID INT '$.SettlementLogID'
 				,GroupName VARCHAR(50) '$.GroupName'
 				,RefId1 VARCHAR(50) '$.RefId1'
 				,RefId2 VARCHAR(50) '$.RefId2'
+				,OddsInfo NVARCHAR(1000) '$.OddsInfo'
 			)--OPENJSON case-sensitive
 		WHERE ISJSON(@JSResource) = 1
 	END
@@ -223,11 +229,13 @@ BEGIN
 		,rf.GroupName
 		,rf.RefId1
 		,rf.RefId2
+		,rf.OddsInfo
 	FROM #tmpPrepareRH AS rh
 		LEFT JOIN #tmpRemotingRef AS rf ON rh.SettlementLogID = rf.SettlementLogID
 	GROUP BY rf.GroupName
 		,rf.RefId1
 		,rf.RefId2
+		,rf.OddsInfo
 	
 	----------------------
 	INSERT INTO UserLog (
@@ -248,11 +256,13 @@ BEGIN
 											,rf.GroupName
 											,rf.RefId1
 											,rf.RefId2
+											,rf.OddsInfo
 										FROM #tmpPrepareRH AS rh
 											LEFT JOIN #tmpRemotingRef AS rf ON rh.SettlementLogID = rf.SettlementLogID
 										GROUP BY rf.GroupName
 											,rf.RefId1
 											,rf.RefId2
+											,rf.OddsInfo
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')')

@@ -1,1 +1,1 @@
-MessageNotification\Alert\MNC_Notification_AlertSel.sql
+MessageNotification\GenerateNotification\MNC_ResultAmendment_GetSettlementLogIDs.sql

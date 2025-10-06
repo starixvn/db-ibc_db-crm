@@ -17,6 +17,7 @@ AS
 		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
 		- 20250429@Dave: MNC - for Result Amendment of Tennis, Table Tennis, Badminton & Volleyball [RedmineID: #218014]
 		- 20250616@Dave: MNC - Auto Result Amendment for Fast Market [RedmineID: #230646]
+		- 20251006@Dave: MNC - Automate-result-amendment for Player Prop AIO of Basketball [RedmineID: #239848]
 
 	Explanation:
 		@Environment
@@ -244,7 +245,7 @@ BEGIN
 			BREAK
 		END
 	END
-	
+
 	-------------------------------
 	CREATE TABLE #tmpRemotingRef (
 		GroupName VARCHAR(50)
@@ -425,7 +426,7 @@ BEGIN
 		@Environment = @Environment
 		,@JSRemotingRef = @JSRemotingRef
 		,@ValidSettlementLogIDs = @ValidSettlementLogIDs OUTPUT
-	
+
 	INSERT INTO UserLog (
 		ActionID
 		,UserID
@@ -723,7 +724,7 @@ BEGIN
 				-- ActionType (Make sure UNIQUE the same ActionType - Affect to TemplateID)
 				,rh.ActionType
 				,COUNT(DISTINCT ri.ResourceID) AS AmendedCnt
-				,ROW_NUMBER() OVER (ORDER BY rh.SessionID ,rh.MatchID, rh.SeqNo, rh.ActionType) AS NotiTempID
+				,ROW_NUMBER() OVER (ORDER BY rh.SessionID ASC,rh.MatchID ASC, rh.SeqNo ASC, rh.ActionType ASC) AS NotiTempID
 			FROM #tmpResultHist AS rh
 				INNER JOIN #tmpResultInfo AS ri ON rh.SettlementLogID = ri.SettlementLogID
 			GROUP BY rh.SessionID
@@ -857,42 +858,47 @@ BEGIN
 			,COMPRESS(@InfLogPrefix + 'Debug - Prepare data'
 							+ ' - tmpResultHist('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, SettlementLogID , StatusID , NotiLog, SessionID, SeqNo, 
+												MatchID, IsTest, EventDate, SportType, IsNeutral, HomeID, AwayID, KOTime, LeagueID, LeagueGroupID, 
+												GameSession, ActionType, ActualResultXML, WrongResultXML, AmendedCnt
 											FROM #tmpResultHist
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpStagingTarget('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, IsNoneSaba, ControlGrp, TargetSite, CustID, AgentID, MasterID, SuperID, TransID
 											FROM #tmpStagingTarget
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpStagingNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, IsNoneSaba, TemplateID, TemplateName, Content_en, Content_ch, Content_cs, Content_zhcn
 											FROM #tmpStagingNoti
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpTemplateDetl('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, IsNoneSaba, RequiredParamID, RequiredParam
+												,Content_en, Content_ch, Content_cs, Content_zhcn
 											FROM #tmpTemplateDetl
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpResultInfo('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, SettlementLogID, AmendInfo, ResourceID, 
+												RefBettypeID, HomeValue, AwayValue, OtherInfo, TeamIDs, G, M, X, Y, O, GroupBT, Pos, ActionOnPos
 											FROM #tmpResultInfo
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpRemotingRef('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT GroupName, RefId1, RefId2
+												,RefValueEN, RefValueCH, RefValueCS, RefValueZHCN
 											FROM #tmpRemotingRef
 											FOR JSON PATH
 										))
@@ -1229,10 +1235,10 @@ BEGIN
 			;WITH CTE_OtherInfo AS (
 				SELECT af.NotiTempID
 					,af.ResourceID
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),' & ') AS r_en
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),' & ') AS r_ch
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),' & ') AS r_cs
-					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueZHCN),' & ') AS r_zhcn
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueEN),' vs ') AS r_en
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCH),' vs ') AS r_ch
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueCS),' vs ') AS r_cs
+					,STRING_AGG(CONVERT(NVARCHAR(MAX),rf.RefValueZHCN),' vs ') AS r_zhcn
 				FROM #tmpAffectedResult AS af
 					CROSS APPLY STRING_SPLIT(OtherInfo, ',') AS o
 					INNER JOIN #tmpRemotingRef AS rf ON rf.GroupName = 'EventInfo' AND rf.RefId1 = 'TeamID' AND rf.RefId2 = o.value
@@ -1241,21 +1247,33 @@ BEGIN
 					,af.ResourceID
 			)
 			UPDATE af
-			SET af.ResultName_en = af.ResultName_en + ' - ' + TRIM(o.r_en)
-				,af.ResultName_ch = af.ResultName_ch + ' - ' + TRIM(o.r_ch)
-				,af.ResultName_cs = af.ResultName_cs + ' - ' + TRIM(o.r_cs)
-				,af.ResultName_zhcn = af.ResultName_zhcn + ' - ' + TRIM(o.r_zhcn)
+			SET af.ResultName_en = IIF(ISNULL(CHARINDEX('@P',af.ResultName_en),0) > 0, REPLACE(af.ResultName_en,'@P',TRIM(o.r_en)), af.ResultName_en + ' - ' + TRIM(o.r_en))
+				,af.ResultName_ch = IIF(ISNULL(CHARINDEX('@P',af.ResultName_ch),0) > 0, REPLACE(af.ResultName_ch,'@P',TRIM(o.r_ch)), af.ResultName_ch + ' - ' + TRIM(o.r_ch))
+				,af.ResultName_cs = IIF(ISNULL(CHARINDEX('@P',af.ResultName_cs),0) > 0, REPLACE(af.ResultName_cs,'@P',TRIM(o.r_cs)), af.ResultName_cs + ' - ' + TRIM(o.r_cs))
+				,af.ResultName_zhcn = IIF(ISNULL(CHARINDEX('@P',af.ResultName_zhcn),0) > 0, REPLACE(af.ResultName_zhcn,'@P',TRIM(o.r_zhcn)), af.ResultName_zhcn + ' - ' + TRIM(o.r_zhcn))
 			FROM #tmpAffectedResult AS af
 				INNER JOIN CTE_OtherInfo AS o ON af.NotiTempID = o.NotiTempID AND af.ResourceID = o.ResourceID
+
+			UPDATE t
+			SET ResultName_en = REPLACE(ResultName_en,'@T',rf.RefValueEN)
+				,ResultName_ch = REPLACE(ResultName_ch,'@T',rf.RefValueCH)
+				,ResultName_cs = REPLACE(ResultName_cs,'@T',rf.RefValueCS)
+				,ResultName_zhcn = REPLACE(ResultName_zhcn,'@T',rf.RefValueZHCN)
+			FROM #tmpAffectedResult t
+				INNER JOIN #tmpRemotingRef rf ON rf.GroupName = 'OddsInfo' AND rf.RefId1 = 'ResourceID' AND rf.RefId2=t.ResourceID
+			WHERE ISNULL(CHARINDEX('@T',ResultName_en),0) > 0
+				OR ISNULL(CHARINDEX('@T',ResultName_ch),0) > 0
+				OR ISNULL(CHARINDEX('@T',ResultName_cs),0) > 0
+				OR ISNULL(CHARINDEX('@T',ResultName_zhcn),0) > 0;
+
 		END
-		
 		-- IF EXISTS {affected_result_name}
 		;WITH CTE_Affected AS (
 			SELECT af.NotiTempID
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_en
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_ch
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_cs
-				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_zhcn,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder) AS ResultName_zhcn
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_en,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder ASC) AS ResultName_en
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_ch,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder ASC) AS ResultName_ch
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_cs,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder ASC) AS ResultName_cs
+				,STRING_AGG(CONVERT(NVARCHAR(MAX),ISNULL(ResultName_zhcn,'')),', ') WITHIN GROUP (ORDER BY ro.ResourceOrder ASC) AS ResultName_zhcn
 			FROM #tmpAffectedResult af
 			INNER JOIN #tmpResourceOrder ro
 						 ON ro.NotiTempID=af.NotiTempID AND ro.ResourceID=af.ResourceID
@@ -1635,21 +1653,27 @@ BEGIN
 			,COMPRESS(@InfLogPrefix + 'Build message'
 							+ ' - tmpStagingNoti('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, IsNoneSaba, TemplateID, TemplateName, Content_en, Content_ch, Content_cs, Content_zhcn
 											FROM #tmpStagingNoti
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpTemplateDetl('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, IsNoneSaba, RequiredParamID, RequiredParam
+												, Content_en, Content_ch, Content_cs, Content_zhcn
 											FROM #tmpTemplateDetl
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 							+ ' - tmpAffectedResult('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT NotiTempID, Sporttype
+												,ResourceID, OtherInfo, G, M, X, Y, O, GroupBT
+												,ResultName_en, ResultName_ch, ResultName_cs, ResultName_zhcn
+												,ActualValue_en, ActualValue_ch, ActualValue_cs, ActualValue_zhcn
+												,WrongValue_en, WrongValue_ch, WrongValue_cs, WrongValue_zhcn
+												,Pos, ActionTypeOnPos
 											FROM #tmpAffectedResult
 											FOR JSON PATH
 										))
@@ -1680,7 +1704,7 @@ BEGIN
 				,rh.MatchID
 				,n.Content_en
 				,nt.ControlGrp
-				,ROW_NUMBER() OVER (ORDER BY rh.SessionID, rh.MatchID, n.Content_en, nt.ControlGrp) AS NotiByContID --define [NotiByContID] of message content
+				,ROW_NUMBER() OVER (ORDER BY rh.SessionID ASC, rh.MatchID ASC, n.Content_en ASC, nt.ControlGrp ASC) AS NotiByContID --define [NotiByContID] of message content
 			FROM #tmpResultHist AS rh
 				INNER JOIN #tmpStagingNoti AS n ON rh.NotiTempID = n.NotiTempID
 				INNER JOIN #tmpStagingTarget AS nt ON n.NotiTempID = nt.NotiTempID AND n.IsNoneSaba = nt.IsNoneSaba
@@ -1764,14 +1788,16 @@ BEGIN
 		,COMPRESS(@InfLogPrefix + 'Build message & handle duplicate content compelted'
 						+ ' - tmpNotiByContent('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
+										SELECT NotiByContID, NotiTempID, IsNoneSaba, ControlGrp
 										FROM #tmpNotiByContent
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
 						+ ' - Invalid tmpResultHist('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
+										SELECT NotiTempID, SettlementLogID , StatusID , NotiLog, SessionID, SeqNo, 
+											MatchID, IsTest, EventDate, SportType, IsNeutral, HomeID, AwayID, KOTime, LeagueID, LeagueGroupID, 
+											GameSession, ActionType, ActualResultXML, WrongResultXML, AmendedCnt
 										FROM #tmpResultHist
 										WHERE StatusID = @StsGenFailed
 										FOR JSON PATH
@@ -1779,14 +1805,14 @@ BEGIN
 								),'NO ROW') + ')'
 						+ ' - tmpStagingTarget('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
+										SELECT NotiTempID, IsNoneSaba, ControlGrp, TargetSite, CustID, AgentID, MasterID, SuperID, TransID
 										FROM #tmpStagingTarget
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
 						+ ' - tmpStagingNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
+										SELECT NotiTempID, IsNoneSaba, TemplateID, TemplateName, Content_en, Content_ch, Content_cs, Content_zhcn
 										FROM #tmpStagingNoti
 										FOR JSON PATH
 									))
@@ -1855,7 +1881,7 @@ BEGIN
 			,COMPRESS(@InfLogPrefix + 'Recent insertes Msg Notification with status = [Generating]')
 		FROM #tmpInsertedNoti AS i
 		WHERE @LogMode = 'Debug'
-		ORDER BY i.NotificationID
+		ORDER BY i.NotificationID ASC
 		
 		CREATE UNIQUE CLUSTERED INDEX CIX_tmpInsertedNoti ON #tmpInsertedNoti (NotificationID)
 		
@@ -1900,7 +1926,7 @@ BEGIN
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.CustID = ntgt.CustID --TranIDs by CustID
 								AND t.TargetSite = ntgt.TargetSite
-							ORDER BY t.TransID
+							ORDER BY t.TransID ASC
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
@@ -1922,7 +1948,7 @@ BEGIN
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.AgentID = ntgt.AgentID --TranIDs by AgentID
 								AND t.TargetSite = ntgt.TargetSite
-							ORDER BY t.TransID
+							ORDER BY t.TransID ASC
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
@@ -1945,7 +1971,7 @@ BEGIN
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.MasterID = ntgt.MasterID --TranIDs by MasterID
 								AND t.TargetSite = ntgt.TargetSite
-							ORDER BY t.TransID
+							ORDER BY t.TransID ASC
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
@@ -1968,7 +1994,7 @@ BEGIN
 							WHERE s.NotiByContID = st.NotiByContID
 								AND t.SuperID = ntgt.SuperID --TranIDs by SuperID
 								AND t.TargetSite = ntgt.TargetSite
-							ORDER BY t.TransID
+							ORDER BY t.TransID ASC
 							FOR JSON PATH
 						)) AS TransIDs
 			FROM #tmpNotiByContent AS s
@@ -2033,7 +2059,7 @@ BEGIN
 					INNER JOIN #tmpResourceOrder ro ON t.NotiTempID=ro.NotiTempID
 													AND t.ResourceID=ro.ResourceID
 					WHERE t.NotiTempID = s.NotiTempID
-					ORDER BY ro.ResourceOrder
+					ORDER BY ro.ResourceOrder ASC
 					FOR JSON PATH
 				)) AS afResult
 			FROM #tmpAffectedResult AS s
@@ -2136,7 +2162,7 @@ BEGIN
 		--write log
 		;WITH CTE_SettLog AS (
 			SELECT NotificationID
-				,STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),',') WITHIN GROUP (ORDER BY SettlementLogID) AS SettlIDs
+				,STRING_AGG(CONVERT(VARCHAR(MAX),SettlementLogID),',') WITHIN GROUP (ORDER BY SettlementLogID ASC) AS SettlIDs
 				,STRING_AGG(CONVERT(VARCHAR(MAX),IsNoneSaba),',') AS IsNoneSaba
 				,STRING_AGG(CONVERT(VARCHAR(MAX),ControlGrp),',') AS ControlGrp
 			FROM (
@@ -2170,7 +2196,7 @@ BEGIN
 			INNER JOIN Notification AS n WITH (NOLOCK) ON i.NotificationID = n.NotificationID
 			LEFT JOIN CTE_SettLog AS s ON i.NotificationID = s.NotificationID
 			LEFT JOIN NotiStatus AS st WITH (NOLOCK) ON n.StatusID = st.StatusID
-		ORDER BY i.NotificationID
+		ORDER BY i.NotificationID ASC
 		
 		/*	the rest, change to Failed
 			
@@ -2307,7 +2333,7 @@ BEGIN
 			,@LogUserID
 			,COMPRESS(@ErrLogPrefix + 'Marked as Failed Notification after consistency checking')
 		FROM #tmpFailedNoti AS i
-		ORDER BY i.NotificationID
+		ORDER BY i.NotificationID ASC
 			
 	END TRY
 	BEGIN CATCH
@@ -2326,18 +2352,18 @@ BEGIN
 		,COMPRESS(@InfLogPrefix + 'Inserted new Notification'
 						+ ' - tmpInsertedNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
+										SELECT NotificationID, NotiByContID, SuccessStatusID, ApproveMode
 										FROM #tmpInsertedNoti
-										ORDER BY NotificationID
-											,NotiByContID
+										ORDER BY NotificationID ASC
+											,NotiByContID ASC
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')'
 						+ ' - tmpFailedNoti('
 							+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-										SELECT *
+										SELECT NotificationID
 										FROM #tmpFailedNoti
-										ORDER BY NotificationID
+										ORDER BY NotificationID ASC
 										FOR JSON PATH
 									))
 								),'NO ROW') + ')')
@@ -2379,7 +2405,7 @@ BEGIN
 			FROM #tmpInsertedNoti AS i
 				LEFT JOIN #tmpFailedNoti AS f ON i.NotificationID = f.NotificationID
 			WHERE f.NotificationID IS NULL --FailedNoti log above
-			ORDER BY i.NotificationID
+			ORDER BY i.NotificationID ASC
 		END
 		ELSE
 		BEGIN
@@ -2413,7 +2439,7 @@ BEGIN
 		,@LogUserID
 		,COMPRESS((CASE WHEN StatusID = @StsGenerated THEN @InfLogPrefix ELSE @ErrLogPrefix END) + ISNULL(rh.NotiLog,'SettlementLog NULL'))
 	FROM #tmpResultHist AS rh
-	ORDER BY SettlementLogID
+	ORDER BY SettlementLogID ASC
 	
 	/****************************************************************************
 	

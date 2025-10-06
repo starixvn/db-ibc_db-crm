@@ -17,6 +17,7 @@ AS
 		- 20241107@Tacy: CRM - Implement Message Notifications Center for Result Amendment of basketball and E-Sports [#212035]
 		- 20250429@Dave: MNC - for Result Amendment of Tennis, Table Tennis, Badminton & Volleyball [RedmineID: #218014]
 		- 20250616@Dave: CRM - Implement Message Notifications Center for Fast Market [RedmineID: #230646]
+		- 20251003@Dave: MNC - Automate-result-amendment for Player Prop AIO of Basketball [RedmineID: #239848]
 
 	
 	Param's Explanation:
@@ -59,6 +60,7 @@ BEGIN TRY
 		,GroupName NVARCHAR(50)
 		,RefId1 NVARCHAR(50)
 		,RefId2 NVARCHAR(50)
+		,OddsInfo NVARCHAR(1000)
 	)
 	
 	CREATE TABLE #tmpJSParseEventInfo (
@@ -88,6 +90,7 @@ BEGIN TRY
 		,Pos NVARCHAR(50)
 		,ActionType TINYINT
 		,ActionOnPos NVARCHAR(10)
+		,OddsInfo NVARCHAR(1000)
 	)
 	
 	CREATE TABLE #tmpJSParseResourceOrder (
@@ -221,6 +224,7 @@ BEGIN TRY
 			,NULLIF(TRIM(a.c.value('@GroupBetType', 'NVARCHAR(50)')), '') AS GroupBT
 			,NULLIF(TRIM(a.c.value('@Pos', 'NVARCHAR(50)')), '') AS Pos
 			,NULLIF(TRIM(a.c.value('@Action', 'NVARCHAR(10)')), '') AS ActionOnPos
+			,NULLIF(TRIM(a.c.value('@OddsInfo', 'NVARCHAR(MAX)')), '') AS OddsInfo
 		FROM #tmpJSParseXML
 			OUTER APPLY ActualResultXML.nodes('root/r') a(c)
 		WHERE ISNULL(CHARINDEX('ActualResult',@ParseAmendInfo),0) > 0
@@ -243,6 +247,7 @@ BEGIN TRY
 			,NULLIF(TRIM(w.c.value('@GroupBetType', 'NVARCHAR(50)')), '') AS GroupBT
 			,NULLIF(TRIM(w.c.value('@Pos', 'NVARCHAR(50)')), '') AS Pos
 			,NULLIF(TRIM(w.c.value('@Action', 'NVARCHAR(10)')), '') AS ActionOnPos
+			,NULLIF(TRIM(w.c.value('@OddsInfo', 'NVARCHAR(MAX)')), '') AS OddsInfo
 		FROM #tmpJSParseXML
 			OUTER APPLY WrongResultXML.nodes('root/r') w(c)
 		WHERE ISNULL(CHARINDEX('WrongResult',@ParseAmendInfo),0) > 0
@@ -265,6 +270,7 @@ BEGIN TRY
 		,Pos
 		,ActionType
 		,ActionOnPos
+		,OddsInfo
 	)
 	SELECT SettlementLogID
 		,AmendInfo
@@ -283,6 +289,7 @@ BEGIN TRY
 		,Pos
 		,ActionType
 		,ActionOnPos
+		,OddsInfo
 	FROM CTE_Actual
 	
 	UNION ALL
@@ -304,6 +311,7 @@ BEGIN TRY
 		,Pos
 		,ActionType
 		,ActionOnPos
+		,OddsInfo
 	FROM CTE_Wrong
 	
 	
@@ -351,9 +359,9 @@ BEGIN TRY
 			SELECT @OutJSResource =
 				CONVERT(NVARCHAR(MAX)
 					,(
-						SELECT *
+						SELECT ID, SettlementLogID, ResourceID
 						FROM #tmpJSParseResourceOrder
-						ORDER BY ID
+						ORDER BY ID ASC
 						FOR JSON AUTO
 					)
 				)
@@ -437,11 +445,15 @@ BEGIN TRY
 			SELECT @OutJSResource =
 				CONVERT(NVARCHAR(MAX)
 					,(
-						SELECT *
+						SELECT 
+							SettlementLogID, AmendInfo, ResourceID, RefBettypeID
+							,HomeValue, AwayValue, OtherInfo, TeamIDs
+							,G, M, X, Y, O
+							,GroupBT, Pos, ActionType, ActionOnPos, OddsInfo
 						FROM #tmpJSParseResultInfo
-						ORDER BY SettlementLogID
-							,AmendInfo
-							,ResourceID
+						ORDER BY SettlementLogID ASC
+							,AmendInfo ASC
+							,ResourceID ASC
 							FOR JSON AUTO
 					)
 				)
@@ -462,14 +474,15 @@ BEGIN TRY
 	BEGIN
 		/*
 			Insert #tmpJSParseRemotingRef with format
-			----|---------------|---------------|-------------------|---------------
-				|SettlementLogID|GroupName		|RefId1				|RefId2
-			----|---------------|---------------|-------------------|---------------
-				| 1				| RefResource	| ResourceCricket	| G1
-				| 1				| RefResource	| ResourceCricket	| G1
-				| 1				| EventInfo		| SportType			| 50
-				| 2				| EventInfo		| TeamID			| 16776
-			----|---------------|---------------|-------------------|---------------
+			----|---------------|---------------|-------------------|---------------|---------------|
+				|SettlementLogID|GroupName		|RefId1				|RefId2			|OddsInfo		|
+			----|---------------|---------------|-------------------|---------------|---------------|
+				| 1				| RefResource	| ResourceCricket	| G1			|NULL			|
+				| 1				| RefResource	| ResourceCricket	| G1			|NULL			|
+				| 1				| EventInfo		| SportType			| 50			|NULL			|
+				| 2				| EventInfo		| TeamID			| 16776			|NULL			|
+				| 2				| OddsInfo		| ResourceID		| 6750101		|{json}			|
+			----|---------------|---------------|-------------------|---------------|---------------|
 			
 			For GroupName=RefResource
 		*/
@@ -487,6 +500,7 @@ BEGIN TRY
 			,RefBettypeID AS RefId2
 		FROM #tmpJSParseResultInfo
 		WHERE RefBettypeID IS NOT NULL
+
 		
 		--<G> / <M> / <O>
 		;WITH CTE_AffectedResult AS (
@@ -528,7 +542,26 @@ BEGIN TRY
 		INNER JOIN dbo.SettlementResultHist i ON i.SettlementLogID=ref.SettlementLogID
 		CROSS APPLY dbo.f_MNC_ResultAmendment_SportSel(i.SportType, @Environment) s
 		WHERE RefId1='Resource{sport_name}'
-		
+
+	
+	/*--OddsInfo--*/
+		--<ResultName - Text to Show>
+		INSERT INTO #tmpJSParseRemotingRef (
+			SettlementLogID
+			,GroupName
+			,RefId1
+			,RefId2
+			,OddsInfo
+		)
+		SELECT DISTINCT SettlementLogID
+			,'OddsInfo' AS GroupName
+			,'ResourceID' AS RefId1
+			,ResourceID AS RefId2
+			,OddsInfo
+		FROM #tmpJSParseResultInfo
+		WHERE RefBettypeID IS NOT NULL
+			AND OddsInfo IS NOT NULL; 
+			
 	/*--BetInfo-- for ActionType = 5*/
 		--<ID>
 		/*As Action Type = 5, ID = ResourceID = RefBettypeID*/
@@ -681,11 +714,12 @@ BEGIN TRY
 						,rf.GroupName
 						,rf.RefId1
 						,rf.RefId2
+						,rf.OddsInfo
 					FROM #tmpJSParseRemotingRef AS rf
-					ORDER BY rf.SettlementLogID
-						,rf.GroupName
-						,rf.RefId1
-						,rf.RefId2
+					ORDER BY rf.SettlementLogID ASC
+						,rf.GroupName ASC
+						,rf.RefId1 ASC
+						,rf.RefId2 ASC
 						FOR JSON AUTO
 				)
 			)
@@ -713,21 +747,27 @@ BEGIN TRY
 		,COMPRESS(N'Info - Debug - [Parse SettlementResultHist to JSON] Final'
 						+ ' - tmpResultInfo('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT 
+												SettlementLogID, AmendInfo, ResourceID, RefBettypeID
+												,HomeValue, AwayValue, OtherInfo, TeamIDs
+												,G, M, X, Y, O
+												,GroupBT, Pos, ActionType, ActionOnPos, OddsInfo
 											FROM #tmpJSParseResultInfo
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 						+ ' - tmpEventInfo('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT
+												SettlementLogID, MatchID, SportType
+												,HomeID, AwayID, LeagueID
 											FROM #tmpJSParseEventInfo
 											FOR JSON PATH
 										))
 									),'NO ROW') + ')'
 						+ ' - tmpRemotingRef('
 								+ ISNULL((SELECT CONVERT(NVARCHAR(MAX),(
-											SELECT *
+											SELECT SettlementLogID, GroupName, RefId1, RefId2, OddsInfo
 											FROM #tmpJSParseRemotingRef
 											FOR JSON PATH
 										))

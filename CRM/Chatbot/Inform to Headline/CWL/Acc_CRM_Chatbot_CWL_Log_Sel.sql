@@ -1,4 +1,4 @@
-/*<info serverAlias="DBCUST-CustDB" executers="bodbAdminNet" isFunction="0" isNested="0"></info>*/
+/*<info serverAlias="DBCUST-CustDB" executers="wsv_nap" isFunction="0" isNested="0"></info>*/
 ALTER PROCEDURE [dbo].[Acc_CRM_Chatbot_CWL_Log_Sel]
 	@LastLogId	BIGINT
 	,@BatchSize INT = 10
@@ -14,6 +14,7 @@ AS
 		- 20210626@Percy: Fix code loop LogId [RedmineId: #144265]
 		- 20210627@Malcolm: remove WHILE loop [RedmineId: #144265]
         - 20230829@Ned.Le: CRM - don't include Company Max Payout rules per ticket (Exclude ActionID=255) into service (#193293)
+		- 20250929@Dave: CWL - Headline requests only trigger notifications under specific settings [RedmineId: #239736]
 */
 
 BEGIN
@@ -31,11 +32,18 @@ BEGIN
 
 	WAITFOR DELAY '00:00:00.200'
 
+	;WITH TMP_NormalGroupList AS (
+		SELECT GroupID
+		FROM dbo.f_GetWinLimit_Group_NormalList('LIVE')
+	)
 	SELECT TOP(@BatchSize) h.LogID, h.CustID, e.currency AS [CurrencyName], c.Username, c.Recommend, c.Mrecommend, c.Srecommend, h.WinAmt AS Winloss, h.ProductID, h.LevelID, h.GroupID
+		, h.TotalWinAmt_RM AS TotalWinAmtRM, p.CasinoType, CASE WHEN ng.GroupID IS NOT NULL THEN 1 ELSE 0 END AS IsNormalGame
 	FROM dbo.WinLimit_CustGameMonitoring_History h WITH(NOLOCK)
 		INNER JOIN dbo.Customer c WITH(NOLOCK) ON c.custid = h.CustID
 		INNER JOIN dbo.Site s WITH(NOLOCK) ON s.site = c.site
 		INNER JOIN dbo.exchange e WITH(NOLOCK) ON e.ExchangeId = c.currency
+		INNER JOIN dbo.Products p WITH(NOLOCK) ON p.ProductID = h.ProductID
+		LEFT JOIN TMP_NormalGroupList ng ON h.GroupID = ng.GroupID
 	WHERE h.LogId > @LastLogId AND h.LogID <= @MaxLogId
 		AND h.WinlostDate >= CONVERT(DATE, GETDATE() - 1)
 		AND h.ActionID NOT IN (2, 4) AND ActionID < 200

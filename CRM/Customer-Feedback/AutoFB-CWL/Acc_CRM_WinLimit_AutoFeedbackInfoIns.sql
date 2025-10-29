@@ -4,6 +4,7 @@ USE bodb_CRM
 GO
 
 ALTER PROCEDURE [dbo].[Acc_CRM_WinLimit_AutoFeedbackInfoIns] @xml XML
+															,@Environment	VARCHAR(10) = 'LIVE'
 AS
 
 /*
@@ -22,6 +23,7 @@ AS
 		- 20230214@Tacy:	CRM - Split 789y site [RedmineID: #182438]
         - 20240927@Ned.Le: CRM - Incorporate new product - Virtual Sports 5 (#207712)
 		- 20241225@Tacy: CRM - Offer Direct Member for Super and Master [Redmine: #215809]
+		- 20250929@Dave: CWL - Headline requests only trigger notifications under specific settings [RedmineId: #239736]
 
 	Parameter's Explanation:
 		- @xml = <ROOT>
@@ -46,11 +48,13 @@ BEGIN
 						TotalWinAmt		MONEY,
 						TotalWinAmt_RM	MONEY,
 						ReachedTime		DATETIME,
-						BettypeIDList	VARCHAR(1024)						
+						BettypeIDList	VARCHAR(1024),
+						CasinoType		TINYINT,
+						IsNormalGame	BIT DEFAULT 0
 						)
 		
 	INSERT INTO @tmpCust(LogID,CustID,HeadlineID,HeadlineName,RelatedCustID,ProductID,ProductGroup,
-						Level,MaxWinLimitSetting,TotalWinAmt,TotalWinAmt_RM,ReachedTime,BettypeIDList)
+						Level,MaxWinLimitSetting,TotalWinAmt,TotalWinAmt_RM,ReachedTime,BettypeIDList, CasinoType, IsNormalGame)
 	SELECT t.c.value('@logid[1]','int') Logid,
 		t.c.value('@custid[1]','int') custid,			
 		t.c.value('@hl[1]','int') HeadlineID,
@@ -63,9 +67,21 @@ BEGIN
 		t.c.value('@winamount[1]','money') TotalWinAmt,
 		t.c.value('@winamountRM[1]','money') TotalWinAmt_RM,		
 		t.c.value('@time[1]','datetime') ReachedTime,
-		t.c.value('@bettype[1]','varchar(1024)') BettypeIDList
-	FROM @xml.nodes('/ROOT/r') t(c)	
+		t.c.value('@bettype[1]','varchar(1024)') BettypeIDList,
+		t.c.value('@casinotype[1]', 'tinyint') AS CasinoType,
+		t.c.value('@isnormalgame[1]', 'bit') AS IsNormalGame
+	FROM @xml.nodes('/ROOT/r') t(c)
 	
+	/*Exclude notification if Winloss not reach threshold*/
+	DELETE TMP 
+	FROM @tmpCust TMP
+		CROSS APPLY dbo.f_GetNotifyThresholdCWL(@Environment) AS THR
+	WHERE 
+		IsNormalGame = 1
+		AND TMP.HeadlineId = THR.HeadlineId AND TMP.CasinoType = THR.CasinoType 
+		AND ((TMP.TotalWinAmt_RM >= 0 AND TMP.TotalWinAmt_RM < THR.WinningThreshold)
+			OR (TMP.TotalWinAmt_RM < 0 AND TMP.TotalWinAmt_RM > THR.LosingThreshold));
+
 	INSERT INTO crmWinLimitFeedbackInfo (
 						LogID
 						,CustID

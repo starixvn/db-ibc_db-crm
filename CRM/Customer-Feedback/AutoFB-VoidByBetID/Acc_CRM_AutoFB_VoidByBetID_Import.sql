@@ -25,7 +25,7 @@ AS
         20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
         20240827@Ned.Le: CRM - Void by BetID - Support Auto FB and notificaitons for voiding Parlay Ticket of Sportsbook (#209707)
 		20250603@Dave: Change Communication Tool default Skype -> Telegram (For Licensee Model) [RedmineId : #229468]
-
+        20251016@Helios: Upgrade datatype of sporttype from TINYINT to SMALLINT [Redmine: #241501] 
     Param's Explanation:
         @Message:
             <root>
@@ -214,7 +214,7 @@ BEGIN
         Mrecommend INT,
         Srecommend INT,
         MatchId    INT,
-        Sporttype  TINYINT,
+        Sporttype  SMALLINT, -- Updated from TINYINT to SMALLINT
         Bettype    INT
     )
     -- + Get data from XML
@@ -751,8 +751,8 @@ BEGIN
                              CASE WHEN c.Category_MappedLevel = 3 OR c.SubCategory_MappedLevel = 3 THEN '1005' ELSE c.CommunicationIds END AS CommunicationIds
                              FROM CTE_CommTool c
                              WHERE c.CustID = h.HeadlineId
-                      ORDER BY c.Category_MappedLevel,
-                               c. SubCategory_MappedLevel) df
+                      ORDER BY c.Category_MappedLevel ASC,
+                               c. SubCategory_MappedLevel ASC) df
     WHERE isLicensee = 0
     -- + --> For Licensee Model (hardcode Skype)
     ;WITH
@@ -895,8 +895,8 @@ BEGIN
            ISNULL(LeagueName, '') league_name,
            ISNULL((HomeTeamName + ' -vs- '+ AwayTeamName), '') match_name
     FROM #tmpFeedback_event_detaildata
-    ORDER BY MessageId,
-             HeadlineId,
+    ORDER BY MessageId ASC,
+             HeadlineId ASC,
              EventDate DESC,
              CAST(GlobalShowTime AS TIME) DESC,
              SportType ASC

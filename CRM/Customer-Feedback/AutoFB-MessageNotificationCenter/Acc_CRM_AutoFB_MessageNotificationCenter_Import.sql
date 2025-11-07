@@ -19,6 +19,7 @@ AS
         20240502@Luke: CRM - Implement Message Notifications Center for Result Amendment of Cricket [Redmine: #197621]
         20240821@Ned.Le: Include Feedback for Licensee
 		20241231@Virgil: Add Remark section [Redmine: #214619]
+        20251016@Helios: Updated Sporttype column datatype from TINYINT to SMALLINT [Redmine: #241501] 
 
     Param's Explanation:
         @MsgInfo:
@@ -234,7 +235,7 @@ BEGIN
         Mrecommend INT,
         Srecommend INT,
         MatchId    INT,
-        Sporttype  TINYINT,
+        Sporttype  SMALLINT, -- Updated from TINYINT to SMALLINT
         Bettype    INT
     )
 
@@ -758,8 +759,8 @@ BEGIN
                              CASE WHEN c.Category_MappedLevel = 3 OR c.SubCategory_MappedLevel = 3 THEN '1005' ELSE c.CommunicationIds END AS CommunicationIds
                              FROM CTE_CommTool c
                              WHERE c.CustID = h.HeadlineId
-                      ORDER BY c.Category_MappedLevel,
-                               c. SubCategory_MappedLevel) df
+                      ORDER BY c.Category_MappedLevel ASC ,
+                               c. SubCategory_MappedLevel ASC) df
     WHERE isLicensee = 0
     -- + --> For Licensee Model (hardcode Email)
     ;WITH
@@ -900,8 +901,8 @@ BEGIN
            ISNULL(LeagueName, '') league_name,
            ISNULL((HomeTeamName + ' -vs- '+ AwayTeamName), '') match_name
     FROM #tmpFeedback_event_detaildata
-    ORDER BY MessageId,
-             HeadlineId,
+    ORDER BY MessageId ASC,
+             HeadlineId ASC,
              EventDate DESC,
              CAST(GlobalShowTime AS TIME) DESC,
              SportType ASC
@@ -1025,7 +1026,7 @@ BEGIN
             ;WITH
             CTE_raw AS (
                 SELECT value LineText,
-                       ROW_NUMBER() OVER (ORDER BY (SELECT 0)) LineNumber
+                       ROW_NUMBER() OVER (ORDER BY (SELECT 0) ASC) LineNumber
                 FROM STRING_SPLIT(@Loop_Lic_Des_ContentOutput, CHAR(10))
             ),
             CTE_up AS (

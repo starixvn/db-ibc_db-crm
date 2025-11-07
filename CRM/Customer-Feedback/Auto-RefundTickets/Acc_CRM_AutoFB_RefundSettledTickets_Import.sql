@@ -23,7 +23,7 @@ AS
         - 20240320@Ned.Le: CRM - Manage Headline/PIC/Staff authority and Company services (#193385)
 		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
         - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
-		
+		- 20251016@Helios: Upgrade datatype of sporttype from TINYINT to SMALLINT [Redmine: #241501]
 	Param's Explanation:
 		. @MessageContent = 
 					  '<root>
@@ -118,7 +118,7 @@ BEGIN
 
 	CREATE TABLE #Message (MessageId INT, MsgTargetId INT, TransId BIGINT, CustId INT, Username VARCHAR(30), Recommend INT, Mrecommend INT
 		,Srecommend INT, Content_en NVARCHAR(MAX), Content_cs NVARCHAR(MAX), BetransIds VARCHAR(MAX), HeadlineId INT, HeadlineName VARCHAR(30)
-		,GroupName VARCHAR(50), MainDBSportTypeId TINYINT, MainDBBettypeId INT, SportTypeId INT, BettypeId INT, ProductId INT, MatchId INT, EventType INT, IsTest BIT DEFAULT 0)
+		,GroupName VARCHAR(50), MainDBSportTypeId SMALLINT, MainDBBettypeId INT, SportTypeId SMALLINT, BettypeId INT, ProductId INT, MatchId INT, EventType INT, IsTest BIT DEFAULT 0)
 
 	INSERT INTO #Message (MessageId, MsgTargetId, TransId)
 	SELECT DISTINCT  
@@ -375,7 +375,7 @@ BEGIN
 			CASE WHEN c.Category_MappedLevel = 3 OR c.SubCategory_MappedLevel = 3 THEN '1005' ELSE c.CommunicationIds END AS CommunicationIds
 		FROM CTE_CommTool c
 		WHERE h.HeadlineId = c.CustID 
-		ORDER BY c.Category_MappedLevel, c.SubCategory_MappedLevel
+		ORDER BY c.Category_MappedLevel ASC , c.SubCategory_MappedLevel ASC
 	) AS df
 
 	UPDATE h

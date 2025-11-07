@@ -19,6 +19,7 @@ AS
         - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
         - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
+		- 20251016@Helios: Upgrade datatype of sporttype from TINYINT to SMALLINT [Redmine: #241501]
 
 	Parameter's Explanation:
 
@@ -41,7 +42,7 @@ BEGIN
 							Listbettype VARCHAR(MAX) ,
 							currency  NVARCHAR(50),
 							site VARCHAR(10),
-							Sporttype TINYINT,
+							Sporttype SMALLINT,
 							leagueid	INT,
                             leaguegroupid INT,
 							leaguenametc NVARCHAR(100),
@@ -79,11 +80,11 @@ BEGIN
 		INNER JOIN bodb02.dbo.customer c WITH(NOLOCK) ON an.HeadlineID = c.custid
 		INNER JOIN bodb02.dbo.Exchange e WITH(NOLOCK) ON c.currency = e.ExchangeId
 	WHERE an.Status IN ('initial','fail')	AND an.retryCount < 5
-	ORDER BY an.LogID
+	ORDER BY an.LogID ASC
 	
 	-- Don't get FB Duplicate 
 	;WITH Temp AS( 
-		SELECT LogID, ROW_NUMBER() OVER( PARTITION BY TicketEventId,HeadlineID,ActualResult,WrongResult,MessageId,affectedId ORDER BY LogID) AS RowNum
+		SELECT LogID, ROW_NUMBER() OVER( PARTITION BY TicketEventId,HeadlineID,ActualResult,WrongResult,MessageId,affectedId ORDER BY LogID ASC) AS RowNum
 		FROM #Result
 	)
 	DELETE del 
@@ -252,7 +253,7 @@ BEGIN
 	FROM #Result f
 	LEFT JOIN crmCustomer hl WITH(NOLOCK) ON f.HeadlineID = hl.custid
 	INNER JOIN bodb02.dbo.Site s WITH (NOLOCK) ON s.site=f.site
-	ORDER BY TicketEventId
+	ORDER BY TicketEventId ASC
 		
 	DROP TABLE #Result	
-END	
+END

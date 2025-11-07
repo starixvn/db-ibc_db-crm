@@ -28,6 +28,7 @@ AS
         - 20240825@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
         - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
 		- 20250603@Dave: Change Communication Tool default Skype -> Telegram (Abnormal Bet, AB Real Member, Abnormal Account - All Licensee Feedback) [RedmineId : #229468]
+		- 20251016@Helios: Upgrade datatype of sporttype from TINYINT to SMALLINT [Redmine: #241501]
 		
 	Param's Explanation:
 		. @Message = 
@@ -153,7 +154,7 @@ BEGIN
 		,HeadlineId					INT
 		,HeadlineName				VARCHAR(50)
 		,GroupName					VARCHAR(50)
-		,MainDBSportTypeId			TINYINT
+		,MainDBSportTypeId			SMALLINT
 		,MainDBBettypeId			INT
 		,MainDBProductId			INT
 		,SportTypeId				INT
@@ -488,7 +489,7 @@ BEGIN
 			CASE WHEN c.Category_MappedLevel = 3 OR c.SubCategory_MappedLevel = 3 THEN '1005' ELSE c.CommunicationIds END AS CommunicationIds
 		FROM CTE_CommTool c
 		WHERE h.HeadlineId = c.CustID 
-		ORDER BY c.Category_MappedLevel, c.SubCategory_MappedLevel
+		ORDER BY c.Category_MappedLevel ASC , c.SubCategory_MappedLevel ASC
 	) AS df
 	WHERE IsDeposit = 0
 
@@ -1136,7 +1137,7 @@ BEGIN
 			) AS n (IsParlay, IssueType)
 		), CTE_DuplicatedTicketsInfoDetail AS (
 			SELECT HeadlineId, VoidingHistoryCollectionId, IssueTypeId, IsParlay, Username, OrigTransId,
-				STRING_AGG(CONVERT(VARCHAR(MAX),TransId), ',') WITHIN GROUP(ORDER BY TransId) AS VoiedTransList
+				STRING_AGG(CONVERT(VARCHAR(MAX),TransId), ',') WITHIN GROUP(ORDER BY TransId ASC ) AS VoiedTransList
 			FROM #VoidedCollectionInfo
 			WHERE IssueTypeId = 20 AND IsDeposit = 1
 			GROUP BY HeadlineId, VoidingHistoryCollectionId, IssueTypeId, IsParlay, Username, OrigTransId

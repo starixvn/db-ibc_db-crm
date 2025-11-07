@@ -20,6 +20,7 @@ AS
         - 20240207@Ned.Le: CRM/Chatbot - Message Notifications for Voiding Tickets of Special Sites (ChinaView, JollySports) [RedmineId : #198905]
 		- 20240718@Luke: CRM - Incorporate new product - Virtual Sports 5 [Redmine: #207712]
         - 20240924@Ned.Le: CRM - Integrate two new sports Virtual Horses and Virtual Dogs of Product Betradar VS2 (#210788)
+        - 20251016@Helios: Updated Sporttype datatype from TINYINT to SMALLINT for migration [RedmineId: #241501]
 	Parameter's Explanation:
 		
 */
@@ -33,7 +34,7 @@ BEGIN
 							ProductID INT, 
 							EventType	TINYINT,
 							EventDate DATETIME,
-							Sporttype TINYINT,
+							Sporttype SMALLINT,
 							leagueid	INT,
                             leaguegroupid INT,
 							leaguenametc NVARCHAR(100),
@@ -70,7 +71,7 @@ BEGIN
 		LogVoidingID
 	FROM crmAutoFBVoiding an WITH(NOLOCK)
 	WHERE an.Status IN ('initial','fail')	AND an.retryCount < 5
-	ORDER BY an.LogVoidingID	
+	ORDER BY an.LogVoidingID ASC
 	
 	INSERT INTO #ResultDetail(LogEventID,LogVoidingID,MatchId,MatchCode,ProductID,EventType,EventDate,Product_Sort)
 	SELECT LogEventID,LogVoidingID,MatchId,MatchCode,ProductID,EventType,EventDate,
@@ -219,7 +220,7 @@ BEGIN
 		ProductID,
         VendorMatchId
 	FROM #ResultDetail
-	order by Product_Sort , EventDate DESC, SportName_Sort , KO_time DESC, leaguenametc
+	order by Product_Sort ASC , EventDate DESC, SportName_Sort ASC, KO_time DESC, leaguenametc ASC
 	
 			
 END	

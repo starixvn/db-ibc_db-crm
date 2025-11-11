@@ -9,7 +9,7 @@ AS
 	DB: DBCRM.MessageNotification
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
-	
+		20251010@Helios: Upgrade ExchangeID DataType - [Redmine:#242140]
 	Explanation:
 		Get Valid Alert to create Alert Message
 	Example:
@@ -97,7 +97,7 @@ BEGIN
 	CREATE TABLE #tmpGAIAlertBySite (
 		AlertID INT
 		,TargetSite NVARCHAR(50)
-		,UUSCurrency TINYINT
+		,UUSCurrency SMALLINT
 	)
 	
 	CREATE TABLE #tmpGAISendingAlert (
@@ -167,7 +167,7 @@ BEGIN
 		,@LogUserID
 		,COMPRESS(@InfLogPrefix + '@IsTestFlag(' + ISNULL(CONVERT(VARCHAR,@IsTestFlag),'REAL & TEST') + ') - Changed AlertID(' + ISNULL(CONVERT(VARCHAR,AlertID),'NULL')+ ') Status from [New] to [Sending]')
 	FROM #tmpGAIPrepareAlert
-	ORDER BY AlertID
+	ORDER BY AlertID ASC
 	
 	/*
 		Prepare data before check valid Alert
@@ -508,7 +508,7 @@ BEGIN
 	
 	---------convert data as JSON------------------
 	SELECT @JSAlertInfo = CONVERT(NVARCHAR(MAX),(
-							SELECT *
+							SELECT AlertID ,IsTest ,MatchID ,IsNoneSaba ,ChatGroupID ,TemplateID ,ValidToSendChatGroup ,RefInfo ,NotificationID ,SessionID ,AlertType ,IgnoreReason
 							FROM #tmpGAISendingAlert
 							FOR JSON AUTO
 						))

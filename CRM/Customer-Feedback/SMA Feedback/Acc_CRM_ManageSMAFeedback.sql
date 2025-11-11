@@ -28,7 +28,7 @@ AS
 	Revisions:
 		20250310@Virgil: Initial SP [Redmine #196012]
 		20250807@Dave: CRM - Manage SMA Feedback in effective way - Add Rating [Redmine #235385]
-
+		20251010@Helios: Upgrade ExchangeID DataType [Redmine:#242140]
     Param's Explanation:
         - @UserRole = 0: Manager 
                       1: CN88 staff
@@ -63,7 +63,7 @@ BEGIN
 		[UserName]			NVARCHAR(50),
 		[Level]				VARCHAR(10),
 		[Site]				NVARCHAR(100),
-		[currency]			TINYINT,
+		[currency]			SMALLINT,
 		[Comment]			NVARCHAR(4000),
 		[FuncID]			INT,
 		[FuncName]			NVARCHAR(50),

@@ -577,8 +577,8 @@ BEGIN
 		,IsTest
 		,Content
 	FROM #tmpResultSet
-	ORDER BY ChatGroupID
-		,IsTest
+	ORDER BY ChatGroupID ASC
+		,IsTest ASC
 	
 	--Change ProcessID Status
 	UPDATE SystemSetting WITH (ROWLOCK,UPDLOCK)
@@ -639,7 +639,7 @@ BEGIN
 	FROM #tmpResultSet AS a
 		LEFT JOIN CTE_Sent AS sa ON a.AlertID = sa.AlertID
 		LEFT JOIN CTE_Ignore AS ia ON a.AlertID = ia.AlertID
-	ORDER BY a.AlertID
+	ORDER BY a.AlertID ASC
 	
 	;WITH CTE_IgnoreAlert AS (
 		SELECT s.AlertID
@@ -670,7 +670,7 @@ BEGIN
 						+ ' - Ignore ChatGroupIDs(' + ISNULL(ig.ChatGroupIDs,'NULL')+ ')'
 						+ ' - Ignore Log(' + ISNULL(ig.IngoreLog,'NULL')+ ')')
 	FROM CTE_IgnoreAlert AS ig
-	ORDER BY ig.AlertID
+	ORDER BY ig.AlertID ASC
 	
 	/*
 		Handle LastRunTime

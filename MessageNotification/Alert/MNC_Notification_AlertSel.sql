@@ -9,6 +9,7 @@ AS
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		20240910@Roy: CRM - Offer New Chinese Simplify for Result Amendment of Cricket (MNC) (#210317)
+		20251111@Dave: CRM - The Telegram Bot did not sent out the notification for result amendment [Redmine: 226970]
 	
 	Explanation:
 		
@@ -362,10 +363,16 @@ BEGIN
 	
 	CREATE CLUSTERED INDEX CIX_tmpEventInfo ON #tmpEventInfo (MatchID)
 	
+	UPDATE #tmpEventInfo
+	SET LeagueName = REPLACE(LeagueName,'*','•'),
+		AwayName = REPLACE(AwayName,'*','•'),
+		HomeName = REPLACE(HomeName,'*','•')
+		
 	--Make sure LeagueName_NoneSaba NOT NULL
 	UPDATE #tmpEventInfo
 	SET LeagueName_NoneSaba = TRIM(REPLACE(REPLACE(LeagueName,' Saba ',' '),'Saba',''))
 	WHERE LeagueName_NoneSaba IS NULL
+
 	
 	------------------------Build Template detail-----------------------------
 	INSERT INTO #tmpTemplateDetl (
@@ -451,6 +458,12 @@ BEGIN
 		,'{Content_zhcn}'
 	)
 	
+	UPDATE #tmpTemplateDetl
+	SET ParamValue = REPLACE(ParamValue,'*','•')
+	WHERE RequiredParam LIKE '{Content%'
+	AND CHARINDEX('*',ParamValue) > 0
+
+
 	---Replace RequiredParam into Template	
 	DECLARE @iLoopParam VARCHAR(50)
 	SELECT @iLoopParam = MIN(RequiredParam)

@@ -13,7 +13,8 @@ AS
 	Revisions:
 		20231121@Roy: CRM - Implement Message Notifications Center for Result Amendment of Cricket(#197621)
 		20240610@Luke: LAP - Enhance Result Amendment [Redmine: #199443]
-	
+		20251124@Tacy: LAP - Extend data length for 'EventName' [Redmine: #245046]
+
 	Param's Explanation:
 		@AgentList: List agent need to view notification's ticket list or export excel
 		@NotiID: NotificationID need to view ticket list [Notification.NotificationID]
@@ -82,7 +83,7 @@ BEGIN
 		,Username2 NVARCHAR(50)
 	)
 
-	CREATE TABLE #EventInfo (NotiID INT, EventName NVARCHAR(100), EventDate DATE)
+	CREATE TABLE #EventInfo (NotiID INT, EventName NVARCHAR(200), EventDate DATE)
 	
 	----------------------------------------------------------------	
 	IF EXISTS (SELECT 1 FROM #tmpNoti)
@@ -145,9 +146,9 @@ BEGIN
 		,Username AS SystemID
 	FROM #tmpAffectedTicket
 	WHERE Username IS NOT NULL
-	ORDER BY NotiId
-		,Username
-		,TransID
+	ORDER BY NotiId ASC
+		,Username ASC
+		,TransID ASC
 	
 	DROP TABLE #tmpAffectedTicket, #tmpNoti, #AgentIDs, #EventInfo
 END

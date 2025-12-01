@@ -15,12 +15,13 @@ AS
 
     Revisions:
         - 20241018@Virgil: Initialize SP [RedmineID: #210688]
+		    - 20251203@Dave: CRM - Notification for Rebate and Retention - Implement Batch-Based Processing [RedmineID: #245494]
 
     Param's Explanation:
 		- @XmlData: <root>
-					  <r CustId="1284" Recommend="1262" Mrecommend="117835270" Srecommend="117835268" AffectedMember="305RM: {100 RM}" IsTest="0"/>
-					  <r CustId="1290" Recommend="1262" Mrecommend="117835270" Srecommend="117835268" AffectedMember="192RM: {100 RM}" IsTest="0"/>
-					  <r CustId="96324235" Recommend="93558369" Mrecommend="117835270" Srecommend="117835268" AffectedMember="WINRM008: {100 RM}" />
+					  <r SID = "74" CustId="1284" Recommend="1262" Mrecommend="117835270" Srecommend="117835268" AffectedMember="305RM: {100 RM}" IsTest="0"/>
+					  <r SID = "74" CustId="1290" Recommend="1262" Mrecommend="117835270" Srecommend="117835268" AffectedMember="192RM: {100 RM}" IsTest="0"/>
+					  <r SID = "74" CustId="96324235" Recommend="93558369" Mrecommend="117835270" Srecommend="117835268" AffectedMember="WINRM008: {100 RM}" />
 					</root>
         - @NewLogSID: <root>
 					  <r LastLogSID="74" SiteDBGroupId="3" ListPendingSIDs="84,85,86,72,73" />
@@ -108,6 +109,7 @@ BEGIN
 
     -- Create temp table and parse XML data
     CREATE TABLE #tmpXMLData (
+    [SID]      INT,
 		SiteDBGroupID	SMALLINT,
 		CustId			INT,
 		Recommend		INT,
@@ -118,6 +120,7 @@ BEGIN
     )
     INSERT INTO #tmpXMLData 
     SELECT
+		t.c.value('@SID', 'INT')		AS [SID],
 		t.c.value('@SiteDBGroupID', 'SMALLINT')		AS SiteDBGroupID,
         t.c.value('@CustId',		'INT')			AS CustId,
         t.c.value('@Recommend',		'INT')			AS Recommend,
@@ -316,9 +319,10 @@ BEGIN
     --                         |                Nhom table lien quan den ConverstionGroup chi su dung gia tri RecipientId chu ko dung PicID
     -- + Create temp table
     CREATE TABLE #tmpNotificationMessageInfo (
-		SiteDBGroupID	SMALLINT,
+        [SID]         INT,
+		    SiteDBGroupID	SMALLINT,
         Username		VARCHAR(50),
-		AffectedMember	VARCHAR(100),
+		    AffectedMember	VARCHAR(100),
         Supername		VARCHAR(50),
         DirectAccount	INT,
         HeadlineId		INT,
@@ -327,6 +331,7 @@ BEGIN
     )
     -- + Gen data to temp table
     INSERT INTO #tmpNotificationMessageInfo (
+        [SID],
 		SiteDBGroupID,
 		Username,
 		AffectedMember,
@@ -336,7 +341,8 @@ BEGIN
         IsTest,
         RecipientId
     )
-    SELECT m.SiteDBGroupID		SiteDBGroupID,
+    SELECT m.[SID],
+      m.SiteDBGroupID		SiteDBGroupID,
 			mem.username		Username,
 			m.AffectedMember	AffectedMember,
 			sup.username		Supername,
@@ -531,6 +537,7 @@ BEGIN
     CREATE TABLE #tmpNotificationFinalData (
         -- Based Data
         Id					INT IDENTITY(1, 1),
+        [SID]       INT,
 		SiteDBGroupID		SMALLINT,
         ConversationGroupId SMALLINT,
         ChannelId			TINYINT,
@@ -1056,11 +1063,10 @@ BEGIN
             CreatedDate
         )
         SELECT @NotificationId              NotificationId,
-				n.LastLogSID				ReferenceId,
+				r.[SID]				ReferenceId,
                'SiteDB'+RIGHT('00' + CAST(r.SiteDBGroupID AS VARCHAR(2)), 2)+'.bodb02.dbo.SabaProgramStatus' AS DataSource,			   
                GETDATE()                    CreatedDate
         FROM #tmpNotificationFinalData r
-			JOIN #NewLogSID n ON r.SiteDBGroupID = n.SiteDBGroupID
         WHERE r.Id = @Id
 
         -- + Update value column RelatedIds for Notification of Personal that be duplicate data with Group

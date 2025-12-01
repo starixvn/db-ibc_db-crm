@@ -1,13 +1,4 @@
 ﻿/*<info serverAlias="DBCRM-bodb_CRM" executers="wsv_nap" viewers="" isFunction="0"></info>*/
-USE [bodb_CRM]
-GO
-
-SET ANSI_NULLS ON
-GO
-SET QUOTED_IDENTIFIER ON
-GO
-
-
 CREATE PROCEDURE [dbo].[Acc_CRM_AutoFB_RebateRetention_Import]  
 	@XmlData	 XML,
 	@NewLogSID	 XML,
@@ -24,15 +15,16 @@ AS
 
     Revisions:
         - 20241111@Virgil: Initialize SP [RedmineID: #210688]
+		- 20251201@Dave: CRM - Notification for Rebate and Retention - Implement Batch-Based Processing [RedmineID: #245494]
 
     Param's Explanation:
 		- @XmlData: <root>
-						<r SiteDBGroupID="3" CustId="81944297" Recommend="11760526" Mrecommend="4174" Srecommend="2" AffectedMember="A68M09N 200 RM" IsTest="0" />
-						<r SiteDBGroupID="3" CustId="82084466" Recommend="11760526" Mrecommend="4174" Srecommend="2" AffectedMember="A68M09O 200 RM" IsTest="0" />
-						<r SiteDBGroupID="3" CustId="117835198" Recommend="117835197" Mrecommend="117835196" Srecommend="117835195" AffectedMember="supertestte7770M0M000 200.75 UUS" IsTest="1" />
+						<r SID = "201" SiteDBGroupID="3" CustId="81944297" Recommend="11760526" Mrecommend="4174" Srecommend="2" AffectedMember="A68M09N 200 RM" IsTest="0" />
+						<r SID = "201" SiteDBGroupID="3" CustId="82084466" Recommend="11760526" Mrecommend="4174" Srecommend="2" AffectedMember="A68M09O 200 RM" IsTest="0" />
+						<r SID = "201" SiteDBGroupID="3" CustId="117835198" Recommend="117835197" Mrecommend="117835196" Srecommend="117835195" AffectedMember="supertestte7770M0M000 200.75 UUS" IsTest="1" />
 					</root>
 		- @NewLogSID: <root>
-						  <r LastLogSID="201" SiteDBGroupId="3" ListPendingSIDs="" NewLogSID="201" />
+						  <r LastLogSID="201" SiteDBGroupId="3" ListPendingSIDs=""/>
 						</root>
 */
 BEGIN
@@ -117,6 +109,7 @@ BEGIN
 
     -- Create temp table and parse XML data
     CREATE TABLE #tmpXMLData (
+        [SID]           INT,
 		SiteDBGroupID	SMALLINT,
 		CustId			INT,
 		Recommend		INT,
@@ -125,8 +118,9 @@ BEGIN
 		AffectedMember	VARCHAR(100),
 		IsTest			BIT
     )
-    INSERT INTO #tmpXMLData 
+    INSERT INTO #tmpXMLData([SID], SiteDBGroupID, CustId, Recommend, Mrecommend, Srecommend, AffectedMember, IsTest)
     SELECT
+		t.c.value('@SID',           'INT')		    AS SID,
 		t.c.value('@SiteDBGroupID', 'SMALLINT')		AS SiteDBGroupID,
         t.c.value('@CustId',		'INT')			AS CustId,
         t.c.value('@Recommend',		'INT')			AS Recommend,
@@ -425,6 +419,7 @@ BEGIN
     -- + Get Cust data
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_base_cust (
+        [SID]           INT,
 		SiteDBGroupID	SMALLINT,
         HeadlineId      INT,
         Supername		VARCHAR(50),
@@ -435,6 +430,7 @@ BEGIN
     )
     -- + --> Gen credit data to temp table
     INSERT INTO #tmpFeedback_base_cust (
+        [SID],
 		SiteDBGroupID,
         HeadlineId,
 		Supername,
@@ -444,6 +440,7 @@ BEGIN
 		AffectedMember
     )
     SELECT DISTINCT
+            b.SID,
 			b.SiteDBGroupID  SiteDBGroupID,
 			h.HeadlineId	 HeadlineId,
 			sup.username	 Supername,
@@ -465,6 +462,7 @@ BEGIN
     -- + --> Create temp table
     CREATE TABLE #tmpFeedback_base (
         Id                 INT IDENTITY(1, 1),
+        [SID]              INT,
 		SiteDBGroupID	   SMALLINT,
         HeadlineId         INT,
         RelatedCustIds     VARCHAR(MAX),
@@ -481,18 +479,20 @@ BEGIN
     --										  | Viec nay se phat sinh them nhieu CTE va lam code hoi dai dong nhung de hieu
 	;WITH
 		CTE_cust AS (
-			SELECT SiteDBGroupID,
+			SELECT [SID],
+                    SiteDBGroupID,
 					HeadlineId,
 					STRING_AGG(CAST(RelatedCustId AS VARCHAR(MAX)), ',') AS RelatedCustIds,
 					STRING_AGG(CAST(RelatedUsername AS VARCHAR(MAX)), ', ') WITHIN GROUP (ORDER BY RelatedUsername ASC) AS RelatedUsernames
 			FROM (
-				SELECT DISTINCT SiteDBGroupID, HeadlineId, RelatedCustId, RelatedUsername
+				SELECT DISTINCT [SID], SiteDBGroupID, HeadlineId, RelatedCustId, RelatedUsername
 				FROM #tmpFeedback_base_cust
 			) c
-			GROUP BY SiteDBGroupID, HeadlineId
+			GROUP BY [SID], SiteDBGroupID, HeadlineId
 		),
 		CTE_Group_AggregatedData_AffectedList_RemoveDuplicate AS (
 			SELECT DISTINCT
+                    [SID],
 					SiteDBGroupID,
 					HeadlineId,
 					AffectedMember,
@@ -500,30 +500,35 @@ BEGIN
 			FROM #tmpFeedback_base_cust
 		),
 		CTE_Group_AggregatedData_AffectedList_Username AS (
-			SELECT SiteDBGroupID,
+			SELECT [SID],
+                    SiteDBGroupID,
 					HeadlineId,
 					Supername,
 					STRING_AGG(CAST(AffectedMember AS VARCHAR(MAX)), ', ') UsernameList
 			FROM CTE_Group_AggregatedData_AffectedList_RemoveDuplicate
-			GROUP BY SiteDBGroupID,
+			GROUP BY [SID],
+                    SiteDBGroupID,
 					HeadlineId,
 					Supername
 		),
 		CTE_Group_AggregatedData_AffectedList AS (
-			SELECT SiteDBGroupID,
+			SELECT [SID],
+                    SiteDBGroupID,
 					HeadlineId,
 					STRING_AGG(CAST(('- ' + Supername + ': ' + UsernameList) AS VARCHAR(MAX)), '<br/>') AffectedList
 			FROM CTE_Group_AggregatedData_AffectedList_Username
-			GROUP BY SiteDBGroupID, HeadlineId
+			GROUP BY [SID],SiteDBGroupID, HeadlineId
 		)
 	INSERT INTO #tmpFeedback_base (
+        [SID],
 		SiteDBGroupID,
         HeadlineId,
         RelatedCustIds,
         RelatedUsernames,
 		AffectedList
     )
-	SELECT X.SiteDBGroupID,
+	SELECT X.[SID],
+            X.SiteDBGroupID,
 			X.HeadlineId,
 			X.RelatedCustIds,
 			X.RelatedUsernames,
@@ -532,6 +537,7 @@ BEGIN
 	LEFT JOIN CTE_Group_AggregatedData_AffectedList Y
 		ON X.HeadlineId = Y.HeadlineId
 		AND X.SiteDBGroupID = Y.SiteDBGroupID
+        AND X.SID = Y.SID;
 
 
 	-- + Update CommunicationIds
@@ -579,8 +585,8 @@ BEGIN
 				END AS CommunicationIds
 		FROM CTE_CommTool c
 		WHERE c.CustID = h.HeadlineId
-		ORDER BY c.Category_MappedLevel,
-				c.SubCategory_MappedLevel
+		ORDER BY c.Category_MappedLevel ASC,
+				c.SubCategory_MappedLevel ASC
 	) df
 
 
@@ -637,17 +643,20 @@ BEGIN
     -- Build Feedback Description
     -- + Create temp table
     CREATE TABLE #tmpFeedback_description (
+        [SID]           INT,
 		SiteDBGroupID	SMALLINT,
         HeadlineId		INT,
         Description		NVARCHAR(MAX)
     )
 	-- + Gen data for credit model
     INSERT INTO #tmpFeedback_description (
+        [SID],
 		SiteDBGroupID,
         HeadlineId,
         Description
     )
-    SELECT b.SiteDBGroupID,
+    SELECT b.[SID],
+            b.SiteDBGroupID,
 			b.HeadlineId,
 			d.Description
     FROM #tmpFeedback_base b
@@ -667,6 +676,7 @@ BEGIN
 	-- Build Feedback solution
     -- + Create temp table
     CREATE TABLE #tmpFeedback_solution (
+        [SID]           INT,
 		SiteDBGroupID	SMALLINT,
         HeadlineId		INT,
         Solution		NVARCHAR(MAX)
@@ -699,11 +709,13 @@ BEGIN
 									+ N'Xin cảm ơn sự hợp tác của Quý khách!') AS SolutionENYN
     )
     INSERT INTO #tmpFeedback_solution (
+        [SID],
 		SiteDBGroupID,
 		HeadlineId,
 		Solution
     )
-    SELECT b.SiteDBGroupID,
+    SELECT b.[SID],
+            b.SiteDBGroupID,
 			b.HeadlineId,
 			CASE WHEN h.HeadlineSiteLabel = '789y' AND h.IsVip = 1 THEN REPLACE(t.SolutionENYN, '{Affected List}', b.AffectedList)
 				ELSE REPLACE(t.SolutionENCS, '{Affected List}', b.AffectedList) 
@@ -884,9 +896,11 @@ BEGIN
         LEFT JOIN #tmpFeedback_solution s 
 			ON b.HeadlineId = s.HeadlineId
 			AND b.SiteDBGroupID = s.SiteDBGroupID
+            AND b.SID = s.SID
         LEFT JOIN #tmpFeedback_description d 
 			ON b.HeadlineId = d.HeadlineId
 			AND b.SiteDBGroupID = d.SiteDBGroupID
+            AND b.SID = d.SID
         WHERE b.Id = @Id
 
         -- + Get data for @FeedbackId|@CustId|@IsGroupHeadLine
@@ -1011,12 +1025,10 @@ BEGIN
             CreatedDate
         )
         SELECT @FeedbackId		AS FeedbackId,
-				nl.LastLogSID	AS ReferenceId,
+				[SID]	        AS ReferenceId,
 				'SiteDB'+RIGHT('00' + CAST(fb.SiteDBGroupID AS VARCHAR(2)), 2)+'.bodb02.dbo.SabaProgramStatus' AS DataSource,
 				GETDATE()		AS CreatedDate
         FROM #tmpFeedback_base fb
-		JOIN #NewLogSID nl 
-			ON fb.SiteDBGroupID = nl.SiteDBGroupId
         WHERE Id = @Id
 
         -- + Continue the loop
